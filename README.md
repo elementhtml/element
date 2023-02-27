@@ -9,7 +9,7 @@ Use, extend, inherit and author custom HTML components with simple definition fi
 ## Quick Start from CDN
 ```
 <script type="module">
-  import { Element as E } from 'https://cdn.jsdelivr.net/gh/base37/element@3.0.0/element.min.js'
+  import { Element as E } from 'https://cdn.jsdelivr.net/gh/base37/element@1.0.0/element.min.js'
   await E.autoload()
 </script>
 ```
