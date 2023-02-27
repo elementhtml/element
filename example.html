@@ -1,0 +1,34 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Base37 SDK Element 3.0.0 test page</title>
+    <style>
+        body {
+            background-color: darkslategray;
+            color: whitesmoke;
+        }
+    </style>
+  </head>
+  <body>
+    <noscript>Base37 SDK Element requires javascript enabled</noscript>
+  
+    <element-test>Element 3.0.0 Test</element-test>
+    
+    <script type="module">
+      import { Element as E } from './element.js'
+    
+      /* optional to allow for loading from anywhere */
+      //Object.assign(E.repositories, {
+      //  element3: './element3/', 
+      //  other: 'https://example.com/otherrepositories/'
+      //})
+
+      await E.autoload()
+
+      /* optional to allow for live console inspection of the Element library */
+      window.E = E
+    </script>
+  </body>
+</html>
