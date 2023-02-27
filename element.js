@@ -1,5 +1,5 @@
 const Element = Object.defineProperties({}, {
-    version: {configurable: false, enumerable: true, writable: false, value: '3.0.0'}, 
+    version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'}, 
     repositories: {configurable: false, enumerable: true, writable: false, value: {}}, 
     suffixes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     ids: {configurable: false, enumerable: true, writable: false, value: {}}, 
