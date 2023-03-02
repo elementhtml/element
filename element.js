@@ -278,23 +278,28 @@ const Element = Object.defineProperties({}, {
             attributeChangedCallback(attrName, oldVal, newVal) {
                 this[attrName] = newVal
             }
+
+
+
             hasAttributes(...attributes) {
                 const $this = this
-                return Object.assign({}, ...attributes.map(a => ({[a]: $this.hasAttribute(a)})))
+                return Object.assign({}, ...attributes.map(a => {
+                    if (a && typeof a == 'object') {
+                        return Object.assign({}, ...Object.keys(a).map(aa => {
+                            return {[aa]: $this.shadowRoot.querySelector(`[name="${aa}"]`).hasAttributes(...a[aa])}
+                        }))
+                    } else {
+                        return {[a]: $this.hasAttribute(a)} 
+                    }
+                }))
             }
+
+
+
+
             getAttributes(...attributes) {
                 const $this = this
                 return Object.assign({}, ...attributes.map(a => ({[a]: $this.getAttribute(a)})))
-            }
-            setAttributes(...attributes) {
-                const $this = this
-                attributes.forEach(a => {
-                    if (a instanceof Object) {
-                        Object.keys(a).forEach(k => $this.setAttribute(k, a[k]))
-                    } else if (typeof a == 'string') {
-                        $this.setAttribute(a, '')
-                    }
-                })
             }
             removeAttributes(...attributes) {
                 const $this = this
@@ -303,6 +308,16 @@ const Element = Object.defineProperties({}, {
             toggleAttributes(...attributes) {
                 const $this = this
                 return Object.assign({}, ...attributes.map(a => ({[a]: $this.toggleAttribute(a)})))
+            }
+            setAttributes(attributes) {
+                const $this = this
+                attributes.forEach(a => {
+                    if (a instanceof Object) {
+                        Object.keys(a).forEach(k => $this.setAttribute(k, a[k]))
+                    } else if (typeof a == 'string') {
+                        $this.setAttribute(a, '')
+                    }
+                })
             }
         }
     }}
