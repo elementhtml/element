@@ -185,7 +185,7 @@ const Element = Object.defineProperties({}, {
             constructor() {
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
-                Object.defineProperty($this, '__dict', {configurable: false, enumerable: false, value: {}})
+                Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
                 ;($this.constructor.observedAttributes || []).forEach(attrName => {
                     const canonicalAttrName = attrName.toLowerCase(), setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
                     if (!attributeFilter.includes(canonicalAttrName)) {
@@ -193,9 +193,9 @@ const Element = Object.defineProperties({}, {
                     }
                     delete $this[attrName]
                     Object.defineProperty($this, attrName, {configurable: false, enumerable: true, set: (value) => {
-                        $this.__dict[canonicalAttrName] = setterFunc ? setterFunc($this, value) : value
-                        if (['string', 'number', 'boolean'].includes(typeof $this.__dict[canonicalAttrName])) {
-                            const newAttributeValue = $this.__dict[canonicalAttrName], currentAttributeValue = $this.hasAttribute(canonicalAttrName) ? $this.getAttribute(canonicalAttrName) 
+                        $this.__b37dict[canonicalAttrName] = setterFunc ? setterFunc($this, value) : value
+                        if (['string', 'number', 'boolean'].includes(typeof $this.__b37dict[canonicalAttrName])) {
+                            const newAttributeValue = $this.__b37dict[canonicalAttrName], currentAttributeValue = $this.hasAttribute(canonicalAttrName) ? $this.getAttribute(canonicalAttrName) 
                                 : ($this.hasAttribute(attrName) ? $this.getAttribute(attrName) : null) 
                             if (String(currentAttributeValue) != String(newAttributeValue)) {
                                 $this.setAttribute(canonicalAttrName, String(newAttributeValue))
@@ -204,15 +204,15 @@ const Element = Object.defineProperties({}, {
                             $this.removeAttribute(canonicalAttrName)
                         }
                     }, get: () => {
-                        if (canonicalAttrName in $this.__dict) {
-                            return $this.__dict[canonicalAttrName]
+                        if (canonicalAttrName in $this.__b37dict) {
+                            return $this.__b37dict[canonicalAttrName]
                         } else {
                             try {
                                 $this[attrName] = $this.getAttribute(canonicalAttrName) ?? $this.getAttribute(attrName) ?? undefined
                             } catch(e) {
-                                $this.__dict[canonicalAttrName] = $this.getAttribute(canonicalAttrName) ?? $this.getAttribute(attrName) ?? undefined
+                                $this.__b37dict[canonicalAttrName] = $this.getAttribute(canonicalAttrName) ?? $this.getAttribute(attrName) ?? undefined
                             }
-                            return $this.__dict[canonicalAttrName]
+                            return $this.__b37dict[canonicalAttrName]
                         }
                     } })
                     if (canonicalAttrName != attrName) {
@@ -221,7 +221,7 @@ const Element = Object.defineProperties({}, {
                         }, get: () => $this[attrName] })
                     }
                 })
-                ;($this.constructor.js || []).forEach(src => {
+                ;($this.constructor.b37js || []).forEach(src => {
                     const tag = document.querySelector(`script[src="${src}"]`)
                     if (!tag) {
                         tag = document.createElement('script')
@@ -229,7 +229,7 @@ const Element = Object.defineProperties({}, {
                         document.body.append(tag)
                     }
                 })
-                ;($this.constructor.css || []).forEach(href => {
+                ;($this.constructor.b37css || []).forEach(href => {
                     const tag = document.querySelector(`link[rel="stylesheet"][href="${href}"]`)
                     if (!tag) {
                         tag = document.createElement('link')
@@ -238,7 +238,7 @@ const Element = Object.defineProperties({}, {
                         document.head.append(tag)
                     }
                 })
-                $this.__queuedAttributes = {}
+                $this.__b37queuedAttributes = {}
                 const observer = new MutationObserver(mutationList => {
                     mutationList.forEach(mutationRecord => {
                         if (String($this[mutationRecord.attributeName]) != $this.getAttribute(mutationRecord.attributeName)) {
@@ -248,28 +248,28 @@ const Element = Object.defineProperties({}, {
                 })
                 observer.observe($this, {subtree: false, childList: false, attributes: true, attributeFilter: attributeFilter, attributeOldValue: true})
             }
-            processQueuedAttributes() {
+            b37processQueuedAttributes() {
                 const $this = this
-                Object.keys($this.__queuedAttributes).filter(k => {
-                    return $this.__queuedAttributes[k].requires && typeof $this.__queuedAttributes[k].requires == 'function' ? $this.__queuedAttributes[k].requires() : true
+                Object.keys($this.__b37queuedAttributes).filter(k => {
+                    return $this.__b37queuedAttributes[k].requires && typeof $this.__b37queuedAttributes[k].requires == 'function' ? $this.__b37queuedAttributes[k].requires() : true
                 }).forEach(k => {
-                    if ($this.__queuedAttributes[k].attribute && $this.__queuedAttributes[k].value) {
-                        $this.setAttribute($this.__queuedAttributes[k].attribute, $this.__queuedAttributes[k].value)
-                        if (typeof $this.__queuedAttributes[k].callback == 'function') {
-                            $this.__queuedAttributes[k].callback()
+                    if ($this.__b37queuedAttributes[k].attribute && $this.__b37queuedAttributes[k].value) {
+                        $this.setAttribute($this.__b37queuedAttributes[k].attribute, $this.__b37queuedAttributes[k].value)
+                        if (typeof $this.__b37queuedAttributes[k].callback == 'function') {
+                            $this.__b37queuedAttributes[k].callback()
                         }
                     }
-                    delete $this.__queuedAttributes[k]
+                    delete $this.__b37queuedAttributes[k]
                 })
-                if (!Object.keys($this.__queuedAttributes).length) {
-                    globalThis.clearInterval($this.__queuedAttributeInterval)
+                if (!Object.keys($this.__b37queuedAttributes).length) {
+                    globalThis.clearInterval($this.__b37queuedAttributeInterval)
                 }
             }
-            addQueuedAttribute(attribute, value, requires, callback) {
+            b37addQueuedAttribute(attribute, value, requires, callback) {
                 const $this = this
-                $this.__queuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
-                $this.__queuedAttributeInterval = $this.__queuedAttributeInterval || globalThis.setInterval(function() {
-                    $this.processQueuedAttributes()
+                $this.__b37queuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
+                $this.__b37queuedAttributeInterval = $this.__b37queuedAttributeInterval || globalThis.setInterval(function() {
+                    $this.b37processQueuedAttributes()
                 }, 1000)
             }
             static get observedAttributes() {
@@ -281,12 +281,12 @@ const Element = Object.defineProperties({}, {
 
 
 
-            hasAttributes(...attributes) {
+            b37hasAttributes(...attributes) {
                 const $this = this
                 return Object.assign({}, ...attributes.map(a => {
                     if (a && typeof a == 'object') {
                         return Object.assign({}, ...Object.keys(a).map(aa => {
-                            return {[aa]: $this.shadowRoot.querySelector(`[name="${aa}"]`).hasAttributes(...a[aa])}
+                            return {[aa]: $this.shadowRoot.querySelector(`[name="${aa}"]`).b37hasAttributes(...a[aa])}
                         }))
                     } else {
                         return {[a]: $this.hasAttribute(a)} 
@@ -297,19 +297,19 @@ const Element = Object.defineProperties({}, {
 
 
 
-            getAttributes(...attributes) {
+            b37getAttributes(...attributes) {
                 const $this = this
                 return Object.assign({}, ...attributes.map(a => ({[a]: $this.getAttribute(a)})))
             }
-            removeAttributes(...attributes) {
+            b37removeAttributes(...attributes) {
                 const $this = this
                 attributes.forEach(a => $this.removeAttribute(a))
             }
-            toggleAttributes(...attributes) {
+            b37toggleAttributes(...attributes) {
                 const $this = this
                 return Object.assign({}, ...attributes.map(a => ({[a]: $this.toggleAttribute(a)})))
             }
-            setAttributes(attributes) {
+            b37setAttributes(attributes) {
                 const $this = this
                 attributes.forEach(a => {
                     if (a instanceof Object) {
