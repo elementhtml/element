@@ -79,7 +79,7 @@ const Element = Object.defineProperties({}, {
     }}, 
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-        return `${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`
+        return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
     }}, 
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (forceReload || !this.files[tagId]) {
@@ -107,6 +107,7 @@ const Element = Object.defineProperties({}, {
             this.tagNames[tagId] = tagName
             await this.loadTagAssetsFromId(tagId, forceReload)
             const Element = this
+console.log('line 110', tagName, tagId)
             this.constructors[tagId] = class extends this.classes[tagId] {
                 __tagId = tagId
                 constructor() {
@@ -183,6 +184,7 @@ const Element = Object.defineProperties({}, {
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
+                console.log('line 186')
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
