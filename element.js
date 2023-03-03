@@ -109,6 +109,8 @@ const Element = Object.defineProperties({}, {
                 __b37tagId = tagId
                 constructor() {
                     super()
+                    this.abc = 123
+                    this.constructor.def = 456
                     const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                     shadowRoot.innerHTML = ''
                     const styleNode = document.createElement('style')
@@ -190,6 +192,7 @@ const Element = Object.defineProperties({}, {
         return class extends baseClass {
             constructor() {
                 super()
+                console.log('line 203')
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
                 ;($this.constructor.observedAttributes || []).forEach(attrName => {
