@@ -8,7 +8,10 @@
 	<small>Base</small>
 </template>
 <script>
-    class extends Element.classes.HTMLElement {
-
+    class extends `HTMLElement` {
+    	constructor() {
+console.log('line 13: base.html constructor')
+    		super()
+    	}
 	}	
 </script>

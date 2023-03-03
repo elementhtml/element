@@ -12,7 +12,7 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
-        value: /class\s+extends\s+Element\.classes((\.(?<extends1>.+))|(\["(?<extends2>.+)"\])|(\['(?<extends3>.+)'\])|(\[(?<extends4>.+)\]))\s+\{/}, 
+        value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
@@ -89,15 +89,17 @@ const Element = Object.defineProperties({}, {
             this.scripts[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<script>')+8, this.files[tagId].indexOf('</script>'))
                                         .trim()
             const extendsClassAliasGroups = this.scripts[tagId].match(this._extendsRegExp)?.groups, 
-                extendsClassAlias = extendsClassAliasGroups ? (extendsClassAliasGroups.extends1 || extendsClassAliasGroups.extends2 || extendsClassAliasGroups.extends3 || extendsClassAliasGroups.extends4) : undefined, 
-                extendsClassId = extendsClassAlias.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
+                extendsClassAlias = extendsClassAliasGroups ? (extendsClassAliasGroups.extends) : undefined
+            let extendsClassId = extendsClassAlias.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
             if (extendsClassId) {
+                extendsClassId = this._isNative(extendsClassId) ? extendsClassId : (new URL(extendsClassId, document.location)).href
                 this.extends[tagId] = extendsClassId
                 if (!this.files[extendsClassId] && !this._isNative(extendsClassId)) {
                     await this.loadTagAssetsFromId(extendsClassId)
                 }            
             }
-            this.classes[tagId] = Function('Element', 'return ' + this.scripts[tagId])(this)
+            let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.classes['${extendsClassId}'] {`)
+            this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
         }
     }}, 
     activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
@@ -107,10 +109,10 @@ const Element = Object.defineProperties({}, {
             this.tagNames[tagId] = tagName
             await this.loadTagAssetsFromId(tagId, forceReload)
             const Element = this
-console.log('line 110', tagName, tagId)
             this.constructors[tagId] = class extends this.classes[tagId] {
-                __tagId = tagId
+                __b37tagId = tagId
                 constructor() {
+console.log('line 114: activateTag constructor', tagId)            
                     super()
                     const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                     shadowRoot.innerHTML = ''
@@ -184,7 +186,7 @@ console.log('line 110', tagName, tagId)
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
-                console.log('line 186')
+console.log('line 188: _base constructor', tagId)            
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
