@@ -102,14 +102,12 @@ const Element = Object.defineProperties({}, {
                     await this.loadTagAssetsFromId(extendsClassId)
                 }            
             }
-console.log('line 105', tagId, extendsClassId)
             let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
             this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
             const Element = this
             this.constructors[tagId] = class extends this.classes[tagId] {
                 __b37tagId = tagId
                 constructor() {
-console.log('line 112: loadTagAssetsFromId constructor', tagId)            
                     super()
                     const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                     shadowRoot.innerHTML = ''
@@ -191,7 +189,6 @@ console.log('line 112: loadTagAssetsFromId constructor', tagId)
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
-console.log('line 194: _base constructor')
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
