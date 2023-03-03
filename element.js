@@ -78,8 +78,12 @@ const Element = Object.defineProperties({}, {
         return this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
     }}, 
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
-        const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-        return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
+        if (this.ids[tagName]) {
+            return this.ids[tagName]
+        } else {
+            const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
+            return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
+        }
     }}, 
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (forceReload || !this.files[tagId]) {
@@ -98,21 +102,14 @@ const Element = Object.defineProperties({}, {
                     await this.loadTagAssetsFromId(extendsClassId)
                 }            
             }
-            let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.classes['${extendsClassId}'] {`)
+console.log('line 105', tagId, extendsClassId)
+            let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
             this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
-        }
-    }}, 
-    activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
-        if (tagName.includes('-') && (forceReload || !this.ids[tagName]))  {
-            const tagId = this.getTagId(tagName)
-            this.ids[tagName] = tagId
-            this.tagNames[tagId] = tagName
-            await this.loadTagAssetsFromId(tagId, forceReload)
             const Element = this
             this.constructors[tagId] = class extends this.classes[tagId] {
                 __b37tagId = tagId
                 constructor() {
-console.log('line 114: activateTag constructor', tagId)            
+console.log('line 112: loadTagAssetsFromId constructor', tagId)            
                     super()
                     const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                     shadowRoot.innerHTML = ''
@@ -125,7 +122,15 @@ console.log('line 114: activateTag constructor', tagId)
                         shadowRoot.appendChild(templateNode.content.cloneNode(true))
                     })
                 }
-            }
+            }            
+        }
+    }}, 
+    activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
+        if (tagName.includes('-') && (forceReload || !this.ids[tagName]))  {
+            const tagId = this.getTagId(tagName)
+            this.ids[tagName] = tagId
+            this.tagNames[tagId] = tagName
+            await this.loadTagAssetsFromId(tagId, forceReload)
             const baseTagName = this.getInheritance(tagId).pop() || 'HTMLElement'
             if (baseTagName != 'HTMLElement' && this._isNative(baseTagName)) {
                 globalThis.customElements.define(tagName, this.constructors[tagId], {extends: baseTagName})
@@ -186,7 +191,7 @@ console.log('line 114: activateTag constructor', tagId)
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
-console.log('line 188: _base constructor', tagId)            
+console.log('line 194: _base constructor')
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
