@@ -36,6 +36,33 @@ const Element = Object.defineProperties({}, {
             result.push(...keyResult.map(n => n.b37hasAttributes(...a[qs])))
         }
     }},
+    _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(a, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
+        traverseSelectorTokenRegExp, elem) {
+        if (a && typeof a == 'object') {
+            return Object.assign({}, ...Object.keys(a).map(qs => {
+                const result = [], resultObj = {}
+                if (!traverseDom || traverseDom == '#shadowRoot') {
+                    Element._addToTraversalResult(traverseLabelAttribute, 
+                        Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
+                        result, resultObj, a, qs)
+                } 
+                if (!traverseDom || traverseDom == '#innerHTML') {
+                    Element._addToTraversalResult(traverseLabelAttribute, 
+                        Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
+                        result, resultObj, a, qs)
+                } else {
+                    Element._addToTraversalResult(traverseLabelAttribute, 
+                        Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), 
+                        result, resultObj, a, qs)
+                }
+                return {[qs]: traverseLabelAttribute ? resultObj : result}
+            }))
+        } else {
+            return {[a]: elem.hasAttribute(a)} 
+        }
+    }},
+
+
 
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
@@ -312,7 +339,6 @@ const Element = Object.defineProperties({}, {
 
 
 
-
             b37hasAttributes(...attributes) {
                 const [$this, traverseSelectorTemplate, traverseSelectorToken, traverseLabelAttribute, traverseDom] = [this, 
                         (this.closest('[b37-traverse-selector-template]') ?? this).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
@@ -320,30 +346,8 @@ const Element = Object.defineProperties({}, {
                         (this.closest('[b37-traverse-label-attribute]') ?? this).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
                         (this.closest('[b37-traverse-dom]') ?? this).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
                     traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
-                return Object.assign({}, ...attributes.map(a => {
-                    if (a && typeof a == 'object') {
-                        return Object.assign({}, ...Object.keys(a).map(qs => {
-                            const result = [], resultObj = {}
-                            if (!traverseDom || traverseDom == '#shadowRoot') {
-                                Element._addToTraversalResult(traverseLabelAttribute, 
-                                    Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                                    result, resultObj, a, qs)
-                            } 
-                            if (!traverseDom || traverseDom == '#innerHTML') {
-                                Element._addToTraversalResult(traverseLabelAttribute, 
-                                    Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                                    result, resultObj, a, qs)
-                            } else {
-                                Element._addToTraversalResult(traverseLabelAttribute, 
-                                    Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), 
-                                    result, resultObj, a, qs)
-                            }
-                            return {[aa]: traverseLabelAttribute ? resultObj : result}
-                        }))
-                    } else {
-                        return {[a]: $this.hasAttribute(a)} 
-                    }
-                }))
+                return Object.assign({}, ...attributes
+                    .map(a => Element._runTraversal(a, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, traverseSelectorTokenRegExp, elem)))
             }
 
 
