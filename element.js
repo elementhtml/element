@@ -22,6 +22,22 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
+
+    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
+        if (traverseLabelAttribute) {
+            if (traverseLabelAttribute == '#innerHTML') {
+                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML]: r.b37hasAttributes(...a[qs]))
+            } else if (traverseLabelAttribute == '#innerText') {
+                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText]: r.b37hasAttributes(...a[qs]))
+            } else {
+                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)]: r.b37hasAttributes(...a[qs]))
+            }
+        } else {
+            result.push(...keyResult.map(n => n.b37hasAttributes(...a[qs])))
+        }
+    }},
+
+
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this._enscapulateNative()
         const observer = new MutationObserver(mutationList => {
@@ -295,6 +311,8 @@ const Element = Object.defineProperties({}, {
             }
 
 
+
+
             b37hasAttributes(...attributes) {
                 const [$this, traverseSelectorTemplate, traverseSelectorToken, traverseLabelAttribute, traverseDom] = [this, 
                         (this.closest('[b37-traverse-selector-template]') ?? this).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
@@ -302,30 +320,23 @@ const Element = Object.defineProperties({}, {
                         (this.closest('[b37-traverse-label-attribute]') ?? this).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
                         (this.closest('[b37-traverse-dom]') ?? this).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
                     traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
-                    addToResult = function(keyResult, result, resultObj, a, qs) {
-                        if (traverseLabelAttribute) {
-                            if (traverseLabelAttribute == '#innerHTML') {
-                                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML]: r.b37hasAttributes(...a[qs]))
-                            } else if (traverseLabelAttribute == '#innerText') {
-                                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText]: r.b37hasAttributes(...a[qs]))
-                            } else {
-                                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)]: r.b37hasAttributes(...a[qs]))
-                            }
-                        } else {
-                            result.push(...keyResult.map(n => n.b37hasAttributes(...a[qs])))
-                        }
-                    }
                 return Object.assign({}, ...attributes.map(a => {
                     if (a && typeof a == 'object') {
                         return Object.assign({}, ...Object.keys(a).map(qs => {
                             const result = [], resultObj = {}
                             if (!traverseDom || traverseDom == '#shadowRoot') {
-                                addToResult(Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), result, resultObj, a, qs)
+                                Element._addToTraversalResult(traverseLabelAttribute, 
+                                    Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
+                                    result, resultObj, a, qs)
                             } 
                             if (!traverseDom || traverseDom == '#innerHTML') {
-                                addToResult(Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), result, resultObj, a, qs)
+                                Element._addToTraversalResult(traverseLabelAttribute, 
+                                    Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
+                                    result, resultObj, a, qs)
                             } else {
-                                addToResult(Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), result, resultObj, a, qs)
+                                Element._addToTraversalResult(traverseLabelAttribute, 
+                                    Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), 
+                                    result, resultObj, a, qs)
                             }
                             return {[aa]: traverseLabelAttribute ? resultObj : result}
                         }))
