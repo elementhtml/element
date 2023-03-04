@@ -11,6 +11,12 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}}, 
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
+
+    traverseSelectorTemplate: {configurable: false, enumerable: true, writable: true, value: '[name="$B37"]'}, 
+    traverseSelectorToken: {configurable: false, enumerable: true, writable: true, value: '\\$B37'}, 
+    traverseLabelAttribute: {configurable: false, enumerable: true, writable: true, value: undefined}, 
+    traverseDom: {configurable: false, enumerable: true, writable: true, value: '#shadowRoot'}, 
+
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
         value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
@@ -289,13 +295,39 @@ const Element = Object.defineProperties({}, {
             }
 
 
-
             b37hasAttributes(...attributes) {
-                const $this = this
+                const [$this, traverseSelectorTemplate, traverseSelectorToken, traverseLabelAttribute, traverseDom] = [this, 
+                        (this.closest('[b37-traverse-selector-template]') ?? this).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
+                        (this.closest('[b37-traverse-selector-token]') ?? this).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
+                        (this.closest('[b37-traverse-label-attribute]') ?? this).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
+                        (this.closest('[b37-traverse-dom]') ?? this).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
+                    traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
+                    addToResult = function(keyResult, result, resultObj, a, qs) {
+                        if (traverseLabelAttribute) {
+                            if (traverseLabelAttribute == '#innerHTML') {
+                                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML]: r.b37hasAttributes(...a[qs]))
+                            } else if (traverseLabelAttribute == '#innerText') {
+                                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText]: r.b37hasAttributes(...a[qs]))
+                            } else {
+                                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)]: r.b37hasAttributes(...a[qs]))
+                            }
+                        } else {
+                            result.push(...keyResult.map(n => n.b37hasAttributes(...a[qs])))
+                        }
+                    }
                 return Object.assign({}, ...attributes.map(a => {
                     if (a && typeof a == 'object') {
-                        return Object.assign({}, ...Object.keys(a).map(aa => {
-                            return {[aa]: $this.shadowRoot.querySelector(`[name="${aa}"]`).b37hasAttributes(...a[aa])}
+                        return Object.assign({}, ...Object.keys(a).map(qs => {
+                            const result = [], resultObj = {}
+                            if (!traverseDom || traverseDom == '#shadowRoot') {
+                                addToResult(Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), result, resultObj, a, qs)
+                            } 
+                            if (!traverseDom || traverseDom == '#innerHTML') {
+                                addToResult(Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), result, resultObj, a, qs)
+                            } else {
+                                addToResult(Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), result, resultObj, a, qs)
+                            }
+                            return {[aa]: traverseLabelAttribute ? resultObj : result}
                         }))
                     } else {
                         return {[a]: $this.hasAttribute(a)} 
