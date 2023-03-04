@@ -36,29 +36,31 @@ const Element = Object.defineProperties({}, {
             result.push(...keyResult.map(n => n[methodString](...a[qs])))
         }
     }},
-    _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, a, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
+    _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
         traverseSelectorTokenRegExp, elem) {
-        if (a && typeof a == 'object') {
-            return Object.assign({}, ...Object.keys(a).map(qs => {
+        if (attr && typeof attr == 'object' && !Array.isArray(attr)) {
+            return Object.assign({}, ...Object.keys(attr).map(qs => {
                 const result = [], resultObj = {}
                 if (!traverseDom || traverseDom == '#shadowRoot') {
                     Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
                         Array.from($this.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                        result, resultObj, a, qs)
+                        result, resultObj, attr, qs)
                 } 
                 if (!traverseDom || traverseDom == '#innerHTML') {
                     Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
                         Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                        result, resultObj, a, qs)
+                        result, resultObj, attr, qs)
                 } else {
                     Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
                         Array.from($this.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), 
-                        result, resultObj, a, qs)
+                        result, resultObj, attr, qs)
                 }
                 return {[qs]: traverseLabelAttribute ? resultObj : result}
             }))
+        } else if (Array.isArray(attr)) {
+            return {[attr]: elem[singleMethodString](...attr)} 
         } else {
-            return {[a]: elem[singleMethodString](a)} 
+            return {[attr]: elem[singleMethodString](attr)} 
         }
     }},
     _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributes, singleMethodString, pluralMethodString) {
@@ -67,13 +69,11 @@ const Element = Object.defineProperties({}, {
                 (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
                 (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
                 (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
-            traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g')        
-        return Object.assign({}, ...attributes.map(a => this._runSingleTraversal(singleMethodString, pluralMethodString, a, traverseDom, traverseLabelAttribute, 
+            traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
+            attributeSingles = (attributes && typeof attributes == 'object') : Object.entries(attributes) : Array.from(attributes).filter(a => a)
+        return Object.assign({}, ...attributeSingles.map(attr => this._runSingleTraversal(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, 
             traverseSelectorTemplate, traverseSelectorTokenRegExp, elem)))
     }},
-
-
-
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this._enscapulateNative()
