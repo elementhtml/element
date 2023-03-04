@@ -352,32 +352,21 @@ const Element = Object.defineProperties({}, {
             b37hasAttributes(...attributes) {
                 return Element._runTraversal(this, attributes, 'hasAttribute', 'b37hasAttributes')
             }
-
-
-
-
             b37getAttributes(...attributes) {
-                const $this = this
-                return Object.assign({}, ...attributes.map(a => ({[a]: $this.getAttribute(a)})))
+                return Element._runTraversal(this, attributes, 'getAttribute', 'b37getAttributes')
             }
             b37removeAttributes(...attributes) {
-                const $this = this
-                attributes.forEach(a => $this.removeAttribute(a))
+                return Element._runTraversal(this, attributes, 'removeAttribute', 'b37removeAttributes')
             }
             b37toggleAttributes(...attributes) {
-                const $this = this
-                return Object.assign({}, ...attributes.map(a => ({[a]: $this.toggleAttribute(a)})))
+                return Element._runTraversal(this, attributes, 'toggleAttribute', 'b37toggleAttributes')
             }
             b37setAttributes(attributes) {
-                const $this = this
-                attributes.forEach(a => {
-                    if (a instanceof Object) {
-                        Object.keys(a).forEach(k => $this.setAttribute(k, a[k]))
-                    } else if (typeof a == 'string') {
-                        $this.setAttribute(a, '')
-                    }
-                })
+                return Element._runTraversal(this, attributes, 'setAttribute', 'b37setAttributes')
             }
+
+
+            
         }
     }}
 })
