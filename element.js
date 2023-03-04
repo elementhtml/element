@@ -26,11 +26,11 @@ const Element = Object.defineProperties({}, {
     _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
         if (traverseLabelAttribute) {
             if (traverseLabelAttribute == '#innerHTML') {
-                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML]: r[methodString](...a[qs]))
+                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML] = r[methodString](...a[qs]))
             } else if (traverseLabelAttribute == '#innerText') {
-                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText]: r[methodString](...a[qs]))
+                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText] = r[methodString](...a[qs]))
             } else {
-                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)]: r[methodString](...a[qs]))
+                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)] = r[methodString](...a[qs]))
             }
         } else {
             result.push(...keyResult.map(n => n[methodString](...a[qs])))
@@ -251,7 +251,6 @@ const Element = Object.defineProperties({}, {
         return class extends baseClass {
             constructor() {
                 super()
-                console.log('line 203')
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
                 Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
                 ;($this.constructor.observedAttributes || []).forEach(attrName => {
@@ -366,7 +365,7 @@ const Element = Object.defineProperties({}, {
             }
 
 
-            
+
         }
     }}
 })
