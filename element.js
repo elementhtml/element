@@ -38,6 +38,7 @@ const Element = Object.defineProperties({}, {
     }},
     _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
         traverseSelectorTokenRegExp, elem) {
+        console.log('line 41', attr)
         if (attr && typeof attr == 'object' && !Array.isArray(attr)) {
             return Object.assign({}, ...Object.keys(attr).map(qs => {
                 const result = [], resultObj = {}
@@ -70,7 +71,7 @@ const Element = Object.defineProperties({}, {
                 (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
                 (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
             traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
-            attributeSingles = (attributes && typeof attributes == 'object') ? Object.entries(attributes) : Array.from(attributes).filter(a => a)
+            attributeSingles = (attributes && !Array.isArray(attributes) && typeof attributes == 'object') ? Object.entries(attributes) : Array.from(attributes).filter(a => a)
         return Object.assign({}, ...attributeSingles.map(attr => this._runSingleTraversal(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, 
             traverseSelectorTemplate, traverseSelectorTokenRegExp, elem)))
     }},
