@@ -70,7 +70,7 @@ const Element = Object.defineProperties({}, {
                 (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
                 (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'], 
             traverseSelectorTokenRegExp = new RegExp(traverseSelectorToken, 'g'), 
-            attributeSingles = (attributes && typeof attributes == 'object') : Object.entries(attributes) : Array.from(attributes).filter(a => a)
+            attributeSingles = (attributes && typeof attributes == 'object') ? Object.entries(attributes) : Array.from(attributes).filter(a => a)
         return Object.assign({}, ...attributeSingles.map(attr => this._runSingleTraversal(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, 
             traverseSelectorTemplate, traverseSelectorTokenRegExp, elem)))
     }},
