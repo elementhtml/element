@@ -61,17 +61,19 @@ const Element = Object.defineProperties({}, {
     }},
 
 
-    _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem) {
+    _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem, inheritedOptions={}) {
+        inheritedOptions = (inheritedOptions && typeof inheritedOptions == 'object') ? inheritedOptions : {}
         const options = {
-            traverseSelectorTemplate: (elem.closest('[b37-traverse-selector-template]') ?? elem).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
-            traverseSelectorToken: (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
-            traverseLabelAttribute: (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
-            traverseDom: (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
+            traverseSelectorTemplate: inheritedOptions.traverseSelectorTemplate ?? (elem.closest('[b37-traverse-selector-template]') ?? elem).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
+            traverseSelectorToken: inheritedOptions.traverseSelectorToken ?? (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
+            traverseLabelAttribute: inheritedOptions.traverseLabelAttribute ?? (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
+            traverseDom: inheritedOptions.traverseDom ?? (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
         }
-        options.traverseSelectorTokenRegExp = new RegExp(options.traverseSelectorToken, 'g')
+        options.traverseSelectorTokenRegExp = ((inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
+            ? new RegExp(options.traverseSelectorToken ?? '', 'g') : inheritedOptions.traverseSelectorTokenRegExp
         return options
     }},
-    _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString) {
+    _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
         if (attributesMap && typeof attributesMap == 'object') {
 
             const result = {}
