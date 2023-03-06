@@ -82,8 +82,9 @@ const Element = Object.defineProperties({}, {
                 if (Array.isArray(attrParams)) {
                     result[attrName] = elem[singleMethodString](attrName, ...attrParams)
                 } else if (attrParams && typeof attrParams == 'object') {
-                    const useDom = options.traverseDom == 'shadowRoot' ? elem.shadowRoot : elem
-                    let subElems = Array.from(useDom.querySelectorAll(`[name="${attrName}"]`))
+                    const useDom = options.traverseDom == 'shadowRoot' ? elem.shadowRoot : elem, 
+                        subElemsSelector = options.traverseSelectorTemplate.replace(options.traverseSelectorTokenRegExp, attrName)
+                    let subElems = Array.from(useDom.querySelectorAll(subElemsSelector))
                     if (options.traverseDom && (options.traverseDom != 'shadowRoot') && (options.traverseDom != 'innerHTML')) {
                         subElems = subElems.filter(se => se.assignedSlot && se.assignedSlot?.name == options.traverseDom)
                     }
