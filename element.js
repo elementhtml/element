@@ -23,7 +23,7 @@ const Element = Object.defineProperties({}, {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
 
-    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
+/*    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
         if (traverseLabelAttribute) {
             if (traverseLabelAttribute == '#innerHTML') {
                 keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML] = r[methodString](...a[qs]))
@@ -59,6 +59,7 @@ const Element = Object.defineProperties({}, {
             return {[attr]: elem[singleMethodString](...Array.from(attr))} 
         }
     }},
+*/
 
 
     _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem, inheritedOptions={}) {
@@ -69,26 +70,33 @@ const Element = Object.defineProperties({}, {
             traverseLabelAttribute: inheritedOptions.traverseLabelAttribute ?? (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
             traverseDom: inheritedOptions.traverseDom ?? (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
         }
-        options.traverseSelectorTokenRegExp = ((inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
+        options.traverseSelectorTokenRegExp = (inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
             ? new RegExp(options.traverseSelectorToken ?? '', 'g') : inheritedOptions.traverseSelectorTokenRegExp
         return options
     }},
     _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
         if (attributesMap && typeof attributesMap == 'object') {
-
             const result = {}
             Object.entries(attributesMap).forEach(attrPair => {
                 const [attrName, attrParams] = attrPair
                 if (Array.isArray(attrParams)) {
                     result[attrName] = elem[singleMethodString](attrName, ...attrParams)
                 } else if (attrParams && typeof attrParams == 'object') {
-                    result[attrName] = this._runTraversal(elem.shadowRoot.querySelector(`[name="${attrName}"]`), attrParams, singleMethodString, pluralMethodString)
+                    const useDom = options.traverseDom == 'shadowRoot' ? elem.shadowRoot : elem
+                    let subElems = Array.from(useDom.querySelectorAll(`[name="${attrName}"]`))
+                    if (options.traverseDom && (options.traverseDom != 'shadowRoot') && (options.traverseDom != 'innerHTML')) {
+                        subElems = subElems.filter(se => se.assignedSlot && se.assignedSlot?.name == options.traverseDom)
+                    }
+                    if (!subElems.length) {
+                        result[attrName] = {}
+                    } else if (subElems.length == 1) {
+                        result[attrName] = this._runTraversal(subElems[0], attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElems[0], options))
+                    } else {
+
+                    }
                 }
             })
             return result
-
-            /*return attributeSingles.map(attr => this._runSingleTraversal(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, 
-                traverseSelectorTemplate, traverseSelectorTokenRegExp, elem))*/
         }
     }},
 
