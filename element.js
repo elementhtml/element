@@ -39,23 +39,19 @@ const Element = Object.defineProperties({}, {
     _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
         traverseSelectorTokenRegExp, elem) {
         console.log('line 41', attr)
-        if (attr && typeof attr == 'object' && Array.isArray(attr) && attr[1] && typeof attr[1] == 'object') {
-            return Object.assign({}, ...Object.keys(attr[1]).map(qs => {
+        if (attr && typeof attr == 'object') {
+            return Object.assign({}, ...Object.keys(attr).map(qs => {
                 const result = [], resultObj = {}
+                let keyResult
                 if (!traverseDom || traverseDom == '#shadowRoot') {
-                    Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
-                        Array.from(elem.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                        result, resultObj, attr[1], qs)
+                    keyResult = Array.from(elem.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
                 } 
                 if (!traverseDom || traverseDom == '#innerHTML') {
-                    Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
-                        Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)), 
-                        result, resultObj, attr[1], qs)
+                    keyResult = Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
                 } else {
-                    Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, 
-                        Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom), 
-                        result, resultObj, attr[1], qs)
+                    keyResult = Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom)
                 }
+                Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, keyResult, result, resultObj, attr[1], qs)
                 return {[qs]: traverseLabelAttribute ? resultObj : result}
             }))
         } else if (Array.isArray(attr)) {
