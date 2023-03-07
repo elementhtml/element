@@ -7,9 +7,36 @@
 	}
 </style>
 <template>
-	<small name="test" c="3">Testing</small>
+	<br />
+	<small name="c">Testing</small>
 	<slot></slot>
 </template>
 <script>
-    class extends `https://localhost:4433/base37/sdk-element/element/base.html` {}	
+    class extends `https://localhost:4433/base37/sdk-element/element/base.html` {
+
+    	constructor() {
+    		super()
+    	}
+
+		static get observedAttributes() {
+    	    return (super.observedAttributes || []).concat('a', 'b')
+    	}   	 	
+
+		a($this, value) {
+			console.log('line 17', value)
+			return value
+    	}      	
+
+		b($this, value) {
+			console.log('line 30', value)
+			return value
+    	}      	
+
+		c($this, value) {
+			console.log('line 35', value)
+			$this.__b37dict.c = value
+    	}      	
+
+
+    }	
 </script>
