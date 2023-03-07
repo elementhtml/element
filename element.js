@@ -39,7 +39,7 @@ const Element = Object.defineProperties({}, {
     }},
     _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
         if (attributesMap && typeof attributesMap == 'object') {
-            const result = {}
+            const result = {}, traverseResultFlattenArray = options.traverseResultFlatten && typeof options.traverseResultFlatten == 'string' ? options.traverseResultFlatten.split(' ') : []
             Object.entries(attributesMap).forEach(attrPair => {
                 const [attrName, attrParams] = attrPair
                 if (Array.isArray(attrParams)) {
@@ -54,7 +54,8 @@ const Element = Object.defineProperties({}, {
                     result[attrName] = subElems.map(subElem => {
                         return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
                     })
-                    if (options.traverseResultFlatten && result[attrName].length == 1) {
+                    if (options.traverseResultFlatten && result[attrName].length == 1 && 
+                        (options.traverseResultFlatten === true || traverseResultFlattenArray.includes(attrName))) {
                         result[attrName] = result[attrName][0]
                     }
                 }
