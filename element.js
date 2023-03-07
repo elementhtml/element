@@ -15,6 +15,7 @@ const Element = Object.defineProperties({}, {
     traverseSelectorTemplate: {configurable: false, enumerable: true, writable: true, value: '[name="$B37"]'}, 
     traverseSelectorToken: {configurable: false, enumerable: true, writable: true, value: '\\$B37'}, 
     traverseLabelAttribute: {configurable: false, enumerable: true, writable: true, value: undefined}, 
+    traverseResultFlatten: {configurable: false, enumerable: true, writable: true, value: false}, 
     traverseDom: {configurable: false, enumerable: true, writable: true, value: 'shadowRoot'}, 
 
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
@@ -68,6 +69,7 @@ const Element = Object.defineProperties({}, {
             traverseSelectorTemplate: inheritedOptions.traverseSelectorTemplate ?? (elem.closest('[b37-traverse-selector-template]') ?? elem).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
             traverseSelectorToken: inheritedOptions.traverseSelectorToken ?? (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
             traverseLabelAttribute: inheritedOptions.traverseLabelAttribute ?? (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
+            traverseResultFlatten: inheritedOptions.traverseResultFlatten ?? (elem.closest('[b37-traverse-result-flatten]') ?? elem).getAttribute('b37-traverse-result-flatten') ?? this.traverseResultFlatten, 
             traverseDom: inheritedOptions.traverseDom ?? (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
         }
         options.traverseSelectorTokenRegExp = (inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
@@ -91,6 +93,9 @@ const Element = Object.defineProperties({}, {
                     result[attrName] = subElems.map(subElem => {
                         return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
                     })
+                    if (options.traverseResultFlatten && result[attrName].length == 1) {
+                        result[attrName] = result[attrName][0]
+                    }
                 }
             })
             return result
