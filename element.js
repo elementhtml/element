@@ -16,7 +16,6 @@ const Element = Object.defineProperties({}, {
     traverseSelectorToken: {configurable: false, enumerable: true, writable: true, value: '\\$B37'}, 
     traverseLabelAttribute: {configurable: false, enumerable: true, writable: true, value: undefined}, 
     traverseResultFlatten: {configurable: false, enumerable: true, writable: true, value: false}, 
-    traverseUseTypes: {configurable: false, enumerable: true, writable: true, value: undefined}, 
     traverseDom: {configurable: false, enumerable: true, writable: true, value: 'shadowRoot'}, 
 
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
@@ -41,9 +40,6 @@ const Element = Object.defineProperties({}, {
     _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
         if (attributesMap && typeof attributesMap == 'object') {
             const result = {}, traverseResultFlattenArray = options.traverseResultFlatten && typeof options.traverseResultFlatten == 'string' ? options.traverseResultFlatten.split(' ') : []
-            if (singleMethodString == 'getAttribute' && options.traverseResultTypes) {
-                const traverseResultTypesMap = Object.fromEntries(options.traverseResultTypes.split(' ').map(rt => rt.split('=')))
-            }
             Object.entries(attributesMap).forEach(attrPair => {
                 const [attrName, attrParams] = attrPair
                 if (Array.isArray(attrParams)) {
@@ -51,11 +47,6 @@ const Element = Object.defineProperties({}, {
                     if (singleMethodString == 'getAttribute') {
                         if (result[attrName] === null) {
                             result[attrName] = undefined
-                        }
-                        if (typeof traverseResultTypesMap !== undefined) {
-                            
-
-
                         }
                     }
                 } else if (attrParams && typeof attrParams == 'object') {
