@@ -88,15 +88,9 @@ const Element = Object.defineProperties({}, {
                     if (options.traverseDom && (options.traverseDom != 'shadowRoot') && (options.traverseDom != 'innerHTML')) {
                         subElems = subElems.filter(se => se.assignedSlot && se.assignedSlot?.name == options.traverseDom)
                     }
-                    if (!subElems.length) {
-                        result[attrName] = {}
-                    } else if (subElems.length == 1) {
-                        result[attrName] = this._runTraversal(subElems[0], attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElems[0], options))
-                    } else {
-                        result[attrName] = subElems.map(subElem => {
-                            return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
-                        })
-                    }
+                    result[attrName] = subElems.map(subElem => {
+                        return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
+                    })
                 }
             })
             return result
