@@ -1,0 +1,31 @@
+<style>
+	:host {		
+		font-weight: bold;
+		color:  grey;
+	}
+</style>
+<template>
+	<small d="4">Base</small>
+</template>
+<script>
+    class extends `HTMLElement` {
+
+    	constructor() {
+    		super()
+    	}
+
+		static get observedAttributes() {
+    	    return (super.observedAttributes || []).concat('data-name', 'data-subject-of')
+    	}   	 	
+
+    	['data-name']($this, value) {
+			console.log('line 22', value)
+    	}	
+
+    	['data-subject-of']($this, value) {
+			console.log('line 26', value)
+    	}	
+
+
+    }	
+</script>

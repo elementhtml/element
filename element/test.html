@@ -12,33 +12,7 @@
 	<slot></slot>
 </template>
 <script>
-    class extends `https://localhost:4433/base37/sdk-element/element/base.html` {
-
-    	constructor() {
-    		super()
-    	}
-
-		static get observedAttributes() {
-    	    return (super.observedAttributes || []).concat('a', 'b')
-    	}   	 	
-
-		a($this, value) {
-			console.log('line 17', value)
-			return value
-    	}      	
-
-		b($this, value) {
-			console.log('line 30', value)
-			return value
-    	}      	
-
-		c($this, value) {
-			console.log('line 35', value)
-    	}      
-
-    	['data-innerHTML']($this, value) {
-			console.log('line 41', value)
-    	}	
+    class extends `https://localhost:4433/base37/sdk-element/element/Thing.html` {
 
 
     }	
