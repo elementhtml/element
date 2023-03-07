@@ -24,45 +24,6 @@ const Element = Object.defineProperties({}, {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
 
-/*    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
-        if (traverseLabelAttribute) {
-            if (traverseLabelAttribute == '#innerHTML') {
-                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML] = r[methodString](...a[qs]))
-            } else if (traverseLabelAttribute == '#innerText') {
-                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText] = r[methodString](...a[qs]))
-            } else {
-                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)] = r[methodString](...a[qs]))
-            }
-        } else {
-            result.push(...keyResult.map(n => n[methodString](...a)))
-        }
-    }},
-    _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
-        traverseSelectorTokenRegExp, elem) {
-        if (attr && typeof attr == 'object' && Object.keys(attr).length == 1) {
-
-            return Object.assign({}, ...Object.keys(attr).map(qs => {
-                const result = [], resultObj = {}
-                let keyResult
-                if (!traverseDom || traverseDom == '#shadowRoot') {
-                    keyResult = Array.from(elem.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
-                    Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, keyResult, result, resultObj, attr[qs], qs)
-                } 
-                keyResult = (!traverseDom || traverseDom == '#innerHTML') 
-                    ? Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
-                    : Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom)
-                Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, keyResult, result, resultObj, attr[qs], qs)
-                return {[qs]: traverseLabelAttribute ? resultObj : result}
-            }))
-
-
-        } else {
-            return {[attr]: elem[singleMethodString](...Array.from(attr))} 
-        }
-    }},
-*/
-
-
     _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem, inheritedOptions={}) {
         inheritedOptions = (inheritedOptions && typeof inheritedOptions == 'object') ? inheritedOptions : {}
         const options = {
@@ -393,3 +354,42 @@ const Element = Object.defineProperties({}, {
     }}
 })
 export { Element }
+
+/*    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
+        if (traverseLabelAttribute) {
+            if (traverseLabelAttribute == '#innerHTML') {
+                keyResult.filter(r => r.innerHTML).forEach(r => resultObj[r.innerHTML] = r[methodString](...a[qs]))
+            } else if (traverseLabelAttribute == '#innerText') {
+                keyResult.filter(r => r.innerText).forEach(r => resultObj[r.innerText] = r[methodString](...a[qs]))
+            } else {
+                keyResult.filter(r => r.getAttribute(traverseLabelAttribute)).forEach(r => resultObj[r.getAttribute(traverseLabelAttribute)] = r[methodString](...a[qs]))
+            }
+        } else {
+            result.push(...keyResult.map(n => n[methodString](...a)))
+        }
+    }},
+    _runSingleTraversal: {configurable: false, enumerable: false, writable: false, value: function(singleMethodString, pluralMethodString, attr, traverseDom, traverseLabelAttribute, traverseSelectorTemplate, 
+        traverseSelectorTokenRegExp, elem) {
+        if (attr && typeof attr == 'object' && Object.keys(attr).length == 1) {
+
+            return Object.assign({}, ...Object.keys(attr).map(qs => {
+                const result = [], resultObj = {}
+                let keyResult
+                if (!traverseDom || traverseDom == '#shadowRoot') {
+                    keyResult = Array.from(elem.shadowRoot.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
+                    Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, keyResult, result, resultObj, attr[qs], qs)
+                } 
+                keyResult = (!traverseDom || traverseDom == '#innerHTML') 
+                    ? Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`))
+                    : Array.from(elem.querySelectorAll(`:scope > ${traverseSelectorTemplate.replace(traverseSelectorTokenRegExp, qs)}`)).filter(n => n.assignedSlot == traverseDom)
+                Element._addToTraversalResult(pluralMethodString, traverseLabelAttribute, keyResult, result, resultObj, attr[qs], qs)
+                return {[qs]: traverseLabelAttribute ? resultObj : result}
+            }))
+
+
+        } else {
+            return {[attr]: elem[singleMethodString](...Array.from(attr))} 
+        }
+    }},
+*/
+
