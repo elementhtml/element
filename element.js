@@ -11,64 +11,11 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}}, 
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
-
-    traverseSelectorTemplate: {configurable: false, enumerable: true, writable: true, value: '[name="$B37"]'}, 
-    traverseSelectorToken: {configurable: false, enumerable: true, writable: true, value: '\\$B37'}, 
-    traverseLabelAttribute: {configurable: false, enumerable: true, writable: true, value: undefined}, 
-    traverseResultFlatten: {configurable: false, enumerable: true, writable: true, value: false}, 
-    traverseDom: {configurable: false, enumerable: true, writable: true, value: 'shadowRoot'}, 
-
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
         value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
-
-    _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem, inheritedOptions={}) {
-        inheritedOptions = (inheritedOptions && typeof inheritedOptions == 'object') ? inheritedOptions : {}
-        const options = {
-            traverseSelectorTemplate: inheritedOptions.traverseSelectorTemplate ?? (elem.closest('[b37-traverse-selector-template]') ?? elem).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
-            traverseSelectorToken: inheritedOptions.traverseSelectorToken ?? (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
-            traverseLabelAttribute: inheritedOptions.traverseLabelAttribute ?? (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
-            traverseResultFlatten: inheritedOptions.traverseResultFlatten ?? (elem.closest('[b37-traverse-result-flatten]') ?? elem).getAttribute('b37-traverse-result-flatten') ?? this.traverseResultFlatten, 
-            traverseDom: inheritedOptions.traverseDom ?? (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
-        }
-        options.traverseSelectorTokenRegExp = (inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
-            ? new RegExp(options.traverseSelectorToken ?? '', 'g') : inheritedOptions.traverseSelectorTokenRegExp
-        return options
-    }},
-    _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
-        if (attributesMap && typeof attributesMap == 'object') {
-            const result = {}, traverseResultFlattenArray = options.traverseResultFlatten && typeof options.traverseResultFlatten == 'string' ? options.traverseResultFlatten.split(' ') : []
-            Object.entries(attributesMap).forEach(attrPair => {
-                const [attrName, attrParams] = attrPair
-                if (Array.isArray(attrParams)) {
-                    result[attrName] = elem[singleMethodString](attrName, ...attrParams)
-                    if (singleMethodString == 'getAttribute') {
-                        if (result[attrName] === null) {
-                            result[attrName] = undefined
-                        }
-                    }
-                } else if (attrParams && typeof attrParams == 'object') {
-                    const useDom = options.traverseDom == 'shadowRoot' ? elem.shadowRoot : elem, 
-                        subElemsSelector = options.traverseSelectorTemplate.replace(options.traverseSelectorTokenRegExp, attrName)
-                    let subElems = Array.from(useDom.querySelectorAll(subElemsSelector))
-                    if (options.traverseDom && (options.traverseDom != 'shadowRoot') && (options.traverseDom != 'innerHTML')) {
-                        subElems = subElems.filter(se => se.assignedSlot && se.assignedSlot?.name == options.traverseDom)
-                    }
-                    result[attrName] = subElems.map(subElem => {
-                        return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
-                    })
-                    if (options.traverseResultFlatten && result[attrName].length == 1 && 
-                        (options.traverseResultFlatten === true || traverseResultFlattenArray.includes(attrName))) {
-                        result[attrName] = result[attrName][0]
-                    }
-                }
-            })
-            return result
-        }
-    }},
-
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this._enscapulateNative()
         const observer = new MutationObserver(mutationList => {
@@ -339,27 +286,67 @@ const Element = Object.defineProperties({}, {
             attributeChangedCallback(attrName, oldVal, newVal) {
                 this[attrName] = newVal
             }
-
-            b37hasAttributes(attributesMap) {
-                return Element._runTraversal(this, attributesMap, 'hasAttribute', 'b37hasAttributes', Element._buildTraversalOptions(this))
-            }
-            b37getAttributes(attributesMap) {
-                return Element._runTraversal(this, attributesMap, 'getAttribute', 'b37getAttributes', Element._buildTraversalOptions(this))
-            }
-            b37removeAttributes(attributesMap) {
-                return Element._runTraversal(this, attributesMap, 'removeAttribute', 'b37removeAttributes', Element._buildTraversalOptions(this))
-            }
-            b37toggleAttributes(attributesMap) {
-                return Element._runTraversal(this, attributesMap, 'toggleAttribute', 'b37toggleAttributes', Element._buildTraversalOptions(this))
-            }
-            b37setAttributes(attributesMap) {
-                return Element._runTraversal(this, attributesMap, 'setAttribute', 'b37setAttributes', Element._buildTraversalOptions(this))
-            }
-
         }
     }}
 })
 export { Element }
+
+
+/*    traverseSelectorTemplate: {configurable: false, enumerable: true, writable: true, value: '[name="$B37"]'}, 
+    traverseSelectorToken: {configurable: false, enumerable: true, writable: true, value: '\\$B37'}, 
+    traverseLabelAttribute: {configurable: false, enumerable: true, writable: true, value: undefined}, 
+    traverseResultFlatten: {configurable: false, enumerable: true, writable: true, value: false}, 
+    traverseDom: {configurable: false, enumerable: true, writable: true, value: 'shadowRoot'}, 
+*/
+
+
+/*    _buildTraversalOptions: {configurable: false, enumerable: false, writable: false, value: function(elem, inheritedOptions={}) {
+        inheritedOptions = (inheritedOptions && typeof inheritedOptions == 'object') ? inheritedOptions : {}
+        const options = {
+            traverseSelectorTemplate: inheritedOptions.traverseSelectorTemplate ?? (elem.closest('[b37-traverse-selector-template]') ?? elem).getAttribute('b37-traverse-selector-template') ?? this.traverseSelectorTemplate ?? '[name="$B37"]', 
+            traverseSelectorToken: inheritedOptions.traverseSelectorToken ?? (elem.closest('[b37-traverse-selector-token]') ?? elem).getAttribute('b37-traverse-selector-token') ?? this.traverseSelectorToken ?? '$B37', 
+            traverseLabelAttribute: inheritedOptions.traverseLabelAttribute ?? (elem.closest('[b37-traverse-label-attribute]') ?? elem).getAttribute('b37-traverse-label-attribute') ?? this.traverseLabelAttribute, 
+            traverseResultFlatten: inheritedOptions.traverseResultFlatten ?? (elem.closest('[b37-traverse-result-flatten]') ?? elem).getAttribute('b37-traverse-result-flatten') ?? this.traverseResultFlatten, 
+            traverseDom: inheritedOptions.traverseDom ?? (elem.closest('[b37-traverse-dom]') ?? elem).getAttribute('b37-traverse-dom') ?? this.traverseDom ?? 'shadowRoot'
+        }
+        options.traverseSelectorTokenRegExp = (inheritedOptions.traverseSelectorToken != options.traverseSelectorToken) 
+            ? new RegExp(options.traverseSelectorToken ?? '', 'g') : inheritedOptions.traverseSelectorTokenRegExp
+        return options
+    }},
+    _runTraversal: {configurable: false, enumerable: false, writable: false, value: function(elem, attributesMap, singleMethodString, pluralMethodString, options) {
+        if (attributesMap && typeof attributesMap == 'object') {
+            const result = {}, traverseResultFlattenArray = options.traverseResultFlatten && typeof options.traverseResultFlatten == 'string' ? options.traverseResultFlatten.split(' ') : []
+            Object.entries(attributesMap).forEach(attrPair => {
+                const [attrName, attrParams] = attrPair
+                if (Array.isArray(attrParams)) {
+                    result[attrName] = elem[singleMethodString](attrName, ...attrParams)
+                    if (singleMethodString == 'getAttribute') {
+                        if (result[attrName] === null) {
+                            result[attrName] = undefined
+                        }
+                    }
+                } else if (attrParams && typeof attrParams == 'object') {
+                    const useDom = options.traverseDom == 'shadowRoot' ? elem.shadowRoot : elem, 
+                        subElemsSelector = options.traverseSelectorTemplate.replace(options.traverseSelectorTokenRegExp, attrName)
+                    let subElems = Array.from(useDom.querySelectorAll(subElemsSelector))
+                    if (options.traverseDom && (options.traverseDom != 'shadowRoot') && (options.traverseDom != 'innerHTML')) {
+                        subElems = subElems.filter(se => se.assignedSlot && se.assignedSlot?.name == options.traverseDom)
+                    }
+                    result[attrName] = subElems.map(subElem => {
+                        return this._runTraversal(subElem, attrParams, singleMethodString, pluralMethodString, this._buildTraversalOptions(subElem, {...options}))
+                    })
+                    if (options.traverseResultFlatten && result[attrName].length == 1 && 
+                        (options.traverseResultFlatten === true || traverseResultFlattenArray.includes(attrName))) {
+                        result[attrName] = result[attrName][0]
+                    }
+                }
+            })
+            return result
+        }
+    }},
+*/
+
+
 
 /*    _addToTraversalResult: {configurable: false, enumerable: false, writable: false, value: function(methodString, traverseLabelAttribute, keyResult, result, resultObj, a, qs) {
         if (traverseLabelAttribute) {
@@ -399,3 +386,19 @@ export { Element }
     }},
 */
 
+/*            b37hasAttributes(attributesMap) {
+                return Element._runTraversal(this, attributesMap, 'hasAttribute', 'b37hasAttributes', Element._buildTraversalOptions(this))
+            }
+            b37getAttributes(attributesMap) {
+                return Element._runTraversal(this, attributesMap, 'getAttribute', 'b37getAttributes', Element._buildTraversalOptions(this))
+            }
+            b37removeAttributes(attributesMap) {
+                return Element._runTraversal(this, attributesMap, 'removeAttribute', 'b37removeAttributes', Element._buildTraversalOptions(this))
+            }
+            b37toggleAttributes(attributesMap) {
+                return Element._runTraversal(this, attributesMap, 'toggleAttribute', 'b37toggleAttributes', Element._buildTraversalOptions(this))
+            }
+            b37setAttributes(attributesMap) {
+                return Element._runTraversal(this, attributesMap, 'setAttribute', 'b37setAttributes', Element._buildTraversalOptions(this))
+            }
+            */
