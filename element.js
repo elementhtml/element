@@ -210,12 +210,13 @@ const Element = Object.defineProperties({}, {
                 ;($this.constructor.b37css || []).forEach(src => {
                     addSrcToDocument('link[rel="stylesheet"][href="$B37"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
                 })
-                $this.constructor.wasmModules = $this.constructor.wasmModules ?? {}
+                $this.constructor.b37wasmModules = $this.constructor.b37wasmModules ?? {}
                 Object.keys($this.constructor.b37wasm || {}).forEach(moduleName => {
-                    if ($this.constructor.wasmModules[moduleName] === undefined) {
+                    if ($this.constructor.b37wasmModules[moduleName] === undefined) {
+                        $this.constructor.b37wasmModules[moduleName] = true
                         WebAssembly.instantiateStreaming(fetch($this.constructor.b37wasm[moduleName].src), 
-                            fetch($this.constructor.b37wasm[moduleName].src).importObject).then(importResult => 
-                                $this.constructor.wasmModules[moduleName] = importResult
+                            $this.constructor.b37wasm[moduleName].importObject).then(importResult => 
+                                $this.constructor.b37wasmModules[moduleName] = importResult
                         )                        
                     }
                 })
