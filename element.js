@@ -211,7 +211,6 @@ const Element = Object.defineProperties({}, {
                     }
                 })
                 $this.__b37queuedAttributes = {}
-
                 const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                 shadowRoot.innerHTML = ''
                 const styleNode = document.createElement('style')
@@ -222,10 +221,7 @@ const Element = Object.defineProperties({}, {
                     templateNode.innerHTML = innerHTML
                     shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
-
-
             }
-
             static get observedAttributes() {
                 return []
             }
