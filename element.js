@@ -109,8 +109,6 @@ const Element = Object.defineProperties({}, {
                 __b37tagId = tagId
                 constructor() {
                     super()
-                    this.abc = 123
-                    this.constructor.def = 456
                     const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                     shadowRoot.innerHTML = ''
                     const styleNode = document.createElement('style')
@@ -118,6 +116,7 @@ const Element = Object.defineProperties({}, {
                     shadowRoot.appendChild(styleNode)
                     const templateNode = document.createElement('template')
                     Element.stackTemplates(tagId).then(innerHTML => {
+console.log('line 121', tagId)
                         templateNode.innerHTML = innerHTML
                         shadowRoot.appendChild(templateNode.content.cloneNode(true))
                     })
@@ -259,14 +258,3 @@ const Element = Object.defineProperties({}, {
 })
 export { Element }
 
-
-                /*;($this.constructor.observedAttributes || []).forEach(attrName => {
-                    const setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
-                    delete $this[attrName]
-                    Object.defineProperty($this, attrName, {configurable: false, enumerable: true, set: (value) => {
-                        $this.setAttribute(attrName, setterFunc ? setterFunc($this, value) : value)
-                    }, get: () => {
-                        setterFunc ? setterFunc($this) : undefined
-                        return $this.getAttribute(attrName)
-                    } })
-                })*/
