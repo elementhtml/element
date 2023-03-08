@@ -105,7 +105,7 @@ const Element = Object.defineProperties({}, {
             let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
             this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
             const Element = this
-            this.classes[tagId].__b37tagId = tagId
+            this.classes[tagId].__b37TagId = tagId
             this.constructors[tagId] = class extends this.classes[tagId] {
                 constructor() {
                     super()
@@ -189,35 +189,51 @@ const Element = Object.defineProperties({}, {
                         appendTo.append(tag)
                     }
                 }
-                ;($this.constructor.b37js || []).forEach(src => {
+                ;($this.constructor.b37Js || []).forEach(src => {
                     addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body)
                 })
-                ;($this.constructor.b37mjs || []).forEach(src => {
+                ;($this.constructor.b37Mjs || []).forEach(src => {
                     addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body, [['type', 'module']])
                 })
-                ;($this.constructor.b37css || []).forEach(src => {
+                ;($this.constructor.b37Css || []).forEach(src => {
                     addSrcToDocument('link[rel="stylesheet"][href="$B37"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
                 })
-                $this.constructor.b37wasmModules = $this.constructor.b37wasmModules ?? {}
-                Object.keys($this.constructor.b37wasm || {}).forEach(moduleName => {
-                    if ($this.constructor.b37wasmModules[moduleName] === undefined) {
-                        $this.constructor.b37wasmModules[moduleName] = true
-                        WebAssembly.instantiateStreaming(fetch($this.constructor.b37wasm[moduleName].src), 
-                            $this.constructor.b37wasm[moduleName].importObject).then(importResult => 
-                                $this.constructor.b37wasmModules[moduleName] = importResult
+                $this.constructor.b37WasmModules = $this.constructor.b37WasmModules ?? {}
+                Object.keys($this.constructor.b37Wasm || {}).forEach(moduleName => {
+                    if ($this.constructor.b37WasmModules[moduleName] === undefined) {
+                        $this.constructor.b37WasmModules[moduleName] = true
+                        WebAssembly.instantiateStreaming(fetch($this.constructor.b37Wasm[moduleName].src), 
+                            $this.constructor.b37Wasm[moduleName].importObject).then(importResult => 
+                                $this.constructor.b37WasmModules[moduleName] = importResult
                         ).catch(e => {
-                            $this.constructor.b37wasmModules[moduleName] = false
+                            $this.constructor.b37WasmModules[moduleName] = false
                         })
                     }
                 })
-                $this.__b37queuedAttributes = {}
+                $this.__b37QueuedAttributes = {}
+
+                $this.b37Dataset = new Proxy($this.dataset, {
+                    has(target, property) {
+
+                    }
+                    get(target, property, receiver) {
+
+                    }
+                    set(target, property, value, receiver) {
+                        
+                    }
+                    deleteProperty(target, property) {
+
+                    }                    
+                })
+
                 const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                 shadowRoot.innerHTML = ''
                 const styleNode = document.createElement('style')
-                styleNode.innerHTML = Element.stackStyles(this.constructor.__b37tagId)
+                styleNode.innerHTML = Element.stackStyles(this.constructor.__b37TagId)
                 shadowRoot.appendChild(styleNode)
                 const templateNode = document.createElement('template')
-                Element.stackTemplates(this.constructor.__b37tagId).then(innerHTML => {
+                Element.stackTemplates(this.constructor.__b37TagId).then(innerHTML => {
                     templateNode.innerHTML = innerHTML
                     shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
@@ -227,29 +243,29 @@ const Element = Object.defineProperties({}, {
             }
             attributeChangedCallback(attrName, oldVal, newVal) {
                 this[attrName] = newVal
-            }
-            b37processQueuedAttributes() {
+            }            
+            b37ProcessQueuedAttributes() {
                 const $this = this
-                Object.keys($this.__b37queuedAttributes).filter(k => {
-                    return $this.__b37queuedAttributes[k].requires && typeof $this.__b37queuedAttributes[k].requires == 'function' ? $this.__b37queuedAttributes[k].requires() : true
+                Object.keys($this.__b37QueuedAttributes).filter(k => {
+                    return $this.__b37QueuedAttributes[k].requires && typeof $this.__b37QueuedAttributes[k].requires == 'function' ? $this.__b37QueuedAttributes[k].requires() : true
                 }).forEach(k => {
-                    if ($this.__b37queuedAttributes[k].attribute && $this.__b37queuedAttributes[k].value) {
-                        $this.setAttribute($this.__b37queuedAttributes[k].attribute, $this.__b37queuedAttributes[k].value)
-                        if (typeof $this.__b37queuedAttributes[k].callback == 'function') {
-                            $this.__b37queuedAttributes[k].callback()
+                    if ($this.__b37QueuedAttributes[k].attribute && $this.__b37QueuedAttributes[k].value) {
+                        $this.setAttribute($this.__b37QueuedAttributes[k].attribute, $this.__b37QueuedAttributes[k].value)
+                        if (typeof $this.__b37QueuedAttributes[k].callback == 'function') {
+                            $this.__b37QueuedAttributes[k].callback()
                         }
                     }
-                    delete $this.__b37queuedAttributes[k]
+                    delete $this.__b37QueuedAttributes[k]
                 })
-                if (!Object.keys($this.__b37queuedAttributes).length) {
-                    globalThis.clearInterval($this.__b37queuedAttributeInterval)
+                if (!Object.keys($this.__b37QueuedAttributes).length) {
+                    globalThis.clearInterval($this.__b37QueuedAttributeInterval)
                 }
             }
-            b37addQueuedAttribute(attribute, value, requires, callback) {
+            b37AddQueuedAttribute(attribute, value, requires, callback) {
                 const $this = this
-                $this.__b37queuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
-                $this.__b37queuedAttributeInterval = $this.__b37queuedAttributeInterval || globalThis.setInterval(function() {
-                    $this.b37processQueuedAttributes()
+                $this.__b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
+                $this.__b37QueuedAttributeInterval = $this.__b37QueuedAttributeInterval || globalThis.setInterval(function() {
+                    $this.b37ProcessQueuedAttributes()
                 }, 1000)
             }
         }
