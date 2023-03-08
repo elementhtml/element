@@ -217,7 +217,9 @@ const Element = Object.defineProperties({}, {
                         WebAssembly.instantiateStreaming(fetch($this.constructor.b37wasm[moduleName].src), 
                             $this.constructor.b37wasm[moduleName].importObject).then(importResult => 
                                 $this.constructor.b37wasmModules[moduleName] = importResult
-                        )                        
+                        ).catch(e => {
+                            $this.constructor.b37wasmModules[moduleName] = false
+                        })
                     }
                 })
                 $this.__b37queuedAttributes = {}
