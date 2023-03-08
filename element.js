@@ -105,21 +105,10 @@ const Element = Object.defineProperties({}, {
             let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
             this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
             const Element = this
+            this.classes[tagId].__b37tagId = tagId
             this.constructors[tagId] = class extends this.classes[tagId] {
-                __b37tagId = tagId
                 constructor() {
                     super()
-                    const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
-                    shadowRoot.innerHTML = ''
-                    const styleNode = document.createElement('style')
-                    styleNode.innerHTML = Element.stackStyles(tagId)
-                    shadowRoot.appendChild(styleNode)
-                    const templateNode = document.createElement('template')
-                    Element.stackTemplates(tagId).then(innerHTML => {
-console.log('line 121', tagId)
-                        templateNode.innerHTML = innerHTML
-                        shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    })
                 }
             }            
         }
@@ -222,7 +211,21 @@ console.log('line 121', tagId)
                     }
                 })
                 $this.__b37queuedAttributes = {}
+
+                const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
+                shadowRoot.innerHTML = ''
+                const styleNode = document.createElement('style')
+                styleNode.innerHTML = Element.stackStyles(this.constructor.__b37tagId)
+                shadowRoot.appendChild(styleNode)
+                const templateNode = document.createElement('template')
+                Element.stackTemplates(this.constructor.__b37tagId).then(innerHTML => {
+                    templateNode.innerHTML = innerHTML
+                    shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                })
+
+
             }
+
             static get observedAttributes() {
                 return []
             }
