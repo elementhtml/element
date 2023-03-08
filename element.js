@@ -192,43 +192,40 @@ const Element = Object.defineProperties({}, {
         return class extends baseClass {
             constructor() {
                 super()
-                const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
-                /*;($this.constructor.observedAttributes || []).forEach(attrName => {
-                    const setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
-                    delete $this[attrName]
-                    Object.defineProperty($this, attrName, {configurable: false, enumerable: true, set: (value) => {
-                        $this.setAttribute(attrName, setterFunc ? setterFunc($this, value) : value)
-                    }, get: () => {
-                        setterFunc ? setterFunc($this) : undefined
-                        return $this.getAttribute(attrName)
-                    } })
-                })*/
-                ;($this.constructor.b37js || []).forEach(src => {
-                    const tag = document.querySelector(`script[src="${src}"]`)
+                const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs=[]) => {
+                    let tag = document.querySelector(querySelectorTemplate.replace(/\$B37/g, src))
                     if (!tag) {
-                        tag = document.createElement('script')
-                        tag.setAttribute('src', src)
-                        document.body.append(tag)
+                        tag = document.createElement(tagName)
+                        tag.setAttribute(srcAttrName, src)
+                        otherAttrs.forEach(a => tag.setAttribute(...a))
+                        appendTo.append(tag)
                     }
+                }
+                ;($this.constructor.b37js || []).forEach(src => {
+                    addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body)
                 })
-                ;($this.constructor.b37css || []).forEach(href => {
-                    const tag = document.querySelector(`link[rel="stylesheet"][href="${href}"]`)
-                    if (!tag) {
-                        tag = document.createElement('link')
-                        tag.setAttribute('rel', 'stylesheet')
-                        tag.setAttribute('href', href)
-                        document.head.append(tag)
+                ;($this.constructor.b37mjs || []).forEach(src => {
+                    addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body, [['type', 'module']])
+                })
+                ;($this.constructor.b37css || []).forEach(src => {
+                    addSrcToDocument('link[rel="stylesheet"][href="$B37"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
+                })
+                $this.constructor.wasmModules = $this.constructor.wasmModules ?? {}
+                Object.keys($this.constructor.b37wasm || {}).forEach(moduleName => {
+                    if ($this.constructor.wasmModules[moduleName] === undefined) {
+                        WebAssembly.instantiateStreaming(fetch($this.constructor.b37wasm[moduleName].src), 
+                            fetch($this.constructor.b37wasm[moduleName].src).importObject).then(importResult => 
+                                $this.constructor.wasmModules[moduleName] = importResult
+                        )                        
                     }
                 })
                 $this.__b37queuedAttributes = {}
-                const observer = new MutationObserver(mutationList => {
-                    mutationList.forEach(mutationRecord => {
-                        if (String($this[mutationRecord.attributeName]) != $this.getAttribute(mutationRecord.attributeName)) {
-                            $this[mutationRecord.attributeName] = $this.getAttribute(mutationRecord.attributeName)
-                        }
-                    })
-                })
-                observer.observe($this, {subtree: false, childList: false, attributes: true, attributeFilter: attributeFilter, attributeOldValue: true})
+            }
+            static get observedAttributes() {
+                return []
+            }
+            attributeChangedCallback(attrName, oldVal, newVal) {
+                this[attrName] = newVal
             }
             b37processQueuedAttributes() {
                 const $this = this
@@ -254,15 +251,19 @@ const Element = Object.defineProperties({}, {
                     $this.b37processQueuedAttributes()
                 }, 1000)
             }
-            static get observedAttributes() {
-                return []
-            }
-            attributeChangedCallback(attrName, oldVal, newVal) {
-                //this[attrName] = newVal
-            }
         }
     }}
 })
 export { Element }
 
 
+                /*;($this.constructor.observedAttributes || []).forEach(attrName => {
+                    const setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
+                    delete $this[attrName]
+                    Object.defineProperty($this, attrName, {configurable: false, enumerable: true, set: (value) => {
+                        $this.setAttribute(attrName, setterFunc ? setterFunc($this, value) : value)
+                    }, get: () => {
+                        setterFunc ? setterFunc($this) : undefined
+                        return $this.getAttribute(attrName)
+                    } })
+                })*/

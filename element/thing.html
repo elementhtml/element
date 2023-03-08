@@ -15,21 +15,26 @@
     	}
 
 		static get observedAttributes() {
-    	    return (super.observedAttributes || []).concat('data-name', 'data-subject-of', 'abc')
+    	    return (super.observedAttributes || []).concat('abc')
     	}
 
-    	abc($this, value) {
-			console.log('line 22', value)
-    	}	    		 	
+    	static b37js = [
+    		"https://example.com/js"
+		]
 
-    	['data-name']($this, value) {
-			console.log('line 26', value)
-    	}	
+    	static b37mjs = [
+    		"https://example.com/mjs"
+		]
 
-    	['data-subject-of']($this, value) {
-			console.log('line 30', value)
-    	}	
+    	static b37css = [
+    		"https://example.com/css"
+		]
 
-
+    	static b37wasm = {
+    		hello: {
+    			src: "https://cdn.jsdelivr.net/gh/torch2424/wasm-by-example@master/examples/hello-world/demo/assemblyscript/hello-world.wasm", 
+				importObject: {env: {abort: () => console.log("Abort!")}}
+			}
+    	}
     }	
 </script>
