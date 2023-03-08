@@ -193,42 +193,16 @@ const Element = Object.defineProperties({}, {
             constructor() {
                 super()
                 const $this = this, attributeFilter = [...$this.constructor.observedAttributes]
-                Object.defineProperty($this, '__b37dict', {configurable: false, enumerable: false, value: {}})
-                ;($this.constructor.observedAttributes || []).forEach(attrName => {
-                    const canonicalAttrName = attrName.toLowerCase(), setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
-                    if (!attributeFilter.includes(canonicalAttrName)) {
-                        attributeFilter.push(canonicalAttrName)
-                    }
+                /*;($this.constructor.observedAttributes || []).forEach(attrName => {
+                    const setterFunc = (typeof $this[attrName] === 'function') ? $this[attrName] : undefined
                     delete $this[attrName]
                     Object.defineProperty($this, attrName, {configurable: false, enumerable: true, set: (value) => {
-                        $this.__b37dict[canonicalAttrName] = setterFunc ? setterFunc($this, value) : value
-                        if (['string', 'number', 'boolean'].includes(typeof $this.__b37dict[canonicalAttrName])) {
-                            const newAttributeValue = $this.__b37dict[canonicalAttrName], currentAttributeValue = $this.hasAttribute(canonicalAttrName) ? $this.getAttribute(canonicalAttrName) 
-                                : ($this.hasAttribute(attrName) ? $this.getAttribute(attrName) : null) 
-                            if (String(currentAttributeValue) != String(newAttributeValue)) {
-                                $this.setAttribute(canonicalAttrName, String(newAttributeValue))
-                            }
-                        } else {
-                            $this.removeAttribute(canonicalAttrName)
-                        }
+                        $this.setAttribute(attrName, setterFunc ? setterFunc($this, value) : value)
                     }, get: () => {
-                        if (canonicalAttrName in $this.__b37dict) {
-                            return $this.__b37dict[canonicalAttrName]
-                        } else {
-                            try {
-                                $this[attrName] = $this.getAttribute(canonicalAttrName) ?? $this.getAttribute(attrName) ?? undefined
-                            } catch(e) {
-                                $this.__b37dict[canonicalAttrName] = $this.getAttribute(canonicalAttrName) ?? $this.getAttribute(attrName) ?? undefined
-                            }
-                            return $this.__b37dict[canonicalAttrName]
-                        }
+                        setterFunc ? setterFunc($this) : undefined
+                        return $this.getAttribute(attrName)
                     } })
-                    if (canonicalAttrName != attrName) {
-                        Object.defineProperty($this, canonicalAttrName, {configurable: false, enumerable: false, set: (value) => {
-                            $this[attrName] = value
-                        }, get: () => $this[attrName] })
-                    }
-                })
+                })*/
                 ;($this.constructor.b37js || []).forEach(src => {
                     const tag = document.querySelector(`script[src="${src}"]`)
                     if (!tag) {
@@ -284,7 +258,7 @@ const Element = Object.defineProperties({}, {
                 return []
             }
             attributeChangedCallback(attrName, oldVal, newVal) {
-                this[attrName] = newVal
+                //this[attrName] = newVal
             }
         }
     }}

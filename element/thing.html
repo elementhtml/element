@@ -15,15 +15,19 @@
     	}
 
 		static get observedAttributes() {
-    	    return (super.observedAttributes || []).concat('data-name', 'data-subject-of')
-    	}   	 	
+    	    return (super.observedAttributes || []).concat('data-name', 'data-subject-of', 'abc')
+    	}
+
+    	abc($this, value) {
+			console.log('line 22', value)
+    	}	    		 	
 
     	['data-name']($this, value) {
-			console.log('line 22', value)
+			console.log('line 26', value)
     	}	
 
     	['data-subject-of']($this, value) {
-			console.log('line 26', value)
+			console.log('line 30', value)
     	}	
 
 
