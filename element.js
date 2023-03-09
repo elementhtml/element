@@ -217,33 +217,33 @@ const Element = Object.defineProperties({}, {
                         if (property in target) {
                             return true
                         } else {
-                            return $this.shadowRoot.querySelector(`[b37-renders-property="${property}"]:not(b37-slot)`) 
-                                ?? $this.shadowRoot.querySelector(`[b37-contains-property="${property}"]:not(:empty)`)
+                            return !!($this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`) 
+                                ?? $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`))
                         }
                     }, 
                     get(target, property, receiver) {
                         if (property in target) {
                             return target[property]
                         } else {
-                            const propertyRenderer = $this.shadowRoot.querySelector(`[b37-renders-property="${property}"]:not(b37-slot)`)
+                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
                             if (propertyRenderer) {
-                                return {...(propertyRenderer.b37Dataset ?? {})}
+                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
                             } else {
-                                const propertyContainer = $this.shadowRoot.querySelector(`[b37-contains-property="${property}"]:not(b37-slot)`)
+                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
                                 if (propertyContainer) {
-                                    if propertyContainer.matches(':empty') {
-                                        return []
-                                    } else {
-                                        Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                                            .map(propertyRenderer => {
-                                                const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
-                                                if (rendersPropertyAlias) {
-                                                    return {...(propertyRenderer.b37Dataset ?? {})}[rendersPropertyAlias]
+                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                                        .map(propertyRenderer => {
+                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
+                                            if (rendersPropertyAlias) {
+                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
+                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
                                                 } else {
-                                                    return {...(propertyRenderer.b37Dataset ?? {})}
+                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
                                                 }
-                                            })
-                                    }
+                                            } else {
+                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                            }
+                                        })
                                 } else {
                                     return undefined
                                 }
