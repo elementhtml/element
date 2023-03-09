@@ -51,7 +51,7 @@ const Element = Object.defineProperties({}, {
             }
         }).map((v, i, a) => (i == a.length-1) ? [v, this.extends[v]] : v).flat()
     }}, 
-    copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=true) {
+    copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
         source.getAttributeNames().filter(a => keep.includes(a) || (autoKeepB37) ? a.startsWith('b37-') : false).forEach(a => {
             const aValue = source.getAttribute(a)
             aValue === '' ? target.toggleAttribute(a, true) : (aValue ? target.setAttribute(a, aValue) : undefined)
@@ -267,7 +267,7 @@ const Element = Object.defineProperties({}, {
                                 ?? $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
                             if (propertyElement) {
                                 const b37slot = document.createElement('b37-slot')
-                                Element.copyAttributes(propertyElement, b37slot, (propertyElement.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a))
+                                Element.copyAttributes(propertyElement, b37slot, (propertyElement.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
                                 propertyElement.replaceWith(b37slot)                                
                             }
                             return true
