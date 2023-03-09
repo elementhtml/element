@@ -305,7 +305,6 @@ const Element = Object.defineProperties({}, {
                         }
                     }
                 })
-
                 const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                 shadowRoot.innerHTML = ''
                 const styleNode = document.createElement('style')
