@@ -274,6 +274,7 @@ const Element = Object.defineProperties({}, {
                                             Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
                                             b37slot.replaceWith(propertyRenderer)
                                         } else {
+                                            throw new TypeError(`Either b37-tag-repository, b37-tag-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
                                             return false
                                         }
                                     }
@@ -281,6 +282,7 @@ const Element = Object.defineProperties({}, {
                                     Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
                                     return true
                                 } else {
+                                    throw new TypeError(`No sub-element found in the shadowRoot with a b37-renders-property equal to ${property} for this instance of element class ${this.constructor.__b37TagId}`)
                                     return false
                                 }
                             } else {
