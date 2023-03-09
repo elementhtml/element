@@ -222,7 +222,33 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     get(target, property, receiver) {
-                        return target[property]
+                        if (property in target) {
+                            return target[property]
+                        } else {
+                            const propertyRenderer = $this.shadowRoot.querySelector(`[b37-renders-property="${property}"]:not(b37-slot)`)
+                            if (propertyRenderer) {
+                                return {...(propertyRenderer.b37Dataset ?? {})}
+                            } else {
+                                const propertyContainer = $this.shadowRoot.querySelector(`[b37-contains-property="${property}"]:not(b37-slot)`)
+                                if (propertyContainer) {
+                                    if propertyContainer.matches(':empty') {
+                                        return []
+                                    } else {
+                                        Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                                            .map(propertyRenderer => {
+                                                const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
+                                                if (rendersPropertyAlias) {
+                                                    return {...(propertyRenderer.b37Dataset ?? {})}[rendersPropertyAlias]
+                                                } else {
+                                                    return {...(propertyRenderer.b37Dataset ?? {})}
+                                                }
+                                            })
+                                    }
+                                } else {
+                                    return undefined
+                                }
+                            }
+                        }
                     }, 
                     set(target, property, value, receiver) {
                         target[property] = value
