@@ -268,28 +268,27 @@ const Element = Object.defineProperties({}, {
                                 propertyRenderer.replaceWith(b37slot)
                             }
                             return true
-                            } else {
-                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
-                                if (propertyContainer) {
-                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                                        .map(propertyRenderer => {
-                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
-                                            if (rendersPropertyAlias) {
-                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
-                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
-                                                } else {
-                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
-                                                }
+                        } else {
+                            const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
+                            if (propertyContainer) {
+                                return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                                    .map(propertyRenderer => {
+                                        const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
+                                        if (rendersPropertyAlias) {
+                                            if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
+                                                return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
                                             } else {
-                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                                return propertyRenderer.b37Dataset[rendersPropertyAlias]
                                             }
-                                        })
-                                } else {
-                                    return undefined
-                                }
+                                        } else {
+                                            return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                        }
+                                    })
+                            } else {
+                                return undefined
                             }
                         }
-                    }                    
+                    }
                 })
 
                 const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
