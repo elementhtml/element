@@ -214,16 +214,21 @@ const Element = Object.defineProperties({}, {
 
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
-
-                    }
+                        if (property in target) {
+                            return true
+                        } else {
+                            return $this.shadowRoot.querySelector(`[b37-renders-property="${property}"]:not(b37-slot)`) 
+                                ?? $this.shadowRoot.querySelector(`[b37-contains-property="${property}"]:not(:empty)`)
+                        }
+                    }, 
                     get(target, property, receiver) {
-
-                    }
+                        return target[property]
+                    }, 
                     set(target, property, value, receiver) {
-                        
-                    }
+                        target[property] = value
+                    }, 
                     deleteProperty(target, property) {
-
+                        delete target[property]
                     }                    
                 })
 
