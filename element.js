@@ -254,7 +254,48 @@ const Element = Object.defineProperties({}, {
                         target[property] = value
                     }, 
                     deleteProperty(target, property) {
-                        delete target[property]
+                        if (property in target) {
+                            return delete target[property]
+                        } else {
+                            const propertyRenderer = Array.from($this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                            if (propertyRenderer) {
+                                const keepOnDelete = (propertyRenderer.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), 
+                                    b37slot = document.createElement('b37-slot')
+                                propertyRenderer.getAttributeNames().filter(a => keepOnDelete.includes(a) || a.startsWith('b37-'))
+                                .forEach(a => {
+                                    const aValue = propertyRenderer.getAttribute(a)
+                                    if (aValue) {
+                                        if (aValue === '') {
+                                            b37slot.toggleAttribute(a, true)
+                                        } else {
+                                            b37slot.setAttribute(a, aValue)
+                                        }                                     
+                                    }
+                                })
+                                propertyRenderer.replaceWith(b37slot)
+                            }
+                            return true
+                            } else {
+                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
+                                if (propertyContainer) {
+                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                                        .map(propertyRenderer => {
+                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
+                                            if (rendersPropertyAlias) {
+                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
+                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
+                                                } else {
+                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
+                                                }
+                                            } else {
+                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                            }
+                                        })
+                                } else {
+                                    return undefined
+                                }
+                            }
+                        }
                     }                    
                 })
 
