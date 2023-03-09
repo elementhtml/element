@@ -35,7 +35,7 @@ const Element = Object.defineProperties({}, {
         const observer = new MutationObserver(mutationList => {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(addedNode => {
-                    if (addedNode.tagName.includes('-')) {
+                    if (addedNode?.tagName?.includes('-')) {
                         this.activateTag(addedNode.tagName)
                     }
                 })
@@ -256,7 +256,7 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        if (value && (target[property] === value])) {
+                        if (value && (target[property] === value)) {
                             return true
                         } else {
                             if (value === undefined || value === null) {
