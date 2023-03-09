@@ -51,6 +51,12 @@ const Element = Object.defineProperties({}, {
             }
         }).map((v, i, a) => (i == a.length-1) ? [v, this.extends[v]] : v).flat()
     }}, 
+    copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=true) {
+        source.getAttributeNames().filter(a => keep.includes(a) || (autoKeepB37) ? a.startsWith('b37-') : false).forEach(a => {
+            const aValue = source.getAttribute(a)
+            aValue === '' ? target.toggleAttribute(a, true) : (aValue ? target.setAttribute(a, aValue) : undefined)
+        })
+    }}, 
     stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
@@ -257,36 +263,14 @@ const Element = Object.defineProperties({}, {
                         if (property in target) {
                             return delete target[property]
                         } else {
-                            const propertyRenderer = Array.from($this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                            if (propertyRenderer) {
-                                const keepOnDelete = (propertyRenderer.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), 
-                                    b37slot = document.createElement('b37-slot')
-                                propertyRenderer.getAttributeNames().filter(a => keepOnDelete.includes(a) || a.startsWith('b37-')).forEach(a => {
-                                    const aValue = propertyRenderer.getAttribute(a)
-                                    aValue === '' ? b37slot.toggleAttribute(a, true) : (aValue ? b37slot.setAttribute(a, aValue) : undefined)
-                                })
-                                propertyRenderer.replaceWith(b37slot)
+                            const propertyElement = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
+                                ?? $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
+                            if (propertyElement) {
+                                const b37slot = document.createElement('b37-slot')
+                                Element.copyAttributes(propertyElement, b37slot, (propertyElement.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a))
+                                propertyElement.replaceWith(b37slot)                                
                             }
                             return true
-                        } else {
-                            const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
-                            if (propertyContainer) {
-                                return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                                    .map(propertyRenderer => {
-                                        const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
-                                        if (rendersPropertyAlias) {
-                                            if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
-                                                return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
-                                            } else {
-                                                return propertyRenderer.b37Dataset[rendersPropertyAlias]
-                                            }
-                                        } else {
-                                            return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
-                                        }
-                                    })
-                            } else {
-                                return undefined
-                            }
                         }
                     }
                 })
