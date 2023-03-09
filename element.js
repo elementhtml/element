@@ -256,7 +256,7 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        if (target[property] === value]) {
+                        if (value && (target[property] === value])) {
                             return true
                         } else {
                             if (value === undefined || value === null) {
@@ -265,20 +265,23 @@ const Element = Object.defineProperties({}, {
                                 let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]`)
                                 if (propertyRenderer) {
                                     if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
-                                        const b37slot = propertyRenderer
-
-                                        /* figure out useTag value!!! */
                                         const useTagRepository = b37slot.getAttribute('b37-tag-repository'), 
-                                            useTagName = b37slot.getAttribute('b37-tag-name')
-                                            
-
-                                        propertyRenderer = document.createElement(useTag)
-                                        Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
-                                        b37slot.replaceWith(propertyRenderer)
+                                            useTagSuffix = b37slot.getAttribute('b37-tag-suffix'), 
+                                            useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagName}`
+                                        if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
+                                            const b37slot = propertyRenderer
+                                            propertyRenderer = document.createElement(useTag)
+                                            Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
+                                            b37slot.replaceWith(propertyRenderer)
+                                        } else {
+                                            return false
+                                        }
                                     }
                                     Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
                                     Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
                                     return true
+                                } else {
+                                    return false
                                 }
                             } else {
                                 target[property] = value
