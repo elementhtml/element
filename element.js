@@ -223,8 +223,7 @@ const Element = Object.defineProperties({}, {
                         if (property in target) {
                             return true
                         } else {
-                            return !!($this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`) 
-                                ?? $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`))
+                            return !!$this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
                         }
                     }, 
                     get(target, property, receiver) {
@@ -235,73 +234,46 @@ const Element = Object.defineProperties({}, {
                             if (propertyRenderer) {
                                 return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
                             } else {
-                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
-                                if (propertyContainer) {
-                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                                        .map(propertyRenderer => {
-                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
-                                            if (rendersPropertyAlias) {
-                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
-                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
-                                                } else {
-                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
-                                                }
-                                            } else {
-                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
-                                            }
-                                        })
-                                } else {
-                                    return undefined
-                                }
+                                return undefined
                             }
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        if (value === undefined || value === null) {
-                            return this.deleteProperty(target, property)
-                        } else if (value && typeof value == 'object') {
-
-
-
-                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
-                            if (propertyRenderer) {
-                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
-                            } else {
-                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
-                                if (propertyContainer) {
-                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
-                                        .map(propertyRenderer => {
-                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
-                                            if (rendersPropertyAlias) {
-                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
-                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
-                                                } else {
-                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
-                                                }
-                                            } else {
-                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
-                                            }
-                                        })
-                                } else {
-                                    return undefined
-                                }
-                            }
-
-                            
-
+                        if (target[property] === value]) {
+                            return true
                         } else {
-                            return target[property] = value
+                            if (value === undefined || value === null) {
+                                return this.deleteProperty(target, property)
+                            } else if (value && typeof value == 'object') {
+                                let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]`)
+                                if (propertyRenderer) {
+                                    if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
+                                        const b37slot = propertyRenderer
+
+                                        /* figure out useTag value!!! */
+
+                                        propertyRenderer = document.createElement(useTag)
+                                        Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
+                                        b37slot.replaceWith(propertyRenderer)
+                                    }
+                                    Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
+                                    Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
+                                    return true
+                                }
+                            } else {
+                                target[property] = value
+                                return true
+                            }
                         }
                     }, 
                     deleteProperty(target, property) {
                         if (property in target) {
                             return delete target[property]
                         } else {
-                            const propertyElement = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
-                                ?? $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
-                            if (propertyElement) {
+                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
+                            if (propertyRenderer) {
                                 const b37slot = document.createElement('b37-slot')
-                                Element.copyAttributes(propertyElement, b37slot, (propertyElement.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
+                                Element.copyAttributes(propertyRenderer, b37slot, (propertyRenderer.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
                                 propertyElement.replaceWith(b37slot)                                
                             }
                             return true
