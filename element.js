@@ -230,6 +230,9 @@ const Element = Object.defineProperties({}, {
                         })
                     }
                 })
+                if (Array.isArray($this.constructor.repositories) && !$this.constructor.tagPrefixes) {
+                    $this.constructor.tagPrefixes = Object.assign($this.constructor.repositories.map(r => ({[r]: crypto.randomUUID().replace(/\-/g, '')})))
+                } 
                 $this.__b37QueuedAttributes = {}
 
                 $this.b37Dataset = new Proxy($this.dataset, {
@@ -265,6 +268,9 @@ const Element = Object.defineProperties({}, {
                                         const b37slot = propertyRenderer
 
                                         /* figure out useTag value!!! */
+                                        const useTagRepository = b37slot.getAttribute('b37-tag-repository'), 
+                                            useTagName = b37slot.getAttribute('b37-tag-name')
+                                            
 
                                         propertyRenderer = document.createElement(useTag)
                                         Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), true)
