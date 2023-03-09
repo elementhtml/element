@@ -257,7 +257,41 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        target[property] = value
+                        if (value === undefined || value === null) {
+                            return this.deleteProperty(target, property)
+                        } else if (value && typeof value == 'object') {
+
+
+
+                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`)
+                            if (propertyRenderer) {
+                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                            } else {
+                                const propertyContainer = $this.shadowRoot.querySelector(`:scope > [b37-contains-property="${property}"]:not(b37-slot)`)
+                                if (propertyContainer) {
+                                    return Array.from(propertyContainer.querySelectorAll(`:scope > [b37-renders-property="${property}"]:not(b37-slot)`))
+                                        .map(propertyRenderer => {
+                                            const rendersPropertyAlias = propertyRenderer.getAttribute('b37-renders-property-alias')
+                                            if (rendersPropertyAlias) {
+                                                if (propertyRenderer.b37Dataset[rendersPropertyAlias] && typeof propertyRenderer.b37Dataset[rendersPropertyAlias] == 'object') {
+                                                    return Object.assign({}, (propertyRenderer.b37Dataset[rendersPropertyAlias] ?? {})) 
+                                                } else {
+                                                    return propertyRenderer.b37Dataset[rendersPropertyAlias]
+                                                }
+                                            } else {
+                                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                            }
+                                        })
+                                } else {
+                                    return undefined
+                                }
+                            }
+
+                            
+
+                        } else {
+                            return target[property] = value
+                        }
                     }, 
                     deleteProperty(target, property) {
                         if (property in target) {
