@@ -261,16 +261,9 @@ const Element = Object.defineProperties({}, {
                             if (propertyRenderer) {
                                 const keepOnDelete = (propertyRenderer.getAttribute('b37-delete-keep') || '').split(' ').filter(a => !!a), 
                                     b37slot = document.createElement('b37-slot')
-                                propertyRenderer.getAttributeNames().filter(a => keepOnDelete.includes(a) || a.startsWith('b37-'))
-                                .forEach(a => {
+                                propertyRenderer.getAttributeNames().filter(a => keepOnDelete.includes(a) || a.startsWith('b37-')).forEach(a => {
                                     const aValue = propertyRenderer.getAttribute(a)
-                                    if (aValue) {
-                                        if (aValue === '') {
-                                            b37slot.toggleAttribute(a, true)
-                                        } else {
-                                            b37slot.setAttribute(a, aValue)
-                                        }                                     
-                                    }
+                                    aValue === '' ? b37slot.toggleAttribute(a, true) : (aValue ? b37slot.setAttribute(a, aValue) : undefined)
                                 })
                                 propertyRenderer.replaceWith(b37slot)
                             }
