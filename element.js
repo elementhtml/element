@@ -31,6 +31,20 @@ const Element = Object.defineProperties({}, {
         Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
             .forEach(async customTag => await this.activateTag(customTag))
     }}, 
+    autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
+        const observer = new MutationObserver(mutationList => {
+            mutationList.forEach(mutationRecord => {
+                mutationRecord.addedNodes.forEach(addedNode => {
+                    if (addedNode.tagName.includes('-')) {
+                        this.activateTag(addedNode.tagName)
+                    }
+                })
+            })
+        })
+        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
+        Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
+            .forEach(async customTag => await this.activateTag(customTag))
+    }}, 
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         let inheritance = [tagId], count = 1000
         while (count && tagId &&  !this._isNative(tagId) && this.extends[tagId]) { 
@@ -291,6 +305,7 @@ const Element = Object.defineProperties({}, {
                     templateNode.innerHTML = innerHTML
                     shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
+                Element.autoloadShadow($this)
             }
             static get observedAttributes() {
                 return []
