@@ -291,18 +291,13 @@ const Element = Object.defineProperties({}, {
                                 return true
                             } else {
                                 let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = ''
-                                const sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property]
+                                const sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property], 
+                                    constraint = $this.b37LocalConstraints[property] ?? $this.constructor.b37Constraints[property]
                                 if (sanitizer && typeof sanitizer == 'function') {
-                                    const givenValue = value && typeof value == 'object' ? JSON.stringify(value) : value
-                                    [value, sanitizedDetails] = sanitizer(value)
-                                    if ((value && typeof value == 'object' ? JSON.stringify(value) : value) !== givenValue) {
-                                        sanitized = true
-                                    }
-                                } else {
-                                    const constraint = $this.b37LocalConstraints[property] ?? $this.constructor.b37Constraints[property]
-                                    if (constraint && typeof constraint == 'function') {
-                                        [withinConstraint, withinConstraintDetails] = constraint(value)
-                                    }
+                                    [value, sanitized, sanitizedDetails] = sanitizer(value)
+                                } 
+                                if (constraint && typeof constraint == 'function') {
+                                    [withinConstraint, withinConstraintDetails] = constraint(value)
                                 }
                                 if (value === undefined || value === null) {
                                     return this.deleteProperty(target, property)
