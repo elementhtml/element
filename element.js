@@ -333,6 +333,14 @@ const Element = Object.defineProperties({}, {
                                     sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
                                     withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
                                 }}))
+                                const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
+                                if (validator && typeof validator == 'function') {
+                                    let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
+                                    $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
+                                        handler: 'set', property: property, 
+                                        isValid: isValid, validatorDetails: validatorDetails
+                                    }}))
+                                } 
                                 return returnValue
                             }
                         }
@@ -348,8 +356,9 @@ const Element = Object.defineProperties({}, {
                             return !$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)?.remove()
                         } else {
                             property = property.trim()
+                            let returnValue = undefined
                             if (property in target) {
-                                return delete target[property]
+                                returnValue = delete target[property]
                             } else {
                                 const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
                                 if (propertyRenderer) {
@@ -357,8 +366,17 @@ const Element = Object.defineProperties({}, {
                                     Element.copyAttributes(propertyRenderer, b37slot, (propertyRenderer.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
                                     propertyElement.replaceWith(b37slot)                                
                                 }
-                                return true
+                                returnValue = true
                             }
+                            const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
+                            if (validator && typeof validator == 'function') {
+                                let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
+                                $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
+                                    handler: 'deleteProperty', property: property, 
+                                    isValid: isValid, validatorDetails: validatorDetails
+                                }}))
+                            } 
+                            return returnValue
                         }
                     }
                 })
