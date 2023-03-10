@@ -290,7 +290,6 @@ const Element = Object.defineProperties({}, {
                             if (value && (target[property] === value)) {
                                 return true
                             } else {
-                                //put constraint and sanitizer processing here
                                 let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = ''
                                 const sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property]
                                 if (sanitizer && typeof sanitizer == 'function') {
