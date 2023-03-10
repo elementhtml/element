@@ -259,6 +259,7 @@ const Element = Object.defineProperties({}, {
                         } else if (property[0] === '>') {
                             return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
+                            property = property.trim()
                             if (property in target) {
                                 return target[property]
                             } else {
@@ -273,9 +274,7 @@ const Element = Object.defineProperties({}, {
                     }, 
                     set(target, property, value, receiver) {
                         if (property[0] === '@') {
-                            const propSlice = property.slice(1), stringValue = String(value)
-                            $this.setAttribute(propSlice, stringValue)
-                            return $this.getAttribute(propSlice) === stringValue
+                            return $this.setAttribute(property.slice(1), value)
                         } else if (property[0] === '#') {
                             return $this[property.slice(1)] = value
                         } else if (property[0] === '.') {
@@ -283,6 +282,7 @@ const Element = Object.defineProperties({}, {
                         } else if (property[0] === '>') {
                             return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
+                            property = property.trim()
                             if (value && (target[property] === value)) {
                                 return true
                             } else {
@@ -293,10 +293,9 @@ const Element = Object.defineProperties({}, {
                                     if (propertyRenderer) {
                                         if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
                                             const useTagRepository = b37slot.getAttribute('b37-repo'), 
-                                                useTagSuffix = b37slot.getAttribute('b37-suffix'), 
-                                                useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagName}`
+                                                useTagSuffix = b37slot.getAttribute('b37-suffix')
                                             if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
-                                                const b37slot = propertyRenderer
+                                                const useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagSuffix}`, b37slot = propertyRenderer
                                                 propertyRenderer = document.createElement(useTag)
                                                 Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
                                                 b37slot.replaceWith(propertyRenderer)
@@ -313,8 +312,7 @@ const Element = Object.defineProperties({}, {
                                         return false
                                     }
                                 } else {
-                                    target[property] = value
-                                    return true
+                                    return !!(target[property] = value)
                                 }
                             }
                         }
@@ -329,6 +327,7 @@ const Element = Object.defineProperties({}, {
                         } else if (property[0] === '>') {
                             return !$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)?.remove()
                         } else {
+                            property = property.trim()
                             if (property in target) {
                                 return delete target[property]
                             } else {
