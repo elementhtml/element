@@ -11,6 +11,7 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}}, 
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
+    themes: {configurable: false, enumerable: true, writable: false, value: {}},
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
         value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
@@ -45,6 +46,65 @@ const Element = Object.defineProperties({}, {
         Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
             .forEach(async customTag => await this.activateTag(customTag))
     }}, 
+
+
+
+
+
+
+    applyTheme: {configurable: false, enumerable: true, writable: false, value: async function() {
+        const themeTag = document.body.getAttribute('b37-theme'), 
+            [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
+        if (themeName && themePage && this.themes[themeName]) {
+            const themePageURL = `${this.themes[themeName]}${themePage}.css`
+            await fetch(themePageURL).then(r => r.text())
+            let b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
+            if (!b37ThemeLinkTag) {
+                b37ThemeLinkTag = document.createElement('link')
+                b37ThemeLinkTag.setAttribute('rel', 'stylesheet')
+                document.head.appendChild(b37ThemeLinkTag)
+            }
+            b37ThemeLinkTag.setAttribute('http', themePageURL)
+            b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
+        }
+
+
+ 
+
+        const observer = new MutationObserver(mutationList => {
+            mutationList.forEach(mutationRecord => {
+                mutationRecord.addedNodes.forEach(addedNode => {
+                    if (addedNode.tagName.includes('-')) {
+                        this.applyThemeShadow(addedNode.tagName)
+                    }
+                })
+            })
+        })
+        observer.observe(document, {subtree: true, childList: true, attributes: false})
+        Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
+            .forEach(async customTag => await this.applyThemeShadow(customTag))
+    }}, 
+    applyThemeShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
+        const observer = new MutationObserver(mutationList => {
+            mutationList.forEach(mutationRecord => {
+                mutationRecord.addedNodes.forEach(addedNode => {
+                    if (addedNode?.tagName?.includes('-')) {
+                        this.applyThemeShadow(addedNode.tagName)
+                    }
+                })
+            })
+        })
+        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
+        Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
+            .forEach(async customTag => await this.applyThemeShadow(customTag))
+    }}, 
+
+
+
+
+
+
+
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         let inheritance = [tagId], count = 1000
         while (count && tagId &&  !this._isNative(tagId) && this.extends[tagId]) { 
