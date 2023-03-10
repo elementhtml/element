@@ -95,7 +95,8 @@ const Element = Object.defineProperties({}, {
         return template.innerHTML
     }}, 
     stackStyles: {configurable: false, enumerable: true, writable: false, value: function(tagId) {
-        return this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
+        return `/** core system styles */\n\n b37-slot { display: none; } \n\n\n` + 
+            this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
     }}, 
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         if (this.ids[tagName]) {
