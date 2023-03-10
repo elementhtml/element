@@ -241,7 +241,12 @@ const Element = Object.defineProperties({}, {
                             return $this.hasAttribute(property.slice(1))
                         } else if (property[0] === '#') {
                             return property.slice(1) in $this
+                        } else if (property[0] === '.') {
+                            return !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
+                        } else if (property[0] === '>') {
+                            return !!$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
+                            property = property.trim()
                             return property in target || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
                         }
                     }, 
@@ -250,6 +255,10 @@ const Element = Object.defineProperties({}, {
                             return $this.getAttribute(property.slice(1))
                         } else if (property[0] === '#') {
                             return $this[property.slice(1)]
+                        } else if (property[0] === '.') {
+                            return $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
+                        } else if (property[0] === '>') {
+                            return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
                             if (property in target) {
                                 return target[property]
