@@ -235,7 +235,6 @@ const Element = Object.defineProperties({}, {
                     $this.constructor.tagPrefixes = Object.assign($this.constructor.repositories.map(r => ({[r]: crypto.randomUUID().replace(/\-/g, '')})))
                 } 
                 $this.__b37QueuedAttributes = {}
-
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
                         if (property[0] === '@') {
