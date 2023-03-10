@@ -238,71 +238,87 @@ const Element = Object.defineProperties({}, {
 
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
-                        if (property in target) {
-                            return true
+                        if (property[0] === '#') {
+                            return property.slice(1) in $this
                         } else {
-                            return !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                            if (property in target) {
+                                return true
+                            } else {
+                                return !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                            }                            
                         }
                     }, 
                     get(target, property, receiver) {
-                        if (property in target) {
-                            return target[property]
+                        if (property[0] === '#') {
+                            return $this[property.slice(1)]
                         } else {
-                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
-                            if (propertyRenderer) {
-                                return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                            if (property in target) {
+                                return target[property]
                             } else {
-                                return undefined
+                                const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                                if (propertyRenderer) {
+                                    return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
+                                } else {
+                                    return undefined
+                                }
                             }
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        if (value && (target[property] === value)) {
-                            return true
+                        if (property[0] === '#') {
+                            return $this[property.slice(1)] = value
                         } else {
-                            if (value === undefined || value === null) {
-                                return this.deleteProperty(target, property)
-                            } else if (value && typeof value == 'object') {
-                                let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
-                                if (propertyRenderer) {
-                                    if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
-                                        const useTagRepository = b37slot.getAttribute('b37-repo'), 
-                                            useTagSuffix = b37slot.getAttribute('b37-suff'), 
-                                            useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagName}`
-                                        if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
-                                            const b37slot = propertyRenderer
-                                            propertyRenderer = document.createElement(useTag)
-                                            Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
-                                            b37slot.replaceWith(propertyRenderer)
-                                        } else {
-                                            throw new TypeError(`Either b37-repo, b37-suff are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
-                                            return false
-                                        }
-                                    }
-                                    Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
-                                    Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
-                                    return true
-                                } else {
-                                    throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.__b37TagId}`)
-                                    return false
-                                }
-                            } else {
-                                target[property] = value
+                            if (value && (target[property] === value)) {
                                 return true
+                            } else {
+                                if (value === undefined || value === null) {
+                                    return this.deleteProperty(target, property)
+                                } else if (value && typeof value == 'object') {
+                                    let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
+                                    if (propertyRenderer) {
+                                        if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
+                                            const useTagRepository = b37slot.getAttribute('b37-repo'), 
+                                                useTagSuffix = b37slot.getAttribute('b37-suff'), 
+                                                useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagName}`
+                                            if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
+                                                const b37slot = propertyRenderer
+                                                propertyRenderer = document.createElement(useTag)
+                                                Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
+                                                b37slot.replaceWith(propertyRenderer)
+                                            } else {
+                                                throw new TypeError(`Either b37-repo, b37-suff are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
+                                                return false
+                                            }
+                                        }
+                                        Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
+                                        Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
+                                        return true
+                                    } else {
+                                        throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.__b37TagId}`)
+                                        return false
+                                    }
+                                } else {
+                                    target[property] = value
+                                    return true
+                                }
                             }
                         }
                     }, 
                     deleteProperty(target, property) {
-                        if (property in target) {
-                            return delete target[property]
+                        if (property[0] === '#') {
+                            return delete $this[property.slice(1)]
                         } else {
-                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
-                            if (propertyRenderer) {
-                                const b37slot = document.createElement('b37-slot')
-                                Element.copyAttributes(propertyRenderer, b37slot, (propertyRenderer.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
-                                propertyElement.replaceWith(b37slot)                                
+                            if (property in target) {
+                                return delete target[property]
+                            } else {
+                                const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                                if (propertyRenderer) {
+                                    const b37slot = document.createElement('b37-slot')
+                                    Element.copyAttributes(propertyRenderer, b37slot, (propertyRenderer.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
+                                    propertyElement.replaceWith(b37slot)                                
+                                }
+                                return true
                             }
-                            return true
                         }
                     }
                 })
