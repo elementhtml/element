@@ -279,6 +279,10 @@ const Element = Object.defineProperties({}, {
                             return $this.getAttribute(propSlice) === stringValue
                         } else if (property[0] === '#') {
                             return $this[property.slice(1)] = value
+                        } else if (property[0] === '.') {
+                            return $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
+                        } else if (property[0] === '>') {
+                            return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
                             if (value && (target[property] === value)) {
                                 return true
@@ -318,11 +322,13 @@ const Element = Object.defineProperties({}, {
                     }, 
                     deleteProperty(target, property) {
                         if (property[0] === '@') {
-                            const propSlice = property.slice(1)                            
-                            $this.removeAttribute(propSlice)
-                            return !$this.hasAttribute(propSlice)
+                            return $this.removeAttribute(property.slice(1))
                         } else if (property[0] === '#') {
                             return delete $this[property.slice(1)]
+                        } else if (property[0] === '.') {
+                            return !$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)?.remove()
+                        } else if (property[0] === '>') {
+                            return !$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)?.remove()
                         } else {
                             if (property in target) {
                                 return delete target[property]
