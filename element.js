@@ -242,11 +242,7 @@ const Element = Object.defineProperties({}, {
                         } else if (property[0] === '#') {
                             return property.slice(1) in $this
                         } else {
-                            if (property in target) {
-                                return true
-                            } else {
-                                return !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
-                            }                            
+                            return property in target || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
                         }
                     }, 
                     get(target, property, receiver) {
