@@ -246,8 +246,7 @@ const Element = Object.defineProperties({}, {
                         } else if (property[0] === '>') {
                             return !!$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
                         } else {
-                            property = property.trim()
-                            return property in target || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                            return property.trim() in target || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.trim()}"]:not(b37-slot)`)
                         }
                     }, 
                     get(target, property, receiver) {
