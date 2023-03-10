@@ -233,8 +233,12 @@ const Element = Object.defineProperties({}, {
                 })
                 if (Array.isArray($this.constructor.repositories) && !$this.constructor.tagPrefixes) {
                     $this.constructor.tagPrefixes = Object.assign($this.constructor.repositories.map(r => ({[r]: crypto.randomUUID().replace(/\-/g, '')})))
-                } 
-                $this.__b37QueuedAttributes = {}
+                }                
+                $this.constructor.b37Constraints = $this.constructor.b37Constraints ?? {}
+                $this.constructor.b37Sanitizers = $this.constructor.b37Sanitizers ?? {}
+                $this.b37LocalConstraints = $this.b37LocalConstraints ?? {}
+                $this.b37LocalSanitizers = $this.b37LocalSanitizers ?? {}
+                $this.b37QueuedAttributes = {}
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
                         if (property[0] === '@') {
@@ -286,6 +290,21 @@ const Element = Object.defineProperties({}, {
                             if (value && (target[property] === value)) {
                                 return true
                             } else {
+                                //put constraint and sanitizer processing here
+                                let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = ''
+                                const sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property]
+                                if (sanitizer && typeof sanitizer == 'function') {
+                                    const givenValue = value && typeof value == 'object' ? JSON.stringify(value) : value
+                                    [value, sanitizedDetails] = sanitizer(value)
+                                    if ((value && typeof value == 'object' ? JSON.stringify(value) : value) !== givenValue) {
+                                        sanitized = true
+                                    }
+                                } else {
+                                    const constraint = $this.b37LocalConstraints[property] ?? $this.constructor.b37Constraints[property]
+                                    if (constraint && typeof constraint == 'function') {
+                                        [withinConstraint, withinConstraintDetails] = constraint(value)
+                                    }
+                                }
                                 if (value === undefined || value === null) {
                                     return this.deleteProperty(target, property)
                                 } else if (value && typeof value == 'object') {
@@ -362,24 +381,24 @@ const Element = Object.defineProperties({}, {
             }            
             b37ProcessQueuedAttributes() {
                 const $this = this
-                Object.keys($this.__b37QueuedAttributes).filter(k => {
-                    return $this.__b37QueuedAttributes[k].requires && typeof $this.__b37QueuedAttributes[k].requires == 'function' ? $this.__b37QueuedAttributes[k].requires() : true
+                Object.keys($this.b37QueuedAttributes).filter(k => {
+                    return $this.b37QueuedAttributes[k].requires && typeof $this.b37QueuedAttributes[k].requires == 'function' ? $this.b37QueuedAttributes[k].requires() : true
                 }).forEach(k => {
-                    if ($this.__b37QueuedAttributes[k].attribute && $this.__b37QueuedAttributes[k].value) {
-                        $this.setAttribute($this.__b37QueuedAttributes[k].attribute, $this.__b37QueuedAttributes[k].value)
-                        if (typeof $this.__b37QueuedAttributes[k].callback == 'function') {
-                            $this.__b37QueuedAttributes[k].callback()
+                    if ($this.b37QueuedAttributes[k].attribute && $this.b37QueuedAttributes[k].value) {
+                        $this.setAttribute($this.b37QueuedAttributes[k].attribute, $this.b37QueuedAttributes[k].value)
+                        if (typeof $this.b37QueuedAttributes[k].callback == 'function') {
+                            $this.b37QueuedAttributes[k].callback()
                         }
                     }
-                    delete $this.__b37QueuedAttributes[k]
+                    delete $this.b37QueuedAttributes[k]
                 })
-                if (!Object.keys($this.__b37QueuedAttributes).length) {
+                if (!Object.keys($this.b37QueuedAttributes).length) {
                     globalThis.clearInterval($this.__b37QueuedAttributeInterval)
                 }
             }
             b37AddQueuedAttribute(attribute, value, requires, callback) {
                 const $this = this
-                $this.__b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
+                $this.b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
                 $this.__b37QueuedAttributeInterval = $this.__b37QueuedAttributeInterval || globalThis.setInterval(function() {
                     $this.b37ProcessQueuedAttributes()
                 }, 1000)
