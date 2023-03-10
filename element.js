@@ -290,8 +290,9 @@ const Element = Object.defineProperties({}, {
                             if (value && (target[property] === value)) {
                                 return true
                             } else {
-                                let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = ''
-                                const sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property], 
+                                let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '', 
+                                    returnValue = undefined
+                                const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property], 
                                     constraint = $this.b37LocalConstraints[property] ?? $this.constructor.b37Constraints[property]
                                 if (sanitizer && typeof sanitizer == 'function') {
                                     [value, sanitized, sanitizedDetails] = sanitizer(value)
@@ -300,7 +301,7 @@ const Element = Object.defineProperties({}, {
                                     [withinConstraint, withinConstraintDetails] = constraint(value)
                                 }
                                 if (value === undefined || value === null) {
-                                    return this.deleteProperty(target, property)
+                                    returnValue = this.deleteProperty(target, property)
                                 } else if (value && typeof value == 'object') {
                                     let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
                                     if (propertyRenderer) {
@@ -314,19 +315,25 @@ const Element = Object.defineProperties({}, {
                                                 b37slot.replaceWith(propertyRenderer)
                                             } else {
                                                 throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
-                                                return false
+                                                returnValue = false
                                             }
                                         }
                                         Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
                                         Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
-                                        return true
+                                        returnValue = true
                                     } else {
                                         throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.__b37TagId}`)
-                                        return false
+                                        returnValue = false
                                     }
                                 } else {
-                                    return !!(target[property] = value)
+                                    returnValue = !!(target[property] = value)
                                 }
+                                $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
+                                    property: property, givenValue: givenValue, value: value, 
+                                    sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
+                                    withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
+                                }}))
+                                return returnValue
                             }
                         }
                     }, 
