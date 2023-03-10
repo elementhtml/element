@@ -238,7 +238,9 @@ const Element = Object.defineProperties({}, {
 
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
-                        if (property[0] === '#') {
+                        if (property[0] === '@') {
+                            return $this.hasAttribute(property.slice(1))
+                        } else if (property[0] === '#') {
                             return property.slice(1) in $this
                         } else {
                             if (property in target) {
@@ -249,7 +251,9 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     get(target, property, receiver) {
-                        if (property[0] === '#') {
+                        if (property[0] === '@') {
+                            return $this.getAttribute(property.slice(1))
+                        } else if (property[0] === '#') {
                             return $this[property.slice(1)]
                         } else {
                             if (property in target) {
@@ -265,7 +269,11 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     set(target, property, value, receiver) {
-                        if (property[0] === '#') {
+                        if (property[0] === '@') {
+                            const propSlice = property.slice(1), stringValue = String(value)
+                            $this.setAttribute(propSlice, stringValue)
+                            return $this.getAttribute(propSlice) === stringValue
+                        } else if (property[0] === '#') {
                             return $this[property.slice(1)] = value
                         } else {
                             if (value && (target[property] === value)) {
@@ -305,7 +313,11 @@ const Element = Object.defineProperties({}, {
                         }
                     }, 
                     deleteProperty(target, property) {
-                        if (property[0] === '#') {
+                        if (property[0] === '@') {
+                            const propSlice = property.slice(1)                            
+                            $this.removeAttribute(propSlice)
+                            return !$this.hasAttribute(propSlice)
+                        } else if (property[0] === '#') {
                             return delete $this[property.slice(1)]
                         } else {
                             if (property in target) {
