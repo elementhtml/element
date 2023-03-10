@@ -285,7 +285,7 @@ const Element = Object.defineProperties({}, {
                                     if (propertyRenderer) {
                                         if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
                                             const useTagRepository = b37slot.getAttribute('b37-repo'), 
-                                                useTagSuffix = b37slot.getAttribute('b37-suff'), 
+                                                useTagSuffix = b37slot.getAttribute('b37-suffix'), 
                                                 useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagName}`
                                             if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
                                                 const b37slot = propertyRenderer
@@ -293,7 +293,7 @@ const Element = Object.defineProperties({}, {
                                                 Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
                                                 b37slot.replaceWith(propertyRenderer)
                                             } else {
-                                                throw new TypeError(`Either b37-repo, b37-suff are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
+                                                throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
                                                 return false
                                             }
                                         }
