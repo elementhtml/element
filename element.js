@@ -48,6 +48,9 @@ const Element = Object.defineProperties({}, {
             .forEach(async customTag => await this.activateTag(customTag))
     }}, 
 
+
+    
+
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function() {
         const themeTag = document.body.getAttribute('b37-theme'), 
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
