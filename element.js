@@ -19,37 +19,35 @@ const Element = Object.defineProperties({}, {
     }},
     _globalObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
-
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this.appliedTheme = this.applyThemeToGlobal()
         this._enscapulateNative()
         for (const element of document.getElementsByTagName('*')) {
-            (!element.tagName.includes('-') || this.id[element.tagName]) && continue
-            await this.activateTag(element.tagName)
-            for (const customElement of document.getElementsByTagName(element.tagName)) {
+            const tagName = element.tagName
+            if ((!tagName.includes('-') || this.id[tagName])) continue
+            await this.activateTag(tagName)
+            for (const customElement of document.getElementsByTagName(tagName)) {
                 this.applyThemeToElement(customElement)
             }
         }
         this._globalObserver = this._globalObserver ?? new MutationObserver(mutationList => {
-            mutationList.forEach(mutationRecord => {
-                mutationRecord.addedNodes.forEach(async addedNode => {
-                    if (addedNode.tagName.includes('-') && !this.ids[addedNode.tagName]) {
-                        await this.activateTag(addedNode.tagName)
-                        document.querySelectorAll(addedNode.tagName).forEach(customElement => this.applyThemeToElement(customElement))
+            for (const mutationRecord of mutationList) {
+                for (const addedNode of mutationRecord.addedNodes) {
+                    const tagName = addedNode.tagName
+                    if (tagName.includes('-') && !this.ids[tagName]) {
+                        await this.activateTag(tagName)
+                        document.querySelectorAll(tagName).forEach(customElement => this.applyThemeToElement(customElement))
                     }
-                })
-            })
+                }
+            }
         })
         this._globalObserver.observe(document, {subtree: true, childList: true, attributes: false})
         this._themeObserver = this._bodyObserver ?? new MutationObserver(mutationList => {
-            mutationList.forEach(mutationRecord => {
-                if (mutationRecord.attributeName == 'b37-theme') {
-                    this.applyThemeToGlobal(true)
-                }
-            })
+            for (const mutationRecord in mutationList) {
+                if (mutationRecord.attributeName == 'b37-theme') this.applyThemeToGlobal(true)
+            }
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
-
     }}, 
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(mutationList => {
