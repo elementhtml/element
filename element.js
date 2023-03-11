@@ -23,11 +23,13 @@ const Element = Object.defineProperties({}, {
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this.appliedTheme = this.applyThemeToGlobal()
         this._enscapulateNative()
-        Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase())))
-            .forEach(async customTag => {
-                await this.activateTag(customTag)
-                document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
-            })
+        for (const element of document.getElementsByTagName('*')) {
+            (!element.tagName.includes('-') || this.id[element.tagName]) && continue
+            await this.activateTag(element.tagName)
+            for (const customElement of document.getElementsByTagName(element.tagName)) {
+                this.applyThemeToElement(customElement)
+            }
+        }
         this._globalObserver = this._globalObserver ?? new MutationObserver(mutationList => {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(async addedNode => {
