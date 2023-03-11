@@ -17,6 +17,10 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
+    _globalObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
+    _themeObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
+
+
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this.appliedTheme = this.applyThemeToGlobal()
         this._enscapulateNative()
@@ -25,7 +29,7 @@ const Element = Object.defineProperties({}, {
                 await this.activateTag(customTag)
                 document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
             })
-        const observer = new MutationObserver(mutationList => {
+        this._globalObserver = this._globalObserver ?? new MutationObserver(mutationList => {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(async addedNode => {
                     if (addedNode.tagName.includes('-') && !this.ids[addedNode.tagName]) {
@@ -35,7 +39,16 @@ const Element = Object.defineProperties({}, {
                 })
             })
         })
-        observer.observe(document, {subtree: true, childList: true, attributes: false})
+        this._globalObserver.observe(document, {subtree: true, childList: true, attributes: false})
+        this._themeObserver = this._bodyObserver ?? new MutationObserver(mutationList => {
+            mutationList.forEach(mutationRecord => {
+                if (mutationRecord.attributeName == 'b37-theme') {
+                    this.applyThemeToGlobal(true)
+                }
+            })
+        })
+        this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
+
     }}, 
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         const observer = new MutationObserver(mutationList => {
