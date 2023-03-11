@@ -1,16 +1,16 @@
 const Element = Object.defineProperties({}, {
-    version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'}, 
-    repositories: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    suffixes: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    ids: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    tagNames: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    extends: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    files: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    styles: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    templates: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    scripts: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
-    constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
+    version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
+    repositories: {configurable: false, enumerable: true, writable: false, value: {}},
+    suffixes: {configurable: false, enumerable: true, writable: false, value: {}},
+    ids: {configurable: false, enumerable: true, writable: false, value: {}},
+    tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
+    extends: {configurable: false, enumerable: true, writable: false, value: {}},
+    files: {configurable: false, enumerable: true, writable: false, value: {}},
+    styles: {configurable: false, enumerable: true, writable: false, value: {}},
+    templates: {configurable: false, enumerable: true, writable: false, value: {}},
+    scripts: {configurable: false, enumerable: true, writable: false, value: {}},
+    classes: {configurable: false, enumerable: true, writable: false, value: {}},
+    constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     themeSheets: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: false, value: undefined},
@@ -49,7 +49,7 @@ const Element = Object.defineProperties({}, {
             }
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
-    }}, 
+    }},
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) {
@@ -63,7 +63,7 @@ const Element = Object.defineProperties({}, {
                 }
             }
         })
-        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})        
+        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
         for (const element of element.shadowRoot.getElementsByTagName('*')) {
             const tagName = element.tagName
             if ((!tagName.includes('-') || this.id[tagName])) continue
@@ -72,9 +72,9 @@ const Element = Object.defineProperties({}, {
                 this.applyThemeToElement(customElement)
             }
         }
-    }}, 
+    }},
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
-        const themeTag = document.body.getAttribute('b37-theme'), 
+        const themeTag = document.body.getAttribute('b37-theme'),
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
         if (themeName && themePage && this.themes[themeName]) {
             this.themeName = themeName  
