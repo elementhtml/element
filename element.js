@@ -76,38 +76,35 @@ const Element = Object.defineProperties({}, {
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
         const themeTag = document.body.getAttribute('b37-theme'),
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
-        if (themeName && themePage && this.themes[themeName]) {
-            this.themeName = themeName  
-            const themePageURL = `${this.themes[this.themeName]}${themePage}.css`
-            let b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
-            if (!b37ThemeLinkTag) {
-                b37ThemeLinkTag = document.createElement('link')
-                b37ThemeLinkTag.setAttribute('rel', 'stylesheet')
-                document.head.appendChild(b37ThemeLinkTag)
-            }
-            b37ThemeLinkTag.setAttribute('http', themePageURL)
-            b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
-        }
-        if (recurse) {
-            Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0)
-                .forEach(async element => await this.applyThemeToElement(element))
+        if (!(themeName && themePage && this.themes[themeName])) return
+        this.themeName = themeName
+        const themePageURL = `${this.themes[this.themeName]}${themePage}.css`, 
+            b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`) 
+            ?? document.head.appendChild(document.createElement('link'))
+        b37ThemeLinkTag.setAttribute('rel', 'stylesheet')
+        b37ThemeLinkTag.setAttribute('http', themePageURL)
+        b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
+        if (!recurse) return 
+        for (const element of document.getElementsByTagName('*')) {
+            const tagName = element.tagName
+            if ((!tagName.includes('-') || this.id[tagName])) continue
+            this.applyThemeToElement(element)
         }
     }}, 
-    applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element, themeName) {
+    applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         const themeSheet = element.getAttribute('b37-theme')
-        if (themeSheet && this.themes[this.themeName]) {
-            const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`, 
-                themeSheetText = await fetch(themePageURL).then(r => r.text())
-            let themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
-            if (!themeSheetElement) {
-                themeSheetElement = document.createElement('style')
-                themeSheetElement.setAttribute('b37-theme', themeSheet)
-                element.querySelector('style').after(themeSheetElement)
-            }
-            themeSheetElement.innerHTML = themeSheetText
+        if (!(themeSheet && this.themes[this.themeName])) return
+        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`, 
+            themeSheetText = await fetch(themePageURL).then(r => r.text()), 
+            themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`) 
+            ?? element.shadowRoot.getElementsByTagName('style')[0].insertAdjacentElement('afterend', document.createElement('style'))
+        themeSheetElement.setAttribute('b37-theme', themeSheet)
+        themeSheetElement.innerHTML = themeSheetText
+        for (const subElement of element.shadowRoot.getElementsByTagName('*')) {
+            const tagName = subElement.tagName
+            if ((!tagName.includes('-') || this.id[tagName])) continue
+            this.applyThemeToElement(subElement)
         }
-        Array.from(element.shadowRoot.querySelectorAll('*')).filter(subElement => subElement.tagName.indexOf('-') > 0)
-            .forEach(async subElement => await this.applyThemeToElement(subElement))
     }}, 
 
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
