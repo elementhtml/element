@@ -78,25 +78,25 @@ const Element = Object.defineProperties({}, {
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
         if (!(themeName && themePage && this.themes[themeName])) return
         this.themeName = themeName
-        const themePageURL = `${this.themes[this.themeName]}${themePage}.css`, 
-            b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`) 
+        const themePageURL = `${this.themes[this.themeName]}${themePage}.css`,
+            b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
             ?? document.head.appendChild(document.createElement('link'))
         b37ThemeLinkTag.setAttribute('rel', 'stylesheet')
         b37ThemeLinkTag.setAttribute('http', themePageURL)
         b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
-        if (!recurse) return 
+        if (!recurse) return
         for (const element of document.getElementsByTagName('*')) {
             const tagName = element.tagName
             if ((!tagName.includes('-') || this.id[tagName])) continue
             this.applyThemeToElement(element)
         }
-    }}, 
+    }},
     applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         const themeSheet = element.getAttribute('b37-theme')
         if (!(themeSheet && this.themes[this.themeName])) return
-        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`, 
-            themeSheetText = await fetch(themePageURL).then(r => r.text()), 
-            themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`) 
+        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
+            themeSheetText = await fetch(themePageURL).then(r => r.text()),
+            themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
             ?? element.shadowRoot.getElementsByTagName('style')[0].insertAdjacentElement('afterend', document.createElement('style'))
         themeSheetElement.setAttribute('b37-theme', themeSheet)
         themeSheetElement.innerHTML = themeSheetText
@@ -105,7 +105,7 @@ const Element = Object.defineProperties({}, {
             if ((!tagName.includes('-') || this.id[tagName])) continue
             this.applyThemeToElement(subElement)
         }
-    }}, 
+    }},
 
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         let inheritance = [tagId], count = 1000
