@@ -34,16 +34,17 @@ const Element = Object.defineProperties({}, {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     const tagName = addedNode.tagName
-                    if (tagName.includes('-') && !this.ids[tagName]) {
-                        await this.activateTag(tagName)
-                        document.querySelectorAll(tagName).forEach(customElement => this.applyThemeToElement(customElement))
+                    if ((!tagName.includes('-') || this.id[tagName])) continue
+                    await this.activateTag(tagName)
+                    for (const customElement of document.getElementsByTagName(tagName)) {
+                        this.applyThemeToElement(customElement)
                     }
                 }
             }
         })
         this._globalObserver.observe(document, {subtree: true, childList: true, attributes: false})
         this._themeObserver = this._bodyObserver ?? new MutationObserver(mutationList => {
-            for (const mutationRecord in mutationList) {
+            for (const mutationRecord of mutationList) {
                 if (mutationRecord.attributeName == 'b37-theme') this.applyThemeToGlobal(true)
             }
         })
@@ -51,21 +52,27 @@ const Element = Object.defineProperties({}, {
     }}, 
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
         element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(mutationList => {
-            mutationList.forEach(mutationRecord => {
-                mutationRecord.addedNodes.forEach(addedNode => {
-                    if (addedNode?.tagName?.includes('-')) {
-                        await this.activateTag(addedNode.tagName)
-                        element.shadowRoot.querySelectorAll(addedNode.tagName).forEach(customElement => this.applyThemeToElement(addedNode))
+            for (const mutationRecord of mutationList) {
+                for (const addedNode of mutationRecord.addedNodes) {
+                    const tagName = addedNode.tagName
+                    if (tagName.includes('-')) {
+                        await this.activateTag(tagName)
+                        for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
+                            this.applyThemeToElement(addedNode)
+                        }
                     }
-                })
-            })
+                }
+            }
         })
-        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
-        Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
-            .forEach(async customTag => {
-                await this.activateTag(customTag)
-                element.shadowRoot.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
-            })
+        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})        
+        for (const element of element.shadowRoot.getElementsByTagName('*')) {
+            const tagName = element.tagName
+            if ((!tagName.includes('-') || this.id[tagName])) continue
+            await this.activateTag(tagName)
+            for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
+                this.applyThemeToElement(customElement)
+            }
+        }
     }}, 
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
         const themeTag = document.body.getAttribute('b37-theme'), 
