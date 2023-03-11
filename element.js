@@ -55,11 +55,10 @@ const Element = Object.defineProperties({}, {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     const tagName = addedNode.tagName
-                    if (tagName.includes('-')) {
-                        await this.activateTag(tagName)
-                        for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
-                            this.applyThemeToElement(addedNode)
-                        }
+                    if ((!tagName.includes('-') || this.id[tagName])) continue
+                    await this.activateTag(tagName)
+                    for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
+                        this.applyThemeToElement(addedNode)
                     }
                 }
             }
