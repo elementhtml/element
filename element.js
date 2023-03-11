@@ -12,25 +12,26 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
+    appliedTheme: {configurable: false, enumerable: true, writable: false, value: undefined},
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
         value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
-        const themeName = this.applyThemeToGlobal()
+        this.appliedTheme = this.applyThemeToGlobal()
         this._enscapulateNative()
         Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
             .forEach(async customTag => {
                 await this.activateTag(customTag)
-                document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement, themeName))
+                document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
             })
         const observer = new MutationObserver(mutationList => {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(async addedNode => {
-                    if (addedNode.tagName.includes('-')) {
+                    if (addedNode.tagName.includes('-') && !this.ids[addedNode.tagName]) {
                         await this.activateTag(addedNode.tagName)
-                        document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement, themeName))
+                        document.querySelectorAll(addedNode.tagName).forEach(customElement => this.applyThemeToElement(customElement))
                     }
                 })
             })
@@ -42,19 +43,19 @@ const Element = Object.defineProperties({}, {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(addedNode => {
                     if (addedNode?.tagName?.includes('-')) {
-                        this.activateTag(addedNode.tagName)
+                        await this.activateTag(addedNode.tagName)
+                        element.shadowRoot.querySelectorAll(addedNode.tagName).forEach(customElement => this.applyThemeToElement(addedNode))
                     }
                 })
             })
         })
         observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
         Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
-            .forEach(async customTag => await this.activateTag(customTag))
+            .forEach(async customTag => {
+                await this.activateTag(customTag)
+                element.shadowRoot.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
+            })
     }}, 
-
-
-
-
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
         const themeTag = document.body.getAttribute('b37-theme'), 
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
