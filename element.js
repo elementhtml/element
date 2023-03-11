@@ -12,9 +12,8 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
+    themeSheets: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: false, value: undefined},
-    _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
-        value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
     }},
@@ -161,7 +160,8 @@ const Element = Object.defineProperties({}, {
             this.templates[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<template>')+10, this.files[tagId].indexOf('</template>')).trim()
             this.scripts[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<script>')+8, this.files[tagId].indexOf('</script>'))
                                         .trim()
-            const extendsClassAliasGroups = this.scripts[tagId].match(this._extendsRegExp)?.groups, 
+            const extendsRegExp = /class\s+extends\s+`(?<extends>.+)`\s+\{/, 
+                extendsClassAliasGroups = this.scripts[tagId].match(extendsRegExp)?.groups, 
                 extendsClassAlias = extendsClassAliasGroups ? (extendsClassAliasGroups.extends) : undefined
             let extendsClassId = extendsClassAlias.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
             if (extendsClassId) {
@@ -171,7 +171,7 @@ const Element = Object.defineProperties({}, {
                     await this.loadTagAssetsFromId(extendsClassId)
                 }            
             }
-            let sanitizedScript = this.scripts[tagId].replace(this._extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
+            let sanitizedScript = this.scripts[tagId].replace(extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
             this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
             const Element = this
             this.classes[tagId].__b37TagId = tagId
