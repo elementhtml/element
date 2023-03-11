@@ -107,8 +107,11 @@ const Element = Object.defineProperties({}, {
         }
     }},
 
+
+    
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
-        let inheritance = [tagId], count = 1000
+        const inheritance = [tagId]
+        let count = 1000
         while (count && tagId &&  !this._isNative(tagId) && this.extends[tagId]) { 
             inheritance.push(this.extends[tagId])
             tagId = this.extends[tagId] 
@@ -126,13 +129,15 @@ const Element = Object.defineProperties({}, {
                 return this.getInheritance(b).indexOf(a)
             }
         }).map((v, i, a) => (i == a.length-1) ? [v, this.extends[v]] : v).flat()
-    }}, 
+    }},  
     copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
         source.getAttributeNames().filter(a => keep.includes(a) || (autoKeepB37) ? a.startsWith('b37-') : false).forEach(a => {
             const aValue = source.getAttribute(a)
             aValue === '' ? target.toggleAttribute(a, true) : (aValue ? target.setAttribute(a, aValue) : undefined)
         })
     }}, 
+
+
     stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
