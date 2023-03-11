@@ -15,16 +15,15 @@ const Element = Object.defineProperties({}, {
     themeSheets: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: false, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
-        return tagName && ((tagName.startsWith('HTML') && tagName.endsWith('Element')) || tagName == 'Image' || tagName == 'Audio')
+        return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
     _globalObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: false, value: undefined},
 
-
     autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
         this.appliedTheme = this.applyThemeToGlobal()
         this._enscapulateNative()
-        Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
+        Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase())))
             .forEach(async customTag => {
                 await this.activateTag(customTag)
                 document.querySelectorAll(customTag).forEach(customElement => this.applyThemeToElement(customElement))
@@ -51,7 +50,7 @@ const Element = Object.defineProperties({}, {
 
     }}, 
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        const observer = new MutationObserver(mutationList => {
+        element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(mutationList => {
             mutationList.forEach(mutationRecord => {
                 mutationRecord.addedNodes.forEach(addedNode => {
                     if (addedNode?.tagName?.includes('-')) {
