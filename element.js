@@ -12,6 +12,7 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}}, 
     constructors: {configurable: false, enumerable: true, writable: false, value: {}}, 
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
+    appliedThemeName: {configurable: false, enumerable: true, writable: false, value: undefined},
     _extendsRegExp: {configurable: false, enumerable: false, writable: false, 
         value: /class\s+extends\s+`(?<extends>.+)`\s+\{/}, 
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
@@ -47,17 +48,11 @@ const Element = Object.defineProperties({}, {
             .forEach(async customTag => await this.activateTag(customTag))
     }}, 
 
-
-
-
-
-
-    applyTheme: {configurable: false, enumerable: true, writable: false, value: async function() {
+    applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function() {
         const themeTag = document.body.getAttribute('b37-theme'), 
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
         if (themeName && themePage && this.themes[themeName]) {
             const themePageURL = `${this.themes[themeName]}${themePage}.css`
-            await fetch(themePageURL).then(r => r.text())
             let b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
             if (!b37ThemeLinkTag) {
                 b37ThemeLinkTag = document.createElement('link')
@@ -67,40 +62,25 @@ const Element = Object.defineProperties({}, {
             b37ThemeLinkTag.setAttribute('http', themePageURL)
             b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
         }
-
-
- 
-
-        const observer = new MutationObserver(mutationList => {
-            mutationList.forEach(mutationRecord => {
-                mutationRecord.addedNodes.forEach(addedNode => {
-                    if (addedNode.tagName.includes('-')) {
-                        this.applyThemeShadow(addedNode.tagName)
-                    }
-                })
-            })
-        })
-        observer.observe(document, {subtree: true, childList: true, attributes: false})
-        Array.from(new Set(Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
-            .forEach(async customTag => await this.applyThemeShadow(customTag))
+        Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0)
+            .forEach(async element => await this.applyThemeToElement(element, themeName))
     }}, 
-    applyThemeShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        const observer = new MutationObserver(mutationList => {
-            mutationList.forEach(mutationRecord => {
-                mutationRecord.addedNodes.forEach(addedNode => {
-                    if (addedNode?.tagName?.includes('-')) {
-                        this.applyThemeShadow(addedNode.tagName)
-                    }
-                })
-            })
-        })
-        observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
-        Array.from(new Set(Array.from(element.shadowRoot.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0).map(element => element.tagName.toLowerCase()))).sort()
-            .forEach(async customTag => await this.applyThemeShadow(customTag))
+    applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element, themeName) {
+        const themeSheet = element.getAttribute('b37-theme')
+        if (themeSheet && this.themes[themeName]) {
+            const themeSheetURL = `${this.themes[themeName]}${themeSheet}.css`, 
+                themeSheetText = await fetch(themePageURL).then(r => r.text())
+            let themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
+            if (!themeSheetElement) {
+                themeSheetElement = document.createElement('style')
+                themeSheetElement.setAttribute('b37-theme', themeSheet)
+                element.querySelector('style').after(themeSheetElement)
+            }
+            themeSheetElement.innerHTML = themeSheetText
+        }
+        Array.from(element.shadowRoot.querySelectorAll('*')).filter(subElement => subElement.tagName.indexOf('-') > 0)
+            .forEach(async subElement => await this.applyThemeToElement(subElement, themeName))
     }}, 
-
-
-
 
 
 
