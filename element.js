@@ -78,8 +78,8 @@ const Element = Object.defineProperties({}, {
     }}, 
     applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element, themeName) {
         const themeSheet = element.getAttribute('b37-theme')
-        if (themeSheet && this.themes[themeName]) {
-            const themeSheetURL = `${this.themes[themeName]}${themeSheet}.css`, 
+        if (themeSheet && this.themes[this.themeName]) {
+            const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`, 
                 themeSheetText = await fetch(themePageURL).then(r => r.text())
             let themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
             if (!themeSheetElement) {
@@ -90,11 +90,8 @@ const Element = Object.defineProperties({}, {
             themeSheetElement.innerHTML = themeSheetText
         }
         Array.from(element.shadowRoot.querySelectorAll('*')).filter(subElement => subElement.tagName.indexOf('-') > 0)
-            .forEach(async subElement => await this.applyThemeToElement(subElement, themeName))
+            .forEach(async subElement => await this.applyThemeToElement(subElement))
     }}, 
-
-
-
 
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         let inheritance = [tagId], count = 1000
