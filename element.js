@@ -60,7 +60,8 @@ const Element = Object.defineProperties({}, {
         const themeTag = document.body.getAttribute('b37-theme'), 
             [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
         if (themeName && themePage && this.themes[themeName]) {
-            const themePageURL = `${this.themes[themeName]}${themePage}.css`
+            this.themeName = themeName  
+            const themePageURL = `${this.themes[this.themeName]}${themePage}.css`
             let b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
             if (!b37ThemeLinkTag) {
                 b37ThemeLinkTag = document.createElement('link')
@@ -72,9 +73,8 @@ const Element = Object.defineProperties({}, {
         }
         if (recurse) {
             Array.from(document.querySelectorAll('*')).filter(element => element.tagName.indexOf('-') > 0)
-                .forEach(async element => await this.applyThemeToElement(element, themeName))
+                .forEach(async element => await this.applyThemeToElement(element))
         }
-        return themeName
     }}, 
     applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element, themeName) {
         const themeSheet = element.getAttribute('b37-theme')
