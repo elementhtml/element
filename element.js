@@ -22,7 +22,7 @@ const Element = Object.defineProperties({}, {
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement ?? (this.appliedTheme = this.applyThemeToGlobal())
         rootElement ?? this._enscapulateNative()
-        const domRoot = rootElement?rootElement.shadowRoot:document, observerRoot = rootElement ?? this, 
+        const domRoot = rootElement ? rootElement.shadowRoot : document, observerRoot = rootElement ?? this, 
             observerName = rootElement ? '_b37Observer' : '_globalObserver'
         for (const element of domRoot.getElementsByTagName('*')) {
             if (!element.tagName.includes('-')) continue
