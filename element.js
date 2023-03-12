@@ -58,22 +58,19 @@ const Element = Object.defineProperties({}, {
         if (!(themeName && themeSheet && this.themes[themeName])) return
         this.appliedTheme = themeName
         const domRoot = rootElement ? rootElement.shadowRoot : document, themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
-            themeSheetText = await fetch(themeSheetURL).then(r => r.text()),
             themeSheetElement = domRoot.querySelector(`style[b37-theme="${themeTag}"]`)
             ?? (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
                 document.createElement('style'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
-        themeSheetElement.innerHTML = themeSheetText
+        this.themeSheets[themeTag] = this.themeSheets[themeTag] ?? await fetch(themeSheetURL).then(r => r.text())
+        themeSheetElement.innerHTML = this.themeSheets[themeTag]
         if (!recurse) return
         const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element.tagName.includes('-')) continue
             this.ids[element.tagName.toLowerCase()] && this.applyTheme(element, true)
         }
-    }},
-
-
-    
+    }},    
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         const inheritance = [tagId]
         let count = 1000
