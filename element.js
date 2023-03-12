@@ -100,6 +100,9 @@ const Element = Object.defineProperties({}, {
     }},
 
 
+
+
+
     stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
@@ -164,6 +167,11 @@ const Element = Object.defineProperties({}, {
             }            
         }
     }}, 
+
+
+
+
+    
     activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
         if (tagName.includes('-') && (forceReload || !this.ids[tagName]))  {
             const tagId = this.getTagId(tagName)
