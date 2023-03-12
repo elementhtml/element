@@ -21,7 +21,7 @@ const Element = Object.defineProperties({}, {
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement ?? this.applyTheme() ?? this._enscapulateNative()
-        const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName, 
+        const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], 
             observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element?.tagName?.includes('-')) continue
@@ -38,7 +38,7 @@ const Element = Object.defineProperties({}, {
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] ?? await this.activateTag(tagName)
                     for (const customElement of domTraverser.call(domRoot, tagName)) {
-                        this.applyThemeToElement(customElement)
+                        this.applyTheme(customElement, true)
                     }
                 }
             }
@@ -65,11 +65,10 @@ const Element = Object.defineProperties({}, {
         themeSheetElement.setAttribute('b37-theme', themeTag)
         themeSheetElement.innerHTML = themeSheetText
         if (!recurse) return
-        const domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName
-        for (const element of domTraverser.call(domRoot)('*')) {
-            if (!tagName.includes('-')) continue
-            const tagName = element.tagName.toLowerCase()
-            this.ids[tagName] && this.applyThemeToElement(element)
+        const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
+        for (const element of domTraverser.call(domRoot, '*')) {
+            if (!element.tagName.includes('-')) continue
+            this.ids[element.tagName.toLowerCase()] && this.applyThemeToElement(element)
         }
     }},
 
