@@ -25,7 +25,7 @@ const Element = Object.defineProperties({}, {
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName, 
             observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
         for (const element of domTraverser.call(domRoot, '*')) {
-            if (!element.tagName.includes('-')) continue
+            if (!element?.tagName?.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] ?? await this.activateTag(tagName)
             for (const customElement of domTraverser.call(domRoot, tagName)) {
@@ -35,7 +35,7 @@ const Element = Object.defineProperties({}, {
         observerRoot[observerName] = observerRoot[observerName] ?? new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
-                    if (!addedNode.tagName.includes('-')) continue 
+                    if (!addedNode?.tagName?.includes('-')) continue 
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] ?? await this.activateTag(tagName)
                     for (const customElement of domTraverser.domRoot(this, tagName)) {
