@@ -37,7 +37,7 @@ const Element = Object.defineProperties({}, {
                     if (!addedNode?.tagName?.includes('-')) continue 
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] ?? await this.activateTag(tagName)
-                    for (const customElement of domTraverser.domRoot(this, tagName)) {
+                    for (const customElement of domTraverser.call(domRoot, tagName)) {
                         this.applyThemeToElement(customElement)
                     }
                 }
@@ -57,33 +57,19 @@ const Element = Object.defineProperties({}, {
             [themeName = 'theme', themeSheet = 'index'] = themeTag ? themeTag.split('-') : []
         if (!(themeName && themeSheet && this.themes[themeName])) return
         this.appliedTheme = themeName
-        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
+        const domRoot = rootElement ? rootElement.shadowRoot : document, themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
             themeSheetText = await fetch(themeSheetURL).then(r => r.text()),
-            themeSheetElement = (rootElement?rootElement.shadowRoot:document).querySelector(`style[b37-theme="${themeTag}"]`)
-            ?? (rootElement?rootElement.shadowRoot.querySelectorAll('style')[0]:document.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
+            themeSheetElement = domRoot.querySelector(`style[b37-theme="${themeTag}"]`)
+            ?? (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
                 document.createElement('style'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
         themeSheetElement.innerHTML = themeSheetText
         if (!recurse) return
-        for (const element of document.getElementsByTagName('*')) {
+        const domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName
+        for (const element of domTraverser.call(domRoot)('*')) {
+            if (!tagName.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
-            if ((!tagName.includes('-') || this.ids[tagName])) continue
-            this.applyThemeToElement(element)
-        }
-    }},
-    applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        //const themeSheet = element.getAttribute('b37-theme')
-        //if (!(themeSheet && this.themes[this.themeName])) return
-        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
-            themeSheetText = await fetch(themePageURL).then(r => r.text()),
-            themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
-            ?? element.shadowRoot.getElementsByTagName('style')[0].insertAdjacentElement('afterend', document.createElement('style'))
-        themeSheetElement.setAttribute('b37-theme', themeSheet)
-        themeSheetElement.innerHTML = themeSheetText
-        for (const subElement of element.shadowRoot.getElementsByTagName('*')) {
-            const tagName = subElement.tagName.toLowerCase()
-            if ((!tagName.includes('-') || this.ids[tagName])) continue
-            this.applyThemeToElement(subElement)
+            this.ids[tagName] && this.applyThemeToElement(element)
         }
     }},
 
