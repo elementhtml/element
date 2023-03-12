@@ -107,20 +107,16 @@ const Element = Object.defineProperties({}, {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
         for (const t of template.content.querySelectorAll('template[id]')) {
-            const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr): idAttr, 
+            const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr) : idAttr, 
                 tNode = document.createElement('template')
-            if (!this.templates[tId]) {
-                await this.loadTagAssetsFromId(tId)
-            }
+            this.templates[tId] ?? await this.loadTagAssetsFromId(tId)
             tNode.innerHTML = await this.stackTemplates(tId)
             const clonedNode = tNode.content.cloneNode(true)
             if (t.hasAttribute('slot')) {
                 const tSlot = t.getAttribute('slot'), targetSlot = clonedNode.querySelector(`slot[name="${tSlot}"]`) 
                     || tSlot ? clonedNode.querySelector(tSlot) : clonedNode.querySelector('slot') 
                     || clonedNode.querySelector('slot')
-                if (targetSlot)  {
-                    targetSlot.replaceWith(await this.stackTemplates(undefined, t.innerHTML))
-                }
+                targetSlot && targetSlot.replaceWith(await this.stackTemplates(undefined, t.innerHTML)) 
             }
             t.replaceWith(clonedNode)
         }
