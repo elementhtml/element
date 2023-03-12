@@ -13,7 +13,7 @@ const Element = Object.defineProperties({}, {
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     themeSheets: {configurable: false, enumerable: true, writable: false, value: {}},
-    appliedTheme: {configurable: false, enumerable: true, writable: false, value: undefined},
+    appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
@@ -24,17 +24,17 @@ const Element = Object.defineProperties({}, {
         this._enscapulateNative()
         for (const element of document.getElementsByTagName('*')) {
             const tagName = element.tagName
-            if ((!tagName.includes('-') || this.id[tagName])) continue
+            if (!tagName.includes('-') || this.ids[tagName]) continue
             await this.activateTag(tagName)
             for (const customElement of document.getElementsByTagName(tagName)) {
                 this.applyThemeToElement(customElement)
             }
         }
-        this._globalObserver = this._globalObserver ?? new MutationObserver(mutationList => {
+        this._globalObserver = this._globalObserver ?? new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     const tagName = addedNode.tagName
-                    if ((!tagName.includes('-') || this.id[tagName])) continue
+                    if (!tagName.includes('-') || this.ids[tagName]) continue
                     await this.activateTag(tagName)
                     for (const customElement of document.getElementsByTagName(tagName)) {
                         this.applyThemeToElement(customElement)
@@ -51,11 +51,11 @@ const Element = Object.defineProperties({}, {
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
     }},
     autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(mutationList => {
+        element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     const tagName = addedNode.tagName
-                    if ((!tagName.includes('-') || this.id[tagName])) continue
+                    if ((!tagName.includes('-') || this.ids[tagName])) continue
                     await this.activateTag(tagName)
                     for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
                         this.applyThemeToElement(addedNode)
@@ -66,7 +66,7 @@ const Element = Object.defineProperties({}, {
         observer.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
         for (const element of element.shadowRoot.getElementsByTagName('*')) {
             const tagName = element.tagName
-            if ((!tagName.includes('-') || this.id[tagName])) continue
+            if ((!tagName.includes('-') || this.ids[tagName])) continue
             await this.activateTag(tagName)
             for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
                 this.applyThemeToElement(customElement)
@@ -87,7 +87,7 @@ const Element = Object.defineProperties({}, {
         if (!recurse) return
         for (const element of document.getElementsByTagName('*')) {
             const tagName = element.tagName
-            if ((!tagName.includes('-') || this.id[tagName])) continue
+            if ((!tagName.includes('-') || this.ids[tagName])) continue
             this.applyThemeToElement(element)
         }
     }},
@@ -102,7 +102,7 @@ const Element = Object.defineProperties({}, {
         themeSheetElement.innerHTML = themeSheetText
         for (const subElement of element.shadowRoot.getElementsByTagName('*')) {
             const tagName = subElement.tagName
-            if ((!tagName.includes('-') || this.id[tagName])) continue
+            if ((!tagName.includes('-') || this.ids[tagName])) continue
             this.applyThemeToElement(subElement)
         }
     }},
