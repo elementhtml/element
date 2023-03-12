@@ -22,13 +22,13 @@ const Element = Object.defineProperties({}, {
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement ?? (this.appliedTheme = this.applyThemeToGlobal())
         rootElement ?? this._enscapulateNative()
-        const domRoot = rootElement ? rootElement.shadowRoot : document, observerRoot = rootElement ?? this, 
-            observerName = rootElement ? '_b37Observer' : '_globalObserver'
-        for (const element of domRoot.getElementsByTagName('*')) {
+        const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName, 
+            observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
+        for (const element of domTraverser('*')) {
             if (!element.tagName.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] ?? await this.activateTag(tagName)
-            for (const customElement of domRoot.getElementsByTagName(tagName)) {
+            for (const customElement of domTraverser(tagName)) {
                 this.applyThemeToElement(customElement)
             }
         }
@@ -38,7 +38,7 @@ const Element = Object.defineProperties({}, {
                     if (!addedNode.tagName.includes('-')) continue 
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] ?? await this.activateTag(tagName)
-                    for (const customElement of domRoot.getElementsByTagName(tagName)) {
+                    for (const customElement of domTraverser(tagName)) {
                         this.applyThemeToElement(customElement)
                     }
                 }
