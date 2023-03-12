@@ -20,8 +20,7 @@ const Element = Object.defineProperties({}, {
     _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        rootElement ?? (this.appliedTheme = this.applyThemeToGlobal())
-        rootElement ?? this._enscapulateNative()
+        rootElement ?? this.applyTheme() ?? this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = rootElement ? domRoot.querySelectorAll : domRoot.getElementsByTagName, 
             observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
         for (const element of domTraverser.call(domRoot, '*')) {
@@ -48,22 +47,23 @@ const Element = Object.defineProperties({}, {
         if (rootElement) return
         this._themeObserver = this._themeObserver ?? new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) {
-                if (mutationRecord.attributeName == 'b37-theme') this.applyThemeToGlobal(true)
+                if (mutationRecord.attributeName == 'b37-theme') this.applyTheme(undefined, true)
             }
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
     }},
-    applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
-        const themeTag = document.body.getAttribute('b37-theme'),
-            [themeName = 'theme', themePage = 'index'] = themeTag ? themeTag.split('-') : []
-        if (!(themeName && themePage && this.themes[themeName])) return
-        this.themeName = themeName
-        const themePageURL = `${this.themes[this.themeName]}${themePage}.css`,
-            b37ThemeLinkTag = document.head.querySelector(`link[rel="stylesheet"][b37-theme]`)
-            ?? document.head.appendChild(document.createElement('link'))
-        b37ThemeLinkTag.setAttribute('rel', 'stylesheet')
-        b37ThemeLinkTag.setAttribute('http', themePageURL)
-        b37ThemeLinkTag.setAttribute('b37-theme', themeTag)
+    applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
+        const themeTag = (rootElement?rootElement:document.body).getAttribute('b37-theme'),
+            [themeName = 'theme', themeSheet = 'index'] = themeTag ? themeTag.split('-') : []
+        if (!(themeName && themeSheet && this.themes[themeName])) return
+        this.appliedTheme = themeName
+        const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
+            themeSheetText = await fetch(themeSheetURL).then(r => r.text()),
+            themeSheetElement = (rootElement?rootElement.shadowRoot:document).querySelector(`style[b37-theme="${themeTag}"]`)
+            ?? (rootElement?rootElement.shadowRoot.querySelectorAll('style')[0]:document.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
+                document.createElement('style'))
+        themeSheetElement.setAttribute('b37-theme', themeTag)
+        themeSheetElement.innerHTML = themeSheetText
         if (!recurse) return
         for (const element of document.getElementsByTagName('*')) {
             const tagName = element.tagName.toLowerCase()
@@ -72,8 +72,8 @@ const Element = Object.defineProperties({}, {
         }
     }},
     applyThemeToElement: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        const themeSheet = element.getAttribute('b37-theme')
-        if (!(themeSheet && this.themes[this.themeName])) return
+        //const themeSheet = element.getAttribute('b37-theme')
+        //if (!(themeSheet && this.themes[this.themeName])) return
         const themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
             themeSheetText = await fetch(themePageURL).then(r => r.text()),
             themeSheetElement = element.shadowRoot.querySelector(`style[b37-theme="${themeSheet}"]`)
