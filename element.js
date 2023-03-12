@@ -28,7 +28,7 @@ const Element = Object.defineProperties({}, {
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] ?? await this.activateTag(tagName)
             for (const customElement of domTraverser.call(domRoot, tagName)) {
-                this.applyThemeToElement(customElement)
+                this.applyTheme(customElement, true)
             }
         }
         observerRoot[observerName] = observerRoot[observerName] ?? new MutationObserver(async mutationList => {
@@ -68,7 +68,7 @@ const Element = Object.defineProperties({}, {
         const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element.tagName.includes('-')) continue
-            this.ids[element.tagName.toLowerCase()] && this.applyThemeToElement(element)
+            this.ids[element.tagName.toLowerCase()] && this.applyTheme(element, true)
         }
     }},
 
