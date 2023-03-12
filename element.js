@@ -93,9 +93,9 @@ const Element = Object.defineProperties({}, {
     }},  
     copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
         for (const a in source.getAttributeNames()) {
-            if (!(keep.includes(a) || ((autoKeepB37) && a.startsWith('b37-')))) continue
+            if (!keep.includes(a) && !((autoKeepB37) && a.startsWith('b37-'))) continue
             const aValue = source.getAttribute(a)
-            aValue === '' ? target.toggleAttribute(a, true) : (aValue ? target.setAttribute(a, aValue) : undefined)
+            aValue === '' ? target.toggleAttribute(a, true) : aValue && target.setAttribute(a, aValue)
         }
     }},
 
