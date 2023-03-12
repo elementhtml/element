@@ -92,11 +92,12 @@ const Element = Object.defineProperties({}, {
         }).map((v, i, a) => (i == a.length-1) ? [v, this.extends[v]] : v).flat()
     }},  
     copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
-        source.getAttributeNames().filter(a => keep.includes(a) || (autoKeepB37) ? a.startsWith('b37-') : false).forEach(a => {
+        for (const a in source.getAttributeNames()) {
+            if (!(keep.includes(a) || ((autoKeepB37) && a.startsWith('b37-')))) continue
             const aValue = source.getAttribute(a)
             aValue === '' ? target.toggleAttribute(a, true) : (aValue ? target.setAttribute(a, aValue) : undefined)
-        })
-    }}, 
+        }
+    }},
 
 
     stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
