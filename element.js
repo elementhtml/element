@@ -74,11 +74,9 @@ const Element = Object.defineProperties({}, {
     }},    
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         const inheritance = [tagId]
-        let count = 1000
-        while (count && tagId &&  !this._isNative(tagId) && this.extends[tagId]) { 
+        while (tagId && !this._isNative(tagId) && this.extends[tagId]) { 
             inheritance.push(this.extends[tagId])
             tagId = this.extends[tagId] 
-            count = count - 1
         }
         return inheritance
     }},
