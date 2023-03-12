@@ -159,9 +159,9 @@ const Element = Object.defineProperties({}, {
     _enscapulateNative: {configurable: false, enumerable: false, writable: false, value: function() {
         for (const nativeClassName of Reflect.ownKeys(globalThis)) {
             if (!this._isNative(nativeClassName) || (this.classes[nativeClassName] && this.constructors[nativeClassName])) continue
-            this.classes[nativeClassName] = this.classes[nativeClassName] || ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
+            this.classes[nativeClassName] = this.classes[nativeClassName] ?? ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
                 || (nativeClassName === 'HTMLAudioElement' && globalThis['Audio']) || globalThis[nativeClassName])
-            this.constructors[nativeClassName] == (this.constructors[nativeClassName] || this._base(this.classes[nativeClassName]))
+            this.constructors[nativeClassName] = this.constructors[nativeClassName] ?? this._base(this.classes[nativeClassName])
         }
     }},
 
