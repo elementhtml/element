@@ -20,7 +20,8 @@ const Element = Object.defineProperties({}, {
     _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        rootElement ?? this.applyTheme() ?? this._enscapulateNative()
+        rootElement ?? this.applyTheme() 
+        rootElement ?? this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], 
             observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
         for (const element of domTraverser.call(domRoot, '*')) {
