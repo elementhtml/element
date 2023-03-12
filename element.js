@@ -156,57 +156,19 @@ const Element = Object.defineProperties({}, {
         globalThis.customElements.define(tagName, this.constructors[tagId],
             ((baseTagName != 'HTMLElement' && this._isNative(baseTagName)) ? {extends: baseTagName} : undefined))
     }},
-
-
-    render: {configurable: false, enumerable: true, writable: false, value: async function(element, tagId, renderFunction=true, style=true, template=true) {
-        if (element?.shadowRoot && typeof element.shadowRoot?.querySelector == 'function' && typeof element.shadowRoot?.prepend == 'function') {
-            const useStyle = style && typeof style == 'string' ? (this.styles[style] ? this.styles[style] : style) : undefined
-            useStyle = useStyle || (style && typeof style == 'boolean' && tagId && this.styles[tagId] ? this.styles[tagId] : undefined)
-            useStyle = style === false ? undefined : useStyle
-            if (useStyle) {
-                const styleNode = document.createElement('style'), existingStyleNode = element.shadowRoot.querySelector('style')
-                styleNode.innerHTML = useStyle
-                existingStyleNode.after(styleNode)
-            }
-            const useTemplate = template && typeof template == 'string' ? (this.templates[template] ? this.templates[template] : template) : undefined
-            useTemplate = useTemplate || (template && typeof template == 'boolean' && tagId && this.templates[tagId] ? this.templates[tagId] : undefined)
-            useTemplate = template === false ? undefined : useTemplate
-            if (useTemplate) {
-                const mainStyleNode = element.shadowRoot.querySelector('style'), renderStyleNode = element.shadowRoot.querySelector('style + style')
-                mainStyleNode = mainStyleNode ? mainStyleNode.cloneNode(true) : undefined
-                renderStyleNode = renderStyleNode ? renderStyleNode.cloneNode(true) : undefined
-                element.shadowRoot.innerHTML = await this.stackTemplates(undefined, useTemplate)
-                if (renderStyleNode) {
-                    element.shadowRoot.prepend(renderStyleNode)
-                }
-                if (mainStyleNode) {
-                    element.shadowRoot.prepend(mainStyleNode)
-                }
-            }
-            const renderFunction = renderFunction && typeof renderFunction == 'function' ? renderFunction : undefined
-            renderFunction = renderFunction || (renderFunction && typeof renderFunction == 'boolean' && tagId && this.constructors[tagId] && typeof this.constructors[tagId].__render == 'function' ? this.constructors[tagId].__render : undefined)
-            renderFunction = renderFunction === false ? undefined : renderFunction
-            if (renderFunction && typeof renderFunction == 'function') {
-                await renderFunction(element, tagId, style, template)
-            }
-        }
-    }}, 
     _enscapulateNative: {configurable: false, enumerable: false, writable: false, value: function() {
-        Reflect.ownKeys(globalThis).filter(k => this._isNative(k)).forEach(nativeClassName => {
-            if (!this.classes[nativeClassName]) {
-                if (nativeClassName == 'HTMLImageElement') {
-                    this.classes[nativeClassName] = globalThis['Image']
-                } else if (nativeClassName == 'HTMLAudioElement') {
-                    this.classes[nativeClassName] = globalThis['Audio']
-                } else {
-                    this.classes[nativeClassName] = globalThis[nativeClassName]
-                }
-            }
-            if (!this.constructors[nativeClassName]) {
-                this.constructors[nativeClassName] = this._base(this.classes[nativeClassName])
-            }
-        })
-    }}, 
+        for (const nativeClassName of Reflect.ownKeys(globalThis)) {
+            if (!this._isNative(nativeClassName) || (this.classes[nativeClassName] && this.constructors[nativeClassName])) continue
+            this.classes[nativeClassName] = this.classes[nativeClassName] || ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
+                || (nativeClassName === 'HTMLAudioElement' && globalThis['Audio']) || globalThis[nativeClassName])
+            this.constructors[nativeClassName] == (this.constructors[nativeClassName] || this._base(this.classes[nativeClassName]))
+        }
+    }},
+
+
+
+
+
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
