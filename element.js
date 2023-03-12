@@ -98,41 +98,33 @@ const Element = Object.defineProperties({}, {
             aValue === '' ? target.toggleAttribute(a, true) : aValue && target.setAttribute(a, aValue)
         }
     }},
-
-
-
-
-
     stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
         for (const t of template.content.querySelectorAll('template[id]')) {
-            const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr) : idAttr, 
+            const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr) : idAttr,
                 tNode = document.createElement('template')
             this.templates[tId] ?? await this.loadTagAssetsFromId(tId)
             tNode.innerHTML = await this.stackTemplates(tId)
             const clonedNode = tNode.content.cloneNode(true)
             if (t.hasAttribute('slot')) {
-                const tSlot = t.getAttribute('slot'), targetSlot = clonedNode.querySelector(`slot[name="${tSlot}"]`) 
-                    || tSlot ? clonedNode.querySelector(tSlot) : clonedNode.querySelector('slot') 
+                const tSlot = t.getAttribute('slot'), targetSlot = clonedNode.querySelector(`slot[name="${tSlot}"]`)
+                    || tSlot ? clonedNode.querySelector(tSlot) : clonedNode.querySelector('slot')
                     || clonedNode.querySelector('slot')
-                targetSlot && targetSlot.replaceWith(await this.stackTemplates(undefined, t.innerHTML)) 
+                targetSlot && targetSlot.replaceWith(await this.stackTemplates(undefined, t.innerHTML))
             }
             t.replaceWith(clonedNode)
         }
         return template.innerHTML
-    }}, 
+    }},
     stackStyles: {configurable: false, enumerable: true, writable: false, value: function(tagId) {
         return `/** core system styles */\n\n b37-slot { display: none; } \n\n\n` + 
             this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
     }}, 
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
-        if (this.ids[tagName]) {
-            return this.ids[tagName]
-        } else {
-            const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-            return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
-        }
+        if (this.ids[tagName]) return this.ids[tagName]
+        const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
+        return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
     }}, 
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (forceReload || !this.files[tagId]) {
