@@ -146,25 +146,18 @@ const Element = Object.defineProperties({}, {
         this.classes[tagId].b37TagId = tagId
         this.constructors[tagId] = class extends this.classes[tagId] {constructor() {super()}}
     }},
-
-
-
-
-    
     activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
-        if (tagName.includes('-') && (forceReload || !this.ids[tagName]))  {
-            const tagId = this.getTagId(tagName)
-            this.ids[tagName] = tagId
-            this.tagNames[tagId] = tagName
-            await this.loadTagAssetsFromId(tagId, forceReload)
-            const baseTagName = this.getInheritance(tagId).pop() || 'HTMLElement'
-            if (baseTagName != 'HTMLElement' && this._isNative(baseTagName)) {
-                globalThis.customElements.define(tagName, this.constructors[tagId], {extends: baseTagName})
-            } else {
-                globalThis.customElements.define(tagName, this.constructors[tagId])
-            }
-        }
-    }}, 
+        if ((!forceReload && this.ids[tagName]) || !tagName.includes('-')) return
+        const tagId = this.getTagId(tagName)
+        this.ids[tagName] = tagId
+        this.tagNames[tagId] = tagName
+        await this.loadTagAssetsFromId(tagId, forceReload)
+        const baseTagName = this.getInheritance(tagId).pop() || 'HTMLElement'
+        globalThis.customElements.define(tagName, this.constructors[tagId],
+            ((baseTagName != 'HTMLElement' && this._isNative(baseTagName)) ? {extends: baseTagName} : undefined))
+    }},
+
+
     render: {configurable: false, enumerable: true, writable: false, value: async function(element, tagId, renderFunction=true, style=true, template=true) {
         if (element?.shadowRoot && typeof element.shadowRoot?.querySelector == 'function' && typeof element.shadowRoot?.prepend == 'function') {
             const useStyle = style && typeof style == 'string' ? (this.styles[style] ? this.styles[style] : style) : undefined
