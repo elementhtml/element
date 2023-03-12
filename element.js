@@ -17,61 +17,39 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
+    _b37Observer: {configurable: false, enumerable: false, writable: true, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    autoload: {configurable: false, enumerable: true, writable: false, value: async function() {
-        this.appliedTheme = this.applyThemeToGlobal()
-        this._enscapulateNative()
-        for (const element of document.getElementsByTagName('*')) {
+    autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        rootElement ?? (this.appliedTheme = this.applyThemeToGlobal())
+        rootElement ?? this._enscapulateNative()
+        for (const element of (rootElement?rootElement.shadowRoot:document).getElementsByTagName('*')) {
             if (!element.tagName.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] ?? await this.activateTag(tagName)
-            for (const customElement of document.getElementsByTagName(tagName)) {
+            for (const customElement of (rootElement?rootElement.shadowRoot:document).getElementsByTagName(tagName)) {
                 this.applyThemeToElement(customElement)
             }
         }
-        this._globalObserver = this._globalObserver ?? new MutationObserver(async mutationList => {
+        (rootElement?rootElement:this)._b37Observer = (rootElement?rootElement:this)._b37Observer ?? new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     if (!addedNode.tagName.includes('-')) continue 
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] ?? await this.activateTag(tagName)
-                    for (const customElement of document.getElementsByTagName(tagName)) {
+                    for (const customElement of (rootElement?rootElement.shadowRoot:document).getElementsByTagName(tagName)) {
                         this.applyThemeToElement(customElement)
                     }
                 }
             }
         })
-        this._globalObserver.observe(document, {subtree: true, childList: true, attributes: false})
+        (rootElement?rootElement:this)._b37Observer.observe((rootElement?rootElement.shadowRoot:document), {subtree: true, childList: true, attributes: false})
+        if (rootElement) return
         this._themeObserver = this._themeObserver ?? new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) {
                 if (mutationRecord.attributeName == 'b37-theme') this.applyThemeToGlobal(true)
             }
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
-    }},
-    autoloadShadow: {configurable: false, enumerable: true, writable: false, value: async function(element) {
-        element._b37ElementObserver = element._b37ElementObserver ?? new MutationObserver(async mutationList => {
-            for (const mutationRecord of mutationList) {
-                for (const addedNode of mutationRecord.addedNodes) {
-                    const tagName = addedNode.tagName.toLowerCase()
-                    if ((!tagName.includes('-') || this.ids[tagName])) continue
-                    await this.activateTag(tagName)
-                    for (const customElement of element.shadowRoot.getElementsByTagName(tagName)) {
-                        this.applyThemeToElement(addedNode)
-                    }
-                }
-            }
-        })
-        element._b37ElementObserver.observe(element.shadowRoot, {subtree: true, childList: true, attributes: false})
-        for (const subElement of element.shadowRoot.getElementsByTagName('*')) {
-            const tagName = subElement.tagName.toLowerCase()
-            if ((!tagName.includes('-') || this.ids[tagName])) continue
-            await this.activateTag(tagName)
-            for (const customElement of subElement.shadowRoot.getElementsByTagName(tagName)) {
-                this.applyThemeToElement(customElement)
-            }
-        }
     }},
     applyThemeToGlobal: {configurable: false, enumerable: true, writable: false, value: async function(recurse=false) {
         const themeTag = document.body.getAttribute('b37-theme'),
@@ -458,7 +436,7 @@ const Element = Object.defineProperties({}, {
                     templateNode.innerHTML = innerHTML
                     shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
-                Element.autoloadShadow($this)
+                Element.autoloadElement($this)
             }
             static get observedAttributes() {
                 return []
