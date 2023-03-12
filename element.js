@@ -120,41 +120,32 @@ const Element = Object.defineProperties({}, {
     stackStyles: {configurable: false, enumerable: true, writable: false, value: function(tagId) {
         return `/** core system styles */\n\n b37-slot { display: none; } \n\n\n` + 
             this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
-    }}, 
+    }},
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         if (this.ids[tagName]) return this.ids[tagName]
         const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
         return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
-    }}, 
+    }},
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
-        if (forceReload || !this.files[tagId]) {
-            this.files[tagId] = await fetch(tagId).then(r => r.text())
-            this.styles[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<style>')+7, this.files[tagId].indexOf('</style>')).trim()
-            this.templates[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<template>')+10, this.files[tagId].indexOf('</template>')).trim()
-            this.scripts[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<script>')+8, this.files[tagId].indexOf('</script>'))
-                                        .trim()
-            const extendsRegExp = /class\s+extends\s+`(?<extends>.+)`\s+\{/, 
-                extendsClassAliasGroups = this.scripts[tagId].match(extendsRegExp)?.groups, 
-                extendsClassAlias = extendsClassAliasGroups ? (extendsClassAliasGroups.extends) : undefined
-            let extendsClassId = extendsClassAlias.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
-            if (extendsClassId) {
-                extendsClassId = this._isNative(extendsClassId) ? extendsClassId : (new URL(extendsClassId, document.location)).href
-                this.extends[tagId] = extendsClassId
-                if (!this.files[extendsClassId] && !this._isNative(extendsClassId)) {
-                    await this.loadTagAssetsFromId(extendsClassId)
-                }            
-            }
-            let sanitizedScript = this.scripts[tagId].replace(extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
-            this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
-            const Element = this
-            this.classes[tagId].__b37TagId = tagId
-            this.constructors[tagId] = class extends this.classes[tagId] {
-                constructor() {
-                    super()
-                }
-            }            
+        if (!forceReload && this.files[tagId]) return
+        this.files[tagId] = await fetch(tagId).then(r => r.text())
+        this.styles[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<style>')+7, this.files[tagId].indexOf('</style>')).trim()
+        this.templates[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<template>')+10, this.files[tagId].indexOf('</template>')).trim()
+        this.scripts[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<script>')+8, this.files[tagId].indexOf('</script>')).trim()
+        const extendsRegExp = /class\s+extends\s+`(?<extends>.+)`\s+\{/,
+            extendsClassAliasGroups = this.scripts[tagId].match(extendsRegExp)?.groups, extendsClassAlias = extendsClassAliasGroups?.extends
+        let extendsClassId = extendsClassAlias?.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
+        if (extendsClassId) {
+            this._isNative(extendsClassId) || (extendsClassId = (new URL(extendsClassId, document.location)).href)
+            this.extends[tagId] = extendsClassId
+            this.files[extendsClassId] || this._isNative(extendsClassId) || await this.loadTagAssetsFromId(extendsClassId)
         }
-    }}, 
+        let sanitizedScript = this.scripts[tagId].replace(extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
+        this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
+        const Element = this
+        this.classes[tagId].b37TagId = tagId
+        this.constructors[tagId] = class extends this.classes[tagId] {constructor() {super()}}
+    }},
 
 
 
@@ -340,7 +331,7 @@ const Element = Object.defineProperties({}, {
                                                 Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
                                                 b37slot.replaceWith(propertyRenderer)
                                             } else {
-                                                throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.__b37TagId} property ${property}`)
+                                                throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.b37TagId} property ${property}`)
                                                 returnValue = false
                                             }
                                         }
@@ -348,7 +339,7 @@ const Element = Object.defineProperties({}, {
                                         Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
                                         returnValue = true
                                     } else {
-                                        throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.__b37TagId}`)
+                                        throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.b37TagId}`)
                                         returnValue = false
                                     }
                                 } else {
@@ -409,10 +400,10 @@ const Element = Object.defineProperties({}, {
                 const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
                 shadowRoot.innerHTML = ''
                 const styleNode = document.createElement('style')
-                styleNode.innerHTML = Element.stackStyles(this.constructor.__b37TagId)
+                styleNode.innerHTML = Element.stackStyles(this.constructor.b37TagId)
                 shadowRoot.appendChild(styleNode)
                 const templateNode = document.createElement('template')
-                Element.stackTemplates(this.constructor.__b37TagId).then(innerHTML => {
+                Element.stackTemplates(this.constructor.b37TagId).then(innerHTML => {
                     templateNode.innerHTML = innerHTML
                     shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
