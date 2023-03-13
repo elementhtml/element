@@ -12,7 +12,6 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
-    themeSheets: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
@@ -68,9 +67,9 @@ const Element = Object.defineProperties({}, {
     }},
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         const inheritance = [tagId]
-        while (tagId && !this._isNative(tagId) && this.extends[tagId]) { 
+        while (tagId && this.extends[tagId] && !this._isNative(tagId)) {
             inheritance.push(this.extends[tagId])
-            tagId = this.extends[tagId] 
+            tagId = this.extends[tagId]
         }
         return inheritance
     }},
