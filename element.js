@@ -150,8 +150,6 @@ const Element = Object.defineProperties({}, {
             this.constructors[nativeClassName] ||= this._base(this.classes[nativeClassName])
         }
     }},
-
-
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
@@ -296,38 +294,26 @@ const Element = Object.defineProperties({}, {
                 })
                 Element.autoload($this)
             }
-            static get observedAttributes() {
-                return []
-            }
-            attributeChangedCallback(attrName, oldVal, newVal) {
-                this[attrName] = newVal
-            }            
+            static get observedAttributes() { return [] }
+            attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }            
             b37ProcessQueuedAttributes() {
                 const $this = this
-                Object.keys($this.b37QueuedAttributes).filter(k => {
-                    return $this.b37QueuedAttributes[k].requires && typeof $this.b37QueuedAttributes[k].requires == 'function' ? $this.b37QueuedAttributes[k].requires() : true
-                }).forEach(k => {
+                for (const k in $this.b37QueuedAttributes) {
+                    if (typeof $this.b37QueuedAttributes[k]?.requires === 'function' && $this.b37QueuedAttributes[k].requires() === false) continue
                     if ($this.b37QueuedAttributes[k].attribute && $this.b37QueuedAttributes[k].value) {
                         $this.setAttribute($this.b37QueuedAttributes[k].attribute, $this.b37QueuedAttributes[k].value)
-                        if (typeof $this.b37QueuedAttributes[k].callback == 'function') {
-                            $this.b37QueuedAttributes[k].callback()
-                        }
+                        typeof $this.b37QueuedAttributes[k].callback === 'function' && $this.b37QueuedAttributes[k].callback()
                     }
                     delete $this.b37QueuedAttributes[k]
-                })
-                if (!Object.keys($this.b37QueuedAttributes).length) {
-                    globalThis.clearInterval($this.__b37QueuedAttributeInterval)
                 }
+                if (Object.keys($this.b37QueuedAttributes).length === 0) globalThis.clearInterval($this.__b37QueuedAttributeInterval)
             }
             b37AddQueuedAttribute(attribute, value, requires, callback) {
                 const $this = this
                 $this.b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
-                $this.__b37QueuedAttributeInterval = $this.__b37QueuedAttributeInterval || globalThis.setInterval(function() {
-                    $this.b37ProcessQueuedAttributes()
-                }, 1000)
+                $this.__b37QueuedAttributeInterval ||= globalThis.setInterval(() => $this.b37ProcessQueuedAttributes(), 1000)
             }
         }
     }}
 })
 export { Element }
-
