@@ -182,40 +182,24 @@ const Element = Object.defineProperties({}, {
                 $this.b37QueuedAttributes = {}
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
-                        if (property[0] === '@') {
-                            return $this.hasAttribute(property.slice(1))
-                        } else if (property[0] === '#') {
-                            return property.slice(1) in $this
-                        } else if (property[0] === '.') {
-                            return !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
-                        } else if (property[0] === '>') {
-                            return !!$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
-                        } else {
-                            return property.trim() in target || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.trim()}"]:not(b37-slot)`)
-                        }
-                    }, 
+                        if (!'@#.>'.includes(property[0])) return property.trim() in target 
+                            || !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.trim()}"]:not(b37-slot)`)
+                        return ((property[0] === '@') && $this.hasAttribute(property.slice(1)))
+                            || ((property[0] === '#') && property.slice(1) in $this)
+                            || ((property[0] === '.') && !!$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
+                            || ((property[0] === '>') && !!$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
+                    },
                     get(target, property, receiver) {
-                        if (property[0] === '@') {
-                            return $this.getAttribute(property.slice(1))
-                        } else if (property[0] === '#') {
-                            return $this[property.slice(1)]
-                        } else if (property[0] === '.') {
-                            return $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
-                        } else if (property[0] === '>') {
-                            return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
-                        } else {
+                        if (!'@#.>'.includes(property[0])) {
                             property = property.trim()
-                            if (property in target) {
-                                return target[property]
-                            } else {
-                                const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
-                                if (propertyRenderer) {
-                                    return Object.assign({}, (propertyRenderer.b37Dataset ?? {}))
-                                } else {
-                                    return undefined
-                                }
-                            }
+                            if (property in target) return target[property]
+                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]:not(b37-slot)`)
+                            return propertyRenderer ? Object.assign({}, (propertyRenderer.b37Dataset || {})) : undefined
                         }
+                        return ((property[0] === '@') && $this.getAttribute(property.slice(1)))
+                            || ((property[0] === '#') && $this[property.slice(1)])
+                            || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
+                            || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     set(target, property, value, receiver) {
                         if (property[0] === '@') {
