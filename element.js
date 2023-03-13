@@ -152,21 +152,17 @@ const Element = Object.defineProperties({}, {
     }},
 
 
-
-
-
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
                 super()
                 const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs=[]) => {
                     let tag = document.querySelector(querySelectorTemplate.replace(/\$B37/g, src))
-                    if (!tag) {
-                        tag = document.createElement(tagName)
-                        tag.setAttribute(srcAttrName, src)
-                        otherAttrs.forEach(a => tag.setAttribute(...a))
-                        appendTo.append(tag)
-                    }
+                    if (tag) return
+                    tag = document.createElement(tagName)
+                    tag.setAttribute(srcAttrName, src)
+                    otherAttrs.forEach(a => tag.setAttribute(...a))
+                    appendTo.append(tag)
                 }
                 ;($this.constructor.b37Js || []).forEach(src => {
                     addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body)
