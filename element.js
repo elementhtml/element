@@ -77,7 +77,7 @@ const Element = Object.defineProperties({}, {
         return Array.from(new Set(tagIdList)).filter(t => this.extends[t]).sort((a, b) => 
             ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
             .map((v, i, a) => (i === a.length-1) ? [v, this.extends[v]] : v).flat()
-    }},  
+    }},
     copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
         for (const a in source.getAttributeNames()) {
             if (!keep.includes(a) && !((autoKeepB37) && a.startsWith('b37-'))) continue
@@ -167,7 +167,7 @@ const Element = Object.defineProperties({}, {
                 for (const moduleName in $this.constructor.b37Wasm) {
                     if ($this.constructor.b37WasmModules[moduleName]) continue
                     $this.constructor.b37WasmModules[moduleName] = true
-                    WebAssembly.instantiateStreaming(fetch($this.constructor.b37Wasm[moduleName].src), 
+                    WebAssembly.instantiateStreaming(fetch($this.constructor.b37Wasm[moduleName].src),
                         $this.constructor.b37Wasm[moduleName].importObject).then(importResult => 
                             $this.constructor.b37WasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.b37WasmModules[moduleName] = {})
@@ -203,9 +203,9 @@ const Element = Object.defineProperties({}, {
                         if ('@#.>'.includes(property[0])) {
                             property = property.trim()
                             if (value && (target[property] === value)) return true
-                            let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '', 
+                            let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '',
                                 returnValue = undefined
-                            const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] || $this.constructor.b37Sanitizers[property], 
+                            const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] || $this.constructor.b37Sanitizers[property],
                                 constraint = $this.b37LocalConstraints[property] || $this.constructor.b37Constraints[property]
                             typeof sanitizer === 'function' && ([value, sanitized, sanitizedDetails] = sanitizer(value))
                             typeof constraint === 'function' && ([withinConstraint, withinConstraintDetails] = constraint(value))
@@ -214,7 +214,7 @@ const Element = Object.defineProperties({}, {
                                 let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
                                 if (propertyRenderer) {
                                     if (propertyRenderer.tagName.toLowerCase() === 'b37-slot') {
-                                        const useTagRepository = b37slot.getAttribute('b37-repo'), 
+                                        const useTagRepository = b37slot.getAttribute('b37-repo'),
                                             useTagSuffix = b37slot.getAttribute('b37-suffix')
                                         if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
                                             const useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagSuffix}`, b37slot = propertyRenderer
@@ -237,7 +237,7 @@ const Element = Object.defineProperties({}, {
                                 returnValue = !!(target[property] = value)
                             }
                             $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
-                                property: property, givenValue: givenValue, value: value, sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
+                                property: property, givenValue: givenValue, value: value, sanitized: sanitized, sanitizedDetails: sanitizedDetails,
                                 withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
                             }}))
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
@@ -265,7 +265,7 @@ const Element = Object.defineProperties({}, {
                                 if (propertyRenderer) {
                                     const b37slot = document.createElement('b37-slot')
                                     Element.copyAttributes(propertyRenderer, b37slot, (propertyRenderer.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
-                                    propertyElement.replaceWith(b37slot)                                
+                                    propertyElement.replaceWith(b37slot)
                                 }
                                 returnValue = true
                             }
@@ -295,7 +295,7 @@ const Element = Object.defineProperties({}, {
                 Element.autoload($this)
             }
             static get observedAttributes() { return [] }
-            attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }            
+            attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
             b37ProcessQueuedAttributes() {
                 const $this = this
                 for (const k in $this.b37QueuedAttributes) {
