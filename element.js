@@ -157,34 +157,23 @@ const Element = Object.defineProperties({}, {
             constructor() {
                 super()
                 const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs=[]) => {
-                    let tag = document.querySelector(querySelectorTemplate.replace(/\$B37/g, src))
-                    if (tag) return
-                    tag = document.createElement(tagName)
+                    if (document.querySelector(querySelectorTemplate.replace(/\$B37/g, src))) return
+                    const tag = appendTo.appendChild(document.createElement(tagName))
                     tag.setAttribute(srcAttrName, src)
-                    otherAttrs.forEach(a => tag.setAttribute(...a))
-                    appendTo.append(tag)
+                    for (const a of otherAttrs) tag.setAttribute(...a)
                 }
-                ;($this.constructor.b37Js || []).forEach(src => {
-                    addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body)
-                })
-                ;($this.constructor.b37Mjs || []).forEach(src => {
-                    addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body, [['type', 'module']])
-                })
-                ;($this.constructor.b37Css || []).forEach(src => {
-                    addSrcToDocument('link[rel="stylesheet"][href="$B37"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
-                })
-                $this.constructor.b37WasmModules = $this.constructor.b37WasmModules ?? {}
-                Object.keys($this.constructor.b37Wasm || {}).forEach(moduleName => {
-                    if ($this.constructor.b37WasmModules[moduleName] === undefined) {
-                        $this.constructor.b37WasmModules[moduleName] = true
-                        WebAssembly.instantiateStreaming(fetch($this.constructor.b37Wasm[moduleName].src), 
-                            $this.constructor.b37Wasm[moduleName].importObject).then(importResult => 
-                                $this.constructor.b37WasmModules[moduleName] = importResult
-                        ).catch(e => {
-                            $this.constructor.b37WasmModules[moduleName] = false
-                        })
-                    }
-                })
+                for (const src of ($this.constructor.b37Js || [])) addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body)
+                for (const src of ($this.constructor.b37Mjs || [])) addSrcToDocument('script[src="$B37"]', src, 'script', 'src', document.body, [['type', 'module']])
+                for (const src of ($this.constructor.b37Css || [])) addSrcToDocument('link[rel="stylesheet"][href="$B37"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
+                $this.constructor.b37WasmModules ||= {}
+                for (const moduleName in $this.constructor.b37Wasm) {
+                    if ($this.constructor.b37WasmModules[moduleName]) continue
+                    $this.constructor.b37WasmModules[moduleName] = true
+                    WebAssembly.instantiateStreaming(fetch($this.constructor.b37Wasm[moduleName].src), 
+                        $this.constructor.b37Wasm[moduleName].importObject).then(importResult => 
+                            $this.constructor.b37WasmModules[moduleName] = importResult
+                    ).catch(e => $this.constructor.b37WasmModules[moduleName] = {})
+                }
                 if (Array.isArray($this.constructor.repositories) && !$this.constructor.tagPrefixes) {
                     $this.constructor.tagPrefixes = Object.assign($this.constructor.repositories.map(r => ({[r]: crypto.randomUUID().replace(/\-/g, '')})))
                 }                
