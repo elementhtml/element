@@ -174,13 +174,11 @@ const Element = Object.defineProperties({}, {
                             $this.constructor.b37WasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.b37WasmModules[moduleName] = {})
                 }
-                if (Array.isArray($this.constructor.repositories) && !$this.constructor.tagPrefixes) {
-                    $this.constructor.tagPrefixes = Object.assign($this.constructor.repositories.map(r => ({[r]: crypto.randomUUID().replace(/\-/g, '')})))
-                }                
-                $this.constructor.b37Constraints = $this.constructor.b37Constraints ?? {}
-                $this.constructor.b37Sanitizers = $this.constructor.b37Sanitizers ?? {}
-                $this.b37LocalConstraints = $this.b37LocalConstraints ?? {}
-                $this.b37LocalSanitizers = $this.b37LocalSanitizers ?? {}
+                if (!$this.constructor.tagPrefixes) for (r in ($this.constructor.repositories || [])) $this.constructor.tagPrefixes[r] = crypto.randomUUID().replace(/\-/g, '')
+                $this.constructor.b37Constraints ||= {}
+                $this.constructor.b37Sanitizers ||= {}
+                $this.b37LocalConstraints ||= {}
+                $this.b37LocalSanitizers ||= {}
                 $this.b37QueuedAttributes = {}
                 $this.b37Dataset = new Proxy($this.dataset, {
                     has(target, property) {
