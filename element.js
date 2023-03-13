@@ -249,6 +249,7 @@ const Element = Object.defineProperties({}, {
                                     handler: 'set', property: property, isValid: isValid, validatorDetails: validatorDetails
                                 }}))
                             } 
+                            return returnValue
                         }
                         return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
                             || ((property[0] === '#') && ($this[property.slice(1)] = value))
@@ -256,17 +257,9 @@ const Element = Object.defineProperties({}, {
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     deleteProperty(target, property) {
-                        if (property[0] === '@') {
-                            return $this.removeAttribute(property.slice(1))
-                        } else if (property[0] === '#') {
-                            return delete $this[property.slice(1)]
-                        } else if (property[0] === '.') {
-                            return !$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)?.remove()
-                        } else if (property[0] === '>') {
-                            return !$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)?.remove()
-                        } else {
+                        if ('@#.>'.includes(property[0])) {
                             property = property.trim()
-                            let returnValue = undefined
+                            let returnValue
                             if (property in target) {
                                 returnValue = delete target[property]
                             } else {
@@ -278,27 +271,28 @@ const Element = Object.defineProperties({}, {
                                 }
                                 returnValue = true
                             }
-                            const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
-                            if (validator && typeof validator == 'function') {
+                            const validator = $this.b37LocalValidator || $this.constructor.b37Validator
+                            if (typeof validator === 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
                                 $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
-                                    handler: 'deleteProperty', property: property, 
-                                    isValid: isValid, validatorDetails: validatorDetails
+                                    handler: 'deleteProperty', property: property, isValid: isValid, validatorDetails: validatorDetails
                                 }}))
                             } 
                             return returnValue
                         }
+                        return ((property[0] === '@') && $this.removeAttribute(property.slice(1)))
+                            || ((property[0] === '#') && delete $this[property.slice(1)])
+                            || ((property[0] === '.') && !$this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)?.remove())
+                            || ((property[0] === '>') && !$this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)?.remove())
                     }
                 })
-                const shadowRoot = this.shadowRoot || this.attachShadow({mode: 'open'})
-                shadowRoot.innerHTML = ''
-                const styleNode = document.createElement('style')
-                styleNode.innerHTML = Element.stackStyles(this.constructor.b37TagId)
-                shadowRoot.appendChild(styleNode)
-                const templateNode = document.createElement('template')
+                $this.shadowRoot || $this.attachShadow({mode: 'open'})
+                $this.shadowRoot.innerHTML = ''
+                $this.shadowRoot.appendChild(document.createElement('style')).innerHTML = Element.stackStyles(this.constructor.b37TagId)
                 Element.stackTemplates(this.constructor.b37TagId).then(innerHTML => {
+                    const templateNode = document.createElement('template')
                     templateNode.innerHTML = innerHTML
-                    shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                    $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
                 Element.autoload($this)
             }
