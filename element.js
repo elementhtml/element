@@ -215,7 +215,7 @@ const Element = Object.defineProperties({}, {
                             if (value && typeof value === 'object') {
                                 let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
                                 if (propertyRenderer) {
-                                    if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
+                                    if (propertyRenderer.tagName.toLowerCase() === 'b37-slot') {
                                         const useTagRepository = b37slot.getAttribute('b37-repo'), 
                                             useTagSuffix = b37slot.getAttribute('b37-suffix')
                                         if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
@@ -229,36 +229,29 @@ const Element = Object.defineProperties({}, {
                                         }
                                     }
                                     for (const k in propertyRenderer.b37Dataset) (k in value) || delete propertyRenderer.b37Dataset[k]
-
-                                    Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
+                                    for (const k in value) if (propertyRenderer.b37Dataset[k] !== value[k]) propertyRenderer.b37Dataset[k] = value[k]
                                     returnValue = true
                                 } else {
                                     throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.b37TagId}`)
                                     returnValue = false
                                 }
+                            } else {
+                                returnValue = !!(target[property] = value)
                             }
-                            value ?? (returnValue = !!(target[property] = value))
-
                             $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
-                                property: property, givenValue: givenValue, value: value, 
-                                sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
+                                property: property, givenValue: givenValue, value: value, sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
                                 withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
                             }}))
-                            const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
-                            if (validator && typeof validator == 'function') {
+                            const validator = $this.b37LocalValidator || $this.constructor.b37Validator
+                            if (typeof validator == 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
                                 $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
-                                    handler: 'set', property: property, 
-                                    isValid: isValid, validatorDetails: validatorDetails
+                                    handler: 'set', property: property, isValid: isValid, validatorDetails: validatorDetails
                                 }}))
                             } 
-                            return returnValue
-                            
-
-
                         }
                         return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
-                            || ((property[0] === '#') && $this[property.slice(1)] = value)
+                            || ((property[0] === '#') && ($this[property.slice(1)] = value))
                             || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
