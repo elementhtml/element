@@ -202,73 +202,65 @@ const Element = Object.defineProperties({}, {
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     set(target, property, value, receiver) {
-                        if (property[0] === '@') {
-                            return $this.setAttribute(property.slice(1), value)
-                        } else if (property[0] === '#') {
-                            return $this[property.slice(1)] = value
-                        } else if (property[0] === '.') {
-                            return $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`)
-                        } else if (property[0] === '>') {
-                            return $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`)
-                        } else {
+                        if ('@#.>'.includes(property[0])) {
                             property = property.trim()
-                            if (value && (target[property] === value)) {
-                                return true
-                            } else {
-                                let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '', 
-                                    returnValue = undefined
-                                const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] ?? $this.constructor.b37Sanitizers[property], 
-                                    constraint = $this.b37LocalConstraints[property] ?? $this.constructor.b37Constraints[property]
-                                if (sanitizer && typeof sanitizer == 'function') {
-                                    [value, sanitized, sanitizedDetails] = sanitizer(value)
-                                } 
-                                if (constraint && typeof constraint == 'function') {
-                                    [withinConstraint, withinConstraintDetails] = constraint(value)
-                                }
-                                if (value === undefined || value === null) {
-                                    returnValue = this.deleteProperty(target, property)
-                                } else if (value && typeof value == 'object') {
-                                    let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
-                                    if (propertyRenderer) {
-                                        if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
-                                            const useTagRepository = b37slot.getAttribute('b37-repo'), 
-                                                useTagSuffix = b37slot.getAttribute('b37-suffix')
-                                            if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
-                                                const useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagSuffix}`, b37slot = propertyRenderer
-                                                propertyRenderer = document.createElement(useTag)
-                                                Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
-                                                b37slot.replaceWith(propertyRenderer)
-                                            } else {
-                                                throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.b37TagId} property ${property}`)
-                                                returnValue = false
-                                            }
+                            if (value && (target[property] === value)) return true
+                            let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '', 
+                                returnValue = undefined
+                            const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] || $this.constructor.b37Sanitizers[property], 
+                                constraint = $this.b37LocalConstraints[property] || $this.constructor.b37Constraints[property]
+                            typeof sanitizer === 'function' && ([value, sanitized, sanitizedDetails] = sanitizer(value))
+                            typeof constraint === 'function' && ([withinConstraint, withinConstraintDetails] = constraint(value))
+                            value ?? (returnValue = this.deleteProperty(target, property))
+                            if (value && typeof value === 'object') {
+                                let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [b37-prop="${property}"]`)
+                                if (propertyRenderer) {
+                                    if (propertyRenderer.tagName.toLowerCase() == 'b37-slot') {
+                                        const useTagRepository = b37slot.getAttribute('b37-repo'), 
+                                            useTagSuffix = b37slot.getAttribute('b37-suffix')
+                                        if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
+                                            const useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagSuffix}`, b37slot = propertyRenderer
+                                            propertyRenderer = document.createElement(useTag)
+                                            Element.copyAttributes(b37slot, propertyRenderer, (b37slot.getAttribute('b37-keep') || '').split(' ').filter(a => !!a), true)
+                                            b37slot.replaceWith(propertyRenderer)
+                                        } else {
+                                            throw new TypeError(`Either b37-repo, b37-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.b37TagId} property ${property}`)
+                                            returnValue = false
                                         }
-                                        Object.keys(propertyRenderer.b37Dataset).forEach(k => !(k in value) ? delete propertyRenderer.b37Dataset[k] : null)
-                                        Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
-                                        returnValue = true
-                                    } else {
-                                        throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.b37TagId}`)
-                                        returnValue = false
                                     }
+                                    for (const k in propertyRenderer.b37Dataset) (k in value) || delete propertyRenderer.b37Dataset[k]
+
+                                    Object.keys(value).forEach(k => propertyRenderer.b37Dataset[k] !== value[k] ? propertyRenderer.b37Dataset[k] = value[k] : null )
+                                    returnValue = true
                                 } else {
-                                    returnValue = !!(target[property] = value)
+                                    throw new TypeError(`No sub-element found in the shadowRoot with a b37-prop equal to ${property} for this instance of element class ${this.constructor.b37TagId}`)
+                                    returnValue = false
                                 }
-                                $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
-                                    property: property, givenValue: givenValue, value: value, 
-                                    sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
-                                    withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
-                                }}))
-                                const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
-                                if (validator && typeof validator == 'function') {
-                                    let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
-                                    $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
-                                        handler: 'set', property: property, 
-                                        isValid: isValid, validatorDetails: validatorDetails
-                                    }}))
-                                } 
-                                return returnValue
                             }
+                            (!(value === undefined || value === null)) && (returnValue = !!(target[property] = value))
+
+                            $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
+                                property: property, givenValue: givenValue, value: value, 
+                                sanitized: sanitized, sanitizedDetails: sanitizedDetails, 
+                                withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
+                            }}))
+                            const validator = $this.b37LocalValidator ?? $this.constructor.b37Validator
+                            if (validator && typeof validator == 'function') {
+                                let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
+                                $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
+                                    handler: 'set', property: property, 
+                                    isValid: isValid, validatorDetails: validatorDetails
+                                }}))
+                            } 
+                            return returnValue
+                            
+
+
                         }
+                        return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
+                            || ((property[0] === '#') && $this[property.slice(1)] = value)
+                            || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
+                            || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     deleteProperty(target, property) {
                         if (property[0] === '@') {
