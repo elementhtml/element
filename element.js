@@ -74,15 +74,9 @@ const Element = Object.defineProperties({}, {
         return inheritance
     }},
     sortByInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagIdList) {
-        return Array.from(new Set(tagIdList)).filter(t => this.extends[t]).sort((a, b) => {
-            if (this.extends[a] == b) {
-                return -1
-            } else if (this.extends[b] == a) {
-                return 1
-            } else {
-                return this.getInheritance(b).indexOf(a)
-            }
-        }).map((v, i, a) => (i == a.length-1) ? [v, this.extends[v]] : v).flat()
+        return Array.from(new Set(tagIdList)).filter(t => this.extends[t]).sort((a, b) => 
+            ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
+            .map((v, i, a) => (i === a.length-1) ? [v, this.extends[v]] : v).flat()
     }},  
     copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepB37=false) {
         for (const a in source.getAttributeNames()) {
