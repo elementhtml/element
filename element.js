@@ -54,7 +54,7 @@ const Element = Object.defineProperties({}, {
         this.appliedTheme = themeName
         const domRoot = rootElement ? rootElement.shadowRoot : document, themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
             themeSheetElement = domRoot.querySelector(`${rootElement?'style':'link'}[b37-theme="${themeTag}"]`)
-            || (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
+            || (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`,
                 document.createElement(rootElement?'style':'link'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
         rootElement || themeSheetElement.setAttribute('rel', 'stylesheet') || themeSheetElement.setAttribute('href', themeSheetURL)
@@ -65,7 +65,7 @@ const Element = Object.defineProperties({}, {
             if (!element.tagName.includes('-')) continue
             this.ids[element.tagName.toLowerCase()] && this.applyTheme(element, true)
         }
-    }},    
+    }},
     getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
         const inheritance = [tagId]
         while (tagId && !this._isNative(tagId) && this.extends[tagId]) { 
