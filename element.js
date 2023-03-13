@@ -20,24 +20,24 @@ const Element = Object.defineProperties({}, {
     _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        rootElement ?? this.applyTheme() 
-        rootElement ?? this._enscapulateNative()
+        rootElement || this.applyTheme() 
+        rootElement || this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], 
-            observerRoot = rootElement ?? this, observerName = rootElement ? '_b37Observer' : '_globalObserver'
+            observerRoot = rootElement || this, observerName = `_${rootElement?'b37':'global'}Observer`
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element?.tagName?.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
-            this.ids[tagName] ?? await this.activateTag(tagName)
+            this.ids[tagName] || await this.activateTag(tagName)
             for (const customElement of domTraverser.call(domRoot, tagName)) {
                 this.applyTheme(customElement, true)
             }
         }
-        observerRoot[observerName] = observerRoot[observerName] ?? new MutationObserver(async mutationList => {
+        observerRoot[observerName] ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     if (!addedNode?.tagName?.includes('-')) continue 
                     const tagName = addedNode.tagName.toLowerCase()
-                    this.ids[tagName] ?? await this.activateTag(tagName)
+                    this.ids[tagName] || await this.activateTag(tagName)
                     for (const customElement of domTraverser.call(domRoot, tagName)) {
                         this.applyTheme(customElement, true)
                     }
@@ -46,9 +46,9 @@ const Element = Object.defineProperties({}, {
         })
         observerRoot[observerName].observe(domRoot, {subtree: true, childList: true, attributes: false})
         if (rootElement) return
-        this._themeObserver = this._themeObserver ?? new MutationObserver(mutationList => {
+        this._themeObserver ||= new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) {
-                if (mutationRecord.attributeName == 'b37-theme') this.applyTheme(undefined, true)
+                mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
             }
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
