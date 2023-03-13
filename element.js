@@ -57,9 +57,8 @@ const Element = Object.defineProperties({}, {
             || (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
                 document.createElement(rootElement?'style':'link'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
-        rootElement || themeSheetElement.setAttribute('rel', 'stylesheet')
-        rootElement ? themeSheetElement.innerHTML = this.themeSheets[themeTag] ||= await fetch(themeSheetURL).then(r => r.text())
-            : themeSheetElement.setAttribute('href', themeSheetURL)
+        rootElement || themeSheetElement.setAttribute('rel', 'stylesheet') || themeSheetElement.setAttribute('href', themeSheetURL)
+        rootElement && (themeSheetElement.innerHTML = `@import "${themeSheetURL}";`)
         if (!recurse) return
         const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
         for (const element of domTraverser.call(domRoot, '*')) {
