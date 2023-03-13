@@ -20,51 +20,46 @@ const Element = Object.defineProperties({}, {
     _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        rootElement || this.applyTheme() 
+        rootElement || this.applyTheme()
         rootElement || this._enscapulateNative()
-        const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], 
+        const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this, observerName = `_${rootElement?'b37':'global'}Observer`
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element?.tagName?.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] || await this.activateTag(tagName)
-            for (const customElement of domTraverser.call(domRoot, tagName)) {
-                this.applyTheme(customElement, true)
-            }
+            for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
         }
         observerRoot[observerName] ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
-                    if (!addedNode?.tagName?.includes('-')) continue 
+                    if (!addedNode?.tagName?.includes('-')) continue
                     const tagName = addedNode.tagName.toLowerCase()
                     this.ids[tagName] || await this.activateTag(tagName)
-                    for (const customElement of domTraverser.call(domRoot, tagName)) {
-                        this.applyTheme(customElement, true)
-                    }
+                    for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
                 }
             }
         })
         observerRoot[observerName].observe(domRoot, {subtree: true, childList: true, attributes: false})
         if (rootElement) return
         this._themeObserver ||= new MutationObserver(mutationList => {
-            for (const mutationRecord of mutationList) {
-                mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
-            }
+            for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
         })
         this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
-        const themeTag = (rootElement?rootElement:document.body).getAttribute('b37-theme'),
-            [themeName = 'theme', themeSheet = 'index'] = themeTag ? themeTag.split('-') : []
-        if (!(themeName && themeSheet && this.themes[themeName])) return
+        const themeTag = (rootElement||document.body).getAttribute('b37-theme'),
+            [themeName=(this.appliedTheme||'theme'), themeSheet='index'] = themeTag ? themeTag.split('-') : []
+        if (!this.themes[themeName]) return
         this.appliedTheme = themeName
         const domRoot = rootElement ? rootElement.shadowRoot : document, themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
-            themeSheetElement = domRoot.querySelector(`style[b37-theme="${themeTag}"]`)
-            ?? (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
-                document.createElement('style'))
+            themeSheetElement = domRoot.querySelector(`${rootElement?'style':'link'}[b37-theme="${themeTag}"]`)
+            || (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`, 
+                document.createElement(rootElement?'style':'link'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
-        this.themeSheets[themeTag] = this.themeSheets[themeTag] ?? await fetch(themeSheetURL).then(r => r.text())
-        themeSheetElement.innerHTML = this.themeSheets[themeTag]
+        rootElement || themeSheetElement.setAttribute('rel', 'stylesheet')
+        rootElement ? themeSheetElement.innerHTML = this.themeSheets[themeTag] ||= await fetch(themeSheetURL).then(r => r.text())
+            : themeSheetElement.setAttribute('href', themeSheetURL)
         if (!recurse) return
         const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
         for (const element of domTraverser.call(domRoot, '*')) {
