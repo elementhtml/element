@@ -237,7 +237,7 @@ const Element = Object.defineProperties({}, {
                                     returnValue = false
                                 }
                             }
-                            (!(value === undefined || value === null)) && (returnValue = !!(target[property] = value))
+                            value ?? (returnValue = !!(target[property] = value))
 
                             $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
                                 property: property, givenValue: givenValue, value: value, 
