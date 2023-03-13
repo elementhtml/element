@@ -140,14 +140,14 @@ const Element = Object.defineProperties({}, {
         await this.loadTagAssetsFromId(tagId, forceReload)
         const baseTagName = this.getInheritance(tagId).pop() || 'HTMLElement'
         globalThis.customElements.define(tagName, this.constructors[tagId],
-            ((baseTagName != 'HTMLElement' && this._isNative(baseTagName)) ? {extends: baseTagName} : undefined))
+            ((baseTagName !== 'HTMLElement' && this._isNative(baseTagName)) ? {extends: baseTagName} : undefined))
     }},
     _enscapulateNative: {configurable: false, enumerable: false, writable: false, value: function() {
         for (const nativeClassName of Reflect.ownKeys(globalThis)) {
             if (!this._isNative(nativeClassName) || (this.classes[nativeClassName] && this.constructors[nativeClassName])) continue
-            this.classes[nativeClassName] = this.classes[nativeClassName] ?? ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
+            this.classes[nativeClassName] ||= ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
                 || (nativeClassName === 'HTMLAudioElement' && globalThis['Audio']) || globalThis[nativeClassName])
-            this.constructors[nativeClassName] = this.constructors[nativeClassName] ?? this._base(this.classes[nativeClassName])
+            this.constructors[nativeClassName] ||= this._base(this.classes[nativeClassName])
         }
     }},
 
