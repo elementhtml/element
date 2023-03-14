@@ -16,20 +16,20 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _globalObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _themeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
+    _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
+    _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement || this.applyTheme()
         rootElement || this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
-            observerRoot = rootElement || this, observerName = `_${rootElement?'b37':'global'}Observer`
+            observerRoot = rootElement || this
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element?.tagName?.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
             this.ids[tagName] || await this.activateTag(tagName)
             for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
         }
-        observerRoot[observerName] ||= new MutationObserver(async mutationList => {
+        observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of mutationRecord.addedNodes) {
                     if (!addedNode?.tagName?.includes('-')) continue
@@ -39,12 +39,12 @@ const Element = Object.defineProperties({}, {
                 }
             }
         })
-        observerRoot[observerName].observe(domRoot, {subtree: true, childList: true, attributes: false})
+        observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: false})
         if (rootElement) return
-        this._themeObserver ||= new MutationObserver(mutationList => {
+        this._b37ElementThemeObserver ||= new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
         })
-        this._themeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
+        this._b37ElementThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
         const themeTag = (rootElement||document.body).getAttribute('b37-theme'),
