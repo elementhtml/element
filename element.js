@@ -19,6 +19,7 @@ const Element = Object.defineProperties({}, {
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        globalThis.requestIdleCallback ||= function(handler) {let sT = Date.now(); return globalThis.setTimeout(function() {handler({didTimeout: false, timeRemaining: function() {return Math.max(0, 50.0 - (Date.now() - sT)) }})}, 1)}
         rootElement || this.applyTheme()
         rootElement || this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
@@ -45,6 +46,14 @@ const Element = Object.defineProperties({}, {
             for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
         })
         this._b37ElementThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
+
+        //const run = () => {
+            //for (const k in this.listeners) if (this.listeners[k].period) this._runListener(k)
+            //globalThis.requestIdleCallback(run, {options: this.maxDelay || 1000})
+        //}
+        //globalThis.requestIdleCallback(run, {options: this.maxDelay || 1000})
+
+
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
         const themeTag = (rootElement||document.body).getAttribute('b37-theme'),
@@ -294,7 +303,7 @@ const Element = Object.defineProperties({}, {
                 })
                 Element.autoload($this)
             }
-            static get observedAttributes() { return [] }
+            static get observedAttributes() { return ['b37-from'] }
             attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
             b37ProcessQueuedAttributes() {
                 const $this = this
@@ -312,6 +321,10 @@ const Element = Object.defineProperties({}, {
                 const $this = this
                 $this.b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
                 $this.__b37QueuedAttributeInterval ||= globalThis.setInterval(() => $this.b37ProcessQueuedAttributes(), 1000)
+            }
+            set ['b37-from'](value) {
+                //eventTarget-eventName:processor[:processor ...] => {} to overlap onto this.b37Dataset, eventTarget must be registered in Element.eventTargets
+                console.log('line 326', value)
             }
         }
     }}
