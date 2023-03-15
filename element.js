@@ -35,18 +35,22 @@ const Element = Object.defineProperties({}, {
         Object.assign(element.b37Dataset, processorData)
     }},
     _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
-        for (const eventTargetConfig of (oldValue?oldValue.split(' '):[])) {
+        const parseEventTargetConfig = (eventTargetConfig) => {
             const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
-                [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
-            if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
+            return eventTargetTag.split('-').concat([processorList.split(':')])
+        }
+
+        for (const eventTargetConfig of (oldValue?oldValue.split(' '):[])) {
+            if (!eventTargetConfig) continue
+            const [eventTargetName, eventName] = parseEventTargetConfig(eventTargetConfig)
             this.eventControllers[element] && this.eventControllers[element][eventTargetConfig] && this.eventControllers[element][eventTargetConfig].abort()
         }
         for (const eventTargetConfig of (newValue?newValue.split(' '):[])) {
-            const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
-                [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
+            if (!eventTargetConfig) continue
+            const [eventTargetName, eventName, processors] = parseEventTargetConfig(eventTargetConfig)
             if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
             this.eventControllers[element] ||= {}
-            this.eventControllers[element][eventTargetConfig] ||= new AbortController()
+            this.eventControllers[element][eventTargetConfig] = new AbortController()
             this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element), 
                 {signal: this.eventControllers[element][eventTargetConfig].signal})
         }
