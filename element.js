@@ -19,32 +19,39 @@ const Element = Object.defineProperties({}, {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
 
+    _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
+        let processorData, b37EventToJson = event?.b37EventToJson || event?.target?.b37EventToJson
+        if (b37EventToJson) {
+            try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
+        } else if (event.formData instanceof FormData) { 
+            for (k in event.formData) processorData[k] = event.formData[k]
+        } else {
+            processorData ||= event.detail instanceof Object && event.detail
+            processorData ||= event.data instanceof Object && event.data
+            processorData ||= event?.target?.b37Dataset
+            processorData ||= {}
+        }
+        for (const processor of processors) {
+            if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
+        }
+        Object.assign(element.b37Dataset, processorData)
+    }},
     _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
+        if (oldValue) {
+            for (const eventTargetConfig of oldValue.split(' ')) {
+                const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
+                    [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
+                if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
+                this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element))
+            }
+        }
         if (newValue) {
             for (const eventTargetConfig of newValue.split(' ')) {
                 const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
                     [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
                 if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
-                this.eventTargets[eventTargetName].addEventListener(eventName, event => {
-                    let processorData, b37EventToJson = event?.b37EventToJson || event?.target?.b37EventToJson
-                    if (b37EventToJson) {
-                        try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
-                    } else if (event.formData instanceof FormData) { 
-                        for (k in event.formData) processorData[k] = event.formData[k]
-                    } else {
-                        processorData ||= event.detail instanceof Object && event.detail
-                        processorData ||= event.data instanceof Object && event.data
-                        processorData ||= event?.target?.b37Dataset
-                        processorData ||= {}
-                    }
-                    for (const processor of processors) {
-                        if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
-                    }
-                    Object.assign(element.b37Dataset, processorData)
-                })
+                this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element))
             }
-        } else {
-
         }
     }},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
