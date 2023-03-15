@@ -42,7 +42,7 @@ const Element = Object.defineProperties({}, {
                 const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
                     [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
                 if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
-                this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element))
+                this.eventTargets[eventTargetName].removeEventListener(eventName, event => this._fromHandler(event, processors, element))
             }
         }
         if (newValue) {
