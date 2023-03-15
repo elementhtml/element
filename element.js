@@ -18,6 +18,36 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
+
+    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue) {
+        if (newValue) {
+            for (const eventTargetConfig of newValue.split(' ')) {
+                const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
+                    [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
+                if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
+                this.eventTargets[eventTargetName].addEventListener(eventName, event => {
+                    let processorData, b37EventToJson = event?.b37EventToJson || event?.target?.b37EventToJson
+                    if (b37EventToJson) {
+                        try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
+                    } else if (event.formData instanceof FormData) { 
+                        for (k in event.formData) processorData[k] = event.formData[k]
+                    } else {
+                        processorData ||= event.detail instanceof Object && event.detail
+                        processorData ||= event.data instanceof Object && event.data
+                        processorData ||= event?.target?.b37Dataset
+                        processorData ||= {}
+                    }
+                    for (const processor of processors) {
+                        if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
+                    }
+                    Object.assign(element.b37Dataset, processorData)
+                })
+            }
+        } else {
+
+        }
+    }},
+
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
@@ -325,33 +355,7 @@ const Element = Object.defineProperties({}, {
                 $this.__b37QueuedAttributeInterval ||= globalThis.setInterval(() => $this.b37ProcessQueuedAttributes(), 1000)
             }
             set ['b37-from'](value) {
-                //eventTarget-eventName:processor[:processor ...] => {} to overlap onto this.b37Dataset, eventTarget must be registered in Element.eventTargets
-                if (value) {
-                    for (const eventTargetConfig of value.split(' ')) {
-                        const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
-                            [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
-                        if (!eventTargetName || !eventName || !(Element.eventTargets[eventTargetName] instanceof EventTarget)) continue
-                        Element.eventTargets[eventTargetName].addEventListener(eventName, event => {
-                            let processorData, b37EventToJson = event?.b37EventToJson || event?.target?.b37EventToJson
-                            if (b37EventToJson) {
-                                try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
-                            } else if (event.formData instanceof FormData) { 
-                                for (k in event.formData) processorData[k] = event.formData[k]
-                            } else {
-                                processorData ||= event.detail instanceof Object && event.detail
-                                processorData ||= event.data instanceof Object && event.data
-                                processorData ||= event?.target?.b37Dataset
-                                processorData ||= {}
-                            }
-                            for (const processor of processors) {
-                                if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, Element.processors[processor](processorData, event))
-                            }
-                            Object.assign(this.b37Dataset, processorData)
-                        })
-                    }
-                } else {
-
-                }
+                Element._processFrom(this, value)
                 console.log('line 329', value)
             }
         }
