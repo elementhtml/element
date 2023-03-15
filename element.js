@@ -346,13 +346,9 @@ const Element = Object.defineProperties({}, {
                             for (const processor of processors) {
                                 if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, Element.processors[processor](processorData, event))
                             }
-
+                            Object.assign(this.b37Dataset, processorData)
                         })
-
-
-
                     }
-
                 } else {
 
                 }
