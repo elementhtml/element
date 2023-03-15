@@ -39,7 +39,6 @@ const Element = Object.defineProperties({}, {
             const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2) 
             return eventTargetTag.split('-').concat([processorList.split(':')])
         }
-
         for (const eventTargetConfig of (oldValue?oldValue.split(' '):[])) {
             if (!eventTargetConfig) continue
             const [eventTargetName, eventName] = parseEventTargetConfig(eventTargetConfig)
@@ -54,6 +53,11 @@ const Element = Object.defineProperties({}, {
             this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element), 
                 {signal: this.eventControllers[element][eventTargetConfig].signal})
         }
+    }},
+    _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
+        const eventDetail = {detail: {property: property, ...eventDetail}}
+        element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
+        element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
@@ -242,13 +246,14 @@ const Element = Object.defineProperties({}, {
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     set(target, property, value, receiver) {
-                        if ('@#.>'.includes(property[0])) {
+                        if (!'@#.>'.includes(property[0])) {
                             property = property.trim()
                             if (value && (target[property] === value)) return true
                             let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '',
                                 returnValue = undefined
-                            const givenValue = value, sanitizer = $this.b37LocalSanitizers[property] || $this.constructor.b37Sanitizers[property],
-                                constraint = $this.b37LocalConstraints[property] || $this.constructor.b37Constraints[property]
+                            const oldValue = target[property], givenValue = value, sanitizer = $this.b37LocalSanitizers[property] 
+                                || $this.constructor.b37Sanitizers[property],constraint = $this.b37LocalConstraints[property] 
+                                || $this.constructor.b37Constraints[property]
                             typeof sanitizer === 'function' && ([value, sanitized, sanitizedDetails] = sanitizer(value))
                             typeof constraint === 'function' && ([withinConstraint, withinConstraintDetails] = constraint(value))
                             value ?? (returnValue = this.deleteProperty(target, property))
@@ -278,28 +283,27 @@ const Element = Object.defineProperties({}, {
                             } else {
                                 returnValue = !!(target[property] = value)
                             }
-                            $this.dispatchEvent(new CustomEvent('b37DatasetSet', {detail: {
-                                property: property, givenValue: givenValue, value: value, sanitized: sanitized, sanitizedDetails: sanitizedDetails,
-                                withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails
-                            }}))
+                            const eventDetail = {givenValue: givenValue, value: value, oldValue: oldValue, sanitized: sanitized, 
+                                sanitizedDetails: sanitizedDetails,withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails}
+                            Element._dispatchPropertyEvent('b37DatasetSet', property, eventDetail)
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
                             if (typeof validator == 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
-                                $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
-                                    handler: 'set', property: property, isValid: isValid, validatorDetails: validatorDetails
-                                }}))
-                            } 
+                                Object.assign(eventDetail, {handler: 'set', isValid: isValid, validatorDetails: validatorDetails})
+                                Element._dispatchPropertyEvent('b37DatasetValidation', property, eventDetail)
+                            }
                             return returnValue
                         }
+                        Element._dispatchPropertyEvent('b37DatasetSet', property, {value: value})
                         return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
                             || ((property[0] === '#') && ($this[property.slice(1)] = value))
                             || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
                     }, 
                     deleteProperty(target, property) {
-                        if ('@#.>'.includes(property[0])) {
+                        if (!'@#.>'.includes(property[0])) {
                             property = property.trim()
-                            let returnValue
+                            let returnValue, oldValue = target[property]
                             if (property in target) {
                                 returnValue = delete target[property]
                             } else {
@@ -311,12 +315,12 @@ const Element = Object.defineProperties({}, {
                                 }
                                 returnValue = true
                             }
+                            Element._dispatchPropertyEvent('b37DatasetDeleteProperty', property, {oldValue: oldValue})
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
                             if (typeof validator === 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
-                                $this.dispatchEvent(new CustomEvent('b37DatasetValidation', {detail: {
-                                    handler: 'deleteProperty', property: property, isValid: isValid, validatorDetails: validatorDetails
-                                }}))
+                                Element._dispatchPropertyEvent('b37DatasetValidation', property, {handler: 'deleteProperty', property: property, 
+                                    oldValue: oldValue, isValid: isValid, validatorDetails: validatorDetails})
                             } 
                             return returnValue
                         }
