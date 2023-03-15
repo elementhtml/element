@@ -11,6 +11,8 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}},
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
+    eventTargets: {configurable: false, enumerable: true, writable: false, value: {}},
+    processors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
@@ -324,7 +326,33 @@ const Element = Object.defineProperties({}, {
             }
             set ['b37-from'](value) {
                 //eventTarget-eventName:processor[:processor ...] => {} to overlap onto this.b37Dataset, eventTarget must be registered in Element.eventTargets
-                console.log('line 326', value)
+                if (value) {
+                    for (const eventTargetConfig of value.split(' ')) {
+                        const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
+                            [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
+                        if (!eventTargetName || !eventName || !(Element.eventTargets[eventTargetName] instanceof EventTarget)) continue
+                        Element.eventTargets[eventTargetName].addEventListener(eventName, event => {
+                            let processorInput = {}
+                            if (event.formData instanceof FormData) { 
+                                for (k in event.formData) processorInput[k] = event.formData[k]
+                            } else {
+                                processorInput = (event.detail ?? event.data ?? event?.target?.b37Dataset ?? {})
+                            }
+                            if (!(processorInput instanceof Object)) {try { processorInput = JSON.parse(processorInput) } catch(e) { undefined }}
+                            for (const processor of processors) {
+
+                            }
+
+                        })
+
+
+
+                    }
+
+                } else {
+
+                }
+                console.log('line 329', value)
             }
         }
     }}
