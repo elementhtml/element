@@ -22,7 +22,7 @@ const Element = Object.defineProperties({}, {
     _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
         let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
         if (b37EventToJson) {
-            try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
+            try { processorData = JSON.parse(event[b37EventToJson] || 'null')} catch(e) { processorData = null }
         } else if (event.formData instanceof FormData) { 
             for (k in event.formData) processorData[k] = event.formData[k]
         } else {
@@ -36,7 +36,7 @@ const Element = Object.defineProperties({}, {
     }},
     _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
         const parseEventTargetConfig = (eventTargetConfig) => {
-            const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
+            const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2) 
             return eventTargetTag.split('-').concat([processorList.split(':')])
         }
 
