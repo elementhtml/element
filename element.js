@@ -55,7 +55,7 @@ const Element = Object.defineProperties({}, {
         }
     }},
     _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
-        const eventDetail = {detail: {property: property, ...eventDetail}}
+        eventDetail = {detail: {property: property, ...eventDetail}}
         element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
         element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
