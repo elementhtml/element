@@ -332,15 +332,19 @@ const Element = Object.defineProperties({}, {
                             [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
                         if (!eventTargetName || !eventName || !(Element.eventTargets[eventTargetName] instanceof EventTarget)) continue
                         Element.eventTargets[eventTargetName].addEventListener(eventName, event => {
-                            let processorInput = {}
-                            if (event.formData instanceof FormData) { 
-                                for (k in event.formData) processorInput[k] = event.formData[k]
+                            let processorData, b37EventToJson = event?.b37EventToJson || event?.target?.b37EventToJson
+                            if (b37EventToJson) {
+                                try { processorData = JSON.parse(event[b37EventToJson] || 'null')} cach(e) { processorData = null }
+                            } else if (event.formData instanceof FormData) { 
+                                for (k in event.formData) processorData[k] = event.formData[k]
                             } else {
-                                processorInput = (event.detail ?? event.data ?? event?.target?.b37Dataset ?? {})
+                                processorData ||= event.detail instanceof Object && event.detail
+                                processorData ||= event.data instanceof Object && event.data
+                                processorData ||= event?.target?.b37Dataset
+                                processorData ||= {}
                             }
-                            if (!(processorInput instanceof Object)) {try { processorInput = JSON.parse(processorInput) } catch(e) { undefined }}
                             for (const processor of processors) {
-
+                                if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, Element.processors[processor](processorData, event))
                             }
 
                         })
