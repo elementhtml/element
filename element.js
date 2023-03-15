@@ -12,6 +12,7 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     eventTargets: {configurable: false, enumerable: true, writable: false, value: {}},
+    eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
@@ -42,7 +43,7 @@ const Element = Object.defineProperties({}, {
                 const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
                     [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
                 if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
-                this.eventTargets[eventTargetName].removeEventListener(eventName, event => this._fromHandler(event, processors, element))
+                this.eventControllers[element] && this.eventControllers[element][eventTargetConfig] && this.eventControllers[element][eventTargetConfig].abort()
             }
         }
         if (newValue) {
@@ -50,7 +51,10 @@ const Element = Object.defineProperties({}, {
                 const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
                     [eventTargetName, eventName] = eventTargetTag.split('-'). processors = processorList.split(':')
                 if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
-                this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element))
+                this.eventControllers[element] ||= {}
+                this.eventControllers[element][eventTargetConfig] ||= new AbortController()
+                this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element), 
+                    {signal: this.eventControllers[element][eventTargetConfig].signal})
             }
         }
     }},
