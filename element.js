@@ -19,7 +19,7 @@ const Element = Object.defineProperties({}, {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
 
-    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue) {
+    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
         if (newValue) {
             for (const eventTargetConfig of newValue.split(' ')) {
                 const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2), 
