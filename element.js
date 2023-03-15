@@ -47,11 +47,9 @@ const Element = Object.defineProperties({}, {
 
         }
     }},
-
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        globalThis.requestIdleCallback ||= function(handler) {let sT = Date.now(); return globalThis.setTimeout(function() {handler({didTimeout: false, timeRemaining: function() {return Math.max(0, 50.0 - (Date.now() - sT)) }})}, 1)}
         rootElement || this.applyTheme()
         rootElement || this._enscapulateNative()
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
@@ -64,27 +62,27 @@ const Element = Object.defineProperties({}, {
         }
         observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
-                for (const addedNode of mutationRecord.addedNodes) {
-                    if (!addedNode?.tagName?.includes('-')) continue
-                    const tagName = addedNode.tagName.toLowerCase()
-                    this.ids[tagName] || await this.activateTag(tagName)
-                    for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
+                if (mutationRecord.type === 'childList') {
+                    for (const addedNode of mutationRecord.addedNodes) {
+                        if (!addedNode?.tagName?.includes('-')) continue
+                        const tagName = addedNode.tagName.toLowerCase()
+                        this.ids[tagName] || await this.activateTag(tagName)
+                        for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
+                    }
+                } else if (mutationRecord.type === 'attributes') {
+                    if (mutationRecord.attributeName === 'b37-from') {
+                        this._processFrom(mutationRecord.target, mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
+                    }
                 }
+
             }
         })
-        observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: false})
+        observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-from']})
         if (rootElement) return
         this._b37ElementThemeObserver ||= new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
         })
         this._b37ElementThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
-
-        //const run = () => {
-            //for (const k in this.listeners) if (this.listeners[k].period) this._runListener(k)
-            //globalThis.requestIdleCallback(run, {options: this.maxDelay || 1000})
-        //}
-        //globalThis.requestIdleCallback(run, {options: this.maxDelay || 1000})
-
 
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
@@ -335,7 +333,7 @@ const Element = Object.defineProperties({}, {
                 })
                 Element.autoload($this)
             }
-            static get observedAttributes() { return ['b37-from'] }
+            static get observedAttributes() { return [] }
             attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
             b37ProcessQueuedAttributes() {
                 const $this = this
@@ -353,10 +351,6 @@ const Element = Object.defineProperties({}, {
                 const $this = this
                 $this.b37QueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
                 $this.__b37QueuedAttributeInterval ||= globalThis.setInterval(() => $this.b37ProcessQueuedAttributes(), 1000)
-            }
-            set ['b37-from'](value) {
-                Element._processFrom(this, value)
-                console.log('line 329', value)
             }
         }
     }}
