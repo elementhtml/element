@@ -70,19 +70,14 @@ const Element = Object.defineProperties({}, {
         }
         observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
-                if (mutationRecord.type === 'childList') {
-                    for (const addedNode of mutationRecord.addedNodes) {
-                        if (!addedNode?.tagName?.includes('-')) continue
-                        const tagName = addedNode.tagName.toLowerCase()
-                        this.ids[tagName] || await this.activateTag(tagName)
-                        for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
-                    }
-                } else if (mutationRecord.type === 'attributes') {
-                    if (mutationRecord.attributeName === 'b37-from') {
-                        this._processFrom(mutationRecord.target, mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
-                    }
+                for (const addedNode of (mutationRecord.addedNodes||[])) {
+                    if (!addedNode?.tagName?.includes('-')) continue
+                    const tagName = addedNode.tagName.toLowerCase()
+                    this.ids[tagName] || await this.activateTag(tagName)
+                    for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
                 }
-
+                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target, 
+                    mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
             }
         })
         observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-from']})
