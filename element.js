@@ -23,10 +23,10 @@ const Element = Object.defineProperties({}, {
         let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
         if (b37EventToJson) {
             try { processorData = JSON.parse(event[b37EventToJson] || 'null')} catch(e) { processorData = null }
-        } else if (event.formData instanceof FormData) { 
+        } else if (event.formData instanceof FormData) {
             for (k in event.formData) processorData[k] = event.formData[k]
         } else {
-            processorData = (event.detail instanceof Object && event.detail) 
+            processorData = (event.detail instanceof Object && event.detail)
                 || (event.data instanceof Object && event.data) || Object.assign({}, event.target.b37Dataset)
         }
         for (const processor of processors) {
@@ -36,7 +36,7 @@ const Element = Object.defineProperties({}, {
     }},
     _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
         const parseEventTargetConfig = (eventTargetConfig) => {
-            const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2) 
+            const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2)
             return eventTargetTag.split('-').concat([processorList.split(':')])
         }
         for (const eventTargetConfig of (oldValue?oldValue.split(' '):[])) {
@@ -50,7 +50,7 @@ const Element = Object.defineProperties({}, {
             if (!eventTargetName || !eventName || !(this.eventTargets[eventTargetName] instanceof EventTarget)) continue
             this.eventControllers[element] ||= {}
             this.eventControllers[element][eventTargetConfig] = new AbortController()
-            this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element), 
+            this.eventTargets[eventTargetName].addEventListener(eventName, event => this._fromHandler(event, processors, element),
                 {signal: this.eventControllers[element][eventTargetConfig].signal})
         }
     }},
@@ -80,7 +80,7 @@ const Element = Object.defineProperties({}, {
                     this.ids[tagName] || await this.activateTag(tagName)
                     for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
                 }
-                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target, 
+                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target,
                     mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
             }
         })
@@ -90,7 +90,6 @@ const Element = Object.defineProperties({}, {
             for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
         })
         this._b37ElementThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['b37-theme']})
-
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
         const themeTag = (rootElement||document.body).getAttribute('b37-theme'),
@@ -244,7 +243,7 @@ const Element = Object.defineProperties({}, {
                             || ((property[0] === '#') && $this[property.slice(1)])
                             || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
                             || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > b37-slot[b37-prop="${property.slice(1)}"]`))
-                    }, 
+                    },
                     set(target, property, value, receiver) {
                         if (!'@#.>'.includes(property[0])) {
                             property = property.trim()
@@ -283,7 +282,7 @@ const Element = Object.defineProperties({}, {
                             } else {
                                 returnValue = !!(target[property] = value)
                             }
-                            const eventDetail = {givenValue: givenValue, value: value, oldValue: oldValue, sanitized: sanitized, 
+                            const eventDetail = {givenValue: givenValue, value: value, oldValue: oldValue, sanitized: sanitized,
                                 sanitizedDetails: sanitizedDetails,withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails}
                             Element._dispatchPropertyEvent('b37DatasetSet', property, eventDetail)
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
@@ -319,9 +318,9 @@ const Element = Object.defineProperties({}, {
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
                             if (typeof validator === 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
-                                Element._dispatchPropertyEvent('b37DatasetValidation', property, {handler: 'deleteProperty', property: property, 
+                                Element._dispatchPropertyEvent('b37DatasetValidation', property, {handler: 'deleteProperty', property: property,
                                     oldValue: oldValue, isValid: isValid, validatorDetails: validatorDetails})
-                            } 
+                            }
                             return returnValue
                         }
                         return ((property[0] === '@') && $this.removeAttribute(property.slice(1)))
