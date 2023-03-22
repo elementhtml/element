@@ -129,19 +129,18 @@ const Element = Object.defineProperties({}, {
             (aValue && target.setAttribute(a, aValue)) || (aValue === '' && target.toggleAttribute(a, true))
         }
     }},
-    stackTemplates: {configurable: false, enumerable: true, writable: false, value: async function(tagId, templateInnerHTML=undefined) {
+    stackTemplates: {configurable: false, enumerable: true, writable: false, value: function(tagId, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[tagId]
         for (const t of template.content.querySelectorAll('template[id]')) {
             const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr) : idAttr,
                 tNode = document.createElement('template')
-            this.templates[tId] || await this.loadTagAssetsFromId(tId)
-            tNode.innerHTML = await this.stackTemplates(tId)
+            tNode.innerHTML = this.stackTemplates(tId)
             const clonedNode = tNode.content.cloneNode(true)
             if (t.hasAttribute('slot')) {
                 const tSlot = t.getAttribute('slot'), targetSlot = clonedNode.querySelector(`slot[name="${tSlot}"]`)
                     || clonedNode.querySelector(tSlot || 'slot') || clonedNode.querySelector('slot')
-                targetSlot && targetSlot.replaceWith(await this.stackTemplates(undefined, t.innerHTML))
+                targetSlot && targetSlot.replaceWith(this.stackTemplates(undefined, t.innerHTML))
             }
             t.replaceWith(clonedNode)
         }
@@ -331,11 +330,9 @@ const Element = Object.defineProperties({}, {
                 $this.shadowRoot || $this.attachShadow({mode: 'open'})
                 $this.shadowRoot.innerHTML = ''
                 $this.shadowRoot.appendChild(document.createElement('style')).innerHTML = Element.stackStyles(this.constructor.b37TagId)
-                Element.stackTemplates(this.constructor.b37TagId).then(innerHTML => {
-                    const templateNode = document.createElement('template')
-                    templateNode.innerHTML = innerHTML
-                    $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                })
+                const templateNode = document.createElement('template')
+                templateNode.innerHTML = Element.stackTemplates(this.constructor.b37TagId)
+                $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
             }
             static get observedAttributes() { return [] }
             attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
