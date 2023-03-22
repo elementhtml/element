@@ -336,7 +336,6 @@ const Element = Object.defineProperties({}, {
                     templateNode.innerHTML = innerHTML
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                 })
-                Element.autoload($this)
             }
             static get observedAttributes() { return [] }
             attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
