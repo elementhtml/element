@@ -62,23 +62,22 @@ const Element = Object.defineProperties({}, {
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        rootElement || this.applyTheme()
         rootElement || this._enscapulateNative()
+        const rootElementTagName = rootElement?.tagName?.toLowerCase()
+        rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
+        this.applyTheme(rootElement)
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
         for (const element of domTraverser.call(domRoot, '*')) {
             if (!element?.tagName?.includes('-')) continue
             const tagName = element.tagName.toLowerCase()
-            this.ids[tagName] || await this.activateTag(tagName)
-            for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
+            await this.autoload(element)
         }
         observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of (mutationRecord.addedNodes||[])) {
                     if (!addedNode?.tagName?.includes('-')) continue
-                    const tagName = addedNode.tagName.toLowerCase()
-                    this.ids[tagName] || await this.activateTag(tagName)
-                    for (const customElement of domTraverser.call(domRoot, tagName)) this.applyTheme(customElement, true)
+                    await this.autoload(addedNode)
                 }
                 if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target,
                     mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
