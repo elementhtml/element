@@ -1,5 +1,6 @@
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
+    options: {configurable: false, enumerable: true, writable: false, value: {}},
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
     suffixes: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -13,11 +14,24 @@ const Element = Object.defineProperties({}, {
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     eventTargets: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
-    processors: {configurable: false, enumerable: true, writable: false, value: {}},
+    modules: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
+    }},
+    _loadModule: {configurable: false, enumerable: false, writable: false, value: async function(tag) {
+        if (this.modules[tag] || !tag.includes('-')) continue
+        const [tagRepository, tagModule] = tag.split('-')
+        if (!this.repositories[tagRepository]) continue
+        this.modules[tag] = true
+        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm', 
+            tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
+        if (fileNameSuffix === 'wasm') {
+            this.modules[tag] = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
+        } else {
+            this.modules[tag]a = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
+        }
     }},
     _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
         let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
@@ -30,7 +44,7 @@ const Element = Object.defineProperties({}, {
                 || (event.data instanceof Object && event.data) || Object.assign({}, event.target.b37Dataset)
         }
         for (const processor of processors) {
-            if (typeof Element.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
+            if (typeof this.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
         }
         Object.assign(element.b37Dataset, processorData)
     }},
@@ -101,7 +115,7 @@ const Element = Object.defineProperties({}, {
                 document.createElement(rootElement?'style':'link'))
         themeSheetElement.setAttribute('b37-theme', themeTag)
         rootElement || themeSheetElement.setAttribute('rel', 'stylesheet') || themeSheetElement.setAttribute('href', themeSheetURL)
-        rootElement && (themeSheetElement.innerHTML = `@import "${themeSheetURL}";`)
+        rootElement && (themeSheetElement.textContent = `@import "${themeSheetURL}";`)
         if (!recurse) return
         const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
         for (const element of domTraverser.call(domRoot, '*')) {
@@ -328,8 +342,8 @@ const Element = Object.defineProperties({}, {
                     }
                 })
                 $this.shadowRoot || $this.attachShadow({mode: 'open'})
-                $this.shadowRoot.innerHTML = ''
-                $this.shadowRoot.appendChild(document.createElement('style')).innerHTML = Element.stackStyles(this.constructor.b37TagId)
+                $this.shadowRoot.textContent = ''
+                $this.shadowRoot.appendChild(document.createElement('style')).textContent = Element.stackStyles(this.constructor.b37TagId)
                 const templateNode = document.createElement('template')
                 templateNode.innerHTML = Element.stackTemplates(this.constructor.b37TagId)
                 $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
