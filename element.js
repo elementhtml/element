@@ -2,7 +2,6 @@ const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
     options: {configurable: false, enumerable: true, writable: false, value: {}},
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
-    suffixes: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
     extends: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -20,7 +19,7 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag) {
+    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
         if (!tag.includes('-')) return undefined
         const [tagRepository, tagModule] = tag.split('-')
@@ -28,13 +27,22 @@ const Element = Object.defineProperties({}, {
         this.modules[tag] = true
         const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
             tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
-        try {
-            return (fileNameSuffix === 'wasm')
-                ? (this.modules[tag] = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`)))
-                : (this.modules[tag]a = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`))
-        } catch(e) {
-            return {}
+        if (fileNameSuffix === 'wasm') {
+            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
+            if (dryRun) return moduleObject 
+            return this.modules[tag] = moduleObject.instance
+        } else {
+            this.modules[tag] = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
+            return dryRun ? : this.modules[tag]
         }
+    }},
+    _runProcessors: {configurable: false, enumerable: false, writable: false, value: function(processorsSignature, input={}, element={}) {
+        const processors = processorsSignature.split('|')
+        const processorResult = {input: input, context: element?.b37Dataset||{}, env: this.env}
+        for (processor of processors) {
+            processorResult.input = await this._getModule(processor)
+        }
+
     }},
     _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
         let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
@@ -51,7 +59,11 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
-    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, newValue, oldValue) {
+    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
+        if (oldValue) {
+
+        }
+
         const parseEventTargetConfig = (eventTargetConfig) => {
             const [eventTargetTag, processorList=''] = eventTargetConfig.split(':', 2)
             return eventTargetTag.split('-').concat([processorList.split(':')])
@@ -83,6 +95,7 @@ const Element = Object.defineProperties({}, {
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
         this.applyTheme(rootElement)
+        rootElement?.hasAttribute('b37-from') && this._processFrom(element)
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
         for (const element of domTraverser.call(domRoot, '*')) {
@@ -96,8 +109,7 @@ const Element = Object.defineProperties({}, {
                     if (!addedNode?.tagName?.includes('-')) continue
                     await this.autoload(addedNode)
                 }
-                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target,
-                    mutationRecord.target.getAttribute('b37-from'), mutationRecord.oldValue)
+                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target, mutationRecord.oldValue)
             }
         })
         observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-from']})
