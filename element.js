@@ -20,17 +20,20 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _loadModule: {configurable: false, enumerable: false, writable: false, value: async function(tag) {
-        if (this.modules[tag] || !tag.includes('-')) continue
+    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag) {
+        if (this.modules[tag]) return this.modules[tag]
+        if (!tag.includes('-')) return undefined
         const [tagRepository, tagModule] = tag.split('-')
-        if (!this.repositories[tagRepository]) continue
+        if (!this.repositories[tagRepository]) return undefined
         this.modules[tag] = true
-        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm', 
+        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
             tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
-        if (fileNameSuffix === 'wasm') {
-            this.modules[tag] = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
-        } else {
-            this.modules[tag]a = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
+        try {
+            return (fileNameSuffix === 'wasm')
+                ? (this.modules[tag] = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`)))
+                : (this.modules[tag]a = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`))
+        } catch(e) {
+            return {}
         }
     }},
     _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
