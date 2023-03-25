@@ -60,16 +60,16 @@ const Element = Object.defineProperties({}, {
         Object.assign(element.b37Dataset, processorData)
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
-        let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, read=[], write=[]
+        let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, retVal = {listen: [], write: []}
         if (pipeSplit.length===0) {
-            if ((element.defaultEvent && element.defaultEvent.target) || (this.options?.default?.event && this.options.default.event.target)) {
-                read = [this.options.default.event.target, this.options.default.event.type || 'change', [element.b37DefaultProcessor], element.b37Dataset]
-            }
-            if (element.b37Proxy || this.options?.default?.proxy) {
-                write = [element, 'change', 
-                    [(element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor)], 
-                    (element.b37Proxy || this.options?.default?.proxy)]
-            }
+            const listenEventTarget = (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
+                listenEventName = (element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change', 
+                listenProcessor = element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
+                writeToProxy = element.b37WriteTo||this.options?.default?.writeTo, 
+                writeProcessor = element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
+            eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
+            writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
+            return retVal
         } else if (pipeSplit.length===1) {
             if (pipeSplit[0].includes('.')) {
                 return [element, 'change', parseProcessors(pipeSplit[0])]
