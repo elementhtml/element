@@ -59,64 +59,74 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
+        let pipeSplit = doValue.split('|'), eventTarget, eventName, processors, proxy
+        if (pipeSplit.length===0) {
+            if (this.options?.defaults?.proxy) {
+                return [element, 'b37DatasetSet', [], this.options.defaults.proxy]
+            } else if (this.options?.defaults?.event && this.options.defaults.event.target) {
+                return [this.options.defaults.event.target, this.options.defaults.event.type, [], element.b37Dataset]
+            }
+        } else if (pipeSplit.length===1) {
+            if (pipeSplit[0].includes('.')) {
+                return [element, 'b37DatasetSet', parseProcessors(pipeSplit[0])]
+            } else if (pipeSplit[0].includes('-')) {
+                let [eventTargetName, eventName] = pipeSplit[0].split('-'), eventTarget
+                if (eventTargetName==='@') {
+                    eventTarget = element
+                } else if (eventTargetName[0]==='@') {
+                    eventTarget = (element.b37EventTargets||{})[eventTargetName]                        
+                } else {
+                    if (!eventName) {
+                        eventTarget = this.eventTargets[eventTargetName]
+                        eventName = 'b37DatasetSet'
+                    } else if (!eventTargetName) {
+                        eventTarget = element
+                    } else {
+                        eventTarget = this.eventTargets[eventTargetName]
+                    }
+                }
+                eventName ||= 'b37DatasetSet'
+                return [eventTarget, eventName, [], element.b37Dataset]
+            } else {
+                return [element, 'b37DatasetSet', [], pipeSplit[0][0]==='$'? (pipeSplit[0]==='$'?element.b37Dataset:element?.b37Proxies[pipeSplit[0].slice(1)]) :this.proxies[pipeSplit[0]]]
+            }
+        } else if (pipeSplit.length===2) {
+            if (pipeSplit[0].includes('-')) {
+
+            }
+        }
+
+
+
+        , eventTargetValue = (pipeSplit.length && pipeSplit[0].includes('.'))?'@-click':pipeSplit.shift()
+        let eventTarget, [eventTargetName, eventName] = eventTargetValue.split('-', 2)
+        if (eventTargetName[0]==='@') {
+            eventTarget = eventTargetName==='@'?element:((element?.b37EventTargets||{})[eventTargetName.slice(1)])
+        } else if (!eventName) {
+            eventTarget = element
+            eventName = eventTargetName
+        } else {
+            eventTarget = this.eventTargets[eventTargetName]
+        }
+        if (!eventTarget) return 
+
+
+
+
+
+
+
+
+
+
+
+    }},
+
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         const b37DoAttributeValue = element?.getAttribute('b37-do')
         if (!b37DoAttributeValue || !oldValue) return
         const parseProcessors = processorsSignature => {
-
-        }, parseDoAttribute = doValue => {
-            let pipeSplit = doValue.split('|'), result = [eventTarget, eventName, processorFunctionsArray, proxy]
-            if (pipeSplit.length===1) {
-                if (pipeSplit[0].includes('.')) {
-                    return [element, 'b37DatasetSet', parseProcessors(pipeSplit[0])]
-                } else if (pipeSplit[0].includes('-')) {
-                    let [eventTargetName, eventName] = pipeSplit[0].split('-'), eventTarget
-                    if (eventTargetName==='@') {
-                        eventTarget = element
-                    } else if (eventTargetName[0]==='@') {
-                        eventTarget = (element.b37EventTargets||{})[eventTargetName]                        
-                    } else {
-                        if (!eventName) {
-                            eventTarget = element
-                            eventName = eventTargetName
-                        } else if (!eventTargetName) {
-                            eventTarget = element
-                        } else {
-                            eventTarget = this.eventTargets[eventTargetName]
-                        }
-                    }
-                    eventName ||= 'b37DatasetSet'
-                    return [eventTarget, eventName, [], element.b37Dataset]
-                } else {
-                    return [element, 'b37DatasetSet', [], pipeSplit[0][0]==='$'? (pipeSplit[0]==='$'?element.b37Dataset:element?.b37Proxies[pipeSplit[0].slice(1)]) :this.proxies[pipeSplit[0]]]
-                }
-            } else if (pipeSplit.length===2) {
-                
-            }
-
-
-
-            , eventTargetValue = (pipeSplit.length && pipeSplit[0].includes('.'))?'@-click':pipeSplit.shift()
-            let eventTarget, [eventTargetName, eventName] = eventTargetValue.split('-', 2)
-            if (eventTargetName[0]==='@') {
-                eventTarget = eventTargetName==='@'?element:((element?.b37EventTargets||{})[eventTargetName.slice(1)])
-            } else if (!eventName) {
-                eventTarget = element
-                eventName = eventTargetName
-            } else {
-                eventTarget = this.eventTargets[eventTargetName]
-            }
-            if (!eventTarget) return 
-
-
-
-
-
-
-
-
-
-
 
         }
     
