@@ -60,16 +60,19 @@ const Element = Object.defineProperties({}, {
         Object.assign(element.b37Dataset, processorData)
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
-        let pipeSplit = doValue.split('|'), eventTarget, eventName, processors, proxy
+        let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, read=[], write=[]
         if (pipeSplit.length===0) {
-            if (this.options?.defaults?.proxy) {
-                return [element, 'b37DatasetSet', [], this.options.defaults.proxy]
-            } else if (this.options?.defaults?.event && this.options.defaults.event.target) {
-                return [this.options.defaults.event.target, this.options.defaults.event.type, [], element.b37Dataset]
+            if ((element.defaultEvent && element.defaultEvent.target) || (this.options?.default?.event && this.options.default.event.target)) {
+                read = [this.options.default.event.target, this.options.default.event.type || 'change', [element.b37DefaultProcessor], element.b37Dataset]
+            }
+            if (element.b37Proxy || this.options?.default?.proxy) {
+                write = [element, 'change', 
+                    [(element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor)], 
+                    (element.b37Proxy || this.options?.default?.proxy)]
             }
         } else if (pipeSplit.length===1) {
             if (pipeSplit[0].includes('.')) {
-                return [element, 'b37DatasetSet', parseProcessors(pipeSplit[0])]
+                return [element, 'change', parseProcessors(pipeSplit[0])]
             } else if (pipeSplit[0].includes('-')) {
                 let [eventTargetName, eventName] = pipeSplit[0].split('-'), eventTarget
                 if (eventTargetName==='@') {
@@ -79,17 +82,17 @@ const Element = Object.defineProperties({}, {
                 } else {
                     if (!eventName) {
                         eventTarget = this.eventTargets[eventTargetName]
-                        eventName = 'b37DatasetSet'
+                        eventName = 'change'
                     } else if (!eventTargetName) {
                         eventTarget = element
                     } else {
                         eventTarget = this.eventTargets[eventTargetName]
                     }
                 }
-                eventName ||= 'b37DatasetSet'
+                eventName ||= 'change'
                 return [eventTarget, eventName, [], element.b37Dataset]
             } else {
-                return [element, 'b37DatasetSet', [], pipeSplit[0][0]==='$'? (pipeSplit[0]==='$'?element.b37Dataset:element?.b37Proxies[pipeSplit[0].slice(1)]) :this.proxies[pipeSplit[0]]]
+                return [element, 'change', [], pipeSplit[0][0]==='$'? (pipeSplit[0]==='$'?element.b37Dataset:element?.b37Proxies[pipeSplit[0].slice(1)]) :this.proxies[pipeSplit[0]]]
             }
         } else if (pipeSplit.length===2) {
             if (pipeSplit[0].includes('-')) {
@@ -384,7 +387,7 @@ const Element = Object.defineProperties({}, {
                             }
                             const eventDetail = {givenValue: givenValue, value: value, oldValue: oldValue, sanitized: sanitized,
                                 sanitizedDetails: sanitizedDetails,withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails}
-                            Element._dispatchPropertyEvent('b37DatasetSet', property, eventDetail)
+                            Element._dispatchPropertyEvent('change', property, eventDetail)
                             const validator = $this.b37LocalValidator || $this.constructor.b37Validator
                             if (typeof validator == 'function') {
                                 let [isValid, validatorDetails] = validator(Object.assign({}, $this.b37Dataset))
@@ -393,7 +396,7 @@ const Element = Object.defineProperties({}, {
                             }
                             return returnValue
                         }
-                        Element._dispatchPropertyEvent('b37DatasetSet', property, {value: value})
+                        Element._dispatchPropertyEvent('change', property, {value: value})
                         return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
                             || ((property[0] === '#') && ($this[property.slice(1)] = value))
                             || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [b37-prop="${property.slice(1)}"]`))
