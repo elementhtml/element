@@ -70,7 +70,9 @@ const Element = Object.defineProperties({}, {
             } else {
                 eventTarget = this.eventTargets[eventTargetName]
             }
+            if (!eventTarget) return 
             
+
 
 
 
