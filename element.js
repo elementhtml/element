@@ -72,21 +72,17 @@ const Element = Object.defineProperties({}, {
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
         let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, retVal = {listen: [], write: []}
         if (pipeSplit.length<=1) {
+            let pipeProcessor, pipeEventTarget, pipeEventName, pipeProxy
             if (pipeSplit.length===1) {
-                if (pipeSplit[0].includes('.')) { 
-                    pipeProcessor = this._parseProcessorSingle(pipeSplit[0])
-                } else if (pipeSplit[0].includes('!')) {
-                    [pipeEventTarget, pipeEventName] = this._parseEventTarget(pipeSplit[0])
-                } else {
-                    pipeProxy = this._parseProxy(pipeSplit[0])
-                }
+                if (pipeSplit[0].includes('.')) { pipeProcessor = this._parseProcessorSingle(pipeSplit[0])
+                } else if (pipeSplit[0].includes('!')) { [pipeEventTarget, pipeEventName] = this._parseEventTarget(pipeSplit[0])
+                } else { pipeProxy = this._parseProxy(pipeSplit[0]) }
             }
-
-            const listenEventTarget = (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
-                listenEventName = (element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change', 
-                listenProcessor = element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
-                writeToProxy = element.b37WriteTo||this.options?.default?.writeTo, 
-                writeProcessor = element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
+            const listenEventTarget = (pipeEventTarget && pipeEventName) ? pipeEventTarget : (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
+                listenEventName = (pipeEventTarget && pipeEventName) ? pipeEventName : ((element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change'), 
+                listenProcessor = pipeProcessor || element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
+                writeToProxy = pipeProxy || element.b37WriteTo || this.options?.default?.writeTo, 
+                writeProcessor = pipeProcessor || element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
             eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
             writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
             return retVal
