@@ -59,9 +59,29 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
+    _parseProcessorSingle: {configurable: false, enumerable: false, writable: false, value: function(processorValueSingle) {
+        return ...
+    }}, 
+    _parseProcessor: {configurable: false, enumerable: false, writable: false, value: function(processorValue) {
+        const processors = [] 
+        for (const processorSingle of processorValue.split('|')) {
+            processors.push(this._parseProcessorSingle(processorSingle))
+        }
+        return processors
+    }}, 
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
         let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, retVal = {listen: [], write: []}
-        if (pipeSplit.length===0) {
+        if (pipeSplit.length<=1) {
+            if (pipeSplit.length===1) {
+                if (pipeSplit[0].includes('.')) { 
+                    pipeProcessor = this._parseProcessorSingle(pipeSplit[0])
+                } else if (pipeSplit[0].includes('!')) {
+                    [pipeEventTarget, pipeEventName] = this._parseEventTarget(pipeSplit[0])
+                } else {
+                    pipeProxy = this._parseProxy(pipeSplit[0])
+                }
+            }
+
             const listenEventTarget = (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
                 listenEventName = (element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change', 
                 listenProcessor = element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
@@ -70,9 +90,25 @@ const Element = Object.defineProperties({}, {
             eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
             writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
             return retVal
-        } else if (pipeSplit.length===1) {
+        } else if (pipeSplit.length===2) {
+
+
+
+
+
             if (pipeSplit[0].includes('.')) {
-                return [element, 'change', parseProcessors(pipeSplit[0])]
+                const listenEventTarget = (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
+                    listenEventName = (element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change', 
+                    listenProcessor = element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
+                    writeToProxy = element.b37WriteTo||this.options?.default?.writeTo, 
+                    writeProcessor = element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
+                eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
+                writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
+                return retVal
+
+
+
+
             } else if (pipeSplit[0].includes('-')) {
                 let [eventTargetName, eventName] = pipeSplit[0].split('-'), eventTarget
                 if (eventTargetName==='@') {
