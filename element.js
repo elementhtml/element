@@ -59,8 +59,31 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
-    _processFrom: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
+    _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
+        const b37DoAttributeValue = element?.getAttribute('b37-do')
+        if (!b37DoAttributeValue || !oldValue) return
+        const parseDoAttribute = () => {
+            const pipeSplit = b37DoAttributeValue.split('|'), eventTargetValue = pipeSplit.shift(), 
+                [eventTargetName, eventName] = eventTargetValue.split('-', 2)
+            if (eventTargetName[0]==='@') {
+                eventTarget = eventTargetName==='@'?element:((element?.b37EventTargets||{})[eventTargetName.slice(1)])
+            } else {
+                eventTarget = this.eventTargets[eventTargetName]
+            }
+            
+
+
+
+
+
+
+
+        }
+    
+
+
         if (oldValue) {
+
 
         }
 
@@ -95,7 +118,7 @@ const Element = Object.defineProperties({}, {
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
         this.applyTheme(rootElement)
-        rootElement?.hasAttribute('b37-from') && this._processFrom(element)
+        rootElement?.hasAttribute('b37-do') && this._setupDo(element)
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
         for (const element of domTraverser.call(domRoot, '*')) {
@@ -109,7 +132,7 @@ const Element = Object.defineProperties({}, {
                     if (!addedNode?.tagName?.includes('-')) continue
                     await this.autoload(addedNode)
                 }
-                if (mutationRecord.attributeName === 'b37-from') this._processFrom(mutationRecord.target, mutationRecord.oldValue)
+                if (mutationRecord.attributeName === 'b37-do') this._setupDo(mutationRecord.target, mutationRecord.oldValue)
             }
         })
         observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-from']})
