@@ -72,27 +72,26 @@ const Element = Object.defineProperties({}, {
         const [eventTargetName='@', eventType='change', eventTarget] = [...eventFragment.split('!'), 
             eventTargetName='@'?element:this.eventTargets[eventTargetName]]
         const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-        return [eventTarget, eventType, processors, proxy]
+        return {[doStatement]: [eventTarget, eventType, processors, proxy]}
     }},
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(element) {
-        const doValue = element.getAttribute('b37-do') || '', result = []
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
+        const doValue = element.getAttribute('b37-do') || '', result = {}
         for (const doStatement of doValue.split(' ')) {
-            result.push(this._parseDoStatement(doStatement))
+            if (result[doStatement]) continue
+            Object.assign(result, this._parseDoStatement(doStatement))
         }
         return result
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
-        const b37DoAttributeValue = element?.getAttribute('b37-do')
-        if (!b37DoAttributeValue || !oldValue) return
-        const parseProcessors = processorsSignature => {
-
-        }
-    
-
-
+        const doValue = element.getAttribute('b37-do')
+        if (!doValue && !oldValue) return
         if (oldValue) {
-
-
+            const oldDoParsed = this._parseDo(oldValue)
+            for (const oldDoStatement in oldDoParsed) {
+                const [eventTarget, eventType, processors, proxy] = oldDoParsed[oldDoStatement]
+                if (!eventTarget) continue
+                this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
+            }
         }
 
         const parseEventTargetConfig = (eventTargetConfig) => {
