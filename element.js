@@ -12,18 +12,41 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(this._eventTargets, {
-        get: (target, prop, receiver) => target[prop] instanceof EventTarget ? target[prop] : undefined
+        get: (target, prop, receiver) => {
+            if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
+                && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
+                && target[prop].dispatchEvent instanceof Function)) {
+                target[prop] = {
+                    _ = {}
+                    addEventListener = (type, listener, options) => {
+                        target[prop]._[type] |= []
+                        target[prop]._[type].push([type, listener, options])
+                    }, 
+                    removeEventListener = () => {}, 
+                    dispatchEvent = () => {} 
+                }
+            }
+            return target[prop]
+        }
         has: (target, prop) => target[prop] instanceof EventTarget, 
         set: function(target, prop, value, receiver) {
+
+
             if (value instanceof EventTarget) {
-                if (Array.isArray(target[prop])) {
-                    for (const queuedHandler of target[prop]) {
-                        value.addEventListener(...queuedHandler)
-                    }
-                }
+                if (target[prop] instanceof Object) for (const el in target[prop]) for (const st in target[prop][el]) value.addEventListener(...target[prop][el][st])
                 target[prop] = value
-            } else if (Array.isArray(value)) {
-                
+            } else if (value instanceof Object) {
+                if (target[prop] instanceof EventTarget) {
+                    for (const el in value) for (const st in value[el]) target[prop].addEventListener(...value[el][st])
+                } else {
+                    target[prop] ||= {}
+                    for (const el in value) {
+                        target[prop][el] ||= {}
+                        for (const st in value[el]) (value[el][st].delete) ? delete target[prop][el][st] : (target[prop][el][st] = value[el][st])
+                        if (!Object.keys(target[prop][el]).length) delete target[prop][el]
+                    }
+                    if (!Object.keys(target[prop])) delete target[prop]                    
+                }
             }
         }
     })},
@@ -109,9 +132,7 @@ const Element = Object.defineProperties({}, {
             const oldDoParsed = this._parseDo(oldValue)
             for (const oldDoStatement in oldDoParsed) {
                 const [eventTarget, eventType, processors, proxy] = oldDoParsed[oldDoStatement]
-                if (!eventTarget) {
-
-                }
+                if (!eventTarget) continue
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
             }
         }
