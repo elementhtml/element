@@ -46,6 +46,7 @@ const Element = Object.defineProperties({}, {
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
+    processors: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
@@ -53,8 +54,8 @@ const Element = Object.defineProperties({}, {
     }},
     _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
-        if (!tag.includes('-')) return undefined
-        const [tagRepository, tagModule] = tag.split('-')
+        if (!tag.includes(':')) return undefined
+        const [tagRepository, tagModule] = tag.split(':')
         if (!this.repositories[tagRepository]) return undefined
         this.modules[tag] = true
         const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
@@ -98,7 +99,10 @@ const Element = Object.defineProperties({}, {
 
 
     _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
-        
+        const [repositoryModuleTag, functionName] = processorFragment.split('.'). notFound = i => 
+            console.log(`Element.processors['${repositoryModuleTag}'].${functionName} does not exist, bypassing...`) || i
+        if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
+        return this._getModule(repositoryModuleTag)?.functionName || notFound
     }}, 
     _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatement, element) {
         const doFragments = doStatement.split('|')
