@@ -125,8 +125,11 @@ const Element = Object.defineProperties({}, {
             for (const oldDoStatement in oldDoParsed) {
                 const [eventTarget, eventType, processors, proxy, eventTargetKey] = oldDoParsed[oldDoStatement]
                 if (!eventTarget) continue
-                if (eventTargetKey && !(eventTargetKey in this.eventTargets[eventTargetKey])) {
-                    this.eventTargets[eventTargetKey].removeEventListener(eventType, () => {}, {}, element, doStatement)
+                if (eventTargetKey) {
+                    eventTarget.removeEventListener(eventType, () => {}, {}, element, doStatement)
+                    if (!(eventTarget instanceof EventTarget) && (eventTarget instanceof Object)) {
+                        !Object.keys(eventTarget._).length && delete this.eventTargets[eventTargetKey]
+                    }
                 }
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
                 delete this.eventControllers[element][oldDoStatement]
