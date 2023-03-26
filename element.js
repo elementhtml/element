@@ -129,6 +129,8 @@ const Element = Object.defineProperties({}, {
                     this.eventTargets[eventTargetKey].removeEventListener(eventType, () => {}, {}, element, doStatement)
                 }
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
+                delete this.eventControllers[element][oldDoStatement]
+                !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
             }
         }
         const doValue = element.getAttribute('b37-do')
