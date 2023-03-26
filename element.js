@@ -69,83 +69,10 @@ const Element = Object.defineProperties({}, {
         }
         return processors
     }}, 
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
-        let pipeSplit = (doValue||'').split('|'), eventTarget, eventName, processors = [], proxy, retVal = {listen: [], write: []}
-        if (pipeSplit.length<=1) {
-            let pipeProcessor, pipeEventTarget, pipeEventName, pipeProxy
-            if (pipeSplit.length===1) {
-                if (pipeSplit[0].includes('.')) { pipeProcessor = this._parseProcessorSingle(pipeSplit[0])
-                } else if (pipeSplit[0].includes('!')) { [pipeEventTarget, pipeEventName] = this._parseEventTarget(pipeSplit[0])
-                } else { pipeProxy = this._parseProxy(pipeSplit[0]) }
-            }
-            const listenEventTarget = (pipeEventTarget && pipeEventName) ? pipeEventTarget : (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
-                listenEventName = (pipeEventTarget && pipeEventName) ? pipeEventName : ((element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change'), 
-                listenProcessor = pipeProcessor || element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
-                writeToProxy = pipeProxy || element.b37WriteTo || this.options?.default?.writeTo, 
-                writeProcessor = pipeProcessor || element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
-            eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
-            writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
-            return retVal
-        } else if (pipeSplit.length===2) {
-
-
-
-
-
-            if (pipeSplit[0].includes('.')) {
-                const listenEventTarget = (element.b37ListenTo||this.options?.default?.listenTo||{}).target, 
-                    listenEventName = (element.b37ListenTo||this.options?.default?.listenTo||{}).type || 'change', 
-                    listenProcessor = element.b37ListenProcessor || this.options?.default?.listenProcessor || element.b37Processor || this.options?.default?.processor, 
-                    writeToProxy = element.b37WriteTo||this.options?.default?.writeTo, 
-                    writeProcessor = element.b37WriteProcessor || this.options?.default?.writeProcessor || element.b37Processor || this.options?.default?.processor
-                eventTarget && eventName && (retVal.listen = [listenEventTarget, listenEventName, listenProcessor?[listenProcessor]:[], element.b37Dataset])
-                writeToProxy && (retVal.write = [element, 'change', writeProcessor?[writeProcessor]:[], writeToProxy])
-                return retVal
-
-
-
-
-            } else if (pipeSplit[0].includes('-')) {
-                let [eventTargetName, eventName] = pipeSplit[0].split('-'), eventTarget
-                if (eventTargetName==='@') {
-                    eventTarget = element
-                } else if (eventTargetName[0]==='@') {
-                    eventTarget = (element.b37EventTargets||{})[eventTargetName]                        
-                } else {
-                    if (!eventName) {
-                        eventTarget = this.eventTargets[eventTargetName]
-                        eventName = 'change'
-                    } else if (!eventTargetName) {
-                        eventTarget = element
-                    } else {
-                        eventTarget = this.eventTargets[eventTargetName]
-                    }
-                }
-                eventName ||= 'change'
-                return [eventTarget, eventName, [], element.b37Dataset]
-            } else {
-                return [element, 'change', [], pipeSplit[0][0]==='$'? (pipeSplit[0]==='$'?element.b37Dataset:element?.b37Proxies[pipeSplit[0].slice(1)]) :this.proxies[pipeSplit[0]]]
-            }
-        } else if (pipeSplit.length===2) {
-            if (pipeSplit[0].includes('-')) {
-
-            }
-        }
-
-
-
-        , eventTargetValue = (pipeSplit.length && pipeSplit[0].includes('.'))?'@-click':pipeSplit.shift()
-        let eventTarget, [eventTargetName, eventName] = eventTargetValue.split('-', 2)
-        if (eventTargetName[0]==='@') {
-            eventTarget = eventTargetName==='@'?element:((element?.b37EventTargets||{})[eventTargetName.slice(1)])
-        } else if (!eventName) {
-            eventTarget = element
-            eventName = eventTargetName
-        } else {
-            eventTarget = this.eventTargets[eventTargetName]
-        }
-        if (!eventTarget) return 
-
+    _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatment, element) {
+        const doFragments = doValue.split('|')
+        if (doFragments.length<3) return
+        const eventFragment = doFragments.shift(), proxyFragment = 
 
 
 
@@ -157,7 +84,13 @@ const Element = Object.defineProperties({}, {
 
 
     }},
-
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(element) {
+        const doValue = element.getAttribute('b37-do') || '', result = []
+        for (const doStatement of doValue.split(' ')) {
+            result.push(this._parseDoStatement(doStatement))
+        }
+        return result
+    }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         const b37DoAttributeValue = element?.getAttribute('b37-do')
         if (!b37DoAttributeValue || !oldValue) return
