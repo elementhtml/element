@@ -1,6 +1,6 @@
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
-    options: {configurable: false, enumerable: true, writable: false, value: {}},
+    env: {configurable: false, enumerable: true, writable: false, value: {}},
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -11,7 +11,23 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}},
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
-    eventTargets: {configurable: false, enumerable: true, writable: false, value: {}},
+    eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(this._eventTargets, {
+        get: (target, prop, receiver) => target[prop] instanceof EventTarget ? target[prop] : undefined
+        has: (target, prop) => target[prop] instanceof EventTarget, 
+        set: function(target, prop, value, receiver) {
+            if (value instanceof EventTarget) {
+                if (Array.isArray(target[prop])) {
+                    for (const queuedHandler of target[prop]) {
+                        value.addEventListener(...queuedHandler)
+                    }
+                }
+                target[prop] = value
+            } else if (Array.isArray(value)) {
+                
+            }
+        }
+    })},
+    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -45,7 +61,10 @@ const Element = Object.defineProperties({}, {
         }
 
     }},
-    _fromHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
+
+
+
+    _doHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
         let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
         if (b37EventToJson) {
             try { processorData = JSON.parse(event[b37EventToJson] || 'null')} catch(e) { processorData = null }
@@ -60,8 +79,11 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
+
+
+
     _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
-        return ...
+
     }}, 
     _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatement, element) {
         const doFragments = doStatement.split('|')
@@ -87,7 +109,9 @@ const Element = Object.defineProperties({}, {
             const oldDoParsed = this._parseDo(oldValue)
             for (const oldDoStatement in oldDoParsed) {
                 const [eventTarget, eventType, processors, proxy] = oldDoParsed[oldDoStatement]
-                if (!eventTarget) continue
+                if (!eventTarget) {
+
+                }
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
             }
         }
@@ -96,7 +120,9 @@ const Element = Object.defineProperties({}, {
         const doParsed = this._parseDo(doValue)
         for (const doStatement in doParsed) {
             const [eventTarget, eventType, processors, proxy] = doParsed[doStatement]
-            if (!eventTarget) continue
+            if (!eventTarget) {
+
+            }
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
             eventTarget.addEventListener(eventType, event => this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal})
