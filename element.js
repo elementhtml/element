@@ -31,25 +31,11 @@ const Element = Object.defineProperties({}, {
             }
             return target[prop]
         }
-        has: (target, prop) => target[prop] instanceof EventTarget, 
+        has: (target, prop) => target[prop] instanceof EventTarget,
         set: function(target, prop, value, receiver) {
-
-
             if (value instanceof EventTarget) {
-                if (target[prop] instanceof Object) for (const el in target[prop]) for (const st in target[prop][el]) value.addEventListener(...target[prop][el][st])
+                if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._ instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
                 target[prop] = value
-            } else if (value instanceof Object) {
-                if (target[prop] instanceof EventTarget) {
-                    for (const el in value) for (const st in value[el]) target[prop].addEventListener(...value[el][st])
-                } else {
-                    target[prop] ||= {}
-                    for (const el in value) {
-                        target[prop][el] ||= {}
-                        for (const st in value[el]) (value[el][st].delete) ? delete target[prop][el][st] : (target[prop][el][st] = value[el][st])
-                        if (!Object.keys(target[prop][el]).length) delete target[prop][el]
-                    }
-                    if (!Object.keys(target[prop])) delete target[prop]                    
-                }
             }
         }
     })},
