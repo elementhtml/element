@@ -12,6 +12,7 @@ const Element = Object.defineProperties({}, {
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     eventTargets: {configurable: false, enumerable: true, writable: false, value: {}},
+    proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -59,30 +60,19 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
-    _parseProcessorSingle: {configurable: false, enumerable: false, writable: false, value: function(processorValueSingle) {
+    _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
         return ...
     }}, 
-    _parseProcessor: {configurable: false, enumerable: false, writable: false, value: function(processorValue) {
-        const processors = [] 
-        for (const processorSingle of processorValue.split('|')) {
-            processors.push(this._parseProcessorSingle(processorSingle))
-        }
-        return processors
-    }}, 
-    _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatment, element) {
-        const doFragments = doValue.split('|')
+    _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatement, element) {
+        const doFragments = doStatement.split('|')
         if (doFragments.length<3) return
-        const eventFragment = doFragments.shift(), proxyFragment = 
-
-
-
-
-
-
-
-
-
-
+        const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
+            [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
+        for (const processorFragment of doFragments) processors.push(this._parseProcessorFragment(processorFragment))
+        const [eventTargetName='@', eventType='change', eventTarget] = [...eventFragment.split('!'), 
+            eventTargetName='@'?element:this.eventTargets[eventTargetName]]
+        const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
+        return [eventTarget, eventType, processors, proxy]
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(element) {
         const doValue = element.getAttribute('b37-do') || '', result = []
