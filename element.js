@@ -98,7 +98,7 @@ const Element = Object.defineProperties({}, {
 
 
     _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
-
+        
     }}, 
     _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatement, element) {
         const doFragments = doStatement.split('|')
