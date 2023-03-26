@@ -16,15 +16,18 @@ const Element = Object.defineProperties({}, {
             if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
                 && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
                 && target[prop].dispatchEvent instanceof Function)) {
-                const listenerSignature = (type, listener, options) => JSON.stringify([type, listener.toString(), typeof options === 'boolean' ? options 
-                        : (options && typeof options === 'object' ? {capture: options.capture} : null)])
                 target[prop] = {
                     _ = {}
-                    addEventListener = (type, listener, options) => {
-                        target[prop]._[listenerSignature(type, listener, options)] |= [type, listener, options]
-                    }, 
-                    removeEventListener = (type, listener, options) => {
-                        delete target[prop]._[listenerSignature(type, listener, options)]
+                    addEventListener = (type, listener, options, element, doStatement) => {
+                        if (!element || ! doStatement) return 
+                        target[prop]._[element] || = {}
+                        target[prop]._[element][doStatement] |= [type, listener, options]
+                    },
+                    removeEventListener = (type, listener, options, element, doStatement) => {
+                        if (!element || ! doStatement) return 
+                        target[prop]._[element] || = {}
+                        delete target[prop]._[element][doStatement]
+                        !Object.keys(target[prop]._[element]).length && (delete target[prop]._[element])
                     },
                     dispatchEvent = () => {} 
                 }
@@ -103,10 +106,10 @@ const Element = Object.defineProperties({}, {
         const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
             [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
         for (const processorFragment of doFragments) processors.push(this._parseProcessorFragment(processorFragment))
-        const [eventTargetName='@', eventType='change', eventTarget] = [...eventFragment.split('!'), 
-            eventTargetName='@'?element:this.eventTargets[eventTargetName]]
+        const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
+            ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
         const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-        return {[doStatement]: [eventTarget, eventType, processors, proxy]}
+        return {[doStatement]: [eventTarget, eventType, processors, proxy, eventTargetKey]}
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
         const doValue = element.getAttribute('b37-do') || '', result = {}
@@ -120,8 +123,11 @@ const Element = Object.defineProperties({}, {
         if (oldValue) {
             const oldDoParsed = this._parseDo(oldValue)
             for (const oldDoStatement in oldDoParsed) {
-                const [eventTarget, eventType, processors, proxy] = oldDoParsed[oldDoStatement]
+                const [eventTarget, eventType, processors, proxy, eventTargetKey] = oldDoParsed[oldDoStatement]
                 if (!eventTarget) continue
+                if (eventTargetKey && !(eventTargetKey in this.eventTargets[eventTargetKey])) {
+                    this.eventTargets[eventTargetKey].removeEventListener(eventType, () => {}, {}, element, doStatement)
+                }
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
             }
         }
@@ -130,12 +136,10 @@ const Element = Object.defineProperties({}, {
         const doParsed = this._parseDo(doValue)
         for (const doStatement in doParsed) {
             const [eventTarget, eventType, processors, proxy] = doParsed[doStatement]
-            if (!eventTarget) {
-
-            }
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
-            eventTarget.addEventListener(eventType, event => this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal})
+            eventTarget.addEventListener(eventType, 
+                event => this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
         }
     }},
     _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
