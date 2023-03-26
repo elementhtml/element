@@ -16,13 +16,16 @@ const Element = Object.defineProperties({}, {
             if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
                 && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
                 && target[prop].dispatchEvent instanceof Function)) {
+                const listenerSignature = (type, listener, options) => JSON.stringify([type, listener.toString(), typeof options === 'boolean' ? options 
+                        : (options && typeof options === 'object' ? {capture: options.capture} : null)])
                 target[prop] = {
                     _ = {}
                     addEventListener = (type, listener, options) => {
-                        target[prop]._[type] |= []
-                        target[prop]._[type].push([type, listener, options])
+                        target[prop]._[listenerSignature(type, listener, options)] |= [type, listener, options]
                     }, 
-                    removeEventListener = () => {}, 
+                    removeEventListener = (type, listener, options) => {
+                        delete target[prop]._[listenerSignature(type, listener, options)]
+                    },
                     dispatchEvent = () => {} 
                 }
             }
