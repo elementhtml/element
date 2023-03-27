@@ -126,19 +126,13 @@ const Element = Object.defineProperties({}, {
                 delete this.eventControllers[element][oldDoStatement] && !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
             }
         }
-        for (const [doStatement, parsedDoStatement] in this._parseDo(element)) {
-            const [eventTarget, eventType, processors, proxy] = parsedDoStatement
+        for (const [doStatement, eventTarget, eventType, processors, proxy] in this._parseDo(element)) {
             if (!eventTarget) continue
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
             eventTarget.addEventListener(eventType, 
                 event => this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
         }
-    }},
-    _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
-        eventDetail = {detail: {property: property, ...eventDetail}}
-        element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
-        element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement || this._enscapulateNative()
@@ -268,6 +262,11 @@ const Element = Object.defineProperties({}, {
                 || (nativeClassName === 'HTMLAudioElement' && globalThis['Audio']) || globalThis[nativeClassName])
             this.constructors[nativeClassName] ||= this._base(this.classes[nativeClassName])
         }
+    }},
+    _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
+        eventDetail = {detail: {property: property, ...eventDetail}}
+        element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
+        element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
     _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
