@@ -126,10 +126,20 @@ const Element = Object.defineProperties({}, {
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: async function*(element, doValue) {
         const _parseProcessorFragment = async processorFragment => {
-            const [repositoryModuleTag, functionName] = processorFragment.split('.'), notFound = i => 
+            const [repositoryModuleTag, functionSignature] = processorFragment.split('.'), notFound = i => {
                 console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
-            return await this._getModule(repositoryModuleTag)?.functionName || notFound
+            }, [functionName, functionDecorator] = functionSignature.split('@')
+            let coreFunction, decoratedFunction
+            if (this.processors[repositoryModuleTag]) coreFunction = this.processors[repositoryModuleTag][functionName] || notFound
+            coreFunction ||= await this._getModule(repositoryModuleTag)?.functionName || notFound
+            if (functionDecorator) {
+
+                *** UP TO HERE ***
+
+            } else {
+                decoratedFunction = coreFunction
+            }
+            return decoratedFunction
         }, _parseDoStatement = async doStatement => {
             const doFragments = doStatement.split('|')
             if (doFragments.length<3) return
