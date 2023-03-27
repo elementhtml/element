@@ -96,7 +96,9 @@ const Element = Object.defineProperties({}, {
                 if (processorOutput && typeof processorOutput === 'object') Object.assign(processorData, processorOutput)
             }
         }
-        if (processorData && typeof processorData === 'object' && 'b37FlattenValueTo' in processorData) processorData = processorData.b37FlattenValueTo
+        if (processorData && typeof processorData === 'object' && 'b37Reduce' in processorData) {
+            processorData = (processorData.b37Reduce instanceof Function) ? processorData.b37Reduce(processorData) : processorData.b37Reduce
+        }
 
         const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
         if (b37EventDatasink && typeof b37EventDatasink === 'object') {
