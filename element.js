@@ -113,16 +113,13 @@ const Element = Object.defineProperties({}, {
         const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
         return {[doStatement]: [eventTarget, eventType, processors, proxy, eventTargetKey]}
     }},
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
-        const doValue = element.getAttribute('b37-do') || '', result = {}
-        for (const doStatement of doValue.split(' ')) result[doStatement] =|| this._parseDoStatement(doStatement)
-        return result
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(doValue, element) {
+        for (const doStatement of (element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, this._parseDoStatement(doStatement)]
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         if (oldValue) {
-            const oldDoParsed = this._parseDo(oldValue)
-            for (const oldDoStatement in oldDoParsed) {
-                const [eventTarget, eventType, processors, proxy, eventTargetKey] = oldDoParsed[oldDoStatement]
+            for (const [oldDoStatement, parsedOldDoStatement] of this._parseDo(oldValue)) {
+                const [eventTarget, eventType, processors, proxy, eventTargetKey] = parsedOldDoStatement
                 if (!eventTarget) continue
                 if (eventTargetKey) {
                     eventTarget.removeEventListener(eventType, () => {}, {}, element, doStatement)
@@ -137,9 +134,8 @@ const Element = Object.defineProperties({}, {
         }
         const doValue = element.getAttribute('b37-do')
         if (!doValue) return
-        const doParsed = this._parseDo(doValue)
-        for (const doStatement in doParsed) {
-            const [eventTarget, eventType, processors, proxy] = doParsed[doStatement]
+        for (const [doStatement, parsedDoStatement] in this._parseDo(doValue)) {
+            const [eventTarget, eventType, processors, proxy] = parsedDoStatement
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
             eventTarget.addEventListener(eventType, 
