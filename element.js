@@ -11,6 +11,15 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}},
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
+    proxies: {configurable: false, enumerable: true, writable: false, value: {}},
+    eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
+    modules: {configurable: false, enumerable: true, writable: false, value: {}},
+    processors: {configurable: false, enumerable: true, writable: false, value: {}},
+    themes: {configurable: false, enumerable: true, writable: false, value: {}},
+    appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
+    _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
+    _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
+    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
     eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(this._eventTargets, {
         get: (target, prop, receiver) => {
             if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
@@ -42,13 +51,6 @@ const Element = Object.defineProperties({}, {
             }
         }
     })},
-    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
-    proxies: {configurable: false, enumerable: true, writable: false, value: {}},
-    eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
-    modules: {configurable: false, enumerable: true, writable: false, value: {}},
-    processors: {configurable: false, enumerable: true, writable: false, value: {}},
-    themes: {configurable: false, enumerable: true, writable: false, value: {}},
-    appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
@@ -152,8 +154,6 @@ const Element = Object.defineProperties({}, {
         element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
         element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
-    _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
