@@ -54,16 +54,6 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _runProcessors: {configurable: false, enumerable: false, writable: false, value: function(processorsSignature, input={}, element={}) {
-        const processors = processorsSignature.split('|'), processorResult = {input: input, context: element?.b37Dataset||{}, env: this.env}
-        for (processor of processors) {
-            processorResult.input = await this._getModule(processor)
-        }
-
-    }},
-
-
-
     _doHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
         let processorData = {}
         const parseb37source = (source, container) => {
