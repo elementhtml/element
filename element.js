@@ -81,9 +81,9 @@ const Element = Object.defineProperties({}, {
         }
         if (element.getAttribute(`b37-source`)) parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
         if (element.getAttribute(`b37-source-${event.type}`)) parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
-        if (element.b37source && typeof element.b37source === 'object' && event.type in element.b37source) parseb37source(element.b37source[event.type], 
+        if (element.b37Source && typeof element.b37Source === 'object' && event.type in element.b37Source) parseb37source(element.b37Source[event.type], 
                 element.b37Dataset)
-        if (event.b37source) parseb37source(event.b37source, event)
+        if (event.b37Source) parseb37source(event.b37Source, event)
         if (event.formData || event.detail || event.data) {
             Object.assign(processorData, (event.formData instanceof Object && event.formData) || (event.detail instanceof Object && event.detail)
                 || (event.data instanceof Object && event.data) || {})
@@ -96,6 +96,7 @@ const Element = Object.defineProperties({}, {
                 if (processorOutput && typeof processorOutput === 'object') Object.assign(processorData, processorOutput)
             }
         }
+        if (processorData && typeof processorData === 'object' && 'b37FlattenValueTo' in processorData) processorData = processorData.b37FlattenValueTo
 
         const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
         if (b37EventDatasink && typeof b37EventDatasink === 'object') {
