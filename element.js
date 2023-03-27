@@ -96,13 +96,13 @@ const Element = Object.defineProperties({}, {
             return dryRun ? : this.modules[tag]
         }
     }},
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(element, doValue) {
-        const _parseProcessorFragment = processorFragment => {
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: async function*(element, doValue) {
+        const _parseProcessorFragment = async processorFragment => {
             const [repositoryModuleTag, functionName] = processorFragment.split('.'), notFound = i => 
                 console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName]
-            return this._getModule(repositoryModuleTag)?.functionName || notFound
-        }, _parseDoStatement = doStatement => {
+            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
+            return await this._getModule(repositoryModuleTag)?.functionName || notFound
+        }, _parseDoStatement = async doStatement => {
             const doFragments = doStatement.split('|')
             if (doFragments.length<3) return
             const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors] = 
@@ -111,13 +111,13 @@ const Element = Object.defineProperties({}, {
             const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
                 ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
             const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-            return [eventTarget, eventType, processors, proxy, eventTargetKey]
+            return [doStatment, eventTarget, eventType, processors, proxy, eventTargetKey]
         }
-        for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, ..._parseDoStatement(doStatement)]
+        for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield await [..._parseDoStatement(doStatement)]
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         if (oldValue) {
-            for (const [oldDoStatement, eventTarget, eventType, processors, proxy, eventTargetKey] of this._parseDo(element, oldValue)) {
+            for await (const [oldDoStatement, eventTarget, eventType, processors, proxy, eventTargetKey] of this._parseDo(element, oldValue)) {
                 if (!eventTarget) continue
                 eventTargetKey && eventTarget.removeEventListener(eventType, () => {}, {}, element, oldDoStatement) && !(eventTarget instanceof EventTarget) 
                     && (eventTarget instanceof Object) && !Object.keys(eventTarget._).length && (delete this.eventTargets[eventTargetKey])
@@ -125,7 +125,7 @@ const Element = Object.defineProperties({}, {
                 delete this.eventControllers[element][oldDoStatement] && !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
             }
         }
-        for (const [doStatement, eventTarget, eventType, processors, proxy] in this._parseDo(element)) {
+        for await (const [doStatement, eventTarget, eventType, processors, proxy] in this._parseDo(element)) {
             if (!eventTarget) continue
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
