@@ -115,10 +115,7 @@ const Element = Object.defineProperties({}, {
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function(doValue, element) {
         const doValue = element.getAttribute('b37-do') || '', result = {}
-        for (const doStatement of doValue.split(' ')) {
-            if (result[doStatement]) continue
-            Object.assign(result, this._parseDoStatement(doStatement))
-        }
+        for (const doStatement of doValue.split(' ')) result[doStatement] =|| this._parseDoStatement(doStatement)
         return result
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
