@@ -111,31 +111,24 @@ const Element = Object.defineProperties({}, {
         const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
             ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
         const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-        return {[doStatement]: [eventTarget, eventType, processors, proxy, eventTargetKey]}
+        return [eventTarget, eventType, processors, proxy, eventTargetKey]
     }},
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(doValue, element) {
-        for (const doStatement of (element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, this._parseDoStatement(doStatement)]
+    _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(element, doValue) {
+        for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, ...this._parseDoStatement(doStatement)]
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         if (oldValue) {
-            for (const [oldDoStatement, parsedOldDoStatement] of this._parseDo(oldValue)) {
-                const [eventTarget, eventType, processors, proxy, eventTargetKey] = parsedOldDoStatement
+            for (const [oldDoStatement, eventTarget, eventType, processors, proxy, eventTargetKey] of this._parseDo(element, oldValue)) {
                 if (!eventTarget) continue
-                if (eventTargetKey) {
-                    eventTarget.removeEventListener(eventType, () => {}, {}, element, doStatement)
-                    if (!(eventTarget instanceof EventTarget) && (eventTarget instanceof Object)) {
-                        !Object.keys(eventTarget._).length && delete this.eventTargets[eventTargetKey]
-                    }
-                }
+                eventTargetKey && eventTarget.removeEventListener(eventType, () => {}, {}, element, oldDoStatement) && !(eventTarget instanceof EventTarget) 
+                    && (eventTarget instanceof Object) && !Object.keys(eventTarget._).length && (delete this.eventTargets[eventTargetKey])
                 this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
-                delete this.eventControllers[element][oldDoStatement]
-                !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
+                delete this.eventControllers[element][oldDoStatement] && !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
             }
         }
-        const doValue = element.getAttribute('b37-do')
-        if (!doValue) return
-        for (const [doStatement, parsedDoStatement] in this._parseDo(doValue)) {
+        for (const [doStatement, parsedDoStatement] in this._parseDo(element)) {
             const [eventTarget, eventType, processors, proxy] = parsedDoStatement
+            if (!eventTarget) continue
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
             eventTarget.addEventListener(eventType, 
