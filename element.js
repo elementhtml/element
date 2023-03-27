@@ -96,14 +96,13 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
-    _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
-        const [repositoryModuleTag, functionName] = processorFragment.split('.'). notFound = i => 
-            console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-        if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
-        return this._getModule(repositoryModuleTag)?.functionName || notFound
-    }}, 
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(element, doValue) {
-        const _parseDoStatement = (doStatement) => {
+        const _parseProcessorFragment = processorFragment => {
+            const [repositoryModuleTag, functionName] = processorFragment.split('.'). notFound = i => 
+                console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
+            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
+            return this._getModule(repositoryModuleTag)?.functionName || notFound
+        }, _parseDoStatement = doStatement => {
             const doFragments = doStatement.split('|')
             if (doFragments.length<3) return
             const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
