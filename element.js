@@ -65,19 +65,39 @@ const Element = Object.defineProperties({}, {
 
 
     _doHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
-        let processorData = {}, b37EventToJson = event.b37EventToJson || event.target.b37EventToJson
-        if (b37EventToJson) {
-            try { processorData = JSON.parse(event[b37EventToJson] || 'null')} catch(e) { processorData = null }
+        let processorData = {}, b37EventDatasource = event.b37Datasource || element?.b37EventDatasource[event.type], 
+            b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
+        if (b37EventDatasource) {
+            if (event[b37EventDatasource] && typeof event[b37EventDatasource] === 'object') {
+                processorData = event[b37EventDatasource]
+            } else {
+                try { processorData = JSON.parse(event[b37EventDatasource] || 'null')} catch(e) { processorData = {} }
+            }
         } else if (event.formData instanceof FormData) {
             for (k in event.formData) processorData[k] = event.formData[k]
         } else {
             processorData = (event.detail instanceof Object && event.detail)
-                || (event.data instanceof Object && event.data) || Object.assign({}, event.target.b37Dataset)
+                || (event.data instanceof Object && event.data) || Object.assign({}, event.target.b37Dataset) || {}
         }
+        processorData ||= {}
         for (const processor of processors) {
-            if (typeof this.processors[processor] === 'function') processorData = Object.assign(processorData, this.processors[processor](processorData, event))
+            if (typeof this.processors[processor] === 'function') {
+                processorData = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
+            }
         }
-        Object.assign(element.b37Dataset, processorData)
+        if (b37EventDatasink && typeof b37EventDatasink === 'object') {
+            if (processorData && typeof processorData === 'object') {
+                Object.assign(b37EventDatasink, processorData)
+            } else if (processorData && typeof processorData === 'string') {
+                let parseTest = null
+                try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
+                if (parseTest && typeof parseTest === 'object') {
+                    Object.assign(b37EventDatasink, processorData)
+                }
+            }
+        } else {
+            b37EventDatasink = processorData
+        }
     }},
 
 
