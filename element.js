@@ -102,19 +102,19 @@ const Element = Object.defineProperties({}, {
         if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
         return this._getModule(repositoryModuleTag)?.functionName || notFound
     }}, 
-    _parseDoStatement: {configurable: false, enumerable: false, writable: false, value: function(doStatement, element) {
-        const doFragments = doStatement.split('|')
-        if (doFragments.length<3) return
-        const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
-            [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
-        for (const processorFragment of doFragments) processors.push(this._parseProcessorFragment(processorFragment))
-        const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
-            ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
-        const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-        return [eventTarget, eventType, processors, proxy, eventTargetKey]
-    }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(element, doValue) {
-        for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, ...this._parseDoStatement(doStatement)]
+        const _parseDoStatement = (doStatement) => {
+            const doFragments = doStatement.split('|')
+            if (doFragments.length<3) return
+            const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
+                [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
+            for (const processorFragment of doFragments) processors.push(this._parseProcessorFragment(processorFragment))
+            const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
+                ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
+            const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
+            return [eventTarget, eventType, processors, proxy, eventTargetKey]
+        }
+        for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield [doStatement, ..._parseDoStatement(doStatement)]
     }},
     _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
         if (oldValue) {
