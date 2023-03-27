@@ -89,7 +89,6 @@ const Element = Object.defineProperties({}, {
                 || (event.data instanceof Object && event.data) || {})
         }
         if (!(processorData && typeof processorData === 'object')) processorData = {}
-
         for (const processor of processors) {
             if (typeof this.processors[processor] === 'function') {
                 const processorOutput = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
@@ -99,7 +98,6 @@ const Element = Object.defineProperties({}, {
         if (processorData && typeof processorData === 'object' && 'b37Reduce' in processorData) {
             processorData = (processorData.b37Reduce instanceof Function) ? processorData.b37Reduce(processorData) : processorData.b37Reduce
         }
-
         if (processorData && typeof processorData === 'object' && processorData.b37Sink && typeof processorData.b37Sink === 'string') {
             const b37Sink = processorData.b37Sink
             delete processorData.b37Sink
@@ -116,16 +114,10 @@ const Element = Object.defineProperties({}, {
         } else if (element.getAttribute('b37-sink')) {
             const b37Sink = element.getAttribute('b37-sink')
             element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
-        } else {
+        } else if (processorData && typeof processorData === 'object') {
             Object.assign(element.b37Dataset, processorData)
         }
-
    }},
-
-
-
-
-
     _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
         if (!tag.includes(':')) return undefined
