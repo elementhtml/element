@@ -72,23 +72,21 @@ const Element = Object.defineProperties({}, {
             } else if (typeof source === 'string' && source.startsWith('`') && source.endsWith('`') ) {
                 try {
                     const parseTest = JSON.parse(source.slice(1, -1))
-                    processorData = (parseTest && typeof parseTest === 'object') ? Object.assign(processorData, parseTest) : parseTest
+                    if (parseTest && typeof parseTest === 'object') Object.assign(processorData, parseTest)
                 } catch(e) {}
             } else if (typeof source === 'string' && container && (typeof container === 'object') && source in container) {
                 const parseTest = parseb37source(container[source])
-                processorData = (parseTest && typeof parseTest === 'object') ? Object.assign(processorData, parseTest) : parseTest
-            } else {
-                processorData = source
+                if (parseTest && typeof parseTest === 'object') Object.assign(processorData, parseTest)
             }
         }
         if (element.getAttribute(`b37-source`)) {
-            parseb37source(element.getAttribute('b37-source'), element)
+            parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
         }
         if (element.getAttribute(`b37-source-${event.type}`)) {
-            parseb37source(element.getAttribute(`b37-source-${event.type}`), element)
+            parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
         }
         if (element.b37source && typeof element.b37source === 'object' && event.type in element.b37source) {
-            parseb37source(element.b37source[event.type], element)
+            parseb37source(element.b37source[event.type], element.b37Dataset)
         }
         if (event.b37source) {
             parseb37source(event.b37source, event)
@@ -100,7 +98,7 @@ const Element = Object.defineProperties({}, {
                 || (event.data instanceof Object && event.data) || Object.assign({}, element.b37Dataset) || {}
         }
         processorData ||= {}
-        
+
         for (const processor of processors) {
             if (typeof this.processors[processor] === 'function') {
                 processorData = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
