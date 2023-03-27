@@ -92,11 +92,31 @@ const Element = Object.defineProperties({}, {
                 let parseTest = null
                 try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
                 if (parseTest && typeof parseTest === 'object') {
-                    Object.assign(b37EventDatasink, processorData)
+                    Object.assign(b37EventDatasink, parseTest)
                 }
             }
-        } else {
-            b37EventDatasink = processorData
+        } else if (b37EventDatasink && typeof b37EventDatasink === 'string') {
+            if (element[b37EventDatasink] && typeof element[b37EventDatasink] === 'object') {
+                if (processorData && typeof processorData === 'object') {
+                    Object.assign(element[b37EventDatasink], processorData)
+                } else if (processorData && typeof processorData === 'string') {
+                    let parseTest = null
+                    try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
+                    if (parseTest && typeof parseTest === 'object') {
+                        Object.assign(element[b37EventDatasink], parseTest)
+                    }
+                }                
+            } else {
+                if (processorData && typeof processorData === 'string') {
+                    let parseTest = null
+                    try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
+                    if (parseTest && typeof parseTest === 'object') {
+                        element[b37EventDatasink] = parseTest
+                    } else {
+                        element[b37EventDatasink] = processorData
+                    }
+                }
+            }
         }
     }},
 
