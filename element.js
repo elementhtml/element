@@ -79,20 +79,24 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
+
+
+
+
+
     _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
         if (!tag.includes(':')) return undefined
         const [tagRepository, tagModule] = tag.split(':')
         if (!this.repositories[tagRepository]) return undefined
-        this.modules[tag] = true
-        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
-            tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
+        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.repositories[tagRepository].modules.suffix || 'wasm',
+            tagModuleFileName = tagModule.includes('.') ? tagModule : `${tagModule}.${fileNameSuffix}`
         if (fileNameSuffix === 'wasm') {
-            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
+            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository].base}${this.repositories[tagRepository].modules.path}${tagModuleFileName}`))
             if (dryRun) return moduleObject 
             return this.modules[tag] = moduleObject.instance
         } else {
-            this.modules[tag] = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
+            this.modules[tag] = await import(`${this.repositories[tagRepository].base}${this.repositories[tagRepository].modules.path}${tagModuleFileName}`)
             return dryRun ? : this.modules[tag]
         }
     }},
@@ -222,8 +226,16 @@ const Element = Object.defineProperties({}, {
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         if (this.ids[tagName]) return this.ids[tagName]
         const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
+        if (this.repositories[tagRepository]) {
+            return 
+        } else {
+
+        }
         return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
     }},
+
+${}${tagModuleFileName}this.repositories[tagRepository].base+this.repositories[tagRepository].element.path
+
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (!forceReload && this.files[tagId]) return
         this.files[tagId] = await fetch(tagId).then(r => r.text())
