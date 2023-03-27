@@ -17,23 +17,23 @@ const Element = Object.defineProperties({}, {
                 && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
                 && target[prop].dispatchEvent instanceof Function)) {
                 target[prop] = {
-                    _ = {}
-                    addEventListener = (type, listener, options, element, doStatement) => {
+                    _: {}, 
+                    addEventListener: (type, listener, options, element, doStatement) => {
                         if (!element || ! doStatement) return 
-                        target[prop]._[element] || = {}
-                        target[prop]._[element][doStatement] |= [type, listener, options]
+                        target[prop]._[element] ||= {}
+                        target[prop]._[element][doStatement] ||= [type, listener, options]
                     },
-                    removeEventListener = (type, listener, options, element, doStatement) => {
+                    removeEventListener: (type, listener, options, element, doStatement) => {
                         if (!element || ! doStatement) return 
-                        target[prop]._[element] || = {}
+                        target[prop]._[element] ||= {}
                         delete target[prop]._[element][doStatement]
                         !Object.keys(target[prop]._[element]).length && (delete target[prop]._[element])
                     },
-                    dispatchEvent = () => {} 
+                    dispatchEvent: () => {} 
                 }
             }
             return target[prop]
-        }
+        }, 
         has: (target, prop) => target[prop] instanceof EventTarget,
         set: function(target, prop, value, receiver) {
             if (value instanceof EventTarget) {
@@ -70,8 +70,7 @@ const Element = Object.defineProperties({}, {
         }
     }},
     _runProcessors: {configurable: false, enumerable: false, writable: false, value: function(processorsSignature, input={}, element={}) {
-        const processors = processorsSignature.split('|')
-        const processorResult = {input: input, context: element?.b37Dataset||{}, env: this.env}
+        const processors = processorsSignature.split('|'), processorResult = {input: input, context: element?.b37Dataset||{}, env: this.env}
         for (processor of processors) {
             processorResult.input = await this._getModule(processor)
         }
@@ -97,7 +96,7 @@ const Element = Object.defineProperties({}, {
     }},
     _parseProcessorFragment: {configurable: false, enumerable: false, writable: false, value: function(processorFragment) {
         const [repositoryModuleTag, functionName] = processorFragment.split('.'). notFound = i => 
-            console.log(`Element.processors['${repositoryModuleTag}'].${functionName} does not exist, bypassing...`) || i
+            console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
         if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
         return this._getModule(repositoryModuleTag)?.functionName || notFound
     }}, 
@@ -170,14 +169,11 @@ const Element = Object.defineProperties({}, {
         }
         observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
-                for (const addedNode of (mutationRecord.addedNodes||[])) {
-                    if (!addedNode?.tagName?.includes('-')) continue
-                    await this.autoload(addedNode)
-                }
+                for (const addedNode of (mutationRecord.addedNodes||[])) if (addedNode?.tagName?.includes('-')) await this.autoload(addedNode)
                 if (mutationRecord.attributeName === 'b37-do') this._setupDo(mutationRecord.target, mutationRecord.oldValue)
             }
         })
-        observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-from']})
+        observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-do']})
         if (rootElement) return
         this._b37ElementThemeObserver ||= new MutationObserver(mutationList => {
             for (const mutationRecord of mutationList) mutationRecord.attributeName === 'b37-theme' || this.applyTheme(undefined, true)
