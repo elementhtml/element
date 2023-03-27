@@ -79,33 +79,25 @@ const Element = Object.defineProperties({}, {
                 if (parseTest && typeof parseTest === 'object') Object.assign(processorData, parseTest)
             }
         }
-        if (element.getAttribute(`b37-source`)) {
-            parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
+        if (element.getAttribute(`b37-source`)) parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
+        if (element.getAttribute(`b37-source-${event.type}`)) parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
+        if (element.b37source && typeof element.b37source === 'object' && event.type in element.b37source) parseb37source(element.b37source[event.type], 
+                element.b37Dataset)
+        if (event.b37source) parseb37source(event.b37source, event)
+        if (event.formData || event.detail || event.data) {
+            Object.assign(processorData, (event.formData instanceof Object && event.formData) || (event.detail instanceof Object && event.detail)
+                || (event.data instanceof Object && event.data) || {})
         }
-        if (element.getAttribute(`b37-source-${event.type}`)) {
-            parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
-        }
-        if (element.b37source && typeof element.b37source === 'object' && event.type in element.b37source) {
-            parseb37source(element.b37source[event.type], element.b37Dataset)
-        }
-        if (event.b37source) {
-            parseb37source(event.b37source, event)
-        }
-        if (event.formData instanceof FormData) {
-            for (k in event.formData) processorData[k] = event.formData[k]
-        } else {
-            processorData = (event.detail instanceof Object && event.detail)
-                || (event.data instanceof Object && event.data) || Object.assign({}, element.b37Dataset) || {}
-        }
-        processorData ||= {}
+        if (!(processorData && typeof processorData === 'object')) processorData = {}
 
         for (const processor of processors) {
             if (typeof this.processors[processor] === 'function') {
-                processorData = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
+                const processorOutput = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
+                if (processorOutput && typeof processorOutput === 'object') Object.assign(processorData, processorOutput)
             }
         }
-        const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
 
+        const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
         if (b37EventDatasink && typeof b37EventDatasink === 'object') {
             if (processorData && typeof processorData === 'object') {
                 Object.assign(b37EventDatasink, processorData)
