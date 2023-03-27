@@ -100,6 +100,17 @@ const Element = Object.defineProperties({}, {
             processorData = (processorData.b37Reduce instanceof Function) ? processorData.b37Reduce(processorData) : processorData.b37Reduce
         }
 
+        if (processorData && typeof processorData === 'object' && processorData.b37Sink && typeof processorData.b37Sink === 'string') {
+            const b37Sink = processorData.b37Sink
+            delete processorData.b37Sink
+            element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
+        } else if (event.b37Sink && typeof event.b37Sink === 'string') {
+            element[event.b37Sink] = (element[event.b37Sink] && typeof element[event.b37Sink] === 'object') 
+                ? Object.assign(element[event.b37Sink], processorData) : processorData
+        }
+
+
+
         const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
         if (b37EventDatasink && typeof b37EventDatasink === 'object') {
             if (processorData && typeof processorData === 'object') {
