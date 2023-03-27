@@ -116,45 +116,11 @@ const Element = Object.defineProperties({}, {
         } else if (element.getAttribute('b37-sink')) {
             const b37Sink = element.getAttribute('b37-sink')
             element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
+        } else {
+            Object.assign(element.b37Dataset, processorData)
         }
 
-
-
-        const b37EventDatasink = event.b37Datasink || element?.b37EventDatasink[event.type] || element.b37Dataset
-        if (b37EventDatasink && typeof b37EventDatasink === 'object') {
-            if (processorData && typeof processorData === 'object') {
-                Object.assign(b37EventDatasink, processorData)
-            } else if (processorData && typeof processorData === 'string') {
-                let parseTest = null
-                try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
-                if (parseTest && typeof parseTest === 'object') {
-                    Object.assign(b37EventDatasink, parseTest)
-                }
-            }
-        } else if (b37EventDatasink && typeof b37EventDatasink === 'string') {
-            if (element[b37EventDatasink] && typeof element[b37EventDatasink] === 'object') {
-                if (processorData && typeof processorData === 'object') {
-                    Object.assign(element[b37EventDatasink], processorData)
-                } else if (processorData && typeof processorData === 'string') {
-                    let parseTest = null
-                    try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
-                    if (parseTest && typeof parseTest === 'object') {
-                        Object.assign(element[b37EventDatasink], parseTest)
-                    }
-                }                
-            } else {
-                if (processorData && typeof processorData === 'string') {
-                    let parseTest = null
-                    try { parseTest = JSON.parse(processorData)} catch(e) { parseTest = null }
-                    if (parseTest && typeof parseTest === 'object') {
-                        element[b37EventDatasink] = parseTest
-                    } else {
-                        element[b37EventDatasink] = processorData
-                    }
-                }
-            }
-        }
-    }},
+   }},
 
 
 
