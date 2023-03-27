@@ -54,23 +54,6 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
-        if (this.modules[tag]) return this.modules[tag]
-        if (!tag.includes(':')) return undefined
-        const [tagRepository, tagModule] = tag.split(':')
-        if (!this.repositories[tagRepository]) return undefined
-        this.modules[tag] = true
-        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
-            tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
-        if (fileNameSuffix === 'wasm') {
-            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
-            if (dryRun) return moduleObject 
-            return this.modules[tag] = moduleObject.instance
-        } else {
-            this.modules[tag] = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
-            return dryRun ? : this.modules[tag]
-        }
-    }},
     _runProcessors: {configurable: false, enumerable: false, writable: false, value: function(processorsSignature, input={}, element={}) {
         const processors = processorsSignature.split('|'), processorResult = {input: input, context: element?.b37Dataset||{}, env: this.env}
         for (processor of processors) {
@@ -96,18 +79,35 @@ const Element = Object.defineProperties({}, {
         }
         Object.assign(element.b37Dataset, processorData)
     }},
+    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
+        if (this.modules[tag]) return this.modules[tag]
+        if (!tag.includes(':')) return undefined
+        const [tagRepository, tagModule] = tag.split(':')
+        if (!this.repositories[tagRepository]) return undefined
+        this.modules[tag] = true
+        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.suffixes[tagRepository]||this.options.defaultModuleSuffix||'wasm',
+            tagModuleFileName = tagModule.includes('.') ? tagModule : fileNameSuffix
+        if (fileNameSuffix === 'wasm') {
+            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repositories[tagRepository]}${tagModuleFileName}`))
+            if (dryRun) return moduleObject 
+            return this.modules[tag] = moduleObject.instance
+        } else {
+            this.modules[tag] = await import(`${this.repositories[tagRepository]}${tagModuleFileName}`)
+            return dryRun ? : this.modules[tag]
+        }
+    }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: function*(element, doValue) {
         const _parseProcessorFragment = processorFragment => {
-            const [repositoryModuleTag, functionName] = processorFragment.split('.'). notFound = i => 
+            const [repositoryModuleTag, functionName] = processorFragment.split('.'), notFound = i => 
                 console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName] || notFound
+            if (this.processors[repositoryModuleTag]) return this.processors[repositoryModuleTag][functionName]
             return this._getModule(repositoryModuleTag)?.functionName || notFound
         }, _parseDoStatement = doStatement => {
             const doFragments = doStatement.split('|')
             if (doFragments.length<3) return
-            const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors]  = 
+            const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors] = 
                 [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
-            for (const processorFragment of doFragments) processors.push(this._parseProcessorFragment(processorFragment))
+            for (const processorFragment of doFragments) processors.push(_parseProcessorFragment(processorFragment))
             const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
                 ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
             const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
