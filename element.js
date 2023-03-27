@@ -226,16 +226,10 @@ const Element = Object.defineProperties({}, {
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         if (this.ids[tagName]) return this.ids[tagName]
         const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-        if (this.repositories[tagRepository]) {
-            return 
-        } else {
-
-        }
-        return (new URL(`${this.repositories[tagRepository] || ('./'+tagRepository+'/')}${tagComponent}${this.suffixes[tagRepository] || '.html'}`, document.location)).href
+        return (this.repositories[tagRepository])
+            ? (new URL(`${this.repositories[tagRepository].base}${this.repositories[tagRepository].elements.path}${tagComponent}.${this.repositories[tagRepository].elements.suffix}`, document.location)).href
+            : (new URL(`${('./'+tagRepository+'/')}${tagComponent}.html`, document.location)).href
     }},
-
-${}${tagModuleFileName}this.repositories[tagRepository].base+this.repositories[tagRepository].element.path
-
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (!forceReload && this.files[tagId]) return
         this.files[tagId] = await fetch(tagId).then(r => r.text())
