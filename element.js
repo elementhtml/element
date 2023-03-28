@@ -155,16 +155,18 @@ const Element = Object.defineProperties({}, {
             if (this.processors[repositoryModuleTag]) coreFunction = this.processors[repositoryModuleTag][functionName] || notFound
             coreFunction ||= await this._getModule(repositoryModuleTag)?.functionName || notFound
             if (functionDecoratorsSignature) {
-                const functionDecorators = []
-                for (const decoratorFragment in functionDecoratorsSignature.split(';')) {
-                    const [decoratorKey, decoratorArgs=''] = decoratorFragment.split('=')
-                    if (typeof this.decorators[decoratorKey] === 'function') {
-                        functionDecorators.push((input) => this.decorators[decoratorKey](input, ...decoratorArgs.split(',')))
+                const [preDecoratorsSignature, postDecoratorsSignature] = functionDecoratorsSignature.split('$'), preDecorators = [], postDecorators = []
+                for (const [s, d] of [[preDecoratorsSignature, preDecorators], [postDecoratorsSignature, postDecorators]]) {
+                    for (const decoratorFragment in s.split(';')) {
+                        const [decoratorKey, decoratorArgs=''] = decoratorFragment.split('=')
+                        if (typeof this.decorators[decoratorKey] === 'function') d.push(input => this.decorators[decoratorKey](input, ...decoratorArgs.split(',')))
                     }
                 }
                 decoratedFunction = (input) => {
-                    return coreFunction(input)
-                    for (const fd of functionDecorators) input = fd(input)
+                    for (const fd of preDecorators) input = fd(input)
+                    input = coreFunction(input)
+                    for (const fd of postDecorators) input = fd(input)
+                    return input
                 }
             }
             return decoratedFunction
