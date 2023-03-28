@@ -1,12 +1,10 @@
-const _eventTargets = {}
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
     env: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
         auth: {configurable: false, enumerable: true, writable: false, value: {}},
-        Element: {configurable: false, enumerable: true, writable: false, value: this},
         globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
         options: {configurable: false, enumerable: true, writable: false, value: {}}
-    }),
+    })},
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -20,12 +18,12 @@ const Element = Object.defineProperties({}, {
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
-    processors: {configurable: false, enumerable: true, writable: false, value: {
+    processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
         '$': {configurable: false, enumerable: true, writable: false, value: input => input}
-    }},
+    })},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
-    decorators: {configurable: false, enumerable: true, writable: false, value: {
+    decorators: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
         '{': {configurable: false, enumerable: true, writable: false, value: input => {
             if (input && typeof input === 'string') {
                 try { return JSON.parse(input) } catch(e) { return input }
@@ -39,41 +37,10 @@ const Element = Object.defineProperties({}, {
                  try { return JSON.stringify(input) } catch(e) { return String(input) }
              } else { return input }
         }}
-    }},
+    })},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _eventTargets: {configurable: false, enumerable: false, writable: false, value: _eventTargets},
-    eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(_eventTargets, {
-        get: (target, prop, receiver) => {
-            if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
-                && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
-                && target[prop].dispatchEvent instanceof Function)) {
-                target[prop] = {
-                    _: {}, 
-                    addEventListener: (type, listener, options, element, doStatement) => {
-                        if (!element || ! doStatement) return 
-                        target[prop]._[element] ||= {}
-                        target[prop]._[element][doStatement] ||= [type, listener, options]
-                    },
-                    removeEventListener: (type, listener, options, element, doStatement) => {
-                        if (!element || ! doStatement) return 
-                        target[prop]._[element] ||= {}
-                        delete target[prop]._[element][doStatement]
-                        !Object.keys(target[prop]._[element]).length && (delete target[prop]._[element])
-                    },
-                    dispatchEvent: () => {} 
-                }
-            }
-            return target[prop]
-        }, 
-        has: (target, prop) => target[prop] instanceof EventTarget,
-        set: function(target, prop, value, receiver) {
-            if (value instanceof EventTarget) {
-                if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._ instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
-                target[prop] = value
-            }
-        }
-    })},
+    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
@@ -502,4 +469,36 @@ const Element = Object.defineProperties({}, {
         }
     }}
 })
+Object.defineProperty(Element.env, 'Element', {configurable: false, enumerable: true, writable: false, value: Element})
+Object.defineProperty(Element, 'eventTargets', {configurable: false, enumerable: true, writable: false, value: new Proxy(Element._eventTargets, {
+    get: (target, prop, receiver) => {
+        if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
+            && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
+            && target[prop].dispatchEvent instanceof Function)) {
+            target[prop] = {
+                _: {}, 
+                addEventListener: (type, listener, options, element, doStatement) => {
+                    if (!element || ! doStatement) return 
+                    target[prop]._[element] ||= {}
+                    target[prop]._[element][doStatement] ||= [type, listener, options]
+                },
+                removeEventListener: (type, listener, options, element, doStatement) => {
+                    if (!element || ! doStatement) return 
+                    target[prop]._[element] ||= {}
+                    delete target[prop]._[element][doStatement]
+                    !Object.keys(target[prop]._[element]).length && (delete target[prop]._[element])
+                },
+                dispatchEvent: () => {} 
+            }
+        }
+        return target[prop]
+    }, 
+    has: (target, prop) => target[prop] instanceof EventTarget,
+    set: function(target, prop, value, receiver) {
+        if (value instanceof EventTarget) {
+            if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._ instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
+            target[prop] = value
+        }
+    }
+})})
 export { Element }
