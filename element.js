@@ -19,23 +19,25 @@ const Element = Object.defineProperties({}, {
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
-    processors: {configurable: false, enumerable: true, writable: false, value: {}},
+    processors: {configurable: false, enumerable: true, writable: false, value: {
+        '$': {configurable: false, enumerable: true, writable: false, value: input => input}
+    }},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
     decorators: {configurable: false, enumerable: true, writable: false, value: {
-        '{': input => {
+        '{': {configurable: false, enumerable: true, writable: false, value: input => {
             if (input && typeof input === 'string') {
                 try { return JSON.parse(input) } catch(e) { return input }
             } else { return input }
-        },
-        '+': (input, key) => ({[key]: input}), 
-        '*': (input, ...keys) => Object.assign({}, ...keys.map(k => ({[k]: input[k]}))),
-        '-': (input, key) => input[key], 
-        '}': input => {
+        }}, 
+        '[': {configurable: false, enumerable: true, writable: false, value: (input, key) => ({[key]: input})}, 
+        '~': {configurable: false, enumerable: true, writable: false, value: (input, ...keys) => Object.assign({}, ...keys.map(k => ({[k]: input[k]})))}, 
+        ']': {configurable: false, enumerable: true, writable: false, value: (input, key) => input[key]}, 
+        '}': {configurable: false, enumerable: true, writable: false, value: input => {
             if (input && typeof input !== 'string') {
                  try { return JSON.stringify(input) } catch(e) { return String(input) }
              } else { return input }
-        }
+        }}
     }},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
