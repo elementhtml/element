@@ -150,21 +150,22 @@ const Element = Object.defineProperties({}, {
         const _parseProcessorFragment = async processorFragment => {
             const [repositoryModuleTag, functionSignature] = processorFragment.split('.'), notFound = i => {
                 console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-            }, [functionName, functionDecorators] = functionSignature.split('@')
-            let coreFunction, decoratedFunction
+            }, [functionName, functionDecoratorsSignature] = functionSignature.split('@')
+            let coreFunction, decoratedFunction = coreFunction
             if (this.processors[repositoryModuleTag]) coreFunction = this.processors[repositoryModuleTag][functionName] || notFound
             coreFunction ||= await this._getModule(repositoryModuleTag)?.functionName || notFound
-            if (functionDecorators) {
-
-                *** UP TO HERE ***
-                1: JSON.parse the output if it is a string
-                1: assign the entire output to the given key in a new wrapping object
-                2: choose only the given comma-separated key(s) from the output in a new wrapping object
-                4: forward only the given keys value as a (possibly scalar) output
-                5: JSON stringify the output
-
-            } else {
-                decoratedFunction = coreFunction
+            if (functionDecoratorsSignature) {
+                const functionDecorators = []
+                for (const decoratorFragment in functionDecoratorsSignature.split(';')) {
+                    const [decoratorKey, decoratorArgs=''] = decoratorFragment.split('=')
+                    if (typeof this.decorators[decoratorKey] === 'function') {
+                        functionDecorators.push((input) => this.decorators[decoratorKey](input, ...decoratorArgs.split(',')))
+                    }
+                }
+                decoratedFunction = (input) => {
+                    return coreFunction(input)
+                    for (const fd of functionDecorators) input = fd(input)
+                }
             }
             return decoratedFunction
         }, _parseDoStatement = async doStatement => {
