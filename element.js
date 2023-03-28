@@ -76,7 +76,7 @@ const Element = Object.defineProperties({}, {
     _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
         return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
     }},
-    _doHandler: {configurable: false, enumerable: false, writable: false, value: function(event, processors, element) {
+    _doHandler: {configurable: false, enumerable: false, writable: false, value: async function(event, processors, element) {
         let processorData = {}
         const parseb37source = (source, container) => {
             if (typeof source === 'object') {
@@ -142,8 +142,9 @@ const Element = Object.defineProperties({}, {
             if (dryRun) return moduleObject 
             return this.modules[tag] = moduleObject.instance
         } else {
-            this.modules[tag] = await import(`${this.repositories[tagRepository].base}${this.repositories[tagRepository].modules.path}${tagModuleFileName}`)
-            return dryRun ? : this.modules[tag]
+            const importedModule = await import(`${this.repositories[tagRepository].base}${this.repositories[tagRepository].modules.path}${tagModuleFileName}`)
+            if (dryRun) return importedModule
+            return this.modules[tag] = importedModule
         }
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: async function*(element, doValue) {
@@ -183,7 +184,7 @@ const Element = Object.defineProperties({}, {
         }
         for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield await [..._parseDoStatement(doStatement)]
     }},
-    _setupDo: {configurable: false, enumerable: false, writable: false, value: function(element, oldValue=undefined) {
+    _setupDo: {configurable: false, enumerable: false, writable: false, value: async function(element, oldValue=undefined) {
         if (oldValue) {
             for await (const [oldDoStatement, eventTarget, eventType, processors, proxy, eventTargetKey] of this._parseDo(element, oldValue)) {
                 if (!eventTarget) continue
@@ -193,12 +194,12 @@ const Element = Object.defineProperties({}, {
                 delete this.eventControllers[element][oldDoStatement] && !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
             }
         }
-        for await (const [doStatement, eventTarget, eventType, processors, proxy] in this._parseDo(element)) {
+        for await (const [doStatement, eventTarget, eventType, processors, proxy] of this._parseDo(element)) {
             if (!eventTarget) continue
             this.eventControllers[element] ||= {}
             this.eventControllers[element][doStatement] = new AbortController()
             eventTarget.addEventListener(eventType, 
-                event => this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
+                async event => await this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
         }
     }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
@@ -206,7 +207,7 @@ const Element = Object.defineProperties({}, {
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
         this.applyTheme(rootElement)
-        rootElement?.hasAttribute('b37-do') && this._setupDo(element)
+        rootElement?.hasAttribute('b37-do') && await this._setupDo(element)
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
         for (const element of domTraverser.call(domRoot, '*')) {
@@ -217,7 +218,7 @@ const Element = Object.defineProperties({}, {
         observerRoot._b37ElementObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of (mutationRecord.addedNodes||[])) if (addedNode?.tagName?.includes('-')) await this.autoload(addedNode)
-                if (mutationRecord.attributeName === 'b37-do') this._setupDo(mutationRecord.target, mutationRecord.oldValue)
+                if (mutationRecord.attributeName === 'b37-do') await this._setupDo(mutationRecord.target, mutationRecord.oldValue)
             }
         })
         observerRoot._b37ElementObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['b37-do']})
