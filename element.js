@@ -49,30 +49,30 @@ const Element = Object.defineProperties({}, {
         const parseb37source = (source, container) => {
             if (typeof source === 'object') {
                 Object.assign(processorData, source)
-            } else if (typeof source === 'string' && source.startsWith('`') && source.endsWith('`') ) {
-                try {
-                    const parseTest = JSON.parse(source.slice(1, -1))
-                    if (parseTest && typeof parseTest === 'object') Object.assign(processorData, parseTest)
-                } catch(e) {}
             } else if (typeof source === 'string' && container && (typeof container === 'object') && source in container) {
                 const parseTest = parseb37source(container[source])
-                if (parseTest && typeof parseTest === 'object') Object.assign(processorData, parseTest)
+                parseTest && typeof parseTest === 'object' && Object.assign(processorData, parseTest)
+            } else if (typeof source === 'string' && source.startsWith('`') && source.endsWith('`') ) {
+                try {
+                    const parseTest = JSON.parse(source.slice(1,-1))
+                    parseTest && typeof parseTest === 'object' && Object.assign(processorData, parseTest)
+                } catch(e) {}
             }
         }
-        if (element.getAttribute(`b37-source`)) parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
-        if (element.getAttribute(`b37-source-${event.type}`)) parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
-        if (element.b37Source && typeof element.b37Source === 'object' && event.type in element.b37Source) parseb37source(element.b37Source[event.type], 
+        element.getAttribute(`b37-source`) && parseb37source(element.getAttribute('b37-source'), element.b37Dataset)
+        element.getAttribute(`b37-source-${event.type}`) && parseb37source(element.getAttribute(`b37-source-${event.type}`), element.b37Dataset)
+        element.b37Source && typeof element.b37Source === 'object' && event.type in element.b37Source && parseb37source(element.b37Source[event.type],
                 element.b37Dataset)
-        if (event.b37Source) parseb37source(event.b37Source, event)
+        event.b37Source && parseb37source(event.b37Source, event)
         if (event.formData || event.detail || event.data) {
             Object.assign(processorData, (event.formData instanceof Object && event.formData) || (event.detail instanceof Object && event.detail)
                 || (event.data instanceof Object && event.data) || {})
         }
-        if (!(processorData && typeof processorData === 'object')) processorData = {}
+        !(processorData && typeof processorData === 'object') && processorData = {}
         for (const processor of processors) {
             if (typeof this.processors[processor] === 'function') {
                 const processorOutput = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
-                if (processorOutput && typeof processorOutput === 'object') Object.assign(processorData, processorOutput)
+                processorOutput && typeof processorOutput === 'object' && Object.assign(processorData, processorOutput)
             }
         }
         if (processorData && typeof processorData === 'object' && 'b37Reduce' in processorData) {
@@ -83,11 +83,11 @@ const Element = Object.defineProperties({}, {
             delete processorData.b37Sink
             element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
         } else if (event.b37Sink && typeof event.b37Sink === 'string') {
-            element[event.b37Sink] = (element[event.b37Sink] && typeof element[event.b37Sink] === 'object') 
+            element[event.b37Sink] = (element[event.b37Sink] && typeof element[event.b37Sink] === 'object')
                 ? Object.assign(element[event.b37Sink], processorData) : processorData
         } else if (element.b37Sink && typeof element.b37Sink === 'object' && event.type in element.b37Sink) {
-            element[element.b37Sink[event.type]] = (element[element.b37Sink[event.type]] && typeof element[element.b37Sink[event.type]] === 'object') 
-                ? Object.assign(element[element.b37Sink[event.type]], processorData) : processorData            
+            element[element.b37Sink[event.type]] = (element[element.b37Sink[event.type]] && typeof element[element.b37Sink[event.type]] === 'object')
+                ? Object.assign(element[element.b37Sink[event.type]], processorData) : processorData
         } else if (element.getAttribute(`b37-sink-${event.type}`)) {
             const b37Sink = element.getAttribute(`b37-sink-${event.type}`)
             element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
