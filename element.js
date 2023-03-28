@@ -1,3 +1,4 @@
+const _eventTargets = {}
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
     env: {configurable: false, enumerable: true, writable: false, value: {
@@ -41,8 +42,8 @@ const Element = Object.defineProperties({}, {
     }},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
-    eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(this._eventTargets, {
+    _eventTargets: {configurable: false, enumerable: false, writable: false, value: _eventTargets},
+    eventTargets: {configurable: false, enumerable: true, writable: false, value: new Proxy(_eventTargets, {
         get: (target, prop, receiver) => {
             if  (!(target[prop] instanceof EventTarget) && !(target[prop] instanceof Object 
                 && target[prop].addEventListener instanceof Function && target[prop].removeEventListener instanceof Function 
