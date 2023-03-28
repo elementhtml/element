@@ -25,28 +25,17 @@ const Element = Object.defineProperties({}, {
     decorators: {configurable: false, enumerable: true, writable: false, value: {
         '{': input => {
             if (input && typeof input === 'string') {
-                { try { return JSON.parse(input) } catch(e) { return input } }
+                try { return JSON.parse(input) } catch(e) { return input }
             } else { return input }
-        }, 
+        },
         '+': (input, key) => ({[key]: input}), 
         '*': (input, ...keys) => Object.assign({}, ...keys.map(k => ({[k]: input[k]}))),
         '-': (input, key) => input[key], 
         '}': input => {
             if (input && typeof input !== 'string') {
-                 try { return JSON.stringify(input) } catch(e) { return input } }
+                 try { return JSON.stringify(input) } catch(e) { return String(input) }
              } else { return input }
         }
-
-
-
-
-                1: JSON.parse the output if it is a string
-                1: assign the entire output to the given key in a new wrapping object
-                2: choose only the given comma-separated key(s) from the output in a new wrapping object
-                4: forward only the given keys value as a (possibly scalar) output
-                5: JSON stringify the output if it is not already a string
-
-
     }},
     _b37ElementObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
     _b37ElementThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
