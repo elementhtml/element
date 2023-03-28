@@ -19,7 +19,10 @@ const Element = Object.defineProperties({}, {
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '$': {configurable: false, enumerable: true, writable: false, value: input => input}
+        '$': {configurable: false, enumerable: true, writable: false, value: input => input}, 
+        '404': {configurable: false, enumerable: true, writable: false, value: input => {
+            return (this.env.options.verbose && console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`)) || input
+        }}
     })},
     themes: {configurable: false, enumerable: true, writable: false, value: {}},
     appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
@@ -117,12 +120,10 @@ const Element = Object.defineProperties({}, {
     }},
     _parseDo: {configurable: false, enumerable: false, writable: false, value: async function*(element, doValue) {
         const _parseProcessorFragment = async processorFragment => {
-            const [repositoryModuleTag, functionSignature] = processorFragment.split('.'), notFound = i => {
-                console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`) || i
-            }, [functionName, functionDecoratorsSignature] = functionSignature.split('@')
+            const [repositoryModuleTag, functionSignature] = processorFragment.split('.'), [functionName, functionDecoratorsSignature] = functionSignature.split('@')
             let coreFunction, decoratedFunction = coreFunction
-            if (this.processors[repositoryModuleTag]) coreFunction = this.processors[repositoryModuleTag][functionName] || notFound
-            coreFunction ||= await this._getModule(repositoryModuleTag)?.functionName || notFound
+            if (this.processors[repositoryModuleTag]) coreFunction = this.processors[repositoryModuleTag][functionName] || this.processors['404']
+            coreFunction ||= await this._getModule(repositoryModuleTag)?.functionName || this.processors['404']
             if (functionDecoratorsSignature) {
                 const [preDecoratorsSignature, postDecoratorsSignature] = functionDecoratorsSignature.split('$'), preDecorators = [], postDecorators = []
                 for (const [s, d] of [[preDecoratorsSignature, preDecorators], [postDecoratorsSignature, postDecorators]]) {
@@ -146,8 +147,8 @@ const Element = Object.defineProperties({}, {
                 [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
             for (const processorFragment of doFragments) processors.push(_parseProcessorFragment(processorFragment))
             const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
-                ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])]
-            const proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
+                ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])], 
+                proxy = proxyFragment==='@'?element.b37Dataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
             return [doStatment, eventTarget, eventType, processors, proxy, eventTargetKey]
         }
         for (const doStatement of (doValue || element.getAttribute('b37-do') || '').split(' ')) yield await [..._parseDoStatement(doStatement)]
