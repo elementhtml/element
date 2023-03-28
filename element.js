@@ -1,6 +1,10 @@
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
-    env: {configurable: false, enumerable: true, writable: false, value: {}},
+    env: {configurable: false, enumerable: true, writable: false, value: {
+        auth: {configurable: false, enumerable: true, writable: false, value: {}}, 
+        globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis}, 
+        options: {configurable: false, enumerable: true, writable: false, value: {}}
+    }},
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
