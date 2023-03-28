@@ -68,7 +68,7 @@ const Element = Object.defineProperties({}, {
             Object.assign(processorData, (event.formData instanceof Object && event.formData) || (event.detail instanceof Object && event.detail)
                 || (event.data instanceof Object && event.data) || {})
         }
-        !(processorData && typeof processorData === 'object') && processorData = {}
+        if (!(processorData && typeof processorData === 'object')) processorData = {}
         for (const processor of processors) {
             if (typeof this.processors[processor] === 'function') {
                 const processorOutput = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
@@ -100,9 +100,9 @@ const Element = Object.defineProperties({}, {
    }},
     _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
-        if (!tag.includes(':')) return undefined
+        if (!tag.includes(':')) return
         const [tagRepository, tagModule] = tag.split(':')
-        if (!this.repositories[tagRepository]) return undefined
+        if (!this.repositories[tagRepository]) return
         const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.repositories[tagRepository].modules.suffix || 'wasm',
             tagModuleFileName = tagModule.includes('.') ? tagModule : `${tagModule}.${fileNameSuffix}`
         if (fileNameSuffix === 'wasm') {
