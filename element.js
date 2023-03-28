@@ -1,12 +1,12 @@
 const _eventTargets = {}
 const Element = Object.defineProperties({}, {
     version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
-    env: {configurable: false, enumerable: true, writable: false, value: {
+    env: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
         auth: {configurable: false, enumerable: true, writable: false, value: {}},
         Element: {configurable: false, enumerable: true, writable: false, value: this},
         globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
         options: {configurable: false, enumerable: true, writable: false, value: {}}
-    }},
+    }),
     repositories: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
