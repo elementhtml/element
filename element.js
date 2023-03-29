@@ -187,15 +187,13 @@ const Element = Object.defineProperties({}, {
         contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
         const contentPageURL = 
             new URL(`${this.repos[contentRepo]?.base||''}${this.repos[contentRepo]?.content?.path||'content/'}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'md'}`, 
-                document.location).href, [templateRepo='template', templateName='default'] = documentTemplate.split('-')
-        const templateURL = 
+                document.location).href, [templateRepo='template', templateName='default'] = documentTemplate.split('-'), templateURL = 
             new URL(`${this.repos[templateRepo]?.base||''}${this.repos[templateRepo]?.template?.path||'template/'}${templateName}.${this.repos[templateRepo]?.template?.suffix||'html'}`,
                 document.location).href
 
-
-        console.log('line 196', contentPageURL)
-        console.log('line 197', templateRepo, templateName)
-        console.log('line 198', templateURL)
+        console.log('line 194', contentPageURL)
+        console.log('line 195', templateRepo, templateName)
+        console.log('line 196', templateURL)
 
 
 
