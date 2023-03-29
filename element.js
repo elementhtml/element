@@ -177,12 +177,9 @@ const Element = Object.defineProperties({}, {
         if (!document.head.querySelector('meta[name="generator"][content="Element"]')) return
         const eContentNode = document.head.querySelector('meta[name="e-content"][content]'), 
             eTemplateNode = document.head.querySelector('meta[name="e-template"][content]'), documentTemplate = eTemplateNode?.getAttribute('content')
-        const [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-')
-        if (contentMode === '/') {
-            const contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`
-            console.log('line 183', contentBase)
-        }
-
+        const [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
+            contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
+            contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
 
 
 
