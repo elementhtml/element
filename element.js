@@ -181,7 +181,7 @@ const Element = Object.defineProperties({}, {
             contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
             contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
         let contentPage = (contentMode === '/' || contentMode.startsWith('#')) 
-                ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'/') || '/')
+                ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'') || '/')
                 : contentMode
         console.log('line 186', contentPage)
         contentPage.endsWith('/') && (contentPage = `${contentPage.slice(0,-1)}${eContentNode.dataset.index||'index'}`)
@@ -191,7 +191,7 @@ const Element = Object.defineProperties({}, {
         //!contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
         const [templateRepo='template', templateName='default'] = documentTemplate.split('-')
         const contentPageURL = 
-            new URL(`${this.repos[contentRepo]?.base||'./'}${this.repos[contentRepo]?.content?.path||''}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'./'}`, 
+            new URL(`${this.repos[contentRepo]?.base||''}${this.repos[contentRepo]?.content?.path||'content/'}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'md'}`, 
                 document.location).href
         console.log('line 196', contentPageURL)
 
