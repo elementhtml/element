@@ -173,6 +173,7 @@ const Element = Object.defineProperties({}, {
     }},
 
 
+
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function() {
         if (!document.head.querySelector('meta[name="generator"][content="Element"]')) return
         const eContentNode = document.head.querySelector('meta[name="e-content"][content]'), 
