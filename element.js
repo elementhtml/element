@@ -86,17 +86,22 @@ const Element = Object.defineProperties({}, {
             delete processorData.b37Sink
             element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
         } else if (event.b37Sink && typeof event.b37Sink === 'string') {
-            element[event.b37Sink] = (element[event.b37Sink] && typeof element[event.b37Sink] === 'object')
-                ? Object.assign(element[event.b37Sink], processorData) : processorData
+            element.b37Sink[event.b37Sink] = (element.b37Sink[event.b37Sink] && typeof element.b37Sink[event.b37Sink] === 'object')
+                ? Object.assign(element.b37Sink[event.b37Sink], processorData) : processorData
+        } else if (event.b37Sink && typeof event.b37Sink === 'object') {
+            event.b37Sink = (event.b37Sink && typeof event.b37Sink === 'object')
+                ? Object.assign(event.b37Sink, processorData) : processorData
         } else if (element.b37Sink && typeof element.b37Sink === 'object' && event.type in element.b37Sink) {
-            element[element.b37Sink[event.type]] = (element[element.b37Sink[event.type]] && typeof element[element.b37Sink[event.type]] === 'object')
-                ? Object.assign(element[element.b37Sink[event.type]], processorData) : processorData
+            element.b37Sink[event.type] = (element.b37Sink[event.type] && typeof element.b37Sink[event.type] === 'object')
+                ? Object.assign(element.b37Sink[event.type], processorData) : processorData
         } else if (element.getAttribute(`b37-sink-${event.type}`)) {
             const b37Sink = element.getAttribute(`b37-sink-${event.type}`)
-            element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
+            element.b37Sink[b37Sink] = (element.b37Sink[b37Sink] && typeof element.b37Sink[b37Sink] === 'object') 
+                ? Object.assign(element.b37Sink[b37Sink], processorData) : processorData
         } else if (element.getAttribute('b37-sink')) {
             const b37Sink = element.getAttribute('b37-sink')
-            element[b37Sink] = (element[b37Sink] && typeof element[b37Sink] === 'object') ? Object.assign(element[b37Sink], processorData) : processorData
+            element.b37Sink[b37Sink] = (element.b37Sink[b37Sink] && typeof element.b37Sink[b37Sink] === 'object') 
+                ? Object.assign(element.b37Sink[b37Sink], processorData) : processorData
         } else if (processorData && typeof processorData === 'object') {
             Object.assign(element.b37Dataset, processorData)
         }
