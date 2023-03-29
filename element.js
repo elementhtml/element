@@ -103,8 +103,8 @@ const Element = Object.defineProperties({}, {
    }},
     _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
         if (this.modules[tag]) return this.modules[tag]
-        if (!tag.includes(':')) return
-        const [tagRepo, tagModule] = tag.split(':')
+        if (!tag.includes('-')) return
+        const [tagRepo, tagModule] = tag.split('-')
         if (!this.repos[tagRepo]) return
         const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.repos[tagRepo].modules.suffix || 'wasm',
             tagModuleFileName = tagModule.includes('.') ? tagModule : `${tagModule}.${fileNameSuffix}`
@@ -171,7 +171,21 @@ const Element = Object.defineProperties({}, {
                 async event => await this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
         }
     }},
+
+
+    loadContent: {configurable: false, enumerable: true, writable: false, value: async function() {
+        if (!document.head.querySelector('meta[name="generator"][content="Element"]')) return
+        const contentRepoMode = document.head.querySelector('meta[name="e-content"][content]')?.getAttribute('content'), 
+            documentTemplate = document.head.querySelector('meta[name="e-template"][content]')?.getAttribute('content')
+        contentRepoMode && ([contentRepo, contentMode] = contentRepoMode.split(':'))
+
+
+
+    }},
+
+
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        !rootElement && this.loadContent()
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
@@ -259,10 +273,10 @@ const Element = Object.defineProperties({}, {
     }},
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
         if (this.ids[tagName]) return this.ids[tagName]
-        const [tagRepository, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-        return (this.repos[tagRepository])
-            ? (new URL(`${this.repos[tagRepository].base}${this.repos[tagRepository].elements.path}${tagComponent}.${this.repos[tagRepository].elements.suffix}`, document.location)).href
-            : (new URL(`${('./'+tagRepository+'/')}${tagComponent}.html`, document.location)).href
+        const [tagRepo, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
+        return (this.repos[tagRepo])
+            ? (new URL(`${this.repos[tagRepo].base}${this.repos[tagRepo].elements.path}${tagComponent}.${this.repos[tagRepo].elements.suffix}`, document.location)).href
+            : (new URL(`${('./'+tagRepo+'/')}${tagComponent}.html`, document.location)).href
     }},
     loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
         if (!forceReload && this.files[tagId]) return
