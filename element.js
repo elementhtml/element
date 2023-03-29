@@ -174,23 +174,19 @@ const Element = Object.defineProperties({}, {
 
 
 
-    loadContent: {configurable: false, enumerable: true, writable: false, value: async function() {
-        if (!document.head.querySelector('meta[name="generator"][content="Element"]')) return
-        const eContentNode = document.head.querySelector('meta[name="e-content"][content]'), 
-            eTemplateNode = document.head.querySelector('meta[name="e-template"][content]'), documentTemplate = eTemplateNode?.getAttribute('content')
-        const [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
+    loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements.namedItem('e-content'), 
+            eTemplateNode = metaElements.namedItem('e-template'), documentTemplate = eTemplateNode?.getAttribute('content'), 
+            [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
             contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
             contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
-        let contentPage = contentMode
-        if (contentMode === '/') {
-            contentPage = document.location.href.replace(contentBase,'/') || '/'
-        } else if (contentMode.startsWith('#')) {
-            contentPage = document.location.hash.replace(contentMode, '/') || '/'
-        }
+        let contentPage = ((contentMode === '/') || (contentMode.startsWith('#'))) 
+                ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'/') || '/')
+                : contentMode
         contentPage.endsWith('/') && (contentPage = `${contentPage}${eContentNode.dataset.index||'index'}`)
         contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
         !contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
-        console.log('line 192', contentPage)
+        console.log('line 190', contentPage)
 
 
 
@@ -199,7 +195,7 @@ const Element = Object.defineProperties({}, {
 
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        !rootElement && this.loadContent()
+        !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element'  && this.loadContent()
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
