@@ -183,18 +183,19 @@ const Element = Object.defineProperties({}, {
         let contentPage = (contentMode === '/' || contentMode.startsWith('#')) 
                 ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'') || '/')
                 : contentMode
-        console.log('line 186', contentPage)
         contentPage.endsWith('/') && (contentPage = `${contentPage.slice(0,-1)}${eContentNode.dataset.index||'index'}`)
-        console.log('line 188', contentPage)
         contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
-        console.log('line 190', contentPage)
-        //!contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
-        const [templateRepo='template', templateName='default'] = documentTemplate.split('-')
         const contentPageURL = 
             new URL(`${this.repos[contentRepo]?.base||''}${this.repos[contentRepo]?.content?.path||'content/'}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'md'}`, 
+                document.location).href, [templateRepo='template', templateName='default'] = documentTemplate.split('-')
+        const templateURL = 
+            new URL(`${this.repos[templateRepo]?.base||''}${this.repos[templateRepo]?.template?.path||'template/'}${templateName}.${this.repos[templateRepo]?.template?.suffix||'html'}`,
                 document.location).href
-        console.log('line 196', contentPageURL)
 
+
+        console.log('line 196', contentPageURL)
+        console.log('line 197', templateRepo, templateName)
+        console.log('line 198', templateURL)
 
 
 
