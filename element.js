@@ -182,7 +182,7 @@ const Element = Object.defineProperties({}, {
             contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
             contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
         if (contentMode === '/') {
-            let contentPage = document.location.href.replace(contentBase,'') || '/'
+            let contentPage = document.location.href.replace(contentBase,'/') || '/'
             contentPage.endsWith('/') && (contentPage = `${contentPage}${eContentNode.dataset.index||'index'}`)
             contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
 
