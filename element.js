@@ -175,8 +175,8 @@ const Element = Object.defineProperties({}, {
 
 
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements.namedItem('e-content'), 
-            eTemplateNode = metaElements.namedItem('e-template'), documentTemplate = eTemplateNode?.getAttribute('content'), 
+        const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements['e-content'], 
+            eTemplateNode = metaElements['e-template'], documentTemplate = eTemplateNode?.getAttribute('content'), 
             [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
             contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
             contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
@@ -186,7 +186,10 @@ const Element = Object.defineProperties({}, {
         contentPage.endsWith('/') && (contentPage = `${contentPage}${eContentNode.dataset.index||'index'}`)
         contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
         !contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
-        console.log('line 190', contentPage)
+        const [templateRepo='template', templateName='default'] = documentTemplate.split('-')
+        
+
+
 
 
 
