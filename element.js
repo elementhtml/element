@@ -180,14 +180,20 @@ const Element = Object.defineProperties({}, {
             [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
             contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
             contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
-        let contentPage = ((contentMode === '/') || (contentMode.startsWith('#'))) 
+        let contentPage = (contentMode === '/' || contentMode.startsWith('#')) 
                 ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'/') || '/')
                 : contentMode
-        contentPage.endsWith('/') && (contentPage = `${contentPage}${eContentNode.dataset.index||'index'}`)
+        console.log('line 186', contentPage)
+        contentPage.endsWith('/') && (contentPage = `${contentPage.slice(0,-1)}${eContentNode.dataset.index||'index'}`)
+        console.log('line 188', contentPage)
         contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
-        !contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
+        console.log('line 190', contentPage)
+        //!contentPage.startsWith('/') && (contentPage = `/${contentPage}`)
         const [templateRepo='template', templateName='default'] = documentTemplate.split('-')
-        
+        const contentPageURL = 
+            new URL(`${this.repos[contentRepo]?.base||'./'}${this.repos[contentRepo]?.content?.path||''}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'./'}`, 
+                document.location).href
+        console.log('line 196', contentPageURL)
 
 
 
