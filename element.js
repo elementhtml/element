@@ -25,13 +25,20 @@ const Element = Object.defineProperties({}, {
         this._proxies[name] = target
         return (this.proxies[name] = new Proxy(this._proxies[name], handler))
     }},
+    _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, rootElement=undefined, resolve=false) => {
-            const result = {}, repo = this.repos[repoName] || {},
-                page = document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-            for (const mode of modes) result[mode] = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`
-            if (resolve) for (const mode in result) result[mode] = await fetch(result[mode]).then(r => r.text())
-            return result
+        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, mode='content', resolve=false, rootElement=undefined) => {
+            const repo = this.repos[repoName] || {}
+            this._routerData['/'] ||= {page: {}, pageIndex: {}}
+            this._routerData['/'].pageIndex[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
+            const page = this._routerData['/'].pageIndex[document.location.href]
+            this._routerData['/'].page[page] || {content: {}, layout: {}}
+            this._routerData['/'].page[page].content ||= {
+                url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`, 
+                text: undefined
+            }
+            resolve && this._routerData['/'].page[page].content.text ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())
+            return {[page]: this._routerData['/'].page[page]}
         }},
         '#': {configurable: false, enumerable: true, writable: false, value: input => input}
     })},
