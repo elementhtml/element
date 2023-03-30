@@ -3,7 +3,10 @@ const Element = Object.defineProperties({}, {
     env: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
         auth: {configurable: false, enumerable: true, writable: false, value: {}},
         globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
-        options: {configurable: false, enumerable: true, writable: false, value: {}}
+        options: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
+            defaultIndexMap: {configurable: false, enumerable: true, writable: false, value: {content: 'index', layout: 'default', nav: 'main'}}, 
+            defaultSuffixMap: {configurable: false, enumerable: true, writable: false, value: {content: 'md', layout: 'html', nav: 'json'}}
+        })}
     })},
     repos: {configurable: false, enumerable: true, writable: false, value: {}},
     ids: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -15,7 +18,28 @@ const Element = Object.defineProperties({}, {
     scripts: {configurable: false, enumerable: true, writable: false, value: {}},
     classes: {configurable: false, enumerable: true, writable: false, value: {}},
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
+    _proxies: {configurable: false, enumerable: false, writable: false, value: {}},
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
+    setProxy: {configurable: false, enumerable: true, writable: false, value: function(name, handler, target={}) {
+        if (!(target instanceof Object && handler instanceof Object)) return
+        this._proxies[name] = target
+        return (this.proxies[name] = new Proxy(this._proxies[name], handler))
+    }},
+    routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
+        '/': {configurable: false, enumerable: true, writable: false, value: async (modes, repoName=undefined, rootElement=undefined, resolve=false) => {
+            modes ||= ['content']
+            const result = {}, repo = this.repos[repoName] || {},
+                page = document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
+            for (const mode of modes) result[mode] = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultIndexMap[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixMap[mode]}`
+            if (resolve) for (const mode in result) result[mode] = await fetch(result[mode]).then(r => r.text())
+            return result
+        }},
+        '#': {configurable: false, enumerable: true, writable: false, value: input => input}
+    })},
+    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
+        if (typeof handler !== 'function') return
+        this.routers[name] = async rootElement => await handler(rootElement, document.location, this.env)
+    }},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
