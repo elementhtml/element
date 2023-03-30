@@ -33,11 +33,13 @@ const Element = Object.defineProperties({}, {
             this._routerData['/'].pageIndex[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
             const page = this._routerData['/'].pageIndex[document.location.href]
             this._routerData['/'].page[page] || {content: {}, layout: {}}
-            this._routerData['/'].page[page].content ||= {
-                url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`, 
-                text: undefined
+            if (mode === 'content') {
+                this._routerData['/'].page[page].content ||= {
+                    url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`, 
+                    text: undefined
+                }
+                resolve && this._routerData['/'].page[page].content.text ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())                
             }
-            resolve && this._routerData['/'].page[page].content.text ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())
             return {[page]: this._routerData['/'].page[page]}
         }},
         '#': {configurable: false, enumerable: true, writable: false, value: input => input}
