@@ -4,8 +4,8 @@ const Element = Object.defineProperties({}, {
         auth: {configurable: false, enumerable: true, writable: false, value: {}},
         globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
         options: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-            defaultIndexMap: {configurable: false, enumerable: true, writable: false, value: {content: 'index', layout: 'default', nav: 'main'}}, 
-            defaultSuffixMap: {configurable: false, enumerable: true, writable: false, value: {content: 'md', layout: 'html', nav: 'json'}}
+            defaultPages: {configurable: false, enumerable: true, writable: false, value: {content: 'index', layout: 'default', nav: 'main'}}, 
+            defaultSuffixes: {configurable: false, enumerable: true, writable: false, value: {content: 'md', layout: 'html', nav: 'json'}}
         })}
     })},
     repos: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -26,11 +26,10 @@ const Element = Object.defineProperties({}, {
         return (this.proxies[name] = new Proxy(this._proxies[name], handler))
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '/': {configurable: false, enumerable: true, writable: false, value: async (modes, repoName=undefined, rootElement=undefined, resolve=false) => {
-            modes ||= ['content']
+        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, rootElement=undefined, resolve=false) => {
             const result = {}, repo = this.repos[repoName] || {},
                 page = document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-            for (const mode of modes) result[mode] = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultIndexMap[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixMap[mode]}`
+            for (const mode of modes) result[mode] = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`
             if (resolve) for (const mode in result) result[mode] = await fetch(result[mode]).then(r => r.text())
             return result
         }},
