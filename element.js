@@ -27,7 +27,7 @@ const Element = Object.defineProperties({}, {
     }},
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, mode='content', resolve=false, rootElement=undefined) => {
+        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, mode='content', resolve=true, rootElement=undefined) => {
             const repo = this.repos[repoName] || {}
             this._routerData['/'] ||= {page: {}, pageIndex: {}}
             this._routerData['/'].pageIndex[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
@@ -36,9 +36,11 @@ const Element = Object.defineProperties({}, {
             if (mode === 'content') {
                 this._routerData['/'].page[page].content ||= {
                     url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`, 
-                    text: undefined
                 }
-                resolve && this._routerData['/'].page[page].content.text ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())                
+                resolve && this._routerData['/'].page[page].content.resolved ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())
+                return this._routerData['/'].page[page].content
+            } else if (mode === 'layout') {
+
             }
             return {[page]: this._routerData['/'].page[page]}
         }},
