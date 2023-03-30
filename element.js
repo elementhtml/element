@@ -27,22 +27,16 @@ const Element = Object.defineProperties({}, {
     }},
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, mode='content', resolve=true, rootElement=undefined) => {
+        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, resolve=true, rootElement=undefined) => {
             const repo = this.repos[repoName] || {}
-            this._routerData['/'] ||= {page: {}, pageIndex: {}}
-            this._routerData['/'].pageIndex[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-            const page = this._routerData['/'].pageIndex[document.location.href]
-            this._routerData['/'].page[page] || {content: {}, layout: {}}
-            if (mode === 'content') {
-                this._routerData['/'].page[page].content ||= {
-                    url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`, 
-                }
-                resolve && this._routerData['/'].page[page].content.resolved ||= await fetch(this._routerData['/'].page[page].content.url).then(r => r.text())
-                return this._routerData['/'].page[page].content
-            } else if (mode === 'layout') {
-
+            this._routerData['/'] ||= {content: {}, index: {}}
+            this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
+            const page = this._routerData['/'].index[document.location.href]
+            this._routerData['/'].content[page] ||= {
+                url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`,
             }
-            return {[page]: this._routerData['/'].page[page]}
+            resolve && this._routerData['/'].content[page].value ||= await fetch(this._routerData['/'].content[page].url).then(r => r.text())
+            return {[page]: this._routerData['/'].content[page]}
         }},
         '#': {configurable: false, enumerable: true, writable: false, value: input => input}
     })},
