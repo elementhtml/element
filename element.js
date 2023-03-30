@@ -27,16 +27,16 @@ const Element = Object.defineProperties({}, {
     }},
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     routers: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '/': {configurable: false, enumerable: true, writable: false, value: async (repoName=undefined, resolve=true, rootElement=undefined) => {
+        '/': {configurable: false, enumerable: true, writable: false, value: async (mode, rootElement=undefined, resolve=true, repoName=undefined) => {
             const repo = this.repos[repoName] || {}
-            this._routerData['/'] ||= {content: {}, index: {}}
+            this._routerData['/'] ||= {[mode]: {}, index: {}}
             this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
             const page = this._routerData['/'].index[document.location.href]
-            this._routerData['/'].content[page] ||= {
-                url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultPages[mode]}`,
+            this._routerData['/'][mode][page] ||= {
+                url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`,
             }
-            resolve && this._routerData['/'].content[page].value ||= await fetch(this._routerData['/'].content[page].url).then(r => r.text())
-            return {[page]: this._routerData['/'].content[page]}
+            resolve && (this._routerData['/'][mode][page].value ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text()))
+            return {[page]: this._routerData['/'][mode][page]}
         }},
         '#': {configurable: false, enumerable: true, writable: false, value: input => input}
     })},
@@ -203,26 +203,25 @@ const Element = Object.defineProperties({}, {
 
 
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements['e-content'], 
-            eTemplateNode = metaElements['e-template'], documentTemplate = eTemplateNode?.getAttribute('content'), 
-            [contentRepo='content', contentMode='/'] = (eContentNode?.getAttribute('content')||'').split('-'), 
-            contentBase = `${((new URL(eContentNode.dataset.base || document.location.pathname, document.location)).href).split('/').slice(0,-1).join('/')}/`, 
-            contentSuffix = this.repos[contentRepo]?.content?.suffix || 'md'
-        let contentPage = (contentMode === '/' || contentMode.startsWith('#')) 
-                ? ((document.location[contentMode==='/'?'href':'hash']).replace(contentMode==='/'?contentBase:contentMode ,'') || '/')
-                : contentMode
-        contentPage.endsWith('/') && (contentPage = `${contentPage.slice(0,-1)}${eContentNode.dataset.index||'index'}`)
-        contentPage.endsWith(`.${eContentNode.dataset.suffix||'html'}`) && (contentPage = contentPage.split('.').slice(0, -1).join('.'))
-        const contentPageURL = 
-            new URL(`${this.repos[contentRepo]?.base||''}${this.repos[contentRepo]?.content?.path||'content/'}${contentPage}.${this.repos[contentRepo]?.content?.suffix||'md'}`, 
-                document.location).href, [templateRepo='template', templateName='default'] = documentTemplate.split('-'), templateURL = 
-            new URL(`${this.repos[templateRepo]?.base||''}${this.repos[templateRepo]?.template?.path||'template/'}${templateName}.${this.repos[templateRepo]?.template?.suffix||'html'}`,
-                document.location).href
-
-        console.log('line 194', contentPageURL)
-        console.log('line 195', templateRepo, templateName)
-        console.log('line 196', templateURL)
-
+        let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
+            defaultLayoutTag = `layout-${this.env.options.defaultPages.layout}`
+        if (!rootElement) const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements['e-content'], 
+            eLayoutNode = metaElements['e-layout']
+        contentTag = eContentNode?.getAttribute(`${rootElement?'e-':''}content`) || defaultContentTag
+        layoutTag = eLayoutNode?.getAttribute(rootElement?'e-layout':'content') || defaultLayoutTag
+        const values = {content: contentTag, layout: layoutTag}
+        for (const mode in values) {
+            const tag = values[mode]
+            if (tag.includes('(') && tag.endsWith(')')) {
+                let [routerName, routerArgs] = tag.split('(')
+                routerArgs = routerArgs.slice(0, -1).split(',')
+                values[mode] = await this.routers[routerName](mode, rootElement, resolve=true, ...routerArgs)
+            } else if (tag.includes('-')) {
+                const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
+                values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||'content/'}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
+            }
+        }
+        
 
 
 
