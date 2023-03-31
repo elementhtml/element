@@ -37,35 +37,11 @@ const Element = Object.defineProperties({}, {
                 if (metaRaw.endsWith('}')) try { meta = JSON.parse(`{${metaRaw}`) } catch(e) {}
                 partName = partName.trim()
                 body = body.trim()
-                console.log('line 39', partName, meta, body)
+                console.log('line 40', partName, meta, body)
 
 
 
             }
-
-        }}
-    })},
-
-    _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
-    _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async (mode, rootElement=rootElement, repoName=repoName) => {
-        console.log('line 52', mode, rootElement, this)
-        const repo = this.repos[repoName] || {}
-        this._routerData['/'] ||= {[mode]: {}, index: {}}
-        this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-        const page = this._routerData['/'].index[document.location.href], contentFormat = repo[mode]?.suffix || this.env.options.defaultSuffixes[mode]
-        this._routerData['/'][mode][page] ||= {
-            url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${contentFormat}`
-        }            
-        this._routerData['/'][mode][page].raw ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
-        this._routerData['/'][mode][page].parsed ||= await this.contentParsers[contentFormat](this._routerData['/'][mode][page].raw)
-        console.log('line 63', values)
-        if (values.content) {
-            const contentParts = {}
-            
-
-        }
-
-
 /*        `
         ***`#!Element e-`***
 {
@@ -92,14 +68,40 @@ And here is my aside content...
 `
 */
 
+        }}
+    })},
+
+    _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
+    _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async (mode, rootElement=undefined, repoName=undefined) => {
+        console.log('line 76', mode, this)
+        const repo = this.repos[repoName] || {}
+        this._routerData['/'] ||= {[mode]: {}, index: {}}
+        this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
+        const page = this._routerData['/'].index[document.location.href], contentFormat = repo[mode]?.suffix || this.env.options.defaultSuffixes[mode]
+        this._routerData['/'][mode][page] ||= {
+            url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${contentFormat}`
+        }            
+        this._routerData['/'][mode][page].raw ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
+        this._routerData['/'][mode][page].parsed ||= await this.contentParsers[contentFormat](this._routerData['/'][mode][page].raw)
+        console.log('line 86', values)
+        if (values.content) {
+            const contentParts = {}
+            
+
+        }
 
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
     setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
         if (typeof handler !== 'function') return
-        this.routers[name] = async (mode, rootElement, ...args) => await handler.apply(this, [mode, rootElement, ...args])
+        return (this.routers[name] = async (mode, rootElement, ...args) => {
+            console.log('line 99', this, handler.apply)
+            return await handler.call(this, mode, rootElement, ...args)
+        }
+            )
     }},
+
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
@@ -274,10 +276,10 @@ And here is my aside content...
 console.log('line 277', mode, tag)
                 let [routerName, routerArgs] = tag.split('(')
                 routerArgs = routerArgs.slice(0, -1).split(',')
-                this.routers[routerName] || = this.setRouter('/', this._routerHandlerDefault)
+                this.routers[routerName] || this.setRouter('/', this._routerHandlerDefault)
                 values[mode] = await this.routers[routerName](mode, rootElement, document.location, this.env, ...routerArgs)
             } else if (tag.includes('-')) {
-console.log('line 282', mode, tag)
+console.log('line 283', mode, tag)
                 const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
                 values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
             }
