@@ -45,16 +45,15 @@ const Element = Object.defineProperties({}, {
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
         const repo = this.repos[repoName] || {}
-        this._routerData['/'] ||= {[mode]: {}, index: {}}
-        this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-        this._routerData['/'].index[document.location.href] ||= repo[mode].default
-        let page = this._routerData['/'].index[document.location.href]
+        this._routerData['/'] ||= {}
+        this._routerData['/'][mode] ||= {}
+        let page = document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
+        page ||= repo[mode]?.default || this.env.options.defaultPages[mode]                
         page = (repo[mode]?.alias||{})[page] || page
-        this._routerData['/'][mode][page] ||= {
-            url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.html`
-        }
-        this._routerData['/'][mode][page].raw ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
-       return {[page]: this._routerData['/'][mode][page]}
+        this._routerData['/'][mode][page] ||= {}
+        this._routerData['/'][mode][page].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
+        this._routerData['/'][mode][page].raw = await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
+       return this._routerData['/'][mode][page]
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
     setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
@@ -238,11 +237,17 @@ const Element = Object.defineProperties({}, {
                 }
                 values[mode] = await this.routers[routerName](mode, rootElement, ...routerArgs)
             } else if (tag.includes('-')) {
-                const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
-                values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
+                let [repoName, page] = tag.split('-'), repo = this.repos[repoName] || {}
+
+                page ||= repo[mode]?.default || this.env.options.defaultPages[mode]                
+                page = (repo[mode]?.alias||{})[page] || page
+                values[mode] = {}
+                values[mode][page] ||= {}
+                values[mode][page].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
+                values[mode][page].raw = await fetch(values[mode][page].url).then(r => r.text())
             }
         }
-        console.log('line 244', values)
+        console.log('line 250', values)
 
 
 
