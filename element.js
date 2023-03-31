@@ -222,6 +222,7 @@ const Element = Object.defineProperties({}, {
                 values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
             }
         }
+        console.log('line 225', values)
         
         
 
@@ -535,17 +536,17 @@ Object.defineProperty(Element.env, 'Element', {configurable: false, enumerable: 
 Object.defineProperty(Element, 'eventTargets', {configurable: false, enumerable: true, writable: false, value: new Proxy(Element._eventTargets, {
     get: (target, prop, receiver) => {
         if  (!target[prop] && !target[prop] instanceof Object && !target[prop] instanceof EventTarget) {
-            target[prop] = {_: {},
+            target[prop] = {_e: {},
                 addEventListener: (type, listener, options, element, doStatement) => {
                     if (!element || !doStatement) return
-                    target[prop]._[element] ||= {}
-                    target[prop]._[element][doStatement] ||= [type, listener, options]
+                    target[prop]._e[element] ||= {}
+                    target[prop]._e[element][doStatement] ||= [type, listener, options]
                 },
                 removeEventListener: (type, listener, options, element, doStatement) => {
                     if (!element || !doStatement) return
-                    target[prop]._[element] ||= {}
-                    delete target[prop]._[element][doStatement]
-                    !Object.keys(target[prop]._[element]).length && (delete target[prop]._[element])
+                    target[prop]._e[element] ||= {}
+                    delete target[prop]._e[element][doStatement]
+                    !Object.keys(target[prop]._e[element]).length && (delete target[prop]._e[element])
                 },
                 dispatchEvent: () => {}
             }
@@ -555,7 +556,7 @@ Object.defineProperty(Element, 'eventTargets', {configurable: false, enumerable:
     has: (target, prop) => target[prop] instanceof EventTarget,
     set: function(target, prop, value, receiver) {
         if (value instanceof EventTarget) {
-            if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._ instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
+            if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._e instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
             target[prop] = value
         }
     }
