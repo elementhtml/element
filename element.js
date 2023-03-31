@@ -34,7 +34,7 @@ const Element = Object.defineProperties({}, {
             for (const chunk of raw.split('***`#!Element')) {
                 let [chunkhead='main', body=''] = chunk.split('`***', 2), 
                     [partName, metaRaw] = chunkhead.split('{', 2), meta = {}
-                if (metaRaw.endsWith('}')) try { meta = JSON.parse(`{${metaRaw}`) } catch(e) {}
+                if (metaRaw && metaRaw.endsWith('}')) try { meta = JSON.parse(`{${metaRaw}`) } catch(e) {}
                 partName = partName.trim()
                 body = body.trim()
                 console.log('line 40', partName, meta, body)
