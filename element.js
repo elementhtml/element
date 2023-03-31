@@ -222,7 +222,7 @@ const Element = Object.defineProperties({}, {
             }
         }
         
-
+        
 
 
 
@@ -231,6 +231,7 @@ const Element = Object.defineProperties({}, {
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element'  && this.loadContent()
+        rootElement && (rootElement.hasAttribute('e-layout') || rootElement.hasAttribute('e-content')) this.loadContent(rootElement)
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
