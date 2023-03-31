@@ -72,7 +72,7 @@ And here is my aside content...
     })},
 
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
-    _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async (mode, rootElement=undefined, repoName=undefined) => {
+    _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
         console.log('line 76', mode, this)
         const repo = this.repos[repoName] || {}
         this._routerData['/'] ||= {[mode]: {}, index: {}}
@@ -83,25 +83,13 @@ And here is my aside content...
         }            
         this._routerData['/'][mode][page].raw ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
         this._routerData['/'][mode][page].parsed ||= await this.contentParsers[contentFormat](this._routerData['/'][mode][page].raw)
-        console.log('line 86', values)
-        if (values.content) {
-            const contentParts = {}
-            
-
-        }
-
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
     setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
         if (typeof handler !== 'function') return
-        return (this.routers[name] = async (mode, rootElement, ...args) => {
-            console.log('line 99', this, handler.apply)
-            return await handler.call(this, mode, rootElement, ...args)
-        }
-            )
+        this.routers[name] = handler.bind(this)
     }},
-
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
