@@ -242,9 +242,8 @@ const Element = Object.defineProperties({}, {
                 page ||= repo[mode]?.default || this.env.options.defaultPages[mode]                
                 page = (repo[mode]?.alias||{})[page] || page
                 values[mode] = {}
-                values[mode][page] ||= {}
-                values[mode][page].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
-                values[mode][page].raw = await fetch(values[mode][page].url).then(r => r.text())
+                values[mode].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
+                values[mode].raw = await fetch(values[mode].url).then(r => r.text())
             }
         }
         console.log('line 250', values)
