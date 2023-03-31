@@ -73,7 +73,6 @@ And here is my aside content...
 
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
-        console.log('line 76', mode, this)
         const repo = this.repos[repoName] || {}
         this._routerData['/'] ||= {[mode]: {}, index: {}}
         this._routerData['/'].index[document.location.href] ||= document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
@@ -86,7 +85,9 @@ And here is my aside content...
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
-    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) { this.routers[name] = handler.bind(this)}},
+    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) { 
+        this.routers[name] = handler.bind(this)
+    }},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
