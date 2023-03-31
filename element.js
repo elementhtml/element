@@ -19,9 +19,11 @@ const Element = Object.defineProperties({}, {
     constructors: {configurable: false, enumerable: true, writable: false, value: {}},
     _proxies: {configurable: false, enumerable: false, writable: false, value: {}},
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
+
     setProxy: {configurable: false, enumerable: true, writable: false, value: function(name, handler, target={}) {
         return (this.proxies[name] = new Proxy((this._proxies[name] = target), handler))
-    },
+    }},
+
     codecs: {configurable: false, enumerable: false, writable: false, value: Object.defineProperties({}, {
         md: {configurable: false, enumerable: true, writable: false, value: async (raw) => {
             console.log('line 27', raw)
@@ -38,6 +40,8 @@ const Element = Object.defineProperties({}, {
             }
         }}
     })},
+
+    
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
         const repo = this.repos[repoName] || {}
@@ -48,7 +52,7 @@ const Element = Object.defineProperties({}, {
             url: `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page||repo[mode]?.index||this.env.options.defaultPages[mode]}.${contentFormat}`
         }            
         this._routerData['/'][mode][page].raw ||= await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
-        this._routerData['/'][mode][page].parsed ||= await this.contentParsers[contentFormat](this._routerData['/'][mode][page].raw)
+        //this._routerData['/'][mode][page].parsed ||= await this.contentParsers[contentFormat](this._routerData['/'][mode][page].raw)
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -212,13 +216,12 @@ const Element = Object.defineProperties({}, {
     }},
 
 
-
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
             defaultLayoutTag = `layout-${this.env.options.defaultPages.layout}`
         if (!rootElement) {
-            const metaElements = document.head.getElementsByTagName('meta')
-            eContentNode =  metaElements['e-content']
+            metaElements = document.head.getElementsByTagName('meta')
+            eContentNode = metaElements['e-content']
             eLayoutNode = metaElements['e-layout']
         }
         const values = {content: eContentNode?.getAttribute(`${rootElement?'e-':''}content`) || defaultContentTag, 
@@ -226,21 +229,20 @@ const Element = Object.defineProperties({}, {
         for (const mode in values) {
             const tag = values[mode]
             if (tag.includes('(') && tag.endsWith(')')) {
-console.log('line 236', mode, tag)
                 let [routerName, routerArgs] = tag.split('(')
                 routerArgs = routerArgs.slice(0, -1).split(',')
-                this.routers[routerName] || this.setRouter('/', this._routerHandlerDefault)
-                values[mode] = await this.routers[routerName](mode, rootElement, document.location, this.env, ...routerArgs)
+                this.routers[routerName] || this.setRouter(routerName, this._routerHandlerDefault)
+                values[mode] = await this.routers[routerName](mode, rootElement, ...routerArgs)
             } else if (tag.includes('-')) {
-console.log('line 242', mode, tag)
                 const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
                 values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
             }
         }
+        console.log('line 240', values)
 
 
 
-    }},
+    }}, 
 
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
