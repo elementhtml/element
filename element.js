@@ -205,11 +205,12 @@ const Element = Object.defineProperties({}, {
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
             defaultLayoutTag = `layout-${this.env.options.defaultPages.layout}`
-        if (!rootElement) const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements['e-content'], 
-            eLayoutNode = metaElements['e-layout']
-        contentTag = eContentNode?.getAttribute(`${rootElement?'e-':''}content`) || defaultContentTag
-        layoutTag = eLayoutNode?.getAttribute(rootElement?'e-layout':'content') || defaultLayoutTag
-        const values = {content: contentTag, layout: layoutTag}
+        if (!rootElement) {
+            const metaElements = document.head.getElementsByTagName('meta'), eContentNode =  metaElements['e-content'], 
+                eLayoutNode = metaElements['e-layout']
+        }
+        const values = {content: eContentNode?.getAttribute(`${rootElement?'e-':''}content`) || defaultContentTag, 
+                layout: eLayoutNode?.getAttribute(rootElement?'e-layout':'content') || defaultLayoutTag}
         for (const mode in values) {
             const tag = values[mode]
             if (tag.includes('(') && tag.endsWith(')')) {
@@ -218,7 +219,7 @@ const Element = Object.defineProperties({}, {
                 values[mode] = await this.routers[routerName](mode, rootElement, resolve=true, ...routerArgs)
             } else if (tag.includes('-')) {
                 const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
-                values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||'content/'}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
+                values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
             }
         }
         
@@ -231,7 +232,7 @@ const Element = Object.defineProperties({}, {
 
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element'  && this.loadContent()
-        rootElement && (rootElement.hasAttribute('e-layout') || rootElement.hasAttribute('e-content')) this.loadContent(rootElement)
+        rootElement && (rootElement.hasAttribute('e-layout') || rootElement.hasAttribute('e-content')) && this.loadContent(rootElement)
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
