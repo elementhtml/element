@@ -4,8 +4,7 @@ const Element = Object.defineProperties({}, {
         auth: {configurable: false, enumerable: true, writable: false, value: {}},
         globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
         options: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-            defaultPages: {configurable: false, enumerable: true, writable: false, value: {content: 'index', layout: 'default', nav: 'main'}}, 
-            defaultSuffixes: {configurable: false, enumerable: true, writable: false, value: {content: 'md', layout: 'html', nav: 'json'}}
+            defaultPages: {configurable: false, enumerable: true, writable: false, value: {content: 'home', layout: 'default', nav: 'main'}}
         })}
     })},
     repos: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -21,14 +20,11 @@ const Element = Object.defineProperties({}, {
     _proxies: {configurable: false, enumerable: false, writable: false, value: {}},
     proxies: {configurable: false, enumerable: true, writable: false, value: {}},
     setProxy: {configurable: false, enumerable: true, writable: false, value: function(name, handler, target={}) {
-        if (!(target instanceof Object && handler instanceof Object)) return
-        this._proxies[name] = target
-        return (this.proxies[name] = new Proxy(this._proxies[name], handler))
-    }},
-
-    contentParsers: {configurable: false, enumerable: false, writable: false, value: Object.defineProperties({}, {
+        return (this.proxies[name] = new Proxy((this._proxies[name] = target), handler))
+    },
+    codecs: {configurable: false, enumerable: false, writable: false, value: Object.defineProperties({}, {
         md: {configurable: false, enumerable: true, writable: false, value: async (raw) => {
-            console.log('line 31', raw)
+            console.log('line 27', raw)
             const parsed = {}
             if (!raw && typeof raw !== 'string') return parsed
             for (const chunk of raw.split('***`#!Element')) {
@@ -37,14 +33,11 @@ const Element = Object.defineProperties({}, {
                 if (metaRaw && metaRaw.endsWith('}')) try { meta = JSON.parse(`{${metaRaw}`) } catch(e) {}
                 partName = partName.trim()
                 body = body.trim()
-                console.log('line 40', partName, meta, body)
-
-
+                console.log('line 36', partName, meta, body)
 
             }
         }}
     })},
-
     _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
     _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
         const repo = this.repos[repoName] || {}
@@ -59,7 +52,7 @@ const Element = Object.defineProperties({}, {
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
-    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) { 
+    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
         this.routers[name] = handler.bind(this)
     }},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -233,13 +226,13 @@ const Element = Object.defineProperties({}, {
         for (const mode in values) {
             const tag = values[mode]
             if (tag.includes('(') && tag.endsWith(')')) {
-console.log('line 277', mode, tag)
+console.log('line 236', mode, tag)
                 let [routerName, routerArgs] = tag.split('(')
                 routerArgs = routerArgs.slice(0, -1).split(',')
                 this.routers[routerName] || this.setRouter('/', this._routerHandlerDefault)
                 values[mode] = await this.routers[routerName](mode, rootElement, document.location, this.env, ...routerArgs)
             } else if (tag.includes('-')) {
-console.log('line 283', mode, tag)
+console.log('line 242', mode, tag)
                 const [repoName, pageName] = tag.split('-'), repo = this.repos[repoName] || {}
                 values[mode] = await fetch(`${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${pageName||repo[mode]?.index||this.env.options.defaultPages[mode]}.${repo[mode]?.suffix||this.env.options.defaultSuffixes[mode]}`).then(r => r.text())
             }
