@@ -86,10 +86,7 @@ And here is my aside content...
        return {[page]: this._routerData['/'][mode][page]}        
     }},
     routers: {configurable: false, enumerable: true, writable: false, value: {}},
-    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
-        if (typeof handler !== 'function') return
-        this.routers[name] = handler.bind(this)
-    }},
+    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) { this.routers[name] = handler.bind(this)}},
     eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
     modules: {configurable: false, enumerable: true, writable: false, value: {}},
     processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
