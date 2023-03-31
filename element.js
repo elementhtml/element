@@ -42,32 +42,6 @@ const Element = Object.defineProperties({}, {
 
 
             }
-/*        `
-        ***`#!Element e-`***
-{
-    "title": "Test Page"
-}
-***`#!Element main[@a=1&@b=2&#value=abc&test=xyz]`***
-
-# First Heading
-
-Here is some **bold text**.
-
-And then a horizontal rule: 
-
----
-
-And, *lastly* a link: [Google](https://google.com)
-
-That's it!
-
-***`#!Element aside`***
-
-And here is my aside content...
-
-`
-*/
-
         }}
     })},
 
