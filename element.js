@@ -301,7 +301,6 @@ const Element = Object.defineProperties({}, {
             }
             fragments.push(fragment)
         }
-        console.log('line 297', fragments)
         let template = document.createElement('template'), domRoot = rootElement || document.body
         template.innerHTML = domRoot.innerHTML
         for (const fragment of fragments) {
@@ -316,7 +315,6 @@ const Element = Object.defineProperties({}, {
             }
         }
         domRoot.replaceChildren(...template.content.children)
-
     }}, 
     loadLightDom: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         await this.loadLayout(rootElement)
