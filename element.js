@@ -298,8 +298,8 @@ const Element = Object.defineProperties({}, {
             fragments.push(fragment)
         }
         console.log('line 297', fragments)
-        let template = document.createElement('template')
-        template.innerHTML = rootElement ? rootElement.innerHTML : document.body.innerHTML
+        let template = document.createElement('template'), domRoot = rootElement || document.body
+        template.innerHTML = domRoot.innerHTML
         for (const fragment of fragments) {
             if (fragment.mode !== 'slot') {
                 fragment.mode==='replace' && (template.innerHTML = fragment.raw.trim().slice(10, -11).trim())
@@ -308,11 +308,10 @@ const Element = Object.defineProperties({}, {
             } else {
                 const fragmentTemplate = document.createElement('template')
                 fragmentTemplate.innerHTML = fragment.raw.trim()
-                template.content.querySelector(`element-slot[name="${fragment.slot}"]`).replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
+                template.content.querySelector(`e-slot[name="${fragment.slot}"]`).replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
             }
         }
-        ;(rootElement || document.body).replaceChildren(...template.content.children)
-        console.log('line 311', template)
+        domRoot.replaceChildren(...template.content.children)
 
     }}, 
     loadLightDom: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
@@ -404,7 +403,7 @@ const Element = Object.defineProperties({}, {
         return template.innerHTML
     }},
     stackStyles: {configurable: false, enumerable: true, writable: false, value: function(tagId) {
-        return `/** core system styles */\n\n eh-slot { display: none; } \n\n\n` + 
+        return `/** core system styles */\n\n e-slot { display: none; } \n\n\n` + 
             this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
     }},
     getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
