@@ -217,7 +217,7 @@ const Element = Object.defineProperties({}, {
 
 
     loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
+        /*let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
             defaultLayoutTag = `layout-${this.env.options.defaultPages.layout}`
         if (!rootElement) {
             metaElements = document.head.getElementsByTagName('meta')
@@ -253,18 +253,67 @@ const Element = Object.defineProperties({}, {
         
         console.log('line 254', template)
 
-
+        */
         //console.log('line 250', values)
 
 
 
 
     }}, 
+    loadLayout: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        const eLayoutNode = rootElement || (document.head.getElementsByTagName('meta')||{})['e-layout'], 
+            layoutSignature = eLayoutNode?.getAttribute(rootElement?'e-layout':'content')
+        if (!layoutSignature) return
+        const layoutFragments = layoutSignature.split(' ')
+        for (let layoutFragment of layoutFragments) {
+            let fragmentSlot, fragmentMode = 'replace'
+            if (layoutFragment.startsWith('+')) {
+                fragmentMode = 'append'
+                layoutFragment = layoutFragment.slice(1)
+            } else if (layoutFragment.endsWith('+')) {
+                fragmentMode = 'prepend'
+                layoutFragment = layoutFragment.slice(0, -1)
+            } else if (layoutFragment.includes('=')) {
+                fragmentMode = 'slot'
+                [layoutFragment, fragmentSlot] = layoutFragment.split('=')
+            }
+            let layout
+            if (layoutFragment.includes('(') && layoutFragment.endsWith(')')) {
+                let [routerName, routerArgs] = layoutFragment.split('(')
+                routerArgs = routerArgs.slice(0, -1).split(',')
+                if (!this.routers[routerName]) {
+                    routerName = '/'
+                    this.routers[routerName] || this.setRouter(routerName, this._routerHandlerDefault)
+                }
+                layout = await this.routers[routerName]('layout', rootElement, ...routerArgs)
+            } else if (layoutFragment.includes('-')) {
+                let [repoName, page] = layoutFragment.split('-'), repo = this.repos[repoName] || {}
+                page ||= repo.layout?.default || this.env.options.defaultPages.layout                
+                page = (repo.layout?.alias||{})[page] || page
+                layout = {}
+                layout.url = `${repo.base||'./'}${repo.layout?.path||'layout/'}${page}.html`
+                layout.raw = await fetch(layout.url).then(r => r.text())
+            }
 
 
+        }
+
+
+
+        let template = document.createElement('template')
+        template.innerHTML = values.layout.raw
+        template = template.content.firstElementChild.content.cloneNode(true)
+        
+        console.log('line 254', template)
+
+    }}, 
+    loadLightDom: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
+        await this.loadLayout(rootElement)
+        await this.loadContent(rootElement)
+    }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element' && this.loadContent()
-        rootElement && (rootElement?.hasAttribute('e-layout') || rootElement?.hasAttribute('e-content')) && this.loadContent(rootElement)
+        !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element' && this.loadLightDom()
+        rootElement && (rootElement?.hasAttribute('e-layout') || rootElement?.hasAttribute('e-content')) && this.loadLightDom(rootElement)
         rootElement || this._enscapulateNative()
         const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
