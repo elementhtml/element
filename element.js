@@ -302,18 +302,18 @@ const Element = Object.defineProperties({}, {
                 fragment.mode==='append' && (template.innerHTML = `${template.innerHTML}${fragment.raw.trim().slice(10, -11).trim()}`)
                 fragment.mode==='prepend' && (template.innerHTML = `${fragment.raw.trim().slice(10, -11).trim()}${template.innerHTML}`)
             } else {
-                
-
+                const fragmentTemplate = document.createElement('template')
+                fragmentTemplate.innerHTML = fragment.raw.trim()
+                template.content.children[fragment.slot].replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
             }
         }
-        template = template.content.firstElementChild.content.cloneNode(true)
-        
-        console.log('line 254', template)
+        ;(rootElement || document.body).replaceChildren(...template.content.children)
+        console.log('line 311', template)
 
     }}, 
     loadLightDom: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         await this.loadLayout(rootElement)
-        await this.loadContent(rootElement)
+        //await this.loadContent(rootElement)
     }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element' && this.loadLightDom()
