@@ -266,7 +266,7 @@ const Element = Object.defineProperties({}, {
         if (!layoutSignature) return
         const layoutFragments = layoutSignature.split(' '), fragments = []
         for (let layoutFragment of layoutFragments) {
-            const fragment = {}, 
+            const fragment = {} 
             fragment.mode = 'replace'
             if (layoutFragment.startsWith('+')) {
                 fragment.mode = 'append'
@@ -291,9 +291,11 @@ const Element = Object.defineProperties({}, {
                 page ||= repo.layout?.default || this.env.options.defaultPages.layout                
                 page = (repo.layout?.alias||{})[page] || page
                 fragment.url = `${repo.base||'./'}${repo.layout?.path||'layout/'}${page}.html`
-                fragment.raw = await fetch(layout.url).then(r => r.text())
+                fragment.raw = await fetch(fragment.url).then(r => r.text())
             }
+            fragments.push(fragment)
         }
+        console.log('line 297', fragments)
         let template = document.createElement('template')
         template.innerHTML = rootElement ? rootElement.innerHTML : document.body.innerHTML
         for (const fragment of fragments) {
