@@ -7,8 +7,12 @@ const Element = Object.defineProperties({}, {
             defaultPages: {configurable: false, enumerable: true, writable: false, value: {content: 'home', layout: 'default', nav: 'main'}}
         })}
     })},
-    repos: {configurable: false, enumerable: true, writable: false, value: {}},
-    ids: {configurable: false, enumerable: true, writable: false, value: {}},
+    repos: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
+        e: {configurable: false, enumerable: true, writable: false, value: {}}
+    })},
+    ids: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
+        'e-slot': {configurable: false, enumerable: true, writable: false, value: {}}
+    })},
     tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
     extends: {configurable: false, enumerable: true, writable: false, value: {}},
     files: {configurable: false, enumerable: true, writable: false, value: {}},
@@ -320,9 +324,10 @@ const Element = Object.defineProperties({}, {
     }},
     autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
         !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element' && this.loadLightDom()
+        const rootElementTagName = rootElement?.tagName?.toLowerCase()
+        if (rootElementTagName?.startsWith('e-')) return
         rootElement && (rootElement?.hasAttribute('e-layout') || rootElement?.hasAttribute('e-content')) && this.loadLightDom(rootElement)
         rootElement || this._enscapulateNative()
-        const rootElementTagName = rootElement?.tagName?.toLowerCase()
         rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
         this.applyTheme(rootElement)
         rootElement?.hasAttribute('e-do') && await this._setupDo(element)
@@ -336,15 +341,15 @@ const Element = Object.defineProperties({}, {
         observerRoot._eObserver ||= new MutationObserver(async mutationList => {
             for (const mutationRecord of mutationList) {
                 for (const addedNode of (mutationRecord.addedNodes||[])) if (addedNode?.tagName?.includes('-')) await this.autoload(addedNode)
-                if (mutationRecord.attributeName === 'eh-do') await this._setupDo(mutationRecord.target, mutationRecord.oldValue)
+                if (mutationRecord.attributeName === 'e-do') await this._setupDo(mutationRecord.target, mutationRecord.oldValue)
             }
         })
-        observerRoot._eObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['eh-do']})
+        observerRoot._eObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['e-do']})
         if (rootElement) return
         this._eThemeObserver ||= new MutationObserver(mutationList => {
-            for (const mutationRecord of mutationList) mutationRecord.attributeName === 'eh-theme' || this.applyTheme(undefined, true)
+            for (const mutationRecord of mutationList) mutationRecord.attributeName === 'e-theme' || this.applyTheme(undefined, true)
         })
-        this._eThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['eh-theme']})
+        this._eThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['e-theme']})
     }},
     applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
         const themeTag = (rootElement||document.body).getAttribute('e-theme'),
