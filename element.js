@@ -264,20 +264,20 @@ const Element = Object.defineProperties({}, {
         const eLayoutNode = rootElement || (document.head.getElementsByTagName('meta')||{})['e-layout'], 
             layoutSignature = eLayoutNode?.getAttribute(rootElement?'e-layout':'content')
         if (!layoutSignature) return
-        const layoutFragments = layoutSignature.split(' ')
+        const layoutFragments = layoutSignature.split(' '), fragments = []
         for (let layoutFragment of layoutFragments) {
-            let fragmentSlot, fragmentMode = 'replace'
+            const fragment = {}, 
+            fragment.mode = 'replace'
             if (layoutFragment.startsWith('+')) {
-                fragmentMode = 'append'
+                fragment.mode = 'append'
                 layoutFragment = layoutFragment.slice(1)
             } else if (layoutFragment.endsWith('+')) {
-                fragmentMode = 'prepend'
+                fragment.mode = 'prepend'
                 layoutFragment = layoutFragment.slice(0, -1)
             } else if (layoutFragment.includes('=')) {
-                fragmentMode = 'slot'
+                fragment.mode = 'slot'
                 [layoutFragment, fragmentSlot] = layoutFragment.split('=')
             }
-            let layout
             if (layoutFragment.includes('(') && layoutFragment.endsWith(')')) {
                 let [routerName, routerArgs] = layoutFragment.split('(')
                 routerArgs = routerArgs.slice(0, -1).split(',')
@@ -285,23 +285,27 @@ const Element = Object.defineProperties({}, {
                     routerName = '/'
                     this.routers[routerName] || this.setRouter(routerName, this._routerHandlerDefault)
                 }
-                layout = await this.routers[routerName]('layout', rootElement, ...routerArgs)
+                Object.assign(fragment, ...await this.routers[routerName]('layout', rootElement, ...routerArgs))
             } else if (layoutFragment.includes('-')) {
                 let [repoName, page] = layoutFragment.split('-'), repo = this.repos[repoName] || {}
                 page ||= repo.layout?.default || this.env.options.defaultPages.layout                
                 page = (repo.layout?.alias||{})[page] || page
-                layout = {}
-                layout.url = `${repo.base||'./'}${repo.layout?.path||'layout/'}${page}.html`
-                layout.raw = await fetch(layout.url).then(r => r.text())
+                fragment.url = `${repo.base||'./'}${repo.layout?.path||'layout/'}${page}.html`
+                fragment.raw = await fetch(layout.url).then(r => r.text())
             }
-
-
         }
-
-
-
         let template = document.createElement('template')
-        template.innerHTML = values.layout.raw
+        template.innerHTML = rootElement ? rootElement.innerHTML : document.body.innerHTML
+        for (const fragment of fragments) {
+            if (fragment.mode !== 'slot') {
+                fragment.mode==='replace' && (template.innerHTML = fragment.raw.trim().slice(10, -11).trim())
+                fragment.mode==='append' && (template.innerHTML = `${template.innerHTML}${fragment.raw.trim().slice(10, -11).trim()}`)
+                fragment.mode==='prepend' && (template.innerHTML = `${fragment.raw.trim().slice(10, -11).trim()}${template.innerHTML}`)
+            } else {
+                
+
+            }
+        }
         template = template.content.firstElementChild.content.cloneNode(true)
         
         console.log('line 254', template)
