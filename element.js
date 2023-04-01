@@ -246,7 +246,16 @@ const Element = Object.defineProperties({}, {
                 values[mode].raw = await fetch(values[mode].url).then(r => r.text())
             }
         }
-        console.log('line 250', values)
+
+        let template = document.createElement('template')
+        template.innerHTML = values.layout.raw
+        template = template.content.firstElementChild.content.cloneNode(true)
+        
+        console.log('line 254', template)
+
+
+        //console.log('line 250', values)
+
 
 
 
