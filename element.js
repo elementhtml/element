@@ -276,7 +276,9 @@ const Element = Object.defineProperties({}, {
                 layoutFragment = layoutFragment.slice(0, -1)
             } else if (layoutFragment.includes('=')) {
                 fragment.mode = 'slot'
-                [layoutFragment, fragmentSlot] = layoutFragment.split('=')
+                const fragmentSplit = layoutFragment.split('=')
+                fragment.slot = fragmentSplit[0]
+                layoutFragment = fragmentSplit[1]
             }
             if (layoutFragment.includes('(') && layoutFragment.endsWith(')')) {
                 let [routerName, routerArgs] = layoutFragment.split('(')
@@ -306,7 +308,7 @@ const Element = Object.defineProperties({}, {
             } else {
                 const fragmentTemplate = document.createElement('template')
                 fragmentTemplate.innerHTML = fragment.raw.trim()
-                template.content.children[fragment.slot].replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
+                template.content.querySelector(`element-slot[name="${fragment.slot}"]`).replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
             }
         }
         ;(rootElement || document.body).replaceChildren(...template.content.children)
