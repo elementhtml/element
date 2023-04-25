@@ -16,6 +16,7 @@
                     return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
                 }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+console.log('line 19', useResponse, node)
                     if (addOrRemove === 'add') {
                         const [useContentScope, postProcessor] = (this.as||'').split(';', 2).map(s => s.trim()), 
                             useProcessor = postProcessor && typeof this.e.processors[postProcessor] === 'function' ? this.e.processors[postProcessor] : i => i

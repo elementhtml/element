@@ -1,5 +1,9 @@
 <style></style>
-<template><slot></slot></template>
+<template>
+    <meta is="e-content" use="$.test" match="[name='test']" as="innedrHTML">
+    <div name="test"></div>
+    <slot></slot>
+</template>
 <script>
     class extends `` {
 
@@ -14,39 +18,11 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('source', 'layout', 'shadow') }
 
         async connectedCallback() {
-            this._refresh()
             this.addEventListener('change', event => {
-                const property = event?.detail?.property, value = event?.detail?.value, container = this.shadow ? this.shadowRoot : this
-                if (!property) return
-                if (this.hasAttribute('itemscope')) {
-                    container.querySelectorAll(`[itemprop="${property}"]`)                    
-                } else if (this.shadow) {
-
-                } else {
-
-                }
+                console.log('line 22', event)
             })
         }
 
-        _refresh() {
-            const mergeData = this[this.#source] ?? this.eDataset, content = this.build(mergeData)
-            if (typeof content === 'string') {
-                this.innerHTML = content
-            } else if (Array.isArray(content) || (content instanceof HTMLCollection)) {
-                this.replaceChildren(...content)
-            } else if (content instanceof Node) {
-                this.replaceChildren(...[content])
-            }            
-        }
-
-        set source(value) { this.#source = value }
-        get source() { return this.#source }
-
-        set layout(value) { this.#layout = value }
-        get layout() { return this.#layout }
-
-        set shadow(value) { this.#shadow = value }
-        get shadow() { return this.#shadow }
 
     }
 </script>

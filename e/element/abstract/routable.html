@@ -39,7 +39,7 @@
                 _rawResponse: {get: async () => {
                         if (this.#router === '$') {
                             const rootNode = this.getRootNode() 
-                            return (rootNode === document ? this.e.eDataset : rootNode[this.#flag]) ?? {}
+                            return (rootNode === document ? this.e.eDataset : rootNode.host.eDataset[this.#flag]) ?? {}
                         }
                         return (this.e.isURL(this.#use)) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
                                 : await this.#getRouterMode()(this.#flag, true)
@@ -63,7 +63,8 @@
                 _applyHash: {configurable: true, writable: true, value: async (parsedResponse) => parsedResponse}, 
                 _applyField: {configurable: false, writable: true, value: async (parsedResponse) => parsedResponse},
                 _useResponse: {configurable: false, get: async () => {
-                        if (this.#router === '$') return this._applyField(this._applyHash(this._rawResponse))
+console.log('routable line 66', this.#router, this.#flag, await this._rawResponse)
+                        if (this.#router === '$') return this._applyField(this._applyHash(await this._rawResponse))
                         if (this._mode === 'media') return `${this}`
                         if (this._mode === 'processor') return this._applyField(await this._applyHash(await this._parse(`${this}`)))
                         return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
@@ -144,6 +145,17 @@
                     this.#flag = valueSplit[0].slice(1) || 'eDataset'
                     if (valueSplit.length > 1) {
                         parseHashField(valueSplit[1], 'eDataset')
+                    } else {
+                        this.#hash = undefined
+                        this.#field = undefined
+                        return 
+                    }
+                } else if (value.startsWith('.')) {
+                    this.#router = '.'
+                    valueSplit = this.e.splitOnce(value.slice(1), '.').map(s => s.trim())
+                    this.#flag = valueSplit[0] || 'dataset'
+                    if (valueSplit.length > 1) {
+                        parseHashField(valueSplit[1], 'dataset')
                     } else {
                         this.#hash = undefined
                         this.#field = undefined

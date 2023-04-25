@@ -50,8 +50,10 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
         observerRoot._observer ||= new MutationObserver(async records => {
-            for (const record of records) for (const addedNode of (record.addedNodes||[])) if (this.getCustomTag(addedNode)) await this.load(addedNode)
-            if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
+            for (const record of records) for (const addedNode of (record.addedNodes||[])) {
+                if (this.getCustomTag(addedNode)) await this.load(addedNode)
+                if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
+            } 
         })
         observerRoot._observer.observe(domRoot, {subtree: true, childList: true})
         if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
@@ -75,8 +77,8 @@ const ElementHTML = Object.defineProperties({}, {
         let metaElement
         const rootNode = element.shadowRoot || element.getRootNode()
         if (rootNode instanceof ShadowRoot) {
-            for (const m of rootNode.getElementsByTagName('meta')) if (((!name || m.name === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
-            return metaElement || this.resolveMeta(rootNode.host.getRootNode(), name, is, role)
+            for (const m of rootNode.querySelectorAll('meta')) if (((!name || m.name === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
+            return metaElement || this.resolveMeta(rootNode.host.getRootNode(), is, name, namespace, exact)
         } else {
             for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
                     if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
@@ -148,6 +150,7 @@ const ElementHTML = Object.defineProperties({}, {
         let useScope = scope && scopesMap[scope] ? scopesMap[scope] : undefined
         if (!useScope && scope && scope.startsWith('closest(') && scope.endWith(')')) useScope = element.closest(scope.slice(8, -1))
         useScope ||= element.parentElement
+        useScope ||= element.getRootNode()
         return useScope.querySelector(observe) || useScope
     }},
     createObserver: {enumerable: true, value: function(element, observed, takeRecordsCallback, observerCallback) {
