@@ -1,0 +1,125 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+        #parser
+        #mapper
+        #schema
+        #map
+
+        #renderOperations = ['has', 'get', 'set', 'deleteProperty']
+        #typesetOperations = ['sanitize', 'validate']
+
+        #render
+        #typeset
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
+                    let parsed = {}
+                    if (this.#parser) {
+                        if (typeof this.e.processors[this.#parser] === 'function') parsed = await this.e.processors[this.#parser](await response.text())
+                    } else {
+                        const text = await response.text()
+                        if (response.url === `https://schema.org/${$this.name}`) {
+                            const template = document.createElement('template')
+                            template.innerHTML = text
+                            try { parsed = JSON.parse(template.content.cloneNode(true).querySelector('script[type="application/ld+json"]')).textContent } catch(e) {}
+                        }
+                        try { parsed = JSON.parse(text) } catch(e) {}
+                    }
+                    return parsed
+                }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                }},
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    this.#schema ||= useResponse
+                    if (!this.#map && this.#mapper) {
+                        const mappingFunction = this.e.resolveMeta(this, 'e-processor', this.#mapper)
+                        if (typeof mappingFunction === 'function') this.#map = mappingFunction(this.#schema) 
+                    }
+                    if (this.as && !this.#render) [this.#render, this.#typeset] = this.as.split(' ', 2)
+                    if (addOrRemove === 'add') if (node.eSchema) node.eSchema = this
+                }}
+            })
+        }
+
+        #resolveOperationFunction(element, operationName) {
+            const flag = this.#renderOperations.includes(operationName)?'render':'typeset'
+            let opFunction = this.#map[propertyName][operationName]
+            if (typeof opFunction !== 'function') {
+                let opProcessor, useModule
+                if (flag === 'render') {
+                    opProcessor = this.e.resolveMeta(element, 'e-processor', this.#render)
+                    useModule = opProcessor && this.#renderOperations.every(r => typeof opProcessor.module[r] === 'function')
+                } else {
+                    opProcessor = this.e.resolveMeta(element, 'e-processor', this.#typeset)
+                    useModule = opProcessor && this.#typesetOperations.every(r => typeof opProcessor.module[r] === 'function')
+                }
+                if (useModule) {
+                    for (const op of (flag==='render'?this.#renderOperations:this.#typesetOperations)) this.#map[propertyName][op] = opProcessor.module[op]
+                } else {
+                    this.#map[propertyName][operationName] = opProcessor.func
+                }
+                opFunction = this.#map[propertyName][operationName]
+            }
+            return opFunction
+        }
+
+        has(element, propertyName) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const hasFunction = this.#resolveOperationFunction(element, 'has')
+            if (hasFunction) return hasFunction(element, propertyName)
+        }
+
+        get(element, propertyName) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const getFunction = this.#resolveOperationFunction(element, 'get')
+            if (getFunction) return getFunction(element, propertyName)
+        }
+
+        sanitize(element, propertyName, propertyValue) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const sanitizeFunction = this.#resolveOperationFunction(element, 'sanitize')
+            if (sanitizeFunction) return sanitizeFunction(this.#schema, propertyName, propertyValue)
+        }
+
+        validate(element, propertyName, propertyValue) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const validateFunction = this.#resolveOperationFunction(element, 'validate')
+            if (validateFunction) return validateFunction(this.#schema, propertyName, propertyValue)
+        }
+
+        set(element, propertyName, propertyValue) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const setFunction = this.#resolveOperationFunction(element, 'set')
+            if (setFunction) return setFunction(element, propertyName, propertyValue)
+        }
+
+        deleteProperty(element, propertyName) {
+            if (!(this.#map[propertyName] instanceof Object)) return false
+            const deletePropertyFunction = this.#resolveOperationFunction(element, 'deleteProperty')
+            if (deletePropertyFunction) return deletePropertyFunction(element, propertyName)
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('parser', 'mapper') }
+
+        set parser(value) { this.#parser = value }
+        get parser() { return this.#parser }
+
+        set mapper(value) { this.#mapper = value }
+        get mapper() { return this.#mapper }
+
+        get schema() { return this.#schema || {} }
+
+        get map() { return this.#nap || {} }
+
+    }
+</script>

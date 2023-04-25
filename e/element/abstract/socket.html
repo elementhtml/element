@@ -1,0 +1,73 @@
+<style></style>
+<template></template>
+<script>
+    class extends `meta` {
+
+        #name
+        #source
+        #sink
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _getTargets: {configurable: true, writable: true, value: async () => {
+                    return []
+                }},
+                _transformEventDetail: {configurable: true, writable: true, value: event => {
+                    return event
+                }},
+                _connectTargets: {value: async (targets) => {
+                    let eventMappings = {}
+                    if (this.#source) {
+                        for (const onEventType of this.#source.split(';').map(s => s.trim())) {
+                            if (onEventType.includes(':')) {
+                                const onEventTypeSplit = onEventType.split(':').map(s => s.trim())
+                                eventMappings[onEventTypeSplit[0] || onEventTypeSplit[1]] = onEventTypeSplit[1] || onEventTypeSplit[0]
+                            } else {
+                                eventMappings[onEventType] = onEventType
+                            }
+                        }
+                    }
+                    for (const target of targets) {
+                        if (!this.#source) {
+                            eventMappings = {}
+                            for (const onEventType in Reflect.getPrototypeOf(target)) if (onEventType.startsWith('on')) {
+                                const eventType = onEventType.slice(2)
+                                eventMappings[eventType] = eventType
+                            }                            
+                        }
+                        for (const [nativeEventName, emitControlEventName] of Object.entries(eventMappings)) target.addEventListener(nativeEventName, event => this.dispatchEvent(new CustomEvent(emitControlEventName, {detail: this._transformEventDetail(event)})))
+                    }
+                }},
+                _activate: {value: async () => {
+                    await this._connectTargets(await this._getTargets())
+                }}
+            })
+            Object.defineProperty(this, '_socket', {configurable: false, writable: false, value: Object.defineProperties({}, {
+                    _getTargets: {value: this._getTargets.bind(this)}, _connectTargets: {value: this._connectTargets.bind(this)}, 
+                    _transformEventDetail: {value: this._transformEventDetail.bind(this)}, _activate: {value: this._activate.bind(this)}
+                })
+            })
+    	}
+
+        toString() { return this.#name }
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'source', 'scope', 'observe', 'match', 'sink') }
+
+        async connectedCallback() {
+            await this._activate()
+        }
+
+        set name(value) { if (value !== this.#name) this.#name = value }
+        get name() { return this.#name }
+
+        set source(value) { this.#source = value }
+        get source() { return this.#source }
+
+        set sink(value) { this.#sink = value }
+        get sink() { return this.#sink }
+
+        get targets() { return [] }
+
+    }	
+</script>

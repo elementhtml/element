@@ -1,0 +1,44 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+        #parser
+        #context
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'context'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
+                    let parsed = {}
+                    if (this.#parser) {
+                        const processorElement = this.e.resolveMeta(this, 'e-processor',  this.#parser)
+                        if (processorElement?.func) parsed = await processorElement.func(await response.text())
+                    } else { try { parsed = JSON.parse(await response.text()) } catch(e) {} }
+                    return parsed
+                }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                }},
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (addOrRemove === 'add' && (useResponse instanceof Object)) {
+                        this.#context = useResponse
+                        if (node.eContext) node.eContext = this
+                    } 
+                }}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
+
+        set parser(value) { this.#parser = value }
+        get parser() { return this.#parser }
+
+        get context() { return this.#context || {} }
+
+    }
+</script>

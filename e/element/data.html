@@ -1,0 +1,48 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+        #parser
+        #data
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
+                    let parsed = {}
+                    if (this.#parser) {
+                        /* parser might be YAML or Protobuf parser libraries, for example */
+                        if (typeof this.e.processors[this.#parser] === 'function') {
+                            parsed = await this.e.processors[this.#parser](await response.text())
+                        }
+                    } else {
+                        try { parsed = JSON.parse(await response.text()) } catch(e) {}
+                    }
+                    return parsed
+                }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                }},
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (addOrRemove === 'add' && (useResponse instanceof Object)) {
+                        this.#data = useResponse
+                        this.e.sinkData(node, this.#data, undefined, this)
+                    } 
+                }}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
+
+        set parser(value) { this.#parser = value }
+        get parser() { return this.#parser }
+
+        get data() { return this.#data || {} }
+
+    }
+</script>

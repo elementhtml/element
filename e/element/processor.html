@@ -1,0 +1,51 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+        #parser
+        #module
+        #func = input => input
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
+                    return this.#parser === 'wasm' ? await WebAssembly.instantiateStreaming(fetch(this.e.getURL(response))) : await import(this.e.getURL(response))
+                }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (moduleNamespaceObject) => {
+                    moduleNamespaceObject = await this._routable._applyHash(moduleNamespaceObject)
+                    const processorObject = Object.assign({}, moduleNamespaceObject)
+                    if (this._hash) {
+                        const hashSplit = this._hash.split(';').map(s => s.trim())
+                        for (const r in processorObject) if (!hashSplit.includes(r)) delete processorObject[r]
+                    }
+                    return processorObject
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (processorObject) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(processorObject))
+                }},
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    this.#module = useResponse
+                    if (this.as && (useResponse instanceof Object) && typeof useResponse[this.as] === 'function') this.#func = useResponse[this.as]
+                }}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
+
+        set parser(value) { this.#parser = value }
+        get parser() { return this.#parser }
+
+        get module() { return this.#module }
+
+        get func() { return this.#func }        
+
+        exec(...args) { return this.#func(...args) }
+        apply(thisArg, argsArray) { return this.#func.apply(thisArg || this.e, argsArray) } 
+        bind(thisArg, ...args) { return this.#func.bind(thisArg || this.e, ...args) } 
+        call(thisArg, ...args) { return this.#func.call(thisArg || this.e, ...args) }
+
+    }
+</script>

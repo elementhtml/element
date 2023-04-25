@@ -1,0 +1,48 @@
+<style></style>
+<template></template>
+<script>
+    class extends `./router` {
+
+        #base
+        #repo = {}
+
+        _setter = (mode, value) => {
+            this.#repo[mode] ||= {}
+            typeof value === 'string' && ([
+                this.#repo[mode].path=`${mode}/`,
+                this.#repo[mode].default=this.constructor._modes[mode].default,
+                this.#repo[mode].suffix=this.constructor._modes[mode].suffix] = [value.slice(0, value.lastIndexOf('/')+1), ...value.slice(value.lastIndexOf('/')+1).split('.')])
+            value instanceof Object && value.path && value.default && value.suffix && Object.assign(this.#repo[mode], value)
+        }
+
+        #defaultProcessor = function(mode, flag=undefined, get=false) {
+            const url = `${this.base}${this.#repo[mode].path}${flag||this.#repo[mode].default}${this.#repo[mode].suffix?'.'+this.#repo[mode].suffix:''}`
+            return get ? fetch(this.getURL(url)) : url
+        }
+
+        constructor() {
+            super()
+            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true, 
+            set: (value) => this._setter(mode, value),
+            get: () => {
+                const f = this.#defaultProcessor.bind(this, mode)
+                f.toString = this.#defaultProcessor.bind(this, mode, this.#repo[mode].default, false)
+                return f
+            }})
+        }
+
+        toString() { return this.#base }
+
+        static get observedAttributes() {
+            return (super.observedAttributes || []).concat('base', ...Object.keys(this._modes))
+        }
+
+        set processor(value) {}
+        get processor() { return undefined }
+
+        set base(value) { this.#base = value }
+        get base() { return this.#base }        
+
+    }   
+</script>
+

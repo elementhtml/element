@@ -1,0 +1,33 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'media'}, 
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (addOrRemove === 'add') {
+                        const tag = node.tagName.toLowerCase(), getContentType = async url => {
+                            const headResponse = await fetch(this.e.getURL(useResponse), {method: 'HEAD'})
+                            return headResponse?.headers['Content-Type'] ? headResponse.headers['Content-Type'] : (await fetch(this.e.getURL(useResponse)).then(r => r.blob())).type
+                        }
+                        if (['audio', 'embed', 'img', 'iframe', 'portal', 'script', 'source', 'track', 'video'].includes(tag)) {
+                            node.setAttribute('src', useResponse)
+                            if (tag === 'embed' && !node.getAttribute('type')) node.setAttribute('type', await getContentType(useResponse))
+                        } else if (['a', 'link'].includes(tag)) {
+                            node.setAttribute('href', useResponse)
+                        } else if (['object'].includes(tag)) {
+                            node.setAttribute('data', useResponse)
+                            if (tag === 'object' && !node.getAttribute('type')) node.setAttribute('type', await getContentType(useResponse))
+                        }
+                    }
+                }}
+            })
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+    }
+</script>

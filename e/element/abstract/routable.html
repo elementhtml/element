@@ -1,0 +1,189 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `meta` {
+
+        #use
+        #mode
+        #router
+        #flag
+        #field
+        #hash
+
+        #scope
+        #observe
+        #match
+        #as
+        #namespace
+
+        #getRouterMode() {
+            const routerMode = (document.head.children[this.#router] || {})[this._mode] 
+            if (typeof routerMode === 'function') return routerMode
+            const _defaultRouterMode = (flag=undefined, get=false) => {
+                const url = new URL(`./${this._mode}/${flag}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location)
+                return get ? fetch(this.e.getURL(url)) : url
+            }
+            Object.assign(_defaultRouterMode, this.e.env.modes[this._mode])
+            _defaultRouterMode.toString = _defaultRouterMode.bind(this.e.env.modes[this._mode].default, false)
+            return _defaultRouterMode
+        }
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}, 
+                _router: {get: () => this.#router}, 
+                _flag: {get: () => this.#flag}, 
+                _hash: {get: () => this.#hash}, 
+                _field: {get: () => this.#field}, 
+                _rawResponse: {get: async () => {
+                        if (this.#router === '$') {
+                            const rootNode = this.getRootNode() 
+                            return (rootNode === document ? this.e.eDataset : rootNode[this.#flag]) ?? {}
+                        }
+                        return (this.e.isURL(this.#use)) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
+                                : await this.#getRouterMode()(this.#flag, true)
+                            }
+                    },
+                _parse: {configurable: true, writable: true, value: async (response) => {
+                    switch(this._mode) {
+                    case 'layout':
+                    case 'content':
+                    case 'meta':
+                    case 'theme':
+                    case 'data':
+                        return await response.text()
+                    case 'processor':
+                    case 'media':
+                        return response
+                    default:
+                        return await response.arrayBuffer()
+                    }
+                }},
+                _applyHash: {configurable: true, writable: true, value: async (parsedResponse) => parsedResponse}, 
+                _applyField: {configurable: false, writable: true, value: async (parsedResponse) => parsedResponse},
+                _useResponse: {configurable: false, get: async () => {
+                        if (this.#router === '$') return this._applyField(this._applyHash(this._rawResponse))
+                        if (this._mode === 'media') return `${this}`
+                        if (this._mode === 'processor') return this._applyField(await this._applyHash(await this._parse(`${this}`)))
+                        return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
+                    }}, 
+                _activate: {value: async () => {
+                    const observed = this.e.getObserved(this, this.#scope, this.#observe)
+                    if (observed === this.parentElement && !this.#match) {
+                        return await this._as(await this._useResponse, 'add', this, this.previousElementSibling, this.nextElementSibling, {})
+                    }
+                    const processRecords = async recordsToProcess => {
+                        const queue = {}
+                        for (const record of recordsToProcess) {
+                            if (record.type === 'childList') for (const addedNode of record.addedNodes) {
+                                if (typeof addedNode.matches === 'function' && addedNode.matches(this.#match||':scope')) queue[addedNode] = ['add', 
+                                    addedNode, record.previousSibling, record.nextSibling]
+                            }
+                            if (record.type === 'childList') for (const removedNode of record.removedNodes) {
+                                if (typeof removedNode.matches === 'function' && removedNode.matches(this.#match||':scope')) queue[removedNode] = ['remove', 
+                                    removedNode, record.previousSibling, record.nextSibling]
+                            }
+                        }
+                        const queueValues = Object.values(queue)
+                        if (queueValues.length) {
+                            const useResponse = await this._useResponse
+                            for (const queueValue of queueValues) this._as(useResponse, ...queueValue)
+                        }
+                    }
+                    this.e.createObserver(this, observed, processRecords, processRecords)
+                    const useResponse = await this._useResponse
+                    const matches = observed.querySelectorAll(this.#match||':scope')
+                    for (const matched of matches) this._as(useResponse, 'add', matched, 
+                        matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
+                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
+                }},
+                _as: {configurable: true, writable: true, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
+                }}
+            })
+            Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, {
+                    _parse: {value: this._parse.bind(this)}, _applyHash: {value: this._applyHash.bind(this)}, 
+                    _applyField: {value: this._applyField.bind(this)}, _as: {value: this._as.bind(this)}
+                })
+            })
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as', 'namespace') }
+
+        async connectedCallback() {
+            await this._activate()
+        }
+
+        toString() { return this.#getRouterMode()(this.#flag, false) }
+
+        set use(value) {
+            this.#use = value
+            if (!value || this.e.isURL(value)) return
+            if (typeof value === 'string') {
+                let valueSplit, parseHashField = (valueSplit1, defaultFlag) => {
+                    if (valueSplit[1].includes('#')) {
+                        let flagField
+                        [flagField, this.#hash] = [...valueSplit[1].split(/#(.+)/).map(s => s.trim())]
+                        let hasDot = flagField.includes('.')
+                        hasDot && ([this.#flag=defaultFlag, this.#field] = flagField.split(/\.(.+)/).map(s => s.trim()))
+                        hasDot || ([this.#flag, this.#field] = [flagField, undefined])
+                    } else if (valueSplit[1].includes('.')) {
+                        let fieldHash
+                        [this.#flag=defaultFlag, fieldHash] = [...valueSplit[1].split(/\.(.+)/).map(s => s.trim())]
+                        let hasHash = fieldHash.includes('#')
+                        hasHash && ([this.#field, this.#hash] = fieldHash.split(/#(.+)/).map(s => s.trim()))
+                        hasHash || ([this.#field, this.#hash] = [fieldHash, undefined])
+                    } else {
+                        [this.#flag, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
+                    }
+                }
+                if (value.startsWith('$')) {
+                    valueSplit = this.e.splitOnce(value, '.').map(s => s.trim())
+                    this.#router = '$'
+                    this.#flag = valueSplit[0].slice(1) || 'eDataset'
+                    if (valueSplit.length > 1) {
+                        parseHashField(valueSplit[1], 'eDataset')
+                    } else {
+                        this.#hash = undefined
+                        this.#field = undefined
+                        return 
+                    }
+                } else {
+                    valueSplit = this.e.splitOnce(value, '-').map(s => s.trim())
+                    if (valueSplit.length === 1) {
+                        this.#router = 'e'
+                        this.#flag = valueSplit[0] || this.#getRouterMode().default
+                        this.#hash = undefined
+                        this.#field = undefined
+                    } else {
+                        this.#router = valueSplit[0] || 'e'
+                        parseHashField(valueSplit[1], this.#getRouterMode().default)
+                    }
+                }
+            } else if (value instanceof Object) {
+                value.router && (this.#router = value.router)
+                value.flag && (this.#flag = value.flag)
+                value.field && (this.#field = value.field)
+                value.hash && (this.#hash = value.hash)
+            }
+        }
+        get use() { return `${this.#router||'e'}-${this.#flag||this.#getRouterMode().default}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+
+        set scope(value) { this.#scope = value }
+        get scope() { return this.#scope }
+
+        set observe(value) { this.#observe = value }
+        get observe() { return this.#observe }
+
+        set match(value) { this.#match = value }
+        get match() { return this.#match }
+
+        set as(value) { this.#as = value }
+        get as() { return this.#as }
+
+        set namespace(value) { this.#namespace = value }
+        get namespace() { return this.#namespace }
+
+    }
+</script>

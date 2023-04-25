@@ -1,399 +1,290 @@
-const Element = Object.defineProperties({}, {
-    version: {configurable: false, enumerable: true, writable: false, value: '1.0.0'},
-    env: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        auth: {configurable: false, enumerable: true, writable: false, value: {}},
-        globalThis: {configurable: false, enumerable: true, writable: false, value: globalThis},
-        options: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-            defaultPages: {configurable: false, enumerable: true, writable: false, value: {content: 'home', layout: 'default', nav: 'main'}}
-        })}
-    })},
-    repos: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        e: {configurable: false, enumerable: true, writable: false, value: {}}
-    })},
-    ids: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        'e-slot': {configurable: false, enumerable: true, writable: false, value: {}}
-    })},
-    tagNames: {configurable: false, enumerable: true, writable: false, value: {}},
-    extends: {configurable: false, enumerable: true, writable: false, value: {}},
-    files: {configurable: false, enumerable: true, writable: false, value: {}},
-    styles: {configurable: false, enumerable: true, writable: false, value: {}},
-    templates: {configurable: false, enumerable: true, writable: false, value: {}},
-    scripts: {configurable: false, enumerable: true, writable: false, value: {}},
-    classes: {configurable: false, enumerable: true, writable: false, value: {}},
-    constructors: {configurable: false, enumerable: true, writable: false, value: {}},
-    _proxies: {configurable: false, enumerable: false, writable: false, value: {}},
-    proxies: {configurable: false, enumerable: true, writable: false, value: {}},
-
-    setProxy: {configurable: false, enumerable: true, writable: false, value: function(name, handler, target={}) {
-        return (this.proxies[name] = new Proxy((this._proxies[name] = target), handler))
-    }},
-
-    codecs: {configurable: false, enumerable: false, writable: false, value: Object.defineProperties({}, {
-        md: {configurable: false, enumerable: true, writable: false, value: async (raw) => {
-            console.log('line 27', raw)
-            const parsed = {}
-            if (!raw && typeof raw !== 'string') return parsed
-            for (const chunk of raw.split('***`#!Element')) {
-                let [chunkhead='main', body=''] = chunk.split('`***', 2), 
-                    [partName, metaRaw] = chunkhead.split('{', 2), meta = {}
-                if (metaRaw && metaRaw.endsWith('}')) try { meta = JSON.parse(`{${metaRaw}`) } catch(e) {}
-                partName = partName.trim()
-                body = body.trim()
-                console.log('line 36', partName, meta, body)
-
-            }
-        }}
-    })},
-
-
-    _routerData: {configurable: false, enumerable: false, writable: false, value: {}},
-    _routerHandlerDefault: {configurable: false, enumerable: false, writable: false, value: async function(mode, rootElement=undefined, repoName=undefined) {
-        const repo = this.repos[repoName] || {}
-        this._routerData['/'] ||= {}
-        this._routerData['/'][mode] ||= {}
-        let page = document.location.href.replace(document.head.getElementsByTagName('base')[0].href, '').split('.').slice(0, -1).join('.')
-        page ||= repo[mode]?.default || this.env.options.defaultPages[mode]                
-        page = (repo[mode]?.alias||{})[page] || page
-        this._routerData['/'][mode][page] ||= {}
-        this._routerData['/'][mode][page].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
-        this._routerData['/'][mode][page].raw = await fetch(this._routerData['/'][mode][page].url).then(r => r.text())
-       return this._routerData['/'][mode][page]
-    }},
-    routers: {configurable: false, enumerable: true, writable: false, value: {}},
-    setRouter: {configurable: false, enumerable: true, writable: false, value: function(name, handler) {
-        this.routers[name] = handler.bind(this)
-    }},
-    eventControllers: {configurable: false, enumerable: true, writable: false, value: {}},
-    modules: {configurable: false, enumerable: true, writable: false, value: {}},
-    processors: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '$': {configurable: false, enumerable: true, writable: false, value: input => input}, 
-        '404': {configurable: false, enumerable: true, writable: false, value: input => {
-            return (this.env.options.verbose && console.log(`Processor '${repositoryModuleTag}.${functionName}' is not yet registered, bypassing...`)) || input
-        }}
-    })},
-    layouts: {configurable: false, enumerable: true, writable: false, value: {}},
-    themes: {configurable: false, enumerable: true, writable: false, value: {}},
-    appliedTheme: {configurable: false, enumerable: true, writable: true, value: undefined},
-    decorators: {configurable: false, enumerable: true, writable: false, value: Object.defineProperties({}, {
-        '{': {configurable: false, enumerable: true, writable: false, value: input => {
-            if (input && typeof input === 'string') {
-                try { return JSON.parse(input) } catch(e) { return input }
-            } else { return input }
+const ElementHTML = Object.defineProperties({}, {
+    version: {enumerable: true, value: '0.8.0'},
+    env: {enumerable: true, value: Object.defineProperties({}, {
+        auth: {enumerable: true, value: {}},
+        globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
+        globalThis: {enumerable: true, value: globalThis},
+        modes: {configurable: true, enumerable: true, writable: true, value: {
+            element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html',
+            theme: 'default.css', data: 'main.json', media: 'image.webp', processor: 'module.js', 
+            schema: 'Thing', context: 'context.json'
         }},
-        '[': {configurable: false, enumerable: true, writable: false, value: (input, key) => ({[key]: input})},
-        '~': {configurable: false, enumerable: true, writable: false, value: (input, ...keys) => Object.assign({}, ...keys.map(k => ({[k]: input[k]})))},
-        ']': {configurable: false, enumerable: true, writable: false, value: (input, key) => input[key]},
-        '}': {configurable: false, enumerable: true, writable: false, value: input => {
-            if (input && typeof input !== 'string') {
-                 try { return JSON.stringify(input) } catch(e) { return String(input) }
-             } else { return input }
-        }}
+        routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
+        gateways: {enumerable: true, value: {
+            ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`, 
+            ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
+        }},
+        options: {enumerable: true, value: {}}
     })},
-    _eObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _eThemeObserver: {configurable: false, enumerable: false, writable: true, value: undefined},
-    _eventTargets: {configurable: false, enumerable: false, writable: false, value: {}},
-    _isNative: {configurable: false, enumerable: false, writable: false, value: function(tagName) {
-        return tagName && (tagName == 'Image' || tagName == 'Audio' || (tagName.startsWith('HTML') && tagName.endsWith('Element')))
-    }},
-    _doHandler: {configurable: false, enumerable: false, writable: false, value: async function(event, processors, element) {
-        let processorData = {}
-        const parseSource = (source, container) => {
-            if (typeof source === 'object') {
-                Object.assign(processorData, source)
-            } else if (typeof source === 'string' && container && (typeof container === 'object') && source in container) {
-                const parseTest = parseSource(container[source])
-                parseTest && typeof parseTest === 'object' && Object.assign(processorData, parseTest)
-            } else if (typeof source === 'string' && source.startsWith('`') && source.endsWith('`') ) {
-                try {
-                    const parseTest = JSON.parse(source.slice(1,-1))
-                    parseTest && typeof parseTest === 'object' && Object.assign(processorData, parseTest)
-                } catch(e) {}
-            }
-        }
-        element.getAttribute(`e-source`) && parseSource(element.getAttribute('e-source'), element.eDataset)
-        element.getAttribute(`e-source-${event.type}`) && parseSource(element.getAttribute(`e-source-${event.type}`), element.eDataset)
-        if (event.formData || event.detail || event.data) {
-            Object.assign(processorData, (event.formData instanceof Object && event.formData) || (event.detail instanceof Object && event.detail)
-                || (event.data instanceof Object && event.data) || {})
-        }
-        if (!(processorData && typeof processorData === 'object')) processorData = {}
-        for (const processor of processors) {
-            if (typeof this.processors[processor] === 'function') {
-                const processorOutput = await this.processors[processor]((processorData && processorData==='object')?processorData:{}, event, element, this.env)
-                processorOutput && typeof processorOutput === 'object' && Object.assign(processorData, processorOutput)
-            }
-        }
-        if (processorData && typeof processorData === 'object' && 'eReduce' in processorData) {
-            processorData = (processorData.eReduce instanceof Function) ? processorData.eReduce(processorData) : processorData.eReduce
-        }
-        if (processorData && typeof processorData === 'object' && processorData.eSink && typeof processorData.eSink === 'string') {
-            const eSink = processorData.eSink
-            delete processorData.eSink
-            element[eSink] = (element[eSink] && typeof element[eSink] === 'object') ? Object.assign(element[eSink], processorData) : processorData
-        } else if (event.eSink && typeof event.eSink === 'string') {
-            element.eSink[event.eSink] = (element.eSink[event.eSink] && typeof element.eSink[event.eSink] === 'object')
-                ? Object.assign(element.eSink[event.eSink], processorData) : processorData
-        } else if (event.eSink && typeof event.eSink === 'object') {
-            event.eSink = (event.eSink && typeof event.eSink === 'object')
-                ? Object.assign(event.eSink, processorData) : processorData
-        } else if (element.getAttribute(`e-sink-${event.type}`)) {
-            const eSink = element.getAttribute(`e-sink-${event.type}`)
-            element.eSink[eSink] = (element.eSink[eSink] && typeof element.eSink[eSink] === 'object') 
-                ? Object.assign(element.eSink[eSink], processorData) : processorData
-        } else if (element.getAttribute('e-sink')) {
-            const eSink = element.getAttribute('e-sink')
-            element.eSink[eSink] = (element.eSink[eSink] && typeof element.eSink[eSink] === 'object') 
-                ? Object.assign(element.eSink[eSink], processorData) : processorData
-        } else if (processorData && typeof processorData === 'object') {
-            Object.assign(element.eDataset, processorData)
-        }
-   }},
-    _getModule: {configurable: false, enumerable: false, writable: false, value: async function(tag, dryRun=false) {
-        if (this.modules[tag]) return this.modules[tag]
-        if (!tag.includes('-')) return
-        const [tagRepo, tagModule] = tag.split('-')
-        if (!this.repos[tagRepo]) return
-        const fileNameSuffix = tagModule.includes('.') ? tagModule.split('.', 2)[1] : this.repos[tagRepo].modules.suffix || 'wasm',
-            tagModuleFileName = tagModule.includes('.') ? tagModule : `${tagModule}.${fileNameSuffix}`
-        if (fileNameSuffix === 'wasm') {
-            const moduleObject = await WebAssembly.instantiateStreaming(fetch(`${this.repos[tagRepo].base}${this.repos[tagRepo].modules.path}${tagModuleFileName}`))
-            if (dryRun) return moduleObject 
-            return this.modules[tag] = moduleObject.instance
-        } else {
-            const importedModule = await import(`${this.repos[tagRepo].base}${this.repos[tagRepo].modules.path}${tagModuleFileName}`)
-            if (dryRun) return importedModule
-            return this.modules[tag] = importedModule
-        }
-    }},
-    _parseDo: {configurable: false, enumerable: false, writable: false, value: async function*(element, doValue) {
-        const _parseProcessorFragment = async processorFragment => {
-            const [repoModuleTag, functionSignature] = processorFragment.split('.'), [functionName, functionDecoratorsSignature] = functionSignature.split('@')
-            let coreFunction, decoratedFunction = coreFunction
-            if (this.processors[repoModuleTag]) coreFunction = this.processors[repoModuleTag][functionName] || this.processors['404']
-            coreFunction ||= await this._getModule(repoModuleTag)?.functionName || this.processors['404']
-            if (functionDecoratorsSignature) {
-                const [preDecoratorsSignature, postDecoratorsSignature] = functionDecoratorsSignature.split('$'), preDecorators = [], postDecorators = []
-                for (const [s, d] of [[preDecoratorsSignature, preDecorators], [postDecoratorsSignature, postDecorators]]) {
-                    for (const decoratorFragment in s.split(';')) {
-                        const [decoratorKey, decoratorArgs=''] = decoratorFragment.split('=')
-                        if (typeof this.decorators[decoratorKey] === 'function') d.push(input => this.decorators[decoratorKey](input, ...decoratorArgs.split(',')))
-                    }
-                }
-                decoratedFunction = (input) => {
-                    for (const fd of preDecorators) input = fd(input)
-                    input = coreFunction(input)
-                    for (const fd of postDecorators) input = fd(input)
-                    return input
-                }
-            }
-            return decoratedFunction
-        }, _parseDoStatement = async doStatement => {
-            const doFragments = doStatement.split('|')
-            if (doFragments.length<3) return
-            const [eventFragment='@', proxyFragment=((eventFragment='@')?undefined:'@'), processors] = 
-                [doFragments.shift()||undefined, doFragments.pop()||undefined, []]
-            for (const processorFragment of doFragments) processors.push(_parseProcessorFragment(processorFragment))
-            const [eventTargetName='@', eventType='change', eventTarget, eventTargetKey] = [...eventFragment.split('!'), 
-                ...(eventTargetName='@'?[element,undefined]:[this.eventTargets[eventTargetName],eventTargetName])], 
-                proxy = proxyFragment==='@'?element.eDataset:(proxyFragment?this.proxies[proxyFragment]:undefined)
-            return [doStatment, eventTarget, eventType, processors, proxy, eventTargetKey]
-        }
-        for (const doStatement of (doValue || element.getAttribute('e-do') || '').split(' ')) yield await [..._parseDoStatement(doStatement)]
-    }},
-    _setupDo: {configurable: false, enumerable: false, writable: false, value: async function(element, oldValue=undefined) {
-        if (oldValue) {
-            for await (const [oldDoStatement, eventTarget, eventType, processors, proxy, eventTargetKey] of this._parseDo(element, oldValue)) {
-                if (!eventTarget) continue
-                eventTargetKey && eventTarget.removeEventListener(eventType, () => {}, {}, element, oldDoStatement) && !(eventTarget instanceof EventTarget) 
-                    && (eventTarget instanceof Object) && !Object.keys(eventTarget._).length && (delete this.eventTargets[eventTargetKey])
-                this.eventControllers[element] && this.eventControllers[element][oldDoStatement] && this.eventControllers[element][oldDoStatement].abort()
-                delete this.eventControllers[element][oldDoStatement] && !Object.keys(this.eventControllers[element].length) && delete this.eventControllers[element]
-            }
-        }
-        for await (const [doStatement, eventTarget, eventType, processors, proxy] of this._parseDo(element)) {
-            if (!eventTarget) continue
-            this.eventControllers[element] ||= {}
-            this.eventControllers[element][doStatement] = new AbortController()
-            eventTarget.addEventListener(eventType, 
-                async event => await this._doHandler(event, processors, element), {signal: this.eventControllers[element][doStatement].signal}, element, doStatement)
-        }
-    }},
-
-
-    loadContent: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        /*let metaElements, eContentNode = rootElement, eLayoutNode = rootElement, defaultContentTag = `content-${this.env.options.defaultPages.content}`, 
-            defaultLayoutTag = `layout-${this.env.options.defaultPages.layout}`
-        if (!rootElement) {
-            metaElements = document.head.getElementsByTagName('meta')
-            eContentNode = metaElements['e-content']
-            eLayoutNode = metaElements['e-layout']
-        }
-        const values = {content: eContentNode?.getAttribute(`${rootElement?'e-':''}content`) || defaultContentTag, 
-                layout: eLayoutNode?.getAttribute(rootElement?'e-layout':'content') || defaultLayoutTag}
-        for (const mode in values) {
-            const tag = values[mode]
-            if (tag.includes('(') && tag.endsWith(')')) {
-                let [routerName, routerArgs] = tag.split('(')
-                routerArgs = routerArgs.slice(0, -1).split(',')
-                if (!this.routers[routerName]) {
-                    routerName = '/'
-                    this.routers[routerName] || this.setRouter(routerName, this._routerHandlerDefault)
-                }
-                values[mode] = await this.routers[routerName](mode, rootElement, ...routerArgs)
-            } else if (tag.includes('-')) {
-                let [repoName, page] = tag.split('-'), repo = this.repos[repoName] || {}
-
-                page ||= repo[mode]?.default || this.env.options.defaultPages[mode]                
-                page = (repo[mode]?.alias||{})[page] || page
-                values[mode] = {}
-                values[mode].url = `${repo.base||'./'}${repo[mode]?.path||`${mode}/`}${page}.html`
-                values[mode].raw = await fetch(values[mode].url).then(r => r.text())
-            }
-        }
-
-        let template = document.createElement('template')
-        template.innerHTML = values.layout.raw
-        template = template.content.firstElementChild.content.cloneNode(true)
-        
-        console.log('line 254', template)
-
-        */
-        //console.log('line 250', values)
-
-
-
-
-    }}, 
-    loadLayout: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        const eLayoutNode = rootElement || (document.head.getElementsByTagName('meta')||{})['e-layout'], 
-            layoutSignature = eLayoutNode?.getAttribute(rootElement?'e-layout':'content')
-        if (!layoutSignature) return
-        const layoutFragments = layoutSignature.split(' '), fragments = []
-        for (let layoutFragment of layoutFragments) {
-            const fragment = {} 
-            fragment.mode = 'replace'
-            if (layoutFragment.startsWith('+')) {
-                fragment.mode = 'append'
-                layoutFragment = layoutFragment.slice(1)
-            } else if (layoutFragment.endsWith('+')) {
-                fragment.mode = 'prepend'
-                layoutFragment = layoutFragment.slice(0, -1)
-            } else if (layoutFragment.includes('=')) {
-                fragment.mode = 'slot'
-                const fragmentSplit = layoutFragment.split('=')
-                fragment.slot = fragmentSplit[0]
-                layoutFragment = fragmentSplit[1]
-            }
-            if (layoutFragment.includes('(') && layoutFragment.endsWith(')')) {
-                let [routerName, routerArgs] = layoutFragment.split('(')
-                routerArgs = routerArgs.slice(0, -1).split(',')
-                if (!this.routers[routerName]) {
-                    routerName = '/'
-                    this.routers[routerName] || this.setRouter(routerName, this._routerHandlerDefault)
-                }
-                Object.assign(fragment, ...await this.routers[routerName]('layout', rootElement, ...routerArgs))
-            } else if (layoutFragment.includes('-')) {
-                let [repoName, page] = layoutFragment.split('-'), repo = this.repos[repoName] || {}
-                page ||= repo.layout?.default || this.env.options.defaultPages.layout                
-                page = (repo.layout?.alias||{})[page] || page
-                fragment.url = `${repo.base||'./'}${repo.layout?.path||'layout/'}${page}.html`
-                fragment.raw = await fetch(fragment.url).then(r => r.text())
-            }
-            fragments.push(fragment)
-        }
-        let template = document.createElement('template'), domRoot = rootElement || document.body
-        template.innerHTML = domRoot.innerHTML
-        for (const fragment of fragments) {
-            if (fragment.mode !== 'slot') {
-                fragment.mode==='replace' && (template.innerHTML = fragment.raw.trim().slice(10, -11).trim())
-                fragment.mode==='append' && (template.innerHTML = `${template.innerHTML}${fragment.raw.trim().slice(10, -11).trim()}`)
-                fragment.mode==='prepend' && (template.innerHTML = `${fragment.raw.trim().slice(10, -11).trim()}${template.innerHTML}`)
-            } else {
-                const fragmentTemplate = document.createElement('template')
-                fragmentTemplate.innerHTML = fragment.raw.trim()
-                template.content.querySelector(`e-slot[name="${fragment.slot}"]`).replaceWith(fragmentTemplate.content.firstElementChild.content.cloneNode(true))
-            }
-        }
-        domRoot.replaceChildren(...template.content.children)
-    }}, 
-    loadLightDom: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        await this.loadLayout(rootElement)
-        //await this.loadContent(rootElement)
-    }},
-    autoload: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined) {
-        !rootElement && document?.head?.getElementsByTagName('meta')?.namedItem('generator')?.getAttribute('content') === 'Element' && this.loadLightDom()
-        const rootElementTagName = rootElement?.tagName?.toLowerCase()
-        if (rootElementTagName?.startsWith('e-')) return
-        rootElement && (rootElement?.hasAttribute('e-layout') || rootElement?.hasAttribute('e-content')) && this.loadLightDom(rootElement)
-        rootElement || this._enscapulateNative()
-        rootElement && (this.ids[rootElementTagName] || await this.activateTag(rootElementTagName))
-        this.applyTheme(rootElement)
-        rootElement?.hasAttribute('e-do') && await this._setupDo(element)
+    ids: {enumerable: true, value: {}},
+    tags: {enumerable: true, value: {}},
+    extends: {enumerable: true, value: {}},
+    files: {enumerable: true, value: {}},
+    styles: {enumerable: true, value: {}},
+    templates: {enumerable: true, value: {}},
+    scripts: {enumerable: true, value: {}},
+    classes: {enumerable: true, value: {}},
+    constructors: {enumerable: true, value: {}},
+    eDataset: {enumerable: true, value: new EventTarget()},
+    load: {enumerable: true, value: async function(rootElement=undefined) {
+        if (!rootElement && this.env.globalLoadCalled) return
+        rootElement || (Object.defineProperty(this.env, 'globalLoadCalled', {configurable: false, enumerable: true, writable: false, value: true})
+            && this._enscapulateNative())
+        rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
+        if (rootElement && !rootElement.shadowRoot) return
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
-        for (const element of domTraverser.call(domRoot, '*')) {
-            if (!element?.tagName?.includes('-')) continue
-            const tagName = element.tagName.toLowerCase()
-            await this.autoload(element)
-        }
-        observerRoot._eObserver ||= new MutationObserver(async mutationList => {
-            for (const mutationRecord of mutationList) {
-                for (const addedNode of (mutationRecord.addedNodes||[])) if (addedNode?.tagName?.includes('-')) await this.autoload(addedNode)
-                if (mutationRecord.attributeName === 'e-do') await this._setupDo(mutationRecord.target, mutationRecord.oldValue)
+        for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) await this.load(element)
+        const parseHeadMeta = (addedNode) => {
+            const addedNodeMatches = addedNode.matches('title') ? 'title' : (addedNode.matches('meta[content][name]') ? 'meta' : false)
+            let property, value
+            if (addedNodeMatches==='title') [property, value] = ['title', addedNode.textContent]
+            if (addedNodeMatches==='meta') [property, value] = [addedNode.getAttribute('name'), addedNode.getAttribute('content')]
+            if (addedNodeMatches) {
+                let oldValue = this.eDataset[property]
+                this.eDataset[property] = value
+                this._dispatchPropertyEvent(this.eDataset, 'change', property, {
+                    property: property, value: value, oldValue: oldValue, sanitizedValue: value, 
+                    validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
+                })
             }
+        }
+        observerRoot._observer ||= new MutationObserver(async records => {
+            for (const record of records) for (const addedNode of (record.addedNodes||[])) if (this.getCustomTag(addedNode)) await this.load(addedNode)
+            if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
         })
-        observerRoot._eObserver.observe(domRoot, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['e-do']})
-        if (rootElement) return
-        this._eThemeObserver ||= new MutationObserver(mutationList => {
-            for (const mutationRecord of mutationList) mutationRecord.attributeName === 'e-theme' || this.applyTheme(undefined, true)
-        })
-        this._eThemeObserver.observe(document.body, {subtree: false, childList: false, attributes: true, attributeFilter: ['e-theme']})
+        observerRoot._observer.observe(domRoot, {subtree: true, childList: true})
+        if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
     }},
-    applyTheme: {configurable: false, enumerable: true, writable: false, value: async function(rootElement=undefined, recurse=false) {
-        const themeTag = (rootElement||document.body).getAttribute('e-theme'),
-            [themeName=(this.appliedTheme||'theme'), themeSheet='index'] = themeTag ? themeTag.split('-') : []
-        if (!this.themes[themeName]) return
-        this.appliedTheme = themeName
-        const domRoot = rootElement ? rootElement.shadowRoot : document, themeSheetURL = `${this.themes[this.themeName]}${themeSheet}.css`,
-            themeSheetElement = domRoot.querySelector(`${rootElement?'style':'link'}[e-theme="${themeTag}"]`)
-            || (rootElement?domRoot.querySelectorAll('style')[0]:domRoot.head).insertAdjacentElement(`${rootElement?'after':'before'}end`,
-                document.createElement(rootElement?'style':'link'))
-        themeSheetElement.setAttribute('e-theme', themeTag)
-        rootElement || themeSheetElement.setAttribute('rel', 'stylesheet') || themeSheetElement.setAttribute('href', themeSheetURL)
-        rootElement && (themeSheetElement.textContent = `@import "${themeSheetURL}";`)
-        if (!recurse) return
-        const domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName']
-        for (const element of domTraverser.call(domRoot, '*')) {
-            if (!element.tagName.includes('-')) continue
-            this.ids[element.tagName.toLowerCase()] && this.applyTheme(element, true)
+    getCustomTag: {enumerable: true, value: function(element) {
+        return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
+                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+    }},
+    getURL: {enumerable: true, value: function(value) {
+        if (value.startsWith('https://') || !value.includes('://')) return value
+        const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+        return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+    }},
+    isURL: {enumerable: true, value: function(value) { return value && value.includes('/') }},
+    splitOnce: {enumerable: true, value: function(str, delimiter) { 
+        let r
+        str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
+        return r
+    }},
+    resolveMeta: {enumerable: true, value: function(element, is,  name, namespace, exact=false) {
+        let metaElement
+        const rootNode = element.shadowRoot || element.getRootNode()
+        if (rootNode instanceof ShadowRoot) {
+            for (const m of rootNode.getElementsByTagName('meta')) if (((!name || m.name === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
+            return metaElement || this.resolveMeta(rootNode.host.getRootNode(), name, is, role)
+        } else {
+            for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
+                    if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
+                        metaElement = m
+                        break
+                    }
+                } else {
+                    metaElement = m
+                    break
+                }
+            return metaElement
         }
     }},
-    getInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagId='HTMLElement') {
-        const inheritance = [tagId]
-        while (tagId && this.extends[tagId] && !this._isNative(tagId)) {
-            inheritance.push(this.extends[tagId])
-            tagId = this.extends[tagId]
+    resolveRouter: {enumerable: true, value: function(element, name) {
+        if (!name) return
+        let router = this.resolveMeta(element, this.env.routerTags[0], name)
+        if (!router) for(const routerTag of this.env.routerTags.slice(1)) router ||= this.resolveMeta(element, routerTag, name)
+        return router        
+    }},
+    activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
+        if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
+        const id = await this.getTagId(tag, element);
+        [this.ids[tag], this.tags[id]] = [id, tag]
+        await this.loadTagAssetsFromId(id, forceReload)
+        const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
+        globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? {extends: baseTag} : undefined)
+    }},
+    getTagId: {enumerable: true, value: async function(tag, element) {
+        if (this.ids[tag]) return this.ids[tag]
+        const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
+        let tagRouter = this.resolveRouter(element, tagRouterName)
+        return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
+            tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
+    }},
+    loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
+        if (!id.includes('://') || (!forceReload && this.files[id])) return
+        this.files[id] = await fetch(this.getURL(id)).then(r => r.text())
+        this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>')+7, this.files[id].indexOf('</style>')).trim()
+        this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>')+10, this.files[id].indexOf('</template>')).trim()
+        this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>')+8, this.files[id].indexOf('</script>')).trim()
+        const extendsRegExp = /class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
+        let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends
+        if (extendsId) {
+            if (extendsId.includes('/')) {
+                if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
+                if (!extendsId.endsWith('.html')) extendsId += '.html'
+            }
+            this.extends[id] = extendsId
+            this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
         }
+        let sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`)
+        this.classes[id] = Function('ElementHTML', 'return ' + sanitizedScript)(this)
+        this.classes[id].id = id
+        this.constructors[id] = class extends this.classes[id] {constructor() {super()}}
+    }},
+    getInheritance: {enumerable: true, value: function(id='HTMLElement') {
+        const inheritance = [id]
+        while (id && this.extends[id] && id.includes('-')) inheritance.push(id = this.extends[id])
         return inheritance
     }},
-    sortByInheritance: {configurable: false, enumerable: true, writable: false, value: function(tagIdList) {
-        return Array.from(new Set(tagIdList)).filter(t => this.extends[t]).sort((a, b) => 
+    sortByInheritance: {configurable: false, enumerable: true, writable: false, value: function(idList) {
+        return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) => 
             ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
             .map((v, i, a) => (i === a.length-1) ? [v, this.extends[v]] : v).flat()
     }},
-    copyAttributes: {configurable: false, enumerable: true, writable: false, value: function(source, target, keep=[], autoKeepE=false) {
-        for (const a in source.getAttributeNames()) {
-            if (!keep.includes(a) && !((autoKeepE) && a.startsWith('e-'))) continue
-            const aValue = source.getAttribute(a)
-            (aValue && target.setAttribute(a, aValue)) || (aValue === '' && target.toggleAttribute(a, true))
+    getObserved: {enumerable: true, value: function(element, scope, observe) {
+        const scopesMap = {document: document, 'document.head': document.head, 'document.body': document.body,
+        body: document.body, head: document.head, root: element.getRootNode(), parent: element.parentElement}
+        let useScope = scope && scopesMap[scope] ? scopesMap[scope] : undefined
+        if (!useScope && scope && scope.startsWith('closest(') && scope.endWith(')')) useScope = element.closest(scope.slice(8, -1))
+        useScope ||= element.parentElement
+        return useScope.querySelector(observe) || useScope
+    }},
+    createObserver: {enumerable: true, value: function(element, observed, takeRecordsCallback, observerCallback) {
+        if (element._observer) takeRecordsCallback(element._observer.takeRecords())
+        element._observer && (element._observer.disconnect() || (delete element._observer))
+        element._observer = new MutationObserver(observerCallback)
+        element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
+    }},
+    applyHash: {enumerable: true, value: function(hash, data) {
+        if (hash && (Array.isArray(data) || (data instanceof HTMLCollection))) {
+            const result = []
+            for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
+                    data = Array.from(data)
+                    result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
+                } else {
+                    result.push(data[hashFrag])
+                }
+            return result
+        } else { return (data instanceof HTMLCollection) ? Array.from(data) : data }
+    }},
+    applyField: {enumerable: true, value: function(field, data) {
+        if (!field) return data
+        const fieldedData = data, resultArray = [], fieldFrags = field.split(',').map(s => s.trim())
+        for (const fieldFrag of fieldFrags) {
+            let [fieldFragName, fieldFragVector] = fieldFrag.split(':', 2).map(s => s.trim()), thisData = data
+            fieldFragVector ?? ([fieldFragVector, fieldFragName] = [fieldFragName, fieldFragVector])
+            for (const vector of (fieldFragVector).split('.').map(s => s.trim())) {
+                thisData = thisData[vector]
+                if (!(thisData instanceof Object)) break
+            }
+            resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
+        }
+        return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
+    }},
+    sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
+        sinkFlag ||= pointerElement?.sink
+        if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
+            const useNode = element === document.head ? element : document
+            for (const [k, v] of Object.entries(data)) {
+                if (k==='title' || k==='@title' || k==='.title') {
+                    useNode.querySelector('title').textContent = v
+                } else {
+                    const metaElements = useNode.children,
+                        metaElement = (k.startsWith('@') || k.startsWith('.')) ? metaElements[k.slice(1)] : metaElements[k]
+                    metaElement && metaElement.setAttribute('content', v)
+                }
+            }
+            return
+        }
+        const tag = element.tagName.toLowerCase()
+        if (sinkFlag === '@') {
+            for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
+        } else if (sinkFlag === '.') {
+            for (const [k, v] of Object.entries(data)) element[k] = v
+        } else if (sinkFlag === 'dataset') {
+            for (const [k, v] of Object.entries(data)) element.dataset[k] = v
+        } else if (sinkFlag === 'eDataset' && element.eDataset instanceof Object) {
+            Object.assign(element.eDataset, data)
+        } else if (sinkFlag.startsWith('auto')) {
+            if (element.eDataset instanceof Object) {
+                Object.assign(element.eDataset, data)
+            } else {
+                for (const [k, v] of Object.entries(data)) {
+                    if (v.startsWith('@')) element.setAttribute(k.slice(1), v)
+                    if (v.startsWith('.')) element[k.slice(1)] = v
+                    if (sinkFlag === 'auto-data') element.dataset[k] = v
+                }
+            }
+        } else if (sinkFlag && ((sinkFlag.startsWith('...')) || (typeof element[sinkFlag] === 'function'))) {
+            if (sinkFlag.startsWith('...')) {
+                const sinkFunctionName = sinkFlag.slice(3)
+                if (typeof element[sinkFunctionName] === 'function') {
+                    element[sinkFunctionName](...data)
+                } else if (element[sinkFunctionName] instanceof Object) {
+                    element[sinkFunctionName] = {...element[sinkFunctionName], ...data}
+                }
+            } else { element[sinkFlag](data) }
+        } else if (sinkFlag && element[sinkFlag] instanceof Object) {
+            Object.assign(element[sinkFlag], data)
+        } else if (['input', 'select', 'datalist'].includes(tag)) {
+            const optionElements = []
+            for (const k in data) {
+                const optionElement = document.createElement('option')
+                optionElement.value = Array.isArray(data) ? data[k] : k
+                optionElement.setAttribute(optionElement.value)
+                optionElement.textContent = data[k]
+                optionElements.push(optionElement)
+            }
+            if (tag === 'select' || tag === 'datalist') {
+                element.replaceChildren(...optionElements)
+            } else if (tag === 'input' && pointerElement) {
+                const datalist = document.createElement('datalist')
+                datalist.replaceChildren(...optionElements)
+                pointerElement.dataset.datalistId = crypto.randomUUID()
+                datalist.setAttribute('id', pointerElement.dataset.datalistId)
+                document.body.append(datalist)
+                element.setAttribute('list', pointerElement.dataset.datalistId)
+            }
+        } else if (['form', 'fieldset'].includes(tag)) {
+            for (const [k, v] of Object.entries(data)) (element.querySelector(`[name="${k}"]`)||{}).value = v
+        } else if (['table', 'tbody'].includes(tag)) {
+            let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
+            if (!tbody) element.append(tbody = document.createElement('tbody'))
+            let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r)))
+                || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
+            if (rowsData) {
+                if (tag === 'table') {
+                    const headers = rowsData.shift()
+                    let thead = element.querySelector('thead')
+                    if (!thead) element.prepend(thead = document.createElement('thead'))
+                    let thRow = thead.querySelector('tr')
+                    if (!thRow) thead.prepend(thRow = document.createElement('tr'))
+                    for (const h of headers) thead.appendChild(document.createElement('th')),textContent = h
+                }
+                const namedRows = data instanceof Object
+                for (const [k, v] of Object.entries(rowsData)) {
+                    const tr = document.createElement('tr')
+                    namedRows && tr.setAttribute('name', k)
+                    for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
+                    tbody.append(tr)
+                }
+            }
+        } else if (element.hasAttribute('itemscope') && data instanceof Object) {
+            for (const [k, v] of data) {
+                if (Array.isArray(v)) {
+                    for (const [i, nn] of Array.from(element.querySelectorAll(`[itemprop="${k}"]`))) nn.textContent = v[i] ?? ''
+                } else { (element.querySelector(`[itemprop="${k}"]`)||{}).textContent = v }
+            }
+        } else {
+            Object.assign(element.eDataset instanceof Object ? element.eDataset : element.dataset, data)
         }
     }},
-    stackTemplates: {configurable: false, enumerable: true, writable: false, value: function(tagId, templateInnerHTML=undefined) {
+    stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
-        template.innerHTML = templateInnerHTML || this.templates[tagId]
+        template.innerHTML = templateInnerHTML || this.templates[id]
         for (const t of template.content.querySelectorAll('template[id]')) {
-            const idAttr = t.getAttribute('id'), tId = idAttr.match(/^[a-z0-9]+-[a-z0-9]+/) ? this.getTagId(idAttr) : idAttr,
-                tNode = document.createElement('template')
+            const tId = t.getAttribute('id'), tNode = document.createElement('template')
             tNode.innerHTML = this.stackTemplates(tId)
             const clonedNode = tNode.content.cloneNode(true)
             if (t.hasAttribute('slot')) {
@@ -405,61 +296,45 @@ const Element = Object.defineProperties({}, {
         }
         return template.innerHTML
     }},
-    stackStyles: {configurable: false, enumerable: true, writable: false, value: function(tagId) {
-        return `/** core system styles */\n\n e-slot { display: none; } \n\n\n` + 
-            this.getInheritance(tagId).reverse().filter(tId => !this._isNative(tId)).map(tId => `/** ${tId} styles */\n\n` + this.styles[tId]).join("\n\n\n")
+    stackStyles: {enumerable: true, value: function(id) {
+        return this.getInheritance(id).reverse().filter(t => t.includes('-')).map(t => `/** ${t} styles */\n\n` + this.styles[t]).join("\n\n\n")
     }},
-    getTagId: {configurable: false, enumerable: true, writable: false, value: function(tagName) {
-        if (this.ids[tagName]) return this.ids[tagName]
-        const [tagRepo, tagComponent] = tagName.split('-', 2).map(t => t.toLowerCase())
-        return (this.repos[tagRepo])
-            ? (new URL(`${this.repos[tagRepo].base}${this.repos[tagRepo].elements.path}${tagComponent}.${this.repos[tagRepo].elements.suffix}`, document.location)).href
-            : (new URL(`${('./'+tagRepo+'/')}${tagComponent}.html`, document.location)).href
-    }},
-    loadTagAssetsFromId: {configurable: false, enumerable: true, writable: false, value: async function(tagId, forceReload=false) {
-        if (!forceReload && this.files[tagId]) return
-        this.files[tagId] = await fetch(tagId).then(r => r.text())
-        this.styles[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<style>')+7, this.files[tagId].indexOf('</style>')).trim()
-        this.templates[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<template>')+10, this.files[tagId].indexOf('</template>')).trim()
-        this.scripts[tagId] = this.files[tagId].slice(this.files[tagId].indexOf('<script>')+8, this.files[tagId].indexOf('</script>')).trim()
-        const extendsRegExp = /class\s+extends\s+`(?<extends>.+)`\s+\{/,
-            extendsClassAliasGroups = this.scripts[tagId].match(extendsRegExp)?.groups, extendsClassAlias = extendsClassAliasGroups?.extends
-        let extendsClassId = extendsClassAlias?.match(/^[a-z0-9]+-[a-z0-9]+$/) ? this.getTagId(extendsClassAlias) : extendsClassAlias
-        if (extendsClassId) {
-            this._isNative(extendsClassId) || (extendsClassId = (new URL(extendsClassId, document.location)).href)
-            this.extends[tagId] = extendsClassId
-            this.files[extendsClassId] || this._isNative(extendsClassId) || await this.loadTagAssetsFromId(extendsClassId)
+    _observer: {writable: true, value: undefined},
+    _enscapulateNative: {value: function() {
+        const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em',
+            'figcaption', 'figure', 'footer', 'header', 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby',
+            's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
+        for (const tag of HTMLElements) this.ids[tag] = 'HTMLElement'
+        Object.assign(this.ids, {
+            a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement',
+            col: 'HTMLTableColElement', colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement',
+            fieldset: 'HTMLFieldSetElement', h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement', h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement',
+            h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement', iframe: 'HTMLIFrameElement', img: 'HTMLImageElement',
+            ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement', p: 'HTMLParagraphElement', q: 'HTMLQuoteElement',
+            tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement', tfoot: 'HTMLTableSectionElement',
+            th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
+        })
+        for (const tag in this.ids) {
+            if (tag.includes('-')) continue
+            const id = this.ids[tag]
+            if (this.tags[id]) {
+                if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
+                this.tags[id].push(tag)
+            } else { this.tags[id] = tag }
         }
-        let sanitizedScript = this.scripts[tagId].replace(extendsRegExp, `class extends Element.constructors['${extendsClassId}'] {`)
-        this.classes[tagId] = Function('Element', 'return ' + sanitizedScript)(this)
-        const Element = this
-        this.classes[tagId].EHTagId = tagId
-        this.constructors[tagId] = class extends this.classes[tagId] {constructor() {super()}}
+        const classNames = Object.values(this.ids)
+        for (const nc of Reflect.ownKeys(globalThis)) if (nc.startsWith('HTML') && nc.endsWith('Element')) this.ids[nc.replace('HTML', '').replace('Element', '').toLowerCase()] ||= nc
+        delete this.ids.image
+        this.ids[''] = 'HTMLElement'
+        this.ids['HTMLElement'] = 'HTMLElement'
+        for (const id in this.ids) this.classes[id] = globalThis[this.ids[id]], this.constructors[id] = this._base(this.classes[id])
     }},
-    activateTag: {configurable: false, enumerable: true, writable: false, value: async function(tagName, forceReload=false) {
-        if ((!forceReload && this.ids[tagName]) || !tagName.includes('-')) return
-        const tagId = this.getTagId(tagName)
-        this.ids[tagName] = tagId
-        this.tagNames[tagId] = tagName
-        await this.loadTagAssetsFromId(tagId, forceReload)
-        const baseTagName = this.getInheritance(tagId).pop() || 'HTMLElement'
-        globalThis.customElements.define(tagName, this.constructors[tagId],
-            ((baseTagName !== 'HTMLElement' && this._isNative(baseTagName)) ? {extends: baseTagName} : undefined))
-    }},
-    _enscapulateNative: {configurable: false, enumerable: false, writable: false, value: function() {
-        for (const nativeClassName of Reflect.ownKeys(globalThis)) {
-            if (!this._isNative(nativeClassName) || (this.classes[nativeClassName] && this.constructors[nativeClassName])) continue
-            this.classes[nativeClassName] ||= ((nativeClassName === 'HTMLImageElement' && globalThis['Image'])
-                || (nativeClassName === 'HTMLAudioElement' && globalThis['Audio']) || globalThis[nativeClassName])
-            this.constructors[nativeClassName] ||= this._base(this.classes[nativeClassName])
-        }
-    }},
-    _dispatchPropertyEvent: {configurable: false, enumerable: false, writable: false, value: function(element, eventNamePrefix, property, eventDetail) {
+    _dispatchPropertyEvent: {value: function(element, eventNamePrefix, property, eventDetail) {
         eventDetail = {detail: {property: property, ...eventDetail}}
         element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
         element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
     }},
-    _base: {configurable: false, enumerable: false, writable: false, value: function(baseClass=globalThis.HTMLElement) {
+    _base: {value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
             constructor() {
                 super()
@@ -476,132 +351,112 @@ const Element = Object.defineProperties({}, {
                 for (const moduleName in ($this.constructor.eWasm||{})) {
                     if ($this.constructor.eWasmModules[moduleName]) continue
                     $this.constructor.eWasmModules[moduleName] = true
-                    WebAssembly.instantiateStreaming(fetch($this.constructor.eWasm[moduleName].src),
+                    WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL($this.constructor.eWasm[moduleName].src)),
                         $this.constructor.eWasm[moduleName].importObject).then(importResult => 
                             $this.constructor.eWasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
-                if (!$this.constructor.tagPrefixes) for (r in ($this.constructor.repos || [])) $this.constructor.tagPrefixes[r] = crypto.randomUUID().replace(/\-/g, '')
-                $this.constructor.eConstraints ||= {}
-                $this.constructor.eSanitizers ||= {}
-                $this.eLocalConstraints ||= {}
-                $this.eLocalSanitizers ||= {}
-                $this.eQueuedAttributes = {}
-                $this.eDataset = new Proxy($this.dataset, {
-                    has(target, property) {
-                        if (!'@#.>'.includes(property[0])) return property.trim() in target 
-                            || !!$this.shadowRoot.querySelector(`:scope > [e-prop="${property.trim()}"]:not(e-slot)`)
-                        return ((property[0] === '@') && $this.hasAttribute(property.slice(1)))
-                            || ((property[0] === '#') && property.slice(1) in $this)
-                            || ((property[0] === '.') && !!$this.shadowRoot.querySelector(`:scope > [e-prop="${property.slice(1)}"]`))
-                            || ((property[0] === '>') && !!$this.shadowRoot.querySelector(`:scope > e-slot[e-prop="${property.slice(1)}"]`))
-                    },
-                    get(target, property, receiver) {
-                        if (!'@#.>'.includes(property[0])) {
-                            property = property.trim()
-                            if (property in target) return target[property]
-                            const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [e-prop="${property}"]:not(e-slot)`)
-                            return propertyRenderer ? Object.assign({}, (propertyRenderer.eDataset || {})) : undefined
-                        }
-                        return ((property[0] === '@') && $this.getAttribute(property.slice(1)))
-                            || ((property[0] === '#') && $this[property.slice(1)])
-                            || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [e-prop="${property.slice(1)}"]`))
-                            || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > e-slot[e-prop="${property.slice(1)}"]`))
-                    },
-                    set(target, property, value, receiver) {
-                        if (!'@#.>'.includes(property[0])) {
-                            property = property.trim()
-                            if (value && (target[property] === value)) return true
-                            let sanitized = false, sanitizedDetails = '', withinConstraint = true, withinConstraintDetails = '',
-                                returnValue = undefined
-                            const oldValue = target[property], givenValue = value, sanitizer = $this.eLocalSanitizers[property] 
-                                || $this.constructor.eSanitizers[property],constraint = $this.eLocalConstraints[property] 
-                                || $this.constructor.eConstraints[property]
-                            typeof sanitizer === 'function' && ([value, sanitized, sanitizedDetails] = sanitizer(value))
-                            typeof constraint === 'function' && ([withinConstraint, withinConstraintDetails] = constraint(value))
-                            value ?? (returnValue = this.deleteProperty(target, property))
-                            if (value && typeof value === 'object') {
-                                let propertyRenderer = $this.shadowRoot.querySelector(`:scope > [e-prop="${property}"]`)
-                                if (propertyRenderer) {
-                                    if (propertyRenderer.tagName.toLowerCase() === 'e-slot') {
-                                        const useTagRepository = eSlot.getAttribute('e-repo'),
-                                            useTagSuffix = eSlot.getAttribute('e-suffix')
-                                        if (useTagRepository && useTagSuffix && $this.constructor.tagPrefixes[useTagRepository]) {
-                                            const useTag = `${$this.constructor.tagPrefixes[useTagRepository]}-${useTagSuffix}`, eSlot = propertyRenderer
-                                            propertyRenderer = document.createElement(useTag)
-                                            Element.copyAttributes(eSlot, propertyRenderer, (eSlot.getAttribute('e-keep') || '').split(' ').filter(a => !!a), true)
-                                            eSlot.replaceWith(propertyRenderer)
-                                        } else {
-                                            throw new TypeError(`Either e-repo, e-suffix are not set, or are set and do not match a repository for element class with id ${this.constructor.eTagId} property ${property}`)
-                                            returnValue = false
-                                        }
-                                    }
-                                    for (const k in propertyRenderer.eDataset) (k in value) || delete propertyRenderer.eDataset[k]
-                                    for (const k in value) if (propertyRenderer.eDataset[k] !== value[k]) propertyRenderer.eDataset[k] = value[k]
-                                    returnValue = true
-                                } else {
-                                    throw new TypeError(`No sub-element found in the shadowRoot with an e-prop equal to ${property} for this instance of element class ${this.constructor.eTagId}`)
-                                    returnValue = false
+                Object.defineProperties($this, {
+                    e: {enumerable: true, value: ElementHTML},
+                    eProcessors: {enumerable: true, value: new Proxy({}, {
+                        get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
+                    })},
+                    eContext: {enumerable: true, writable: true, value: {}},
+                    eSchema: {enumerable: true, writable: true, value: {
+                        has: (e, p) => p in e.dataset, get: (e, p) => e.dataset[p], sanitize: (e, p,v) => [v], validate: (e, p,v) => [v],
+                        set: (e, p,v) => e.dataset[p] = v, deleteProperty: (e, p) => delete e.dataset[p]
+                    }},
+                    eDataset: {enumerable: true, value: new Proxy($this.dataset, {
+                        has(target, property) {
+                            switch(property[0]) {
+                            case '@':
+                                return $this.hasAttribute(property.slice(1))
+                            case '.':
+                                return property.slice(1) in $this
+                            case '#':
+                                return $this.eSchema.has($this, property.slice(1))
+                            default:
+                                return property in target || $this.eSchema.has($this, property)
+                            }
+                        },
+                        get(target, property, receiver) {
+                            switch(property[0]) {
+                            case '@':
+                                return $this.getAttribute(property.slice(1))
+                            case '.':
+                                return $this[property.slice(1)]
+                            case '#': 
+                                return $this.eSchema.get($this, property.slice(1))
+                            default:
+                                return target[property] ?? $this.eSchema.get($this, property)
+                            }
+                        },
+                        set(target, property, value, receiver) {
+                            switch(property[0]) {
+                            case '@':
+                                return $this.setAttribute(property.slice(1), value)
+                            case '.':
+                                return $this[property.slice(1)] = value
+                            case '#':
+                                return $this.eSchema.set($this, property.slice(1), value)
+                            default:
+                                let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails;
+                                [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, property, value)
+                                if (sanitizedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'sanitized', property, {
+                                            property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails
+                                        })
+                                value = sanitizedValue;
+                                const oldValue = target[property]
+                                if (oldValue !== value) {
+                                    $this.eSchema.set(property, value);
+                                    [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
+                                    if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
+                                                property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
+                                            })
+                                    ElementHTML._dispatchPropertyEvent($this, 'change', property, {
+                                        property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
+                                        validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails
+                                    })
                                 }
-                            } else {
-                                returnValue = !!(target[property] = value)
+                                return value
                             }
-                            const eventDetail = {givenValue: givenValue, value: value, oldValue: oldValue, sanitized: sanitized,
-                                sanitizedDetails: sanitizedDetails,withinConstraint: withinConstraint, withinConstraintDetails: withinConstraintDetails}
-                            Element._dispatchPropertyEvent('change', property, eventDetail)
-                            const validator = $this.eLocalValidator || $this.constructor.eValidator
-                            if (typeof validator == 'function') {
-                                let [isValid, validatorDetails] = validator(Object.assign({}, $this.eDataset))
-                                Object.assign(eventDetail, {handler: 'set', isValid: isValid, validatorDetails: validatorDetails})
-                                Element._dispatchPropertyEvent('e-dataset-validation', property, eventDetail)
+                        },
+                        deleteProperty(target, property) {
+                            switch(property[0]) {
+                            case '@':
+                                return $this.removeAttribute(property.slice(1))
+                            case '.':
+                                return delete $this[property.slice(1)]
+                            case '#':
+                                return $this.eSchema.deleteProperty($this, property.slice(1))
+                            default:
+                                const oldValue = target[property]
+                                const retval = $this.eSchema.deleteProperty($this, property)
+                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
+                                if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
+                                            property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
+                                        })
+                                ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, {
+                                    property: property, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails
+                                })
+                                return retval
                             }
-                            return returnValue
                         }
-                        Element._dispatchPropertyEvent('change', property, {value: value})
-                        return ((property[0] === '@') && $this.setAttribute(property.slice(1), value))
-                            || ((property[0] === '#') && ($this[property.slice(1)] = value))
-                            || ((property[0] === '.') && $this.shadowRoot.querySelector(`:scope > [e-prop="${property.slice(1)}"]`))
-                            || ((property[0] === '>') && $this.shadowRoot.querySelector(`:scope > e-slot[e-prop="${property.slice(1)}"]`))
-                    }, 
-                    deleteProperty(target, property) {
-                        if (!'@#.>'.includes(property[0])) {
-                            property = property.trim()
-                            let returnValue, oldValue = target[property]
-                            if (property in target) {
-                                returnValue = delete target[property]
-                            } else {
-                                const propertyRenderer = $this.shadowRoot.querySelector(`:scope > [e-prop="${property}"]:not(e-slot)`)
-                                if (propertyRenderer) {
-                                    const eSlot = document.createElement('e-slot')
-                                    Element.copyAttributes(propertyRenderer, eSlot, (propertyRenderer.getAttribute('e-keep') || '').split(' ').filter(a => !!a), true)
-                                    propertyElement.replaceWith(eSlot)
-                                }
-                                returnValue = true
-                            }
-                            Element._dispatchPropertyEvent('e-dataset-delete-property', property, {oldValue: oldValue})
-                            const validator = $this.eLocalValidator || $this.constructor.eValidator
-                            if (typeof validator === 'function') {
-                                let [isValid, validatorDetails] = validator(Object.assign({}, $this.eDataset))
-                                Element._dispatchPropertyEvent('e-dataset-validation', property, {handler: 'deleteProperty', property: property,
-                                    oldValue: oldValue, isValid: isValid, validatorDetails: validatorDetails})
-                            }
-                            return returnValue
-                        }
-                        return ((property[0] === '@') && $this.removeAttribute(property.slice(1)))
-                            || ((property[0] === '#') && delete $this[property.slice(1)])
-                            || ((property[0] === '.') && !$this.shadowRoot.querySelector(`:scope > [e-prop="${property.slice(1)}"]`)?.remove())
-                            || ((property[0] === '>') && !$this.shadowRoot.querySelector(`:scope > e-slot[e-prop="${property.slice(1)}"]`)?.remove())
-                    }
+                    })},
+                    eQueuedAttributes: {enumerable: true, value: {}}
                 })
-                $this.shadowRoot || $this.attachShadow({mode: 'open'})
-                $this.shadowRoot.textContent = ''
-                $this.shadowRoot.appendChild(document.createElement('style')).textContent = Element.stackStyles(this.constructor.eTagId)
-                const templateNode = document.createElement('template')
-                templateNode.innerHTML = Element.stackTemplates(this.constructor.eTagId)
-                $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                try {
+                    $this.shadowRoot || $this.attachShadow({mode: 'open'})
+                    $this.shadowRoot.textContent = ''
+                    $this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML.stackStyles(this.constructor.id)
+                    const templateNode = document.createElement('template')
+                    templateNode.innerHTML = ElementHTML.stackTemplates(this.constructor.id)
+                    $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                    Object.defineProperty($this, 'eMeta', {enumerable: true, value: $this.shadowRoot.getElementsByTagName('meta')})
+                } catch(e) {}
             }
             static get observedAttributes() { return [] }
-            attributeChangedCallback(attrName, oldVal, newVal) { this[attrName] = newVal }
+            attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this
                 for (const k in $this.eQueuedAttributes) {
@@ -622,33 +477,15 @@ const Element = Object.defineProperties({}, {
         }
     }}
 })
-Object.defineProperty(Element.env, 'Element', {configurable: false, enumerable: true, writable: false, value: Element})
-Object.defineProperty(Element, 'eventTargets', {configurable: false, enumerable: true, writable: false, value: new Proxy(Element._eventTargets, {
-    get: (target, prop, receiver) => {
-        if  (!target[prop] && !target[prop] instanceof Object && !target[prop] instanceof EventTarget) {
-            target[prop] = {_e: {},
-                addEventListener: (type, listener, options, element, doStatement) => {
-                    if (!element || !doStatement) return
-                    target[prop]._e[element] ||= {}
-                    target[prop]._e[element][doStatement] ||= [type, listener, options]
-                },
-                removeEventListener: (type, listener, options, element, doStatement) => {
-                    if (!element || !doStatement) return
-                    target[prop]._e[element] ||= {}
-                    delete target[prop]._e[element][doStatement]
-                    !Object.keys(target[prop]._e[element]).length && (delete target[prop]._e[element])
-                },
-                dispatchEvent: () => {}
-            }
-        }
-        return target[prop]
-    },
-    has: (target, prop) => target[prop] instanceof EventTarget,
-    set: function(target, prop, value, receiver) {
-        if (value instanceof EventTarget) {
-            if (!(target[prop] instanceof EventTarget) && (target[prop] instanceof Object) && (target[prop]._e instanceof Object)) for (const listenerParams of target[prop]._) value.addEventListener(...listenerParams)
-            target[prop] = value
-        }
-    }
-})})
-export { Element }
+Object.defineProperty(ElementHTML.env, 'ElementHTML', {enumerable: true, value: ElementHTML})
+const newModes = {}
+for (const mode in ElementHTML.env.modes) {
+    const [d, s] = ElementHTML.env.modes[mode].split('.')
+    Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
+            default: {enumerable: true, value: d}, suffix: {enumerable: true, value: s}
+        })
+    })
+}
+Object.defineProperty(ElementHTML.env, 'modes', {enumerable: true, value: newModes})
+await ElementHTML.load()
+export { ElementHTML }

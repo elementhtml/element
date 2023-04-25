@@ -1,0 +1,42 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'layout'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
+                    const text = await this._routable._parse(response), template = document.createElement('template')
+                    template.innerHTML = text
+                    return template.content.cloneNode(true).children
+                }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
+                }}, 
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (addOrRemove !== 'add') return 
+                    const [useFromLayoutSelector, insertIntoLayoutAtSelector, usefromTargetSelector, postProcessor] = (this.as||'').split(';', 4).map(s => s.trim()), template = document.createElement('template')
+                    template.content.replaceChildren(...useResponse)
+                    const documentFragment = template.content.cloneNode(true), 
+                        replaceWithElements = useFromLayoutSelector ? documentFragment.querySelectorAll(useFromLayoutSelector) : documentFragment.children
+                    if (insertIntoLayoutAtSelector) {
+                        const insertContent = usefromTargetSelector === ':scope' ? node.childNodes 
+                            : (usefromTargetSelector 
+                                ? node.cloneNode(true).querySelectorAll(usefromTargetSelector) : [node.cloneNode(true)]) 
+                        for (const r of replaceWithElements) {
+                            const replaceAt = insertIntoLayoutAtSelector === ':scope' ? [r] : r.querySelectorAll(insertIntoLayoutAtSelector)
+                            for (const rs of replaceAt) rs.replaceChildren(...insertContent)
+                        }
+                    }
+                    node.replaceWith(...replaceWithElements)
+                    if (typeof this.e.processors[postProcessor] === 'function') this.e.processors[postProcessor](replaceWithElements)                    
+                }}
+            })
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+    }
+</script>

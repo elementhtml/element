@@ -1,0 +1,66 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `./abstract/routable` {
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'theme'}, 
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => await (new CSSStyleSheet()).replace(await response.text())},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    parsedResponse = await this._routable._applyHash(parsedResponse)
+                    if (this._hash) {
+                        result = {}
+                        const hashSplit = this._hash.split(';').map(s => s.trim()), layers = []
+                        for (let hashFrag of hashSplit) {
+                            for (const rule of parsedResponse.cssRules) {
+                                if (rule?.name === hashFrag) {
+                                    result[hashFrag] = rule
+                                    if (rule instanceof CSSLayerBlockRule) {
+                                        layers.push(hashFrag)
+                                    }
+                                }
+                            }
+                        }
+                        result = `${layers.length ? '@layer ' + layers.join(', ') + ';\n\n' : ''}${Object.values(result).join('\n\n')}`
+                        await parsedResponse.replace(result)
+                    }
+                    return parsedResponse
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    parsedResponse = await this._routable._applyField(parsedResponse)
+                    if (this._field) {
+                        const fieldSplit = this._field.split(';').map(s => s.trim())
+                        for (const i in parsedResponse.cssRules) {
+                            const rule = parsedResponse.cssRules[i]
+                            if (rule instanceof CSSStyleRule) {
+                                let keep = false
+                                for (f of fieldSplit) if (rule.selectorText.includes(f)) for (const s of rule.selectorText.split(',').map(s => s.trim())) keep = s.startsWith(f)
+                                if (!keep) parsedResponse.deleteRule(i)
+                            } 
+                        }
+                    }
+                    return parsedResponse
+                }}, 
+                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (addOrRemove === 'add') {
+                        const styleNode = document.createElement('style')
+                        this.dataset.stylesheetId = crypto.randomUUID()
+                        styleNode.setAttribute('id', this.dataset.stylesheetId)
+                        styleNode.textContent = Array.from(useResponse.cssRules).map(r => r.cssText).join('\n')
+                        if ((node.parentElement === document.head) || [document, document.head, document.body].includes(node)) {
+                            this.as === 'underlay' ? document.head.prepend(styleNode) : document.head.append(styleNode)
+                        } else if (node instanceof ShadowRoot || node.shadowRoot instanceof ShadowRoot) {
+                            const shadow = node instanceof ShadowRoot ? node : node.shadowRoot
+                            this.as === 'underlay' ? shadow.prepend(styleNode) : shadow.querySelector('style:last-of-type')?.after(styleNode)                            
+                        }
+                    }
+                }}
+            })
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+    }
+</script>
