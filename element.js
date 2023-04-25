@@ -118,7 +118,7 @@ const ElementHTML = Object.defineProperties({}, {
         this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>')+10, this.files[id].indexOf('</template>')).trim()
         this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>')+8, this.files[id].indexOf('</script>')).trim()
         const extendsRegExp = /class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
-        let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends
+        let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends || 'HTMLElement'
         if (extendsId) {
             if (extendsId.includes('/')) {
                 if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
