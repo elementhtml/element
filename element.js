@@ -458,9 +458,9 @@ const ElementHTML = Object.defineProperties({}, {
                     const templateNode = document.createElement('template')
                     templateNode.innerHTML = ElementHTML.stackTemplates(this.constructor.id)
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    Object.defineProperty($this, 'eMeta', {enumerable: true, get: () => {
-                        return Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
-                    }})
+                    Object.defineProperty($this, 'eMeta', {enumerable: true, 
+                        get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
+                    })
                 } catch(e) {}
             }
             static get observedAttributes() { 
