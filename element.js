@@ -134,7 +134,7 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     getInheritance: {enumerable: true, value: function(id='HTMLElement') {
         const inheritance = [id]
-        while (id && this.extends[id] && id.includes('-')) inheritance.push(id = this.extends[id])
+        while (id && this.extends[id]) inheritance.push(id = this.extends[id])
         return inheritance
     }},
     sortByInheritance: {configurable: false, enumerable: true, writable: false, value: function(idList) {
