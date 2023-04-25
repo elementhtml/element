@@ -22,7 +22,7 @@
 
         constructor() {
             super()
-            for (const mode in this._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true, 
+            for (const mode in this._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true,
             set: (value) => this._setter(mode, value),
             get: () => {
                 const f = this.#defaultProcessor.bind(this, mode)
@@ -41,7 +41,7 @@
         get processor() { return undefined }
 
         set base(value) { this.#base = value }
-        get base() { return this.#base }        
+        get base() { return this.#base }
 
     }   
 </script>
