@@ -10,8 +10,8 @@
             this.#repo[mode] ||= {}
             typeof value === 'string' && ([
                 this.#repo[mode].path=`${mode}/`,
-                this.#repo[mode].default=this.constructor._modes[mode].default,
-                this.#repo[mode].suffix=this.constructor._modes[mode].suffix] = [value.slice(0, value.lastIndexOf('/')+1), ...value.slice(value.lastIndexOf('/')+1).split('.')])
+                this.#repo[mode].default=this._modes[mode].default,
+                this.#repo[mode].suffix=this._modes[mode].suffix] = [value.slice(0, value.lastIndexOf('/')+1), ...value.slice(value.lastIndexOf('/')+1).split('.')])
             value instanceof Object && value.path && value.default && value.suffix && Object.assign(this.#repo[mode], value)
         }
 
@@ -22,7 +22,7 @@
 
         constructor() {
             super()
-            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true, 
+            for (const mode in this._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true, 
             set: (value) => this._setter(mode, value),
             get: () => {
                 const f = this.#defaultProcessor.bind(this, mode)
@@ -34,7 +34,7 @@
         toString() { return this.#base }
 
         static get observedAttributes() {
-            return (super.observedAttributes || []).concat('base', ...Object.keys(this._modes))
+            return (super.observedAttributes || []).concat('base', ...Object.keys(this.e.env.modes))
         }
 
         set processor(value) {}

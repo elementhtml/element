@@ -327,7 +327,10 @@ const ElementHTML = Object.defineProperties({}, {
         delete this.ids.image
         this.ids[''] = 'HTMLElement'
         this.ids['HTMLElement'] = 'HTMLElement'
-        for (const id in this.ids) this.classes[id] = globalThis[this.ids[id]], this.constructors[id] = this._base(this.classes[id])
+        for (const id in this.ids) {
+            this.classes[id] = globalThis[this.ids[id]]
+            this.constructors[id] = this._base(this.classes[id])
+        } 
     }},
     _dispatchPropertyEvent: {value: function(element, eventNamePrefix, property, eventDetail) {
         eventDetail = {detail: {property: property, ...eventDetail}}
@@ -455,7 +458,10 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.defineProperty($this, 'eMeta', {enumerable: true, value: $this.shadowRoot.getElementsByTagName('meta')})
                 } catch(e) {}
             }
-            static get observedAttributes() { return [] }
+            static get observedAttributes() { 
+                return [] 
+            }
+            static e = ElementHTML
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this

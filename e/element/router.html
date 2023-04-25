@@ -7,18 +7,18 @@
         #processor
 
         #defaultProcessor = function(router, mode, flag=undefined, get=false) {
-            const url = `${router.baseURI}${mode}/${flag}${router.constructor._modes[mode]?.suffix?'.'+router.constructor._modes[mode].suffix:''}`
+            const url = `${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`
             return get ? fetch(this.getURL(url)) : url
         }
 
     	constructor() {
     		super()
-            this.constructor._modes || Object.defineProperty(this.constructor, '_modes', {enumerable: false, writable: false, value: this.e.env.modes})
-            this.constructor._defaultProcessor || Object.defineProperty(this.constructor, '_defaultProcessor', {enumerable: false, writable: false, value: this.#defaultProcessor})
-            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
+            this._modes || Object.defineProperty(this, '_modes', {enumerable: false, writable: false, value: this.e.env.modes})
+            this._defaultProcessor || Object.defineProperty(this, '_defaultProcessor', {enumerable: false, writable: false, value: this.#defaultProcessor})
+            for (const mode in this._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
                 let requestedProcessor = this.#processor ? this.e.processors[this.#processor] : undefined
-                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this.constructor._defaultProcessor.bind(this.e, this, mode)
-                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false) : this.constructor._defaultProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
+                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this._defaultProcessor.bind(this.e, this, mode)
+                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this._modes[mode].default, false) : this._defaultProcessor.bind(this.e, this, mode, this._modes[mode].default, false)
                 return f
             }})
     	}
@@ -28,7 +28,9 @@
         connectedCallback() {
         }
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'processor') }
+		static get observedAttributes() {
+            return (super.observedAttributes || []).concat('name', 'processor') 
+        }
 
         set name(value) { if (value !== this.#name) this.#name = value }
         get name() { return this.#name }
