@@ -39,11 +39,11 @@
                 _rawResponse: {get: async () => {
                         if (this.#router === '$') {
                             const rootNode = this.getRootNode() 
-                            return (rootNode === document ? this.e.eDataset : rootNode.host.eDataset)[this.#flag] ?? {}
+                            return (rootNode === document ? this.e.eDataset : rootNode.host.eDataset)[this.#flag]
                         }
                         if (this.#router === '.') {
                             const rootNode = this.getRootNode() 
-                            return (rootNode === document ? this.e.env : rootNode.host)[this.#flag] ?? {}
+                            return (rootNode === document ? this.e.env : rootNode.host)[this.#flag]
                         }
                         return (this.e.isURL(this.#use)) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
                                 : await this.#getRouterMode()(this.#flag, true)
@@ -67,9 +67,9 @@
                 _applyHash: {configurable: true, writable: true, value: async (parsedResponse) => parsedResponse}, 
                 _applyField: {configurable: false, writable: true, value: async (parsedResponse) => parsedResponse},
                 _useResponse: {configurable: false, get: async () => {
-                        if (this.#router === '$') return this._applyField(this._applyHash(await this._rawResponse))
+                        if (this.#router === '$') return await this._applyField(await this._applyHash(await this._rawResponse))
                         if (this._mode === 'media') return `${this}`
-                        if (this._mode === 'processor') return this._applyField(await this._applyHash(await this._parse(`${this}`)))
+                        if (this._mode === 'processor') return await this._applyField(await this._applyHash(await this._parse(`${this}`)))
                         return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
                     }}, 
                 _activate: {value: async () => {
@@ -96,15 +96,20 @@
                         }
                     }
                     this.e.createObserver(this, observed, processRecords, processRecords)
-                    const useResponse = await this._useResponse
-                    const matches = observed.querySelectorAll(this.#match||':scope')
+                    const useResponse = await this._useResponse, matches = observed.querySelectorAll(this.#match||':scope')
                     for (const matched of matches) this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
                             ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
                     if (this.#router === '$') {
                         const rootNode = this.getRootNode(), listenTo = rootNode.host || this.e.eDataset
-                        listenTo.addEventListener('change', event => {
-                            console.log('line 108', event.detail.property, this.eDataset.test)
+                        listenTo.addEventListener('change', async event => {
+                            if (event.detail.property = this.#flag) {
+                                const useResponse = await this._applyField(await this._applyHash(event.detail.value)), 
+                                matches = observed.querySelectorAll(this.#match||':scope')
+                                for (const matched of matches) this._as(useResponse, 'add', matched, 
+                                    matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
+                                        ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
+                            }
                         })
                     }
                 }},
