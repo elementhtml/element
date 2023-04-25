@@ -20,6 +20,7 @@ console.log('line 19', useResponse, node)
                     if (addOrRemove === 'add') {
                         const [useContentScope, postProcessor] = (this.as||'').split(';', 2).map(s => s.trim()), 
                             useProcessor = postProcessor && typeof this.e.processors[postProcessor] === 'function' ? this.e.processors[postProcessor] : i => i
+                        if (typeof useResponse === 'string') useResponse = [useResponse]
                         switch(useContentScope) {
                         case 'innerHTML': 
                         case 'innerText': 
@@ -28,7 +29,7 @@ console.log('line 19', useResponse, node)
                             div[useContentScope] = useProcessor(useResponse.map(n => n[useContentScope].trim()).join(''))
                             useResponse = div.childNodes
                         case 'outerHTML':
-                        default: 
+                        default:
                             node === this ? node.replaceWith(...useResponse) : node.replaceChildren(...useResponse)
                         }
                     }

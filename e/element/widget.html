@@ -18,9 +18,6 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('source', 'layout', 'shadow') }
 
         async connectedCallback() {
-            this.addEventListener('change', event => {
-                console.log('line 22', event)
-            })
         }
 
 

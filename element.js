@@ -414,7 +414,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = sanitizedValue;
                                 const oldValue = target[property]
                                 if (oldValue !== value) {
-                                    $this.eSchema.set(property, value);
+                                    $this.eSchema.set($this, property, value);
                                     [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                     if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                                 property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
