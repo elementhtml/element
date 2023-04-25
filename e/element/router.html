@@ -5,10 +5,13 @@
 
         #name
         #processor
+        #priority = 'auto'
+        #cache = 'default'
+        #fetchOptions = {}
 
         #defaultProcessor = function(router, mode, flag=undefined, get=false) {
             const url = `${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`
-            return get ? fetch(this.getURL(url)) : url
+            return get ? fetch(this.e.getURL(url), Object.assign({priority: this.#priority, cache: this.#cache}, this.#fetchOptions)) : url
         }
 
     	constructor() {
@@ -25,18 +28,24 @@
 
         toString() { return this.#name }
 
-        connectedCallback() {
-        }
+        connectedCallback() {}
 
-		static get observedAttributes() {
-            return (super.observedAttributes || []).concat('name', 'processor') 
-        }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'processor', 'priority', 'cache') }
 
         set name(value) { if (value !== this.#name) this.#name = value }
         get name() { return this.#name }
 
         set processor(value) { this.#processor = value }
         get processor() { return this.#processor }
+
+        set priority(value) { this.#priority = value }
+        get priority() { return this.#priority }
+
+        set cache(value) { this.#cache = value }
+        get cache() { return this.#cache }
+
+        set fetchOptions(value) { if (value instanceof Object) this.#fetchOptions = value }
+        get fetchOptions() { return this.#fetchOptions }
 
     }	
 </script>

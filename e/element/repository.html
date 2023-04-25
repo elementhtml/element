@@ -17,7 +17,7 @@
 
         #defaultProcessor = function(mode, flag=undefined, get=false) {
             const url = `${this.base}${this.#repo[mode].path}${flag||this.#repo[mode].default}${this.#repo[mode].suffix?'.'+this.#repo[mode].suffix:''}`
-            return get ? fetch(this.getURL(url)) : url
+            return get ? fetch(this.e.getURL(url), Object.assign({priority: this.priority, cache: this.cache}, this.fetchOptions)) : url
         }
 
         constructor() {
