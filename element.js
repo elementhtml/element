@@ -458,7 +458,8 @@ const ElementHTML = Object.defineProperties({}, {
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
                 const parsePropertyValue = (property, get=true, retrieve=false) => {
-                    const itemRelIds = [], has = false, value, elementList = []
+                    let value
+                    const itemRelIds = [], has = false, elementList = []
                     for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
                     propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
                         if (propElement.closest('[itemscope]')) continue
