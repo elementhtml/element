@@ -256,11 +256,12 @@ const ElementHTML = Object.defineProperties({}, {
                                 propSiblings[i] = newSibling
                             } else {
                                 this.setValue(propSiblings[i], v)
-                            }                     
+                            }
                         }
+                        for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
                     }
                 }
-            } else { 
+            } else {
                 Object.assign((element.eDataset || element.dataset), value)
             }
         } else {
@@ -279,6 +280,44 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     }},
+
+
+
+    deleteValue: {enumerable: true, value: function(element) {
+        if (!element) return
+        if (element.hasAttribute('itemscope')) {
+            const value = {}, parseElementForValues = (el) => {
+                if (!el) return
+                const scopeTo = el.hasAttribute('id') ? 'id': 'itemscope'
+                for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest(`[${scopeTo}]`) === el ) {
+                    const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
+                    if (Object.keys(value).includes(propName)) {
+                        if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
+                        value[propName].push(propValue)
+                    } else { value[propName] = propValue }
+                }
+            }
+            if (element.hasAttribute('itemref')) {
+                const rootNode = element.getRootNode()
+                for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
+            } else { parseElementForValues(element) }
+        } else if (element.eDataset) {
+            const valueproxy = element.getAttribute('valueproxy')
+            if (valueproxy) return element.eDataset[valueproxy]
+            return Object.assign({}, element.dataset)
+        } else {
+            const tag = element.tagName.toLowerCase()
+            if (tag === 'meta') return element.getAttribute('content')
+            if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
+            if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
+            if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
+            if (['data','meter','input','select','textarea'].includes(tag)) return element.getAttribute('value')
+            if (tag === 'time') return element.getAttribute('datetime')
+            return element.textContent
+        }
+    }},
+
+
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
         sinkFlag ||= pointerElement?.sink
         if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
@@ -533,6 +572,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = sanitizedValue;
                                 const oldValue = target[property]
                                 if (oldValue !== value) {
+                                    if (!(value instanceof Object)) target[property] = value
                                     ElementHTML.setValue(parsePropertyValue(property, false, true), value, $this.shadowRoot)
                                     [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                     if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
@@ -556,7 +596,8 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.eSchema.deleteProperty($this, property.slice(1))
                             default:
                                 const oldValue = target[property]
-                                const retval = $this.eSchema.deleteProperty($this, property)
+                                let retval = delete target[property]
+                                ElementHTML.deleteValue(parsePropertyValue(property, false, true), $this.shadowRoot)
                                 let [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                             property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
