@@ -268,15 +268,26 @@ const ElementHTML = Object.defineProperties({}, {
             let valueproxy
             if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
                 element.eDataset[valueproxy] = value
+                if (value === undefined) delete element.eDataset[valueproxy] 
             } else {
                 const tag = element.tagName.toLowerCase()
-                if (tag === 'meta') return element.setAttribute('content', value)
-                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.setAttribute('src', value)
-                if (['a','area','link'].includes(tag)) return element.setAttribute('href', value)
-                if (tag === 'object') return element.setAttribute('data', value)
-                if (['data','meter','input','select','textarea'].includes(tag)) return element.setAttribute('value', value)
-                if (tag === 'time') return element.setAttribute('datetime', value)
-                element.textContent = value
+                if (value === undefined) {
+                    if (tag === 'meta') return element.removeAttribute('content')
+                    if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.removeAttribute('src', value)
+                    if (['a','area','link'].includes(tag)) return element.removeAttribute('href', value)
+                    if (tag === 'object') return element.removeAttribute('data', value)
+                    if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = '') || element.removeAttribute('value', value)
+                    if (tag === 'time') return element.removeAttribute('datetime', value)
+                    element.textContent = ''
+                } else {
+                    if (tag === 'meta') return element.setAttribute('content', value)
+                    if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.setAttribute('src', value)
+                    if (['a','area','link'].includes(tag)) return element.setAttribute('href', value)
+                    if (tag === 'object') return element.setAttribute('data', value)
+                    if (['data','meter','input','select','textarea'].includes(tag)) return element.setAttribute('value', value)
+                    if (tag === 'time') return element.setAttribute('datetime', value)
+                    element.textContent = value                    
+                }
             }
         }
     }},
