@@ -41,9 +41,9 @@ const ElementHTML = Object.defineProperties({}, {
             if (addedNodeMatches==='title') [property, value] = ['title', addedNode.textContent]
             if (addedNodeMatches==='meta') [property, value] = [addedNode.getAttribute('name'), addedNode.getAttribute('content')]
             if (addedNodeMatches) {
-                let oldValue = this.eDataset[property]
-                this.eDataset[property] = value
-                this._dispatchPropertyEvent(this.eDataset, 'change', property, {
+                let oldValue = this.env.eDataset[property]
+                this.env.eDataset[property] = value
+                this._dispatchPropertyEvent(this.env.eDataset, 'change', property, {
                     property: property, value: value, oldValue: oldValue, sanitizedValue: value, 
                     validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
                 })
@@ -190,6 +190,35 @@ const ElementHTML = Object.defineProperties({}, {
             resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
         }
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
+    }},
+    getValue: {enumerable: true, value: function(element) {
+        if (element.value !== undefined) return element.value
+        if (element.hasAttribute('itemscope')) {
+            const value = {}
+            for (const propElement of element.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === element ) {
+                const propertyName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
+                if (Object.keys(value).includes(propertyName)) {
+                    if (!Array.isArray(value[propertyName])) value[propertyName] = [value[propertyName]]
+                    value[propertyName].push(propValue)
+                } else { value[propertyName] = propValue }
+            }
+        } else if (element.eDataset) {
+            const valueproxy = element.getAttribute('valueproxy')
+            if (valueproxy) return element.eDataset[valueproxy]
+            return Object.assign({}, element.dataset)
+        } else {
+            return element.textContent
+        }
+    }},
+    setValue: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
+        if (data instanceof Object) {
+
+        } else {
+            if (element.eDataset instanceof Object) {
+
+            }
+
+        }
     }},
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
         sinkFlag ||= pointerElement?.sink
@@ -348,6 +377,7 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     _base: {value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
+            #valueproxy
             constructor() {
                 super()
                 const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs=[]) => {
@@ -470,7 +500,7 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch(e) {}
             }
             static get observedAttributes() { 
-                return [] 
+                return ['valueproxy'] 
             }
             static e = ElementHTML
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
@@ -491,6 +521,9 @@ const ElementHTML = Object.defineProperties({}, {
                 $this.eQueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
                 $this.eQueuedAttributeInterval ||= globalThis.setInterval(() => $this.eProcessQueuedAttributes(), 1000)
             }
+            valueOf() { return this.e.getValue(this) }
+            set valueproxy(value) { this.#valueproxy = value }
+            get valueproxy() { return this.#valueproxy }
         }
     }}
 })
