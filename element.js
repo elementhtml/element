@@ -235,7 +235,7 @@ const ElementHTML = Object.defineProperties({}, {
             let valueproxy
             if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
                 element.eDataset[valueproxy] = value 
-            } else { element[((element.value??((element.src??'textContent')||'src'))||'value')] = value }
+            } else { element[(element.value??((element.src??'textContent')||'src'))||'value'] = value }
         }
     }},
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
