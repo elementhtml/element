@@ -215,13 +215,10 @@ const ElementHTML = Object.defineProperties({}, {
 
         } else {
             if (element.eDataset instanceof Object) {
-
-
-            } else {
-                if (element.value !== undefined) element.value = value
-                
-
-            }
+                const valueproxy = element.getAttribute('valueproxy')
+                valueproxy ? element.eDataset[valueproxy] = value 
+                    : (element[element.value===undefined?'textContent':'value'] = value) 
+            } else { element[element.value===undefined?'textContent':'value'] = value }
         }
     }},
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
