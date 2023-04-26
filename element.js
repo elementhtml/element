@@ -195,7 +195,8 @@ const ElementHTML = Object.defineProperties({}, {
         if (element.hasAttribute('itemscope')) {
             const value = {}, parseElementForValues = (el) => {
                 if (!el) return
-                for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === el ) {
+                const scopeTo = el.hasAttribute('id') ? 'id': 'itemscope'
+                for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest(`[${scopeTo}]`) === el ) {
                     const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
                     if (Object.keys(value).includes(propName)) {
                         if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
