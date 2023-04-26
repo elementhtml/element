@@ -525,9 +525,10 @@ const ElementHTML = Object.defineProperties({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
-                    eSchema: {enumerable: true, writable: true, value: {
-                        has: (e, p) => p in e.dataset, sanitize: (e, p,v) => [v], validate: (e, p,v) => [v]
-                    }},
+                    eSchema: {enumerable: true, writable: true, value: Object.defineProperties({
+                        map: {get: () => Object.fromEntries(Object.keys($this.dataset),map(k => ([k, undefined])))}, 
+                        sanitize: {value : (e, p,v) => [v]}, validate: {value: (e, p,v) => [v]}
+                    })},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             switch(property[0]) {
@@ -536,7 +537,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '.':
                                 return property.slice(1) in $this
                             case '#':
-                                return $this.eSchema.has($this, property.slice(1))
+                                return property.slice(1) in $this.eSchema.map
                             default:
                                 return (property in target) || parsePropertyValue(property, false)
                             }
@@ -548,12 +549,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '.':
                                 return $this[property.slice(1)]
                             case '#':
-                                let value
-                                if (target[property] !== undefined) {
-                                    value = target[property]
-                                } else { value = parsePropertyValue(property) }
-                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
-                                return {property: cleanProperty, value: value, validatedValue: validatedValue, validatorDetails: validatorDetails}
+                                return $this.eSchema.map[property.slice(1)]
                             default:
                                 if (target[property] !== undefined) return target[property]
                                 return parsePropertyValue(property)
