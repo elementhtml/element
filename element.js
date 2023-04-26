@@ -230,6 +230,28 @@ const ElementHTML = Object.defineProperties({}, {
                     } else { propElement = element.querySelector(`[itemprop="${propName}"]`) }
                     if (propElement) this.setValue(propElement, propValue)
                 }
+            } else if (Array.isArray(value)) {
+                if (element.hasAttribute('itemprop')) {
+                    const elementProp = element.getAttribute('itemprop'), scopeNode = element.parentElement.closest('[itemscope]')
+                    if (scopeNode) {
+                        const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)), 
+                            propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
+                        for (const [i, v] in Array.entries(value)) {
+                            if (!(i in propSiblings)) {
+                                const newSibling = propTemplate.cloneNode(true)
+                                newSibling.style.setProperty('display', none)
+                                propSiblings[propSiblings.length-1].after(newSibling)
+                                this.setValue(newSibling, v)
+                                propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
+                                propSiblings[i] = newSibling
+                            } else {
+                                this.setValue(propSiblings[i], v)
+                            }                            
+                        }
+                    }
+                } else {
+
+                }
             } else { 
                 Object.assign((element.eDataset || element.dataset), value)
             }
