@@ -191,10 +191,10 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
-    parsePropertyValue: {enumerable: true, value: function(property, get=true, retrieve=false) {
+    parsePropertyValue: {enumerable: true, value: function(element, property, get=true, retrieve=false) {
         let value, itemRelIds = [], has = false, elementList = []
-        for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+        for (const itemrel of element.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+        propget: for (const propElement of element.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
             if (propElement.closest('[itemscope]')) continue
             for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
             if (!get)  {
@@ -202,7 +202,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (retrieve) return propElement
                 break propget
             }
-            const propValue = ElementHTML.getValue(propElement)
+            const propValue = this.getValue(propElement)
             if (value === undefined) {
                 value = propValue
             } else {
@@ -538,7 +538,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#':
                                 return property.slice(1) in $this.eSchema.map
                             default:
-                                return (property in target) || parsePropertyValue(property, false)
+                                return (property in target) || ElementHTML.parsePropertyValue($this, property, false)
                             }
                         },
                         get(target, property, receiver) {
@@ -551,7 +551,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.eSchema.map[property.slice(1)]
                             default:
                                 if (target[property] !== undefined) return target[property]
-                                return parsePropertyValue(property)
+                                return ElementHTML.parsePropertyValue($this, property)
                             }
                         },
                         set(target, property, value, receiver) {
@@ -577,7 +577,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = sanitizedValue;
                                 if (oldValue !== value) {
                                     if (!(value instanceof Object)) target[property] = value
-                                    ElementHTML.setValue(parsePropertyValue(property, false, true), value, $this.shadowRoot);
+                                    ElementHTML.setValue(ElementHTML.parsePropertyValue($this, property, false, true), value, $this.shadowRoot);
                                     [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                     if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                                 property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
@@ -604,7 +604,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 let retval = delete target[property]
-                                ElementHTML.deleteValue(parsePropertyValue(property, false, true), $this.shadowRoot);
+                                ElementHTML.deleteValue(ElementHTML.parsePropertyValue($this, property, false, true), $this.shadowRoot);
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                             property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
