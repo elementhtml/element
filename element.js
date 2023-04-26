@@ -191,28 +191,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
-    parsePropertyValue: {enumerable: true, value: function(element, property, get=true, retrieve=false) {
-        let value, itemRelIds = [], has = false, elementList = []
-        for (const itemrel of element.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-        propget: for (const propElement of element.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
-            if (propElement.closest('[itemscope]')) continue
-            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
-            if (!get)  {
-                has = true
-                if (retrieve) return propElement
-                break propget
-            }
-            const propValue = this.getValue(propElement)
-            if (value === undefined) {
-                value = propValue
-            } else {
-                if (!Array.isArray(value)) value = [value]
-                value.push(propValue)
-            }
-        }
-        if (retrieve) return elementList
-        return get ? has : value
-    }},
     getValue: {enumerable: true, value: function(element) {
         if (!element) return
         if (element.hasAttribute('itemscope')) {
@@ -306,37 +284,6 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     deleteValue: {enumerable: true, value: function(element) {
-        if (!element) return
-        if (element.hasAttribute('itemscope')) {
-            const value = {}, parseElementForValues = (el) => {
-                if (!el) return
-                const scopeTo = el.hasAttribute('id') ? 'id': 'itemscope'
-                for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest(`[${scopeTo}]`) === el ) {
-                    const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
-                    if (Object.keys(value).includes(propName)) {
-                        if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
-                        value[propName].push(propValue)
-                    } else { value[propName] = propValue }
-                }
-            }
-            if (element.hasAttribute('itemref')) {
-                const rootNode = element.getRootNode()
-                for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
-            } else { parseElementForValues(element) }
-        } else if (element.eDataset) {
-            const valueproxy = element.getAttribute('valueproxy')
-            if (valueproxy) return element.eDataset[valueproxy]
-            return Object.assign({}, element.dataset)
-        } else {
-            const tag = element.tagName.toLowerCase()
-            if (tag === 'meta') return element.getAttribute('content')
-            if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
-            if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
-            if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
-            if (['data','meter','input','select','textarea'].includes(tag)) return element.getAttribute('value')
-            if (tag === 'time') return element.getAttribute('datetime')
-            return element.textContent
-        }
     }},
 
 
@@ -423,6 +370,33 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
+                    eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
+
+                        let value, itemRelIds = [], has = false, elementList = []
+                        for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+                        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+                            if (propElement.closest('[itemscope]')) continue
+                            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
+                            if (operation === 'has') return true
+                            if (operation === 'get')  {
+                                //if (retrieve) return propElement
+                                break propget
+                            }
+                            const propValue = ElementHTML.getValue(propElement)
+                            if (value === undefined) {
+                                value = propValue
+                            } else {
+                                if (!Array.isArray(value)) value = [value]
+                                value.push(propValue)
+                            }
+                        }
+                        return false
+                        //if (retrieve) return elementList
+                        return operation === 'get' ? value :                             
+
+
+
+                    }},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
                     })},
@@ -441,7 +415,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#':
                                 return property.slice(1) in $this.eSchema.map
                             default:
-                                return (property in target) || ElementHTML.parsePropertyValue($this, property, false)
+                                return (property in target) || $this.eRender('has', property)
                             }
                         },
                         get(target, property, receiver) {
@@ -454,7 +428,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.eSchema.map[property.slice(1)]
                             default:
                                 if (target[property] !== undefined) return target[property]
-                                return ElementHTML.parsePropertyValue($this, property)
+                                return $this.eRender('get', property)
                             }
                         },
                         set(target, property, value, receiver) {
