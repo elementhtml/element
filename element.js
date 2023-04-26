@@ -192,6 +192,7 @@ const ElementHTML = Object.defineProperties({}, {
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
     getValue: {enumerable: true, value: function(element) {
+        if (!element) return
         if (element.hasAttribute('itemscope')) {
             const value = {}, parseElementForValues = (el) => {
                 if (!el) return
@@ -223,7 +224,8 @@ const ElementHTML = Object.defineProperties({}, {
             return element.textContent
         }
     }},
-    setValue: {enumerable: true, value: function(element, value) {
+    setValue: {enumerable: true, value: function(element, value, scopeNode) {
+        if (!element) return 
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
@@ -239,7 +241,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             } else if (Array.isArray(value)) {
                 if (element.hasAttribute('itemprop')) {
-                    const elementProp = element.getAttribute('itemprop'), scopeNode = element.parentElement.closest('[itemscope]')
+                    const elementProp = element.getAttribute('itemprop')
+                    scopeNode ||= element.parentElement.closest('[itemscope]')
                     if (scopeNode) {
                         const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)), 
                             propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
@@ -454,6 +457,28 @@ const ElementHTML = Object.defineProperties({}, {
                             $this.constructor.eWasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
+                const parsePropertyValue = (property, get=true, retrieve=false) => {
+                    const itemRelIds = [], has = false, value, elementList = []
+                    for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+                    propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+                        if (propElement.closest('[itemscope]')) continue
+                        for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
+                        if (!get)  {
+                            has = true
+                            if (retrieve) return propElement
+                            break propget
+                        }
+                        const propValue = ElementHTML.getValue(propElement)
+                        if (value === undefined) {
+                            value = propValue
+                        } else {
+                            if (!Array.isArray(value)) value = [value]
+                            value.push(propValue)
+                        }
+                    }
+                    if (retrieve) return elementList
+                    return get ? has : value
+                }                
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
@@ -464,26 +489,6 @@ const ElementHTML = Object.defineProperties({}, {
                         has: (e, p) => p in e.dataset, get: (e, p) => e.dataset[p], sanitize: (e, p,v) => [v], validate: (e, p,v) => [v],
                         set: (e, p,v) => e.dataset[p] = v, deleteProperty: (e, p) => delete e.dataset[p]
                     }},
-                    const parsePropertyValue = (property, get=true) => {
-                        const itemRelIds = [], has = false, value
-                        for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-                        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
-                            if (propElement.closest('[itemscope]')) continue
-                            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
-                            if (!get)  {
-                                has = true
-                                break propget
-                            }
-                            const propValue = ElementHTML.getValue(propElement)
-                            if (value === undefined) {
-                                value = propValue
-                            } else {
-                                if (!Array.isArray(value)) value = [value]
-                                value.push(propValue)
-                            }
-                        }
-                        return get ? has : value
-                    }
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             switch(property[0]) {
@@ -527,9 +532,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = sanitizedValue;
                                 const oldValue = target[property]
                                 if (oldValue !== value) {
-
-                                    $this.eSchema.set($this, property, value);
-
+                                    ElementHTML.setValue(parsePropertyValue(property, false, true), value, $this.shadowRoot)
                                     [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                     if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                                 property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
