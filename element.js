@@ -232,10 +232,9 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign((element.eDataset || element.dataset), value)
             }
         } else {
-            if (element.eDataset instanceof Object) {
-                const valueproxy = element.getAttribute('valueproxy')
-                valueproxy ? element.eDataset[valueproxy] = value 
-                    : (element[element.value===undefined?'textContent':'value'] = value) 
+            let valueproxy
+            if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
+                element.eDataset[valueproxy] = value 
             } else { element[element.value===undefined?'textContent':'value'] = value }
         }
     }},
