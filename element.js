@@ -191,6 +191,28 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
+    parsePropertyValue: {enumerable: true, value: function(property, get=true, retrieve=false) {
+        let value, itemRelIds = [], has = false, elementList = []
+        for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+            if (propElement.closest('[itemscope]')) continue
+            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
+            if (!get)  {
+                has = true
+                if (retrieve) return propElement
+                break propget
+            }
+            const propValue = ElementHTML.getValue(propElement)
+            if (value === undefined) {
+                value = propValue
+            } else {
+                if (!Array.isArray(value)) value = [value]
+                value.push(propValue)
+            }
+        }
+        if (retrieve) return elementList
+        return get ? has : value
+    }},
     getValue: {enumerable: true, value: function(element) {
         if (!element) return
         if (element.hasAttribute('itemscope')) {
@@ -496,28 +518,6 @@ const ElementHTML = Object.defineProperties({}, {
                             $this.constructor.eWasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
-                const parsePropertyValue = (property, get=true, retrieve=false) => {
-                    let value, itemRelIds = [], has = false, elementList = []
-                    for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-                    propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
-                        if (propElement.closest('[itemscope]')) continue
-                        for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
-                        if (!get)  {
-                            has = true
-                            if (retrieve) return propElement
-                            break propget
-                        }
-                        const propValue = ElementHTML.getValue(propElement)
-                        if (value === undefined) {
-                            value = propValue
-                        } else {
-                            if (!Array.isArray(value)) value = [value]
-                            value.push(propValue)
-                        }
-                    }
-                    if (retrieve) return elementList
-                    return get ? has : value
-                }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
@@ -634,6 +634,9 @@ const ElementHTML = Object.defineProperties({}, {
                 return ['valueproxy'] 
             }
             static e = ElementHTML
+            async connectedCallback() {
+                for (const property in this.dataset) ElementHTML.setValue(parsePropertyValue(property, false, true), this.dataset[property], this.shadowRoot)
+            }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this

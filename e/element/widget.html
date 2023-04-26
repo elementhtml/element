@@ -17,6 +17,7 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('source', 'layout', 'shadow') }
 
         async connectedCallback() {
+            super.connectedCallback()
         }
 
 
