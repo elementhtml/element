@@ -219,8 +219,10 @@ const ElementHTML = Object.defineProperties({}, {
                         const rootNode = element.getRootNode()
                         for (const ref of element.getAttribute('itemref').split(' ')) {
                             propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
+                            if (propElement) break
+                        }
+                        if (!propElement) for (const ref of element.getAttribute('itemref').split(' ')) {
                             propElement ||= rootNode.querySelector(`[name="${ref}"]`)?.querySelector(`[itemprop="${propName}"]`)
-                            propElement ||= document.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
                             if (propElement) break
                         }
                     }
