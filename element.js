@@ -221,12 +221,12 @@ const ElementHTML = Object.defineProperties({}, {
                             propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
                             if (propElement) break
                         }
-                        if (!propElement) for (const ref of element.getAttribute('itemref').split(' ')) {
-                            propElement ||= rootNode.querySelector(`[name="${ref}"]`)?.querySelector(`[itemprop="${propName}"]`)
+                        if (!propElement && (rootNode !== document)) for (const ref of element.getAttribute('itemref').split(' ')) {
+                            propElement ||= document.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
                             if (propElement) break
                         }
                     }
-                    this.setValue(propElement, propValue)
+                    if (propElement) this.setValue(propElement, propValue)
                 }
             } else { 
                 Object.assign((element.eDataset || element.dataset), value)
