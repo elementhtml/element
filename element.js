@@ -211,9 +211,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value) {
-        if (data instanceof Object) {
+        if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
-                for (const [propName, propValue] of Object.entries(data)) {
+                for (const [propName, propValue] of Object.entries(value)) {
                     let propElement = element.querySelector(`[itemprop="${propName}"]`)
                     if (!propElement && element.hasAttribute('itemref')) {
                         const rootNode = element.getRootNode()
@@ -234,7 +234,7 @@ const ElementHTML = Object.defineProperties({}, {
         } else {
             let valueproxy
             if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
-                element.eDataset[valueproxy] = value 
+                element.eDataset[valueproxy] = value
             } else { element[(element.value??((element.src??'textContent')||'src'))||'value'] = value }
         }
     }},
