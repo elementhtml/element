@@ -526,8 +526,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eSchema: {enumerable: true, writable: true, value: {
-                        has: (e, p) => p in e.dataset, get: (e, p) => e.dataset[p], sanitize: (e, p,v) => [v], validate: (e, p,v) => [v],
-                        set: (e, p,v) => e.dataset[p] = v, deleteProperty: (e, p) => delete e.dataset[p]
+                        has: (e, p) => p in e.dataset, sanitize: (e, p,v) => [v], validate: (e, p,v) => [v]
                     }},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
@@ -548,8 +547,13 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.getAttribute(property.slice(1))
                             case '.':
                                 return $this[property.slice(1)]
-                            case '#': 
-                                return $this.eSchema.get($this, property.slice(1))
+                            case '#':
+                                let value
+                                if (target[property] !== undefined) {
+                                    value = target[property]
+                                } else { value = parsePropertyValue(property) }
+                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
+                                return {property: cleanProperty, value: value, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 if (target[property] !== undefined) return target[property]
                                 return parsePropertyValue(property)
@@ -562,7 +566,13 @@ const ElementHTML = Object.defineProperties({}, {
                             case '.':
                                 return $this[property.slice(1)] = value
                             case '#':
-                                return $this.eSchema.set($this, property.slice(1), value)
+                                let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails. cleanProperty = property.slice(1);
+                                [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, cleanProperty, value)
+                                value = sanitizedValue;
+                                const oldValue = target[property]
+                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
+                                return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
+                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails}
                             default:
                                 let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails;
                                 [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, property, value)
@@ -593,7 +603,9 @@ const ElementHTML = Object.defineProperties({}, {
                             case '.':
                                 return delete $this[property.slice(1)]
                             case '#':
-                                return $this.eSchema.deleteProperty($this, property.slice(1))
+                                const oldValue = target[property], cleanProperty = property.slice(1)
+                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, undefined)
+                                return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 const oldValue = target[property]
                                 let retval = delete target[property]
