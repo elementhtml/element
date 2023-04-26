@@ -371,7 +371,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
-
                         let value, itemRelIds = [], has = false, elementList = []
                         for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
                         propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
@@ -390,10 +389,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         if (operation === 'has') return false
                         if (operation === 'get') return value
-                        //if (retrieve) return elementList
-
-
-
+                        for (const propElement of elementList) ElementHTML[operation==='set'?'setValue':'deleteValue'](propElement, value, $this.shadowRoot)
                     }},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
