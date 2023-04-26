@@ -2,6 +2,7 @@ const ElementHTML = Object.defineProperties({}, {
     version: {enumerable: true, value: '0.8.0'},
     env: {enumerable: true, value: Object.defineProperties({}, {
         auth: {enumerable: true, value: {}},
+        eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         globalThis: {enumerable: true, value: globalThis},
         modes: {configurable: true, enumerable: true, writable: true, value: {
@@ -25,7 +26,6 @@ const ElementHTML = Object.defineProperties({}, {
     scripts: {enumerable: true, value: {}},
     classes: {enumerable: true, value: {}},
     constructors: {enumerable: true, value: {}},
-    eDataset: {enumerable: true, value: new EventTarget()},
     load: {enumerable: true, value: async function(rootElement=undefined) {
         if (!rootElement && this.env.globalLoadCalled) return
         rootElement || (Object.defineProperty(this.env, 'globalLoadCalled', {configurable: false, enumerable: true, writable: false, value: true})
@@ -91,6 +91,12 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             return metaElement
         }
+    }},
+    resolveProcessor: {enumerable: true, value: function(element, name) {
+        if (!name) return
+        let processor = this.resolveMeta(element, 'e-processor', name) 
+            || this.resolveMeta(element, 'e-proce', undefined, name, true) || this.resolveMeta(element, 'e-proce', undefined, name, false)
+        return processor        
     }},
     resolveRouter: {enumerable: true, value: function(element, name) {
         if (!name) return
