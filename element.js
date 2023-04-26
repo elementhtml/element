@@ -487,8 +487,20 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.eSchema.get($this, property.slice(1))
                             default:
                                 if (target[property] !== undefined) return target[property]
-
-
+                                const itemRelIds = [], value
+                                for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+                                propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+                                    if (propElement.closest('[itemscope]')) continue
+                                    for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
+                                    const propValue = ElementHTML.getValue(propElement)
+                                    if (value === undefined) {
+                                        value = propValue
+                                    } else {
+                                        if (!Array.isArray(value)) value = [value]
+                                        value.push(propValue)
+                                    }
+                                }
+                                return value
                             }
                         },
                         set(target, property, value, receiver) {
