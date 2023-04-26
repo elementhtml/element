@@ -193,14 +193,20 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     getValue: {enumerable: true, value: function(element) {
         if (element.hasAttribute('itemscope')) {
-            const value = {}
-            for (const propElement of element.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === element ) {
-                const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
-                if (Object.keys(value).includes(propName)) {
-                    if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
-                    value[propName].push(propValue)
-                } else { value[propName] = propValue }
+            const value = {}, parseElementForValues = (el) => {
+                if (!el) return
+                for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === el ) {
+                    const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
+                    if (Object.keys(value).includes(propName)) {
+                        if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
+                        value[propName].push(propValue)
+                    } else { value[propName] = propValue }
+                }
             }
+            if (element.hasAttribute('itemref')) {
+                const rootNode = element.getRootNode()
+                for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
+            } else { parseElementForValues(element) }
         } else if (element.eDataset) {
             const valueproxy = element.getAttribute('valueproxy')
             if (valueproxy) return element.eDataset[valueproxy]
@@ -218,10 +224,6 @@ const ElementHTML = Object.defineProperties({}, {
                         const rootNode = element.getRootNode()
                         for (const ref of element.getAttribute('itemref').split(' ')) {
                             propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
-                            if (propElement) break
-                        }
-                        if (!propElement && (rootNode !== document)) for (const ref of element.getAttribute('itemref').split(' ')) {
-                            propElement ||= document.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
                             if (propElement) break
                         }
                     } else { propElement = element.querySelector(`[itemprop="${propName}"]`) }
