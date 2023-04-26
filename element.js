@@ -217,7 +217,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (tag === 'meta') return element.getAttribute('content')
             if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
             if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
-            if (tag === 'object') return return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
+            if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
             if (['data','meter','input','select','textarea'].includes(tag)) return element.getAttribute('value')
             if (tag === 'time') return element.getAttribute('datetime')
             return element.textContent
@@ -264,7 +264,16 @@ const ElementHTML = Object.defineProperties({}, {
             let valueproxy
             if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
                 element.eDataset[valueproxy] = value
-            } else { element[(element.value??((element.src??'textContent')||'src'))||'value'] = value }
+            } else {
+                const tag = element.tagName.toLowerCase()
+                if (tag === 'meta') return element.setAttribute('content', value)
+                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.setAttribute('src', value)
+                if (['a','area','link'].includes(tag)) return element.setAttribute('href', value)
+                if (tag === 'object') return element.setAttribute('data', value)
+                if (['data','meter','input','select','textarea'].includes(tag)) return element.setAttribute('value', value)
+                if (tag === 'time') return element.setAttribute('datetime', value)
+                element.textContent = value
+            }
         }
     }},
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
