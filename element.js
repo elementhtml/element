@@ -374,7 +374,7 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
-                        let value, itemRelIds = [], has = false, elementList = []
+                        let itemRelIds = [], has = false, elementList = []
                         for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
                         propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
                             if (propElement.closest('[itemscope]')) continue
@@ -508,9 +508,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return ['valueproxy'] 
             }
             static e = ElementHTML
-            async connectedCallback() {
-                for (const property in this.dataset) ElementHTML.setValue(ElementHTML.parsePropertyValue(this, property, false, true), this.dataset[property], this.shadowRoot)
-            }
+            async connectedCallback() { for (const property in this.dataset) this.eRender('set', property, this.dataset[property]) }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this
