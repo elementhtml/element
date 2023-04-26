@@ -196,11 +196,11 @@ const ElementHTML = Object.defineProperties({}, {
         if (element.hasAttribute('itemscope')) {
             const value = {}
             for (const propElement of element.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === element ) {
-                const propertyName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
-                if (Object.keys(value).includes(propertyName)) {
-                    if (!Array.isArray(value[propertyName])) value[propertyName] = [value[propertyName]]
-                    value[propertyName].push(propValue)
-                } else { value[propertyName] = propValue }
+                const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
+                if (Object.keys(value).includes(propName)) {
+                    if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
+                    value[propName].push(propValue)
+                } else { value[propName] = propValue }
             }
         } else if (element.eDataset) {
             const valueproxy = element.getAttribute('valueproxy')
@@ -212,7 +212,11 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     setValue: {enumerable: true, value: function(element, value) {
         if (data instanceof Object) {
+            if (element.hasAttribute('itemscope')) {
+                for (const )
+            } else if (element.eDataset instanceof Object) {
 
+            }
         } else {
             if (element.eDataset instanceof Object) {
                 const valueproxy = element.getAttribute('valueproxy')
