@@ -635,7 +635,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             static e = ElementHTML
             async connectedCallback() {
-                for (const property in this.dataset) ElementHTML.setValue(parsePropertyValue(property, false, true), this.dataset[property], this.shadowRoot)
+                for (const property in this.dataset) ElementHTML.setValue(ElementHTML.parsePropertyValue(this, property, false, true), this.dataset[property], this.shadowRoot)
             }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
