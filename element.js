@@ -213,7 +213,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (valueproxy) return element.eDataset[valueproxy]
             return Object.assign({}, element.dataset)
         } else {
-            return element[(element.value??((element.src??'textContent')||'src'))||'value']
+            const tag = element.tagName.toLowerCase()
+            if (tag === 'meta') return element.getAttribute('content')
+            if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
+            if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
+            if (tag === 'object') return return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
+            if (['data','meter','input','select','textarea'].includes(tag)) return element.getAttribute('value')
+            if (tag === 'time') return element.getAttribute('datetime')
+            return element.textContent
         }
     }},
     setValue: {enumerable: true, value: function(element, value) {
@@ -470,7 +477,9 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#': 
                                 return $this.eSchema.get($this, property.slice(1))
                             default:
-                                return target[property] ?? $this.eSchema.get($this, property)
+                                if (target[property] !== undefined) return target[property]
+
+
                             }
                         },
                         set(target, property, value, receiver) {
