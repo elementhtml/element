@@ -518,15 +518,15 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (retrieve) return elementList
                     return get ? has : value
-                }                
+                }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
-                    eSchema: {enumerable: true, writable: true, value: Object.defineProperties({
-                        map: {get: () => Object.fromEntries(Object.keys($this.dataset),map(k => ([k, undefined])))}, 
+                    eSchema: {enumerable: true, writable: true, value: Object.defineProperties({}, {
+                        map: {get: () => Object.fromEntries(Object.keys($this.dataset).map(k => [k, undefined]))},
                         sanitize: {value : (e, p,v) => [v]}, validate: {value: (e, p,v) => [v]}
                     })},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
