@@ -249,8 +249,6 @@ const ElementHTML = Object.defineProperties({}, {
                             }                     
                         }
                     }
-                } else {
-
                 }
             } else { 
                 Object.assign((element.eDataset || element.dataset), value)
