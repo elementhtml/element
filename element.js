@@ -552,7 +552,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 if (target[property] !== undefined) {
                                     value = target[property]
                                 } else { value = parsePropertyValue(property) }
-                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
+                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
                                 return {property: cleanProperty, value: value, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 if (target[property] !== undefined) return target[property]
@@ -560,27 +560,26 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         set(target, property, value, receiver) {
+                            const oldValue = target[property]
+                            let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails;
                             switch(property[0]) {
                             case '@':
                                 return $this.setAttribute(property.slice(1), value)
                             case '.':
                                 return $this[property.slice(1)] = value
                             case '#':
-                                let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails. cleanProperty = property.slice(1);
+                                let cleanProperty = property.slice(1);
                                 [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, cleanProperty, value)
                                 value = sanitizedValue;
-                                const oldValue = target[property]
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
                                 return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
                                     validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails}
                             default:
-                                let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails;
                                 [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, property, value)
                                 if (sanitizedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'sanitized', property, {
                                             property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails
                                         })
                                 value = sanitizedValue;
-                                const oldValue = target[property]
                                 if (oldValue !== value) {
                                     if (!(value instanceof Object)) target[property] = value
                                     ElementHTML.setValue(parsePropertyValue(property, false, true), value, $this.shadowRoot)
@@ -597,20 +596,21 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         deleteProperty(target, property) {
+                            const oldValue = target[property]
+                            let validatedValue, validatorDetails
                             switch(property[0]) {
                             case '@':
                                 return $this.removeAttribute(property.slice(1))
                             case '.':
                                 return delete $this[property.slice(1)]
                             case '#':
-                                const oldValue = target[property], cleanProperty = property.slice(1)
-                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, undefined)
+                                const cleanProperty = property.slice(1)
+                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, undefined)
                                 return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
-                                const oldValue = target[property]
                                 let retval = delete target[property]
                                 ElementHTML.deleteValue(parsePropertyValue(property, false, true), $this.shadowRoot)
-                                let [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
+                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                             property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
                                         })
