@@ -475,7 +475,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 let retval = delete target[property]
-                                ElementHTML.deleteValue($this, $this.shadowRoot);
+                                $this.eRender('deleteProperty', property);
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                             property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
