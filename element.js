@@ -280,14 +280,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     }},
-
-
-
-    deleteValue: {enumerable: true, value: function(element) {
-    }},
-
-
-
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[id]
@@ -389,7 +381,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         if (operation === 'has') return false
                         if (operation === 'get') return value
-                        for (const propElement of elementList) ElementHTML[operation==='set'?'setValue':'deleteValue'](propElement, value, $this.shadowRoot)
+                        for (const propElement of elementList) ElementHTML.setValue(propElement, value, $this.shadowRoot)
                     }},
                     eProcessors: {enumerable: true, value: new Proxy({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
