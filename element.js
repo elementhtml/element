@@ -210,14 +210,18 @@ const ElementHTML = Object.defineProperties({}, {
             return element.textContent
         }
     }},
-    setValue: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
+    setValue: {enumerable: true, value: function(element, value) {
         if (data instanceof Object) {
 
         } else {
             if (element.eDataset instanceof Object) {
 
-            }
 
+            } else {
+                if (element.value !== undefined) element.value = value
+                
+
+            }
         }
     }},
     sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
