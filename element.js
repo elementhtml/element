@@ -214,8 +214,16 @@ const ElementHTML = Object.defineProperties({}, {
         if (data instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(data)) {
-                    let propElement = element.querySelector(`[itemprop="${propName}"]`), itemref
-                    if (!propElement && (itemref = element.getAttribute('itemref')))
+                    let propElement = element.querySelector(`[itemprop="${propName}"]`)
+                    if (!propElement && element.hasAttribute('itemref')) {
+                        const rootNode = element.getRootNode()
+                        for (const ref of element.getAttribute('itemref').split(' ')) {
+                            propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
+                            propElement ||= rootNode.querySelector(`[name="${ref}"]`)?.querySelector(`[itemprop="${propName}"]`)
+                            propElement ||= document.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
+                            if (propElement) break
+                        }
+                    }
                     this.setValue(propElement, propValue)
                 }
             } else { 
