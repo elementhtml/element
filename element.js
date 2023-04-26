@@ -192,7 +192,6 @@ const ElementHTML = Object.defineProperties({}, {
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
     getValue: {enumerable: true, value: function(element) {
-        if (element.value !== undefined) return element.value
         if (element.hasAttribute('itemscope')) {
             const value = {}
             for (const propElement of element.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest('[itemscope]') === element ) {
@@ -207,15 +206,15 @@ const ElementHTML = Object.defineProperties({}, {
             if (valueproxy) return element.eDataset[valueproxy]
             return Object.assign({}, element.dataset)
         } else {
-            return element.textContent
+            return element[(element.value??((element.src??'textContent')||'src'))||'value']
         }
     }},
     setValue: {enumerable: true, value: function(element, value) {
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
-                    let propElement = element.querySelector(`[itemprop="${propName}"]`)
-                    if (!propElement && element.hasAttribute('itemref')) {
+                    let propElement
+                    if (element.hasAttribute('itemref')) {
                         const rootNode = element.getRootNode()
                         for (const ref of element.getAttribute('itemref').split(' ')) {
                             propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
@@ -225,7 +224,7 @@ const ElementHTML = Object.defineProperties({}, {
                             propElement ||= document.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
                             if (propElement) break
                         }
-                    }
+                    } else { propElement = element.querySelector(`[itemprop="${propName}"]`) }
                     if (propElement) this.setValue(propElement, propValue)
                 }
             } else { 
