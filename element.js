@@ -378,21 +378,19 @@ const ElementHTML = Object.defineProperties({}, {
                             if (propElement.closest('[itemscope]')) continue
                             for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
                             if (operation === 'has') return true
-                            if (operation === 'get')  {
-                                //if (retrieve) return propElement
-                                break propget
-                            }
-                            const propValue = ElementHTML.getValue(propElement)
-                            if (value === undefined) {
-                                value = propValue
-                            } else {
-                                if (!Array.isArray(value)) value = [value]
-                                value.push(propValue)
-                            }
+                            if (operation === 'get') {
+                                const propValue = ElementHTML.getValue(propElement)
+                                if (value === undefined) {
+                                    value = propValue
+                                } else {
+                                    if (!Array.isArray(value)) value = [value]
+                                    value.push(propValue)
+                                }
+                            } else if (operation === 'set') { elementList.push(propElement) }
                         }
-                        return false
+                        if (operation === 'has') return false
+                        if (operation === 'get') return value
                         //if (retrieve) return elementList
-                        return operation === 'get' ? value :                             
 
 
 
@@ -454,7 +452,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = sanitizedValue;
                                 if (oldValue !== value) {
                                     if (!(value instanceof Object)) target[property] = value
-                                    ElementHTML.setValue(ElementHTML.parsePropertyValue($this, property, false, true), value, $this.shadowRoot);
+                                    $this.eRender('set', property, value);
                                     [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                     if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                                 property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
@@ -481,7 +479,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 let retval = delete target[property]
-                                ElementHTML.deleteValue(ElementHTML.parsePropertyValue($this, property, false, true), $this.shadowRoot);
+                                ElementHTML.deleteValue($this, $this.shadowRoot);
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
                                             property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
