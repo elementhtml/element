@@ -246,7 +246,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 propSiblings[i] = newSibling
                             } else {
                                 this.setValue(propSiblings[i], v)
-                            }                            
+                            }                     
                         }
                     }
                 } else {
