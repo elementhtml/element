@@ -464,6 +464,26 @@ const ElementHTML = Object.defineProperties({}, {
                         has: (e, p) => p in e.dataset, get: (e, p) => e.dataset[p], sanitize: (e, p,v) => [v], validate: (e, p,v) => [v],
                         set: (e, p,v) => e.dataset[p] = v, deleteProperty: (e, p) => delete e.dataset[p]
                     }},
+                    const parsePropertyValue = (property, get=true) => {
+                        const itemRelIds = [], has = false, value
+                        for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
+                        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
+                            if (propElement.closest('[itemscope]')) continue
+                            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
+                            if (!get)  {
+                                has = true
+                                break propget
+                            }
+                            const propValue = ElementHTML.getValue(propElement)
+                            if (value === undefined) {
+                                value = propValue
+                            } else {
+                                if (!Array.isArray(value)) value = [value]
+                                value.push(propValue)
+                            }
+                        }
+                        return get ? has : value
+                    }
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             switch(property[0]) {
@@ -474,7 +494,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#':
                                 return $this.eSchema.has($this, property.slice(1))
                             default:
-                                return (property in target) || (!!$this.shadowRoot.querySelector(`[itemprop="${property}"]`))
+                                return (property in target) || parsePropertyValue(property, false)
                             }
                         },
                         get(target, property, receiver) {
@@ -487,20 +507,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.eSchema.get($this, property.slice(1))
                             default:
                                 if (target[property] !== undefined) return target[property]
-                                const itemRelIds = [], value
-                                for (const itemrel of $this.shadowRoot.querySelector('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-                                propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
-                                    if (propElement.closest('[itemscope]')) continue
-                                    for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
-                                    const propValue = ElementHTML.getValue(propElement)
-                                    if (value === undefined) {
-                                        value = propValue
-                                    } else {
-                                        if (!Array.isArray(value)) value = [value]
-                                        value.push(propValue)
-                                    }
-                                }
-                                return value
+                                return parsePropertyValue(property)
                             }
                         },
                         set(target, property, value, receiver) {
