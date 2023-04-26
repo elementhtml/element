@@ -213,9 +213,13 @@ const ElementHTML = Object.defineProperties({}, {
     setValue: {enumerable: true, value: function(element, value) {
         if (data instanceof Object) {
             if (element.hasAttribute('itemscope')) {
-                for (const )
-            } else if (element.eDataset instanceof Object) {
-
+                for (const [propName, propValue] of Object.entries(data)) {
+                    let propElement = element.querySelector(`[itemprop="${propName}"]`), itemref
+                    if (!propElement && (itemref = element.getAttribute('itemref')))
+                    this.setValue(propElement, propValue)
+                }
+            } else { 
+                Object.assign((element.eDataset || element.dataset), value)
             }
         } else {
             if (element.eDataset instanceof Object) {
