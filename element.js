@@ -8,7 +8,7 @@ const ElementHTML = Object.defineProperties({}, {
         modes: {configurable: true, enumerable: true, writable: true, value: {
             element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html',
             theme: 'default.css', data: 'main.json', media: 'image.webp', processor: 'module.js',
-            schema: 'Thing', context: 'context.json'
+            schema: 'Thing', context: 'root.json'
         }},
         routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
         proxies: {enumerable: true, value: {}},
@@ -63,7 +63,6 @@ const ElementHTML = Object.defineProperties({}, {
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
     }},
     getURL: {enumerable: true, value: function(value) {
-console.log('element.js line 66', value)
         if (value.startsWith('https://') || !value.includes('://')) return value
         const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
         value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
@@ -124,7 +123,6 @@ console.log('element.js line 66', value)
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
         if (!id.includes('://') || (!forceReload && this.files[id])) return
-console.log('element.js line 127', id)
         this.files[id] = await fetch(this.getURL(id)).then(r => r.text())
         this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>')+7, this.files[id].indexOf('</style>')).trim()
         this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>')+10, this.files[id].indexOf('</template>')).trim()
@@ -170,7 +168,9 @@ console.log('element.js line 127', id)
         element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
     }},
     applyHash: {enumerable: true, value: function(hash, data) {
-        if (!hash || !(Array.isArray(data) || (data instanceof HTMLCollection))) (data instanceof HTMLCollection) ? Array.from(data) : data
+        if (!hash) return data
+        if (data instanceof HTMLCollection) data = Array.from(data)
+        if (!Array.isArray(data)) return data
         const result = []
         for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
                 data = Array.from(data)

@@ -46,7 +46,7 @@
                             return (rootNode === document ? this.e.env : rootNode.host)[this.#flag]
                         }
                         return (this.e.isURL(this.#use)) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await this.#getRouterMode()(this.#flag, true)
+                                : await this.#getRouterMode()(this.#flag||this.#getRouterMode().default, true)
                             }
                     },
                 _parse: {configurable: true, writable: true, value: async (response) => {
@@ -56,6 +56,7 @@
                     case 'meta':
                     case 'theme':
                     case 'data':
+                    case 'context':
                         return await response.text()
                     case 'processor':
                     case 'media':
@@ -75,6 +76,9 @@
                 _activate: {value: async () => {
                     const observed = this.e.getObserved(this, this.#scope, this.#observe)
                     if (observed === this.parentElement && !this.#match) {
+
+if (this._mode === 'context') console.log('routable line 78', await this._rawResponse)
+
                         return await this._as(await this._useResponse, 'add', this, this.previousElementSibling, this.nextElementSibling, {})
                     }
                     const processRecords = async recordsToProcess => {
