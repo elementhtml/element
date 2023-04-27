@@ -25,8 +25,12 @@
 console.log('line 25', useResponse, addOrRemove, node)
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#context = useResponse
-                        if (node.eContext) Object.assign(node.eContext, this.#context)
-console.log('line 29', node, node.eContext)
+                        node.eConnectionQueue ||= []
+                        node.eConnectionQueue.push(() => {
+                            if (node.eContext) Object.assign(node.eContext, this.#context)
+                            console.log('line 31', node.eContext)
+                        })
+console.log('line 29', node, node.eContext, node.eConnectionQueue)
                     }
                 }}
             })

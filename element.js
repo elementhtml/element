@@ -486,10 +486,15 @@ const ElementHTML = Object.defineProperties({}, {
                 return ['valueproxy'] 
             }
             static e = ElementHTML
-            async connectedCallback() {                 
+            async connectedCallback() {
                 for (const property in this.dataset) this.eRender('set', property, this.dataset[property]) 
-console.log('elmeent.js line 491', this.eContext)                    
+console.log('element line 491', this.eConnectionQueue)
+                for (const q of (this.eConnectionQueue||[])) {
+                    console.log('element line 493', q)
+                    if (typeof q === 'function') q()
+                } 
             }
+            eConnectionQueue = []
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this
