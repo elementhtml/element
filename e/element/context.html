@@ -11,12 +11,9 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'context'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let parsed = {}
-                    if (this.#parser) {
-                        const processorElement = this.e.resolveMeta(this, 'e-processor',  this.#parser)
-                        if (processorElement?.func) parsed = await processorElement.func(await response.text())
-                    } else { try { parsed = JSON.parse(await response.text()) } catch(e) {} }
-                    return parsed
+                    let parsed = {}, parser = async text => JSON.parse(text)
+                    if (this.#parser) parser = this.e.resolveProcessor(this,  this.#parser)?.func
+                    return parser ? await parser(await response.text()) : undefined
                 }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
                     return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
@@ -27,7 +24,7 @@
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#context = useResponse
-                        if (node.eContext) node.eContext = this
+                        if (node.eContext) Object.assign(node.eContext, this.#context)
                     } 
                 }}
             })
