@@ -355,15 +355,17 @@ const ElementHTML = Object.defineProperties({}, {
                             if (propElement.closest('[itemscope]')) continue
                             for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
                             if (operation === 'has') return true
-                            if (operation === 'get') {
-                                const propValue = ElementHTML.getValue(propElement)
-                                if (value === undefined) {
-                                    value = propValue
-                                } else {
-                                    if (!Array.isArray(value)) value = [value]
-                                    value.push(propValue)
-                                }
-                            } else if (operation === 'set') { elementList.push(propElement) }
+                            if (operation === 'set') {
+                                elementList.push(propElement)
+                                continue
+                            }
+                            const propValue = ElementHTML.getValue(propElement)
+                            if (value === undefined) {
+                                value = propValue
+                                continue
+                            }
+                            if (!Array.isArray(value)) value = [value]
+                            value.push(propValue)
                         }
                         if (operation === 'has') return false
                         if (operation === 'get') return value
