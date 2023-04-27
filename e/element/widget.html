@@ -12,12 +12,14 @@
 
         constructor() {
             super()
+console.log('widget line 15', this.eContext)
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('source', 'layout', 'shadow') }
 
         async connectedCallback() {
             super.connectedCallback()
+console.log('widget line 22', this.eContext)
         }
 
 

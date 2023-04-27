@@ -76,9 +76,6 @@
                 _activate: {value: async () => {
                     const observed = this.e.getObserved(this, this.#scope, this.#observe)
                     if (observed === this.parentElement && !this.#match) {
-
-if (this._mode === 'context') console.log('routable line 78', await this._rawResponse)
-
                         return await this._as(await this._useResponse, 'add', this, this.previousElementSibling, this.nextElementSibling, {})
                     }
                     const processRecords = async recordsToProcess => {

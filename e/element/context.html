@@ -16,19 +16,18 @@
                     return parser ? await parser(await response.text()) : undefined
                 }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-console.log('context line 19', parsedResponse)
                     return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
-console.log('context line 21', parsedResponse)
                 }}, 
                 _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
                     return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-console.log('context line 25', useResponse)                    
+console.log('line 25', useResponse, addOrRemove, node)
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#context = useResponse
                         if (node.eContext) Object.assign(node.eContext, this.#context)
-                    } 
+console.log('line 29', node, node.eContext)
+                    }
                 }}
             })
         }
