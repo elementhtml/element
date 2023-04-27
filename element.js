@@ -307,19 +307,16 @@ const ElementHTML = Object.defineProperties({}, {
             tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement', tfoot: 'HTMLTableSectionElement',
             th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
         })
-        for (const tag in this.ids) {
+        for (const [tag, id] in Object.entries(this.ids)) {
             if (tag.includes('-')) continue
-            const id = this.ids[tag]
-            if (this.tags[id]) {
-                if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
-                this.tags[id].push(tag)
-            } else { this.tags[id] = tag }
+            if (!this.tags[id]) { this.tags[id] = tag; continue }
+            if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
+            this.tags[id].push(tag)
         }
         const classNames = Object.values(this.ids)
         for (const nc of Reflect.ownKeys(globalThis)) if (nc.startsWith('HTML') && nc.endsWith('Element')) this.ids[nc.replace('HTML', '').replace('Element', '').toLowerCase()] ||= nc
-        delete this.ids.image
-        this.ids[''] = 'HTMLElement'
-        this.ids['HTMLElement'] = 'HTMLElement'
+        delete this.ids.image;
+        [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
         for (const id in this.ids) {
             this.classes[id] = globalThis[this.ids[id]]
             this.constructors[id] = this._base(this.classes[id])
