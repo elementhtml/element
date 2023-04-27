@@ -231,48 +231,43 @@ const ElementHTML = Object.defineProperties({}, {
                     let propElement
                     if (element.hasAttribute('itemref')) {
                         const rootNode = element.getRootNode()
-                        for (const ref of element.getAttribute('itemref').split(' ')) {
-                            propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)
-                            if (propElement) break
-                        }
+                        for (const ref of element.getAttribute('itemref').split(' ')) if (propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)) break
                     } else { propElement = element.querySelector(`[itemprop="${propName}"]`) }
                     if (propElement) this.setValue(propElement, propValue)
                 }
-            } else if (Array.isArray(value)) {
-                if (element.hasAttribute('itemprop')) {
-                    const elementProp = element.getAttribute('itemprop')
-                    scopeNode ||= element.parentElement.closest('[itemscope]')
-                    if (!scopeNode) return
-                    const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)),
-                        propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
-                    for (const [i, v] in Array.entries(value)) {
-                        if (i in propSiblings && (this.setValue(propSiblings[i], v) || true)) continue
-                        const newSibling = propTemplate.cloneNode(true)
-                        newSibling.style.setProperty('display', none)
-                        propSiblings[propSiblings.length-1].after(newSibling)
-                        this.setValue(newSibling, v)
-                        propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
-                        propSiblings[i] = newSibling
-                    }
-                    for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
+            } else if (Array.isArray(value) && element.hasAttribute('itemprop')) {
+                const elementProp = element.getAttribute('itemprop')
+                scopeNode ||= element.parentElement.closest('[itemscope]')
+                if (!scopeNode) return
+                const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)),
+                    propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
+                for (const [i, v] in Array.entries(value)) {
+                    if (i in propSiblings && (this.setValue(propSiblings[i], v) || true)) continue
+                    const newSibling = propTemplate.cloneNode(true)
+                    newSibling.style.setProperty('display', none)
+                    propSiblings[propSiblings.length-1].after(newSibling)
+                    this.setValue(newSibling, v)
+                    propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
+                    propSiblings[i] = newSibling
                 }
+                for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
             } else { Object.assign((element.eDataset || element.dataset), value) }
-        } else {
-            let valueproxy
-            if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
-                element.eDataset[valueproxy] = value
-                if (value === undefined) delete element.eDataset[valueproxy]
-            } else {
-                const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
-                if (tag === 'meta') return element[attrMethod]('content', value)
-                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element[attrMethod]('src', value)
-                if (['a','area','link'].includes(tag)) return element[attrMethod]('href', value)
-                if (tag === 'object') return element[attrMethod]('data', value)
-                if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = (value ??'')) || element[attrMethod]('value', value)
-                if (tag === 'time') return element[attrMethod]('datetime', value)
-                element.textContent = value
-            }
+            return
         }
+        let valueproxy
+        if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
+            element.eDataset[valueproxy] = value
+            if (value === undefined) delete element.eDataset[valueproxy]
+            return
+        }
+        const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
+        if (tag === 'meta') return element[attrMethod]('content', value)
+        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element[attrMethod]('src', value)
+        if (['a','area','link'].includes(tag)) return element[attrMethod]('href', value)
+        if (tag === 'object') return element[attrMethod]('data', value)
+        if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = (value ??'')) || element[attrMethod]('value', value)
+        if (tag === 'time') return element[attrMethod]('datetime', value)
+        element.textContent = value
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
