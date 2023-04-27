@@ -7,12 +7,12 @@ const ElementHTML = Object.defineProperties({}, {
         globalThis: {enumerable: true, value: globalThis},
         modes: {configurable: true, enumerable: true, writable: true, value: {
             element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html',
-            theme: 'default.css', data: 'main.json', media: 'image.webp', processor: 'module.js', 
+            theme: 'default.css', data: 'main.json', media: 'image.webp', processor: 'module.js',
             schema: 'Thing', context: 'context.json'
         }},
         routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
         gateways: {enumerable: true, value: {
-            ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`, 
+            ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
             ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
         }},
         options: {enumerable: true, value: {}}
@@ -44,7 +44,7 @@ const ElementHTML = Object.defineProperties({}, {
                 let oldValue = this.env.eDataset[property]
                 this.env.eDataset[property] = value
                 this._dispatchPropertyEvent(this.env.eDataset, 'change', property, {
-                    property: property, value: value, oldValue: oldValue, sanitizedValue: value, 
+                    property: property, value: value, oldValue: oldValue, sanitizedValue: value,
                     validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
                 })
             }
@@ -53,7 +53,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const record of records) for (const addedNode of (record.addedNodes||[])) {
                 if (this.getCustomTag(addedNode)) await this.load(addedNode)
                 if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
-            } 
+            }
         })
         observerRoot._observer.observe(domRoot, {subtree: true, childList: true})
         if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
@@ -68,7 +68,7 @@ const ElementHTML = Object.defineProperties({}, {
         return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
     }},
     isURL: {enumerable: true, value: function(value) { return value && value.includes('/') }},
-    splitOnce: {enumerable: true, value: function(str, delimiter) { 
+    splitOnce: {enumerable: true, value: function(str, delimiter) {
         let r
         str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
         return r
@@ -94,15 +94,15 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     resolveProcessor: {enumerable: true, value: function(element, name) {
         if (!name) return
-        let processor = this.resolveMeta(element, 'e-processor', name) 
+        let processor = this.resolveMeta(element, 'e-processor', name)
             || this.resolveMeta(element, 'e-proce', undefined, name, true) || this.resolveMeta(element, 'e-proce', undefined, name, false)
-        return processor        
+        return processor
     }},
     resolveRouter: {enumerable: true, value: function(element, name) {
         if (!name) return
         let router = this.resolveMeta(element, this.env.routerTags[0], name)
         if (!router) for(const routerTag of this.env.routerTags.slice(1)) router ||= this.resolveMeta(element, routerTag, name)
-        return router        
+        return router
     }},
     activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
@@ -171,9 +171,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
                     data = Array.from(data)
                     result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
-                } else {
-                    result.push(data[hashFrag])
-                }
+                } else { result.push(data[hashFrag]) }
             return result
         } else { return (data instanceof HTMLCollection) ? Array.from(data) : data }
     }},
@@ -225,7 +223,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        if (!element) return 
+        if (!element) return
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
@@ -243,51 +241,35 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element.hasAttribute('itemprop')) {
                     const elementProp = element.getAttribute('itemprop')
                     scopeNode ||= element.parentElement.closest('[itemscope]')
-                    if (scopeNode) {
-                        const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)), 
-                            propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
-                        for (const [i, v] in Array.entries(value)) {
-                            if (!(i in propSiblings)) {
-                                const newSibling = propTemplate.cloneNode(true)
-                                newSibling.style.setProperty('display', none)
-                                propSiblings[propSiblings.length-1].after(newSibling)
-                                this.setValue(newSibling, v)
-                                propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
-                                propSiblings[i] = newSibling
-                            } else {
-                                this.setValue(propSiblings[i], v)
-                            }
-                        }
-                        for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
+                    if (!scopeNode) return
+                    const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)),
+                        propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
+                    for (const [i, v] in Array.entries(value)) {
+                        if (i in propSiblings && (this.setValue(propSiblings[i], v) || true)) continue
+                        const newSibling = propTemplate.cloneNode(true)
+                        newSibling.style.setProperty('display', none)
+                        propSiblings[propSiblings.length-1].after(newSibling)
+                        this.setValue(newSibling, v)
+                        propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
+                        propSiblings[i] = newSibling
                     }
+                    for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
                 }
-            } else {
-                Object.assign((element.eDataset || element.dataset), value)
-            }
+            } else { Object.assign((element.eDataset || element.dataset), value) }
         } else {
             let valueproxy
             if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
                 element.eDataset[valueproxy] = value
-                if (value === undefined) delete element.eDataset[valueproxy] 
+                if (value === undefined) delete element.eDataset[valueproxy]
             } else {
-                const tag = element.tagName.toLowerCase()
-                if (value === undefined) {
-                    if (tag === 'meta') return element.removeAttribute('content')
-                    if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.removeAttribute('src', value)
-                    if (['a','area','link'].includes(tag)) return element.removeAttribute('href', value)
-                    if (tag === 'object') return element.removeAttribute('data', value)
-                    if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = '') || element.removeAttribute('value', value)
-                    if (tag === 'time') return element.removeAttribute('datetime', value)
-                    element.textContent = ''
-                } else {
-                    if (tag === 'meta') return element.setAttribute('content', value)
-                    if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element.setAttribute('src', value)
-                    if (['a','area','link'].includes(tag)) return element.setAttribute('href', value)
-                    if (tag === 'object') return element.setAttribute('data', value)
-                    if (['data','meter','input','select','textarea'].includes(tag)) return element.setAttribute('value', value)
-                    if (tag === 'time') return element.setAttribute('datetime', value)
-                    element.textContent = value                    
-                }
+                const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
+                if (tag === 'meta') return element[attrMethod]('content', value)
+                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element[attrMethod]('src', value)
+                if (['a','area','link'].includes(tag)) return element[attrMethod]('href', value)
+                if (tag === 'object') return element[attrMethod]('data', value)
+                if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = (value ??'')) || element[attrMethod]('value', value)
+                if (tag === 'time') return element[attrMethod]('datetime', value)
+                element.textContent = value
             }
         }
     }},
