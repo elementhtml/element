@@ -41,14 +41,13 @@ const ElementHTML = Object.defineProperties({}, {
             let property, value
             if (addedNodeMatches==='title') [property, value] = ['title', addedNode.textContent]
             if (addedNodeMatches==='meta') [property, value] = [addedNode.getAttribute('name'), addedNode.getAttribute('content')]
-            if (addedNodeMatches) {
-                let oldValue = this.env.eDataset[property]
-                this.env.eDataset[property] = value
-                this._dispatchPropertyEvent(this.env.eDataset, 'change', property, {
-                    property: property, value: value, oldValue: oldValue, sanitizedValue: value,
-                    validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
-                })
-            }
+            if (!addedNodeMatches) return
+            let oldValue = this.env.eDataset[property]
+            this.env.eDataset[property] = value
+            this._dispatchPropertyEvent(this.env.eDataset, 'change', property, {
+                property: property, value: value, oldValue: oldValue, sanitizedValue: value,
+                validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
+            })
         }
         observerRoot._observer ||= new MutationObserver(async records => {
             for (const record of records) for (const addedNode of (record.addedNodes||[])) {
@@ -66,7 +65,9 @@ const ElementHTML = Object.defineProperties({}, {
     getURL: {enumerable: true, value: function(value) {
         if (value.startsWith('https://') || !value.includes('://')) return value
         const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-        return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+        value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+        for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
+        return value
     }},
     isURL: {enumerable: true, value: function(value) { return value && value.includes('/') }},
     splitOnce: {enumerable: true, value: function(str, delimiter) {
@@ -167,14 +168,13 @@ const ElementHTML = Object.defineProperties({}, {
         element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
     }},
     applyHash: {enumerable: true, value: function(hash, data) {
-        if (hash && (Array.isArray(data) || (data instanceof HTMLCollection))) {
-            const result = []
-            for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
-                    data = Array.from(data)
-                    result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
-                } else { result.push(data[hashFrag]) }
-            return result
-        } else { return (data instanceof HTMLCollection) ? Array.from(data) : data }
+        if (!hash || !(Array.isArray(data) || (data instanceof HTMLCollection))) (data instanceof HTMLCollection) ? Array.from(data) : data
+        const result = []
+        for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
+                data = Array.from(data)
+                result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
+            } else { result.push(data[hashFrag]) }
+        return result
     }},
     applyField: {enumerable: true, value: function(field, data) {
         if (!field) return data
