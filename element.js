@@ -426,18 +426,17 @@ const ElementHTML = Object.defineProperties({}, {
                                             property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails
                                         })
                                 value = sanitizedValue;
-                                if (oldValue !== value) {
-                                    if (!(value instanceof Object)) target[property] = value
-                                    $this.eRender('set', property, value);
-                                    [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
-                                    if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
-                                                property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
-                                            })
-                                    ElementHTML._dispatchPropertyEvent($this, 'change', property, {
-                                        property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
-                                        validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails
-                                    })
-                                }
+                                if (oldValue === value) return value
+                                if (!(value instanceof Object)) target[property] = value
+                                $this.eRender('set', property, value);
+                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
+                                if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
+                                            property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
+                                        })
+                                ElementHTML._dispatchPropertyEvent($this, 'change', property, {
+                                    property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
+                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails
+                                })
                                 return value
                             }
                         },
