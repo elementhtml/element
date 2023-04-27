@@ -63,6 +63,7 @@ const ElementHTML = Object.defineProperties({}, {
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
     }},
     getURL: {enumerable: true, value: function(value) {
+console.log('element.js line 66', value)
         if (value.startsWith('https://') || !value.includes('://')) return value
         const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
         value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
@@ -123,6 +124,7 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
         if (!id.includes('://') || (!forceReload && this.files[id])) return
+console.log('element.js line 127', id)
         this.files[id] = await fetch(this.getURL(id)).then(r => r.text())
         this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>')+7, this.files[id].indexOf('</style>')).trim()
         this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>')+10, this.files[id].indexOf('</template>')).trim()

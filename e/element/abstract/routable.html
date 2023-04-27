@@ -20,7 +20,7 @@
             const routerMode = (document.head.children[this.#router] || {})[this._mode] 
             if (typeof routerMode === 'function') return routerMode
             const _defaultRouterMode = (flag=undefined, get=false) => {
-                const url = new URL(`./${this._mode}/${flag}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location)
+                const url = new URL(`./${this._mode}/${flag}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location).href
                 return get ? fetch(this.e.getURL(url)) : url
             }
             Object.assign(_defaultRouterMode, this.e.env.modes[this._mode])
