@@ -9,7 +9,7 @@
         #cache = 'default'
         #fetchOptions = {}
 
-        static _defaultProcessor = function(router, mode, flag=undefined, get=false) {
+        _defaultProcessor = function(router, mode, flag=undefined, get=false) {
             const url = `${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`
             return get ? fetch(this.e.getURL(url), Object.assign({priority: this.#priority, cache: this.#cache}, this.#fetchOptions)) : url
         }
@@ -22,8 +22,8 @@
     		super()
             for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
                 let requestedProcessor = this.e.resolveProcessor[this, this.#processor]
-                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this.constructor._defaultProcessor.bind(this.e, this, mode)
-                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false) : this.constructor._defaultProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
+                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this._defaultProcessor.bind(this.e, this, mode)
+                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false) : this._defaultProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
                 return f
             }})
     	}
