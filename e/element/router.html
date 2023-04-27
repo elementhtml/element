@@ -9,19 +9,21 @@
         #cache = 'default'
         #fetchOptions = {}
 
-        #defaultProcessor = function(router, mode, flag=undefined, get=false) {
+        static _defaultProcessor = function(router, mode, flag=undefined, get=false) {
             const url = `${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`
             return get ? fetch(this.e.getURL(url), Object.assign({priority: this.#priority, cache: this.#cache}, this.#fetchOptions)) : url
         }
 
+        static {
+            Object.defineProperty(this, '_modes', {value: this.e.env.modes})            
+        }
+
     	constructor() {
     		super()
-            this._modes || Object.defineProperty(this, '_modes', {enumerable: false, writable: false, value: this.e.env.modes})
-            this._defaultProcessor || Object.defineProperty(this, '_defaultProcessor', {enumerable: false, writable: false, value: this.#defaultProcessor})
-            for (const mode in this._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
-                let requestedProcessor = this.#processor ? this.e.processors[this.#processor] : undefined
-                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this._defaultProcessor.bind(this.e, this, mode)
-                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this._modes[mode].default, false) : this._defaultProcessor.bind(this.e, this, mode, this._modes[mode].default, false)
+            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
+                let requestedProcessor = this.e.resolveProcessor[this, this.#processor]
+                const f = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode) : this.constructor._defaultProcessor.bind(this.e, this, mode)
+                f.toString = typeof requestedProcessor === 'function' ? requestedProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false) : this.constructor._defaultProcessor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
                 return f
             }})
     	}

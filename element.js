@@ -96,13 +96,13 @@ console.log('element.js line 66', value)
         }
     }},
     resolveProcessor: {enumerable: true, value: function(element, name) {
-        if (!name) return
+        if (!name || !element) return
         let processor = this.resolveMeta(element, 'e-processor', name)
             || this.resolveMeta(element, 'e-proce', undefined, name, true) || this.resolveMeta(element, 'e-proce', undefined, name, false)
         return processor
     }},
     resolveRouter: {enumerable: true, value: function(element, name) {
-        if (!name) return
+        if (!name || !element) return
         let router = this.resolveMeta(element, this.env.routerTags[0], name)
         if (!router) for(const routerTag of this.env.routerTags.slice(1)) router ||= this.resolveMeta(element, routerTag, name)
         return router
