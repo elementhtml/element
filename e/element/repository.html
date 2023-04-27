@@ -15,18 +15,18 @@
             value instanceof Object && value.path && value.default && value.suffix && Object.assign(this.#repo[mode], value)
         }
 
-        #defaultProcessor = function(mode, flag=undefined, get=false) {
+        static _defaultProcessor = function(mode, flag=undefined, get=false) {
             const url = `${this.base}${this.#repo[mode].path}${flag||this.#repo[mode].default}${this.#repo[mode].suffix?'.'+this.#repo[mode].suffix:''}`
             return get ? fetch(this.e.getURL(url), Object.assign({priority: this.priority, cache: this.cache}, this.fetchOptions)) : url
         }
 
         constructor() {
             super()
-            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: false, enumerable: true,
+            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {enumerable: true,
             set: (value) => this._setter(mode, value),
             get: () => {
-                const f = this.#defaultProcessor.bind(this, mode)
-                f.toString = this.#defaultProcessor.bind(this, mode, this.#repo[mode].default, false)
+                const f = this.constructor._defaultProcessor.bind(this, mode)
+                f.toString = this.constructor._defaultProcessor.bind(this, mode, this.#repo[mode].default, false)
                 return f
             }})
         }
@@ -38,7 +38,6 @@
         }
 
         set processor(value) {}
-        get processor() { return undefined }
 
         set base(value) { this.#base = value }
         get base() { return this.#base }
