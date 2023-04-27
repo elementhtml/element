@@ -11,6 +11,7 @@ const ElementHTML = Object.defineProperties({}, {
             schema: 'Thing', context: 'context.json'
         }},
         routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
+        proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
             ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
             ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
