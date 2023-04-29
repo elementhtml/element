@@ -348,7 +348,6 @@ const ElementHTML = Object.defineProperties({}, {
                             $this.constructor.eWasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
-console.log('line 351', $this.isConnected)                
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
@@ -481,6 +480,12 @@ console.log('line 351', $this.isConnected)
                     Object.defineProperty($this, 'eMeta', {enumerable: true, 
                         get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
                     })
+
+                     window.requestAnimationFrame(() => {
+                        this.dispatchEvent(new CustomEvent('ready'))
+                        this.readyCallback()
+                     })
+
                 } catch(e) {}
             }
             static get observedAttributes() { 
@@ -489,10 +494,8 @@ console.log('line 351', $this.isConnected)
             static e = ElementHTML
             async connectedCallback() {
                 for (const property in this.dataset) this.eRender('set', property, this.dataset[property])
-                 window.requestAnimationFrame(() => {
-                    this.dispatchEvent(new CustomEvent('ready'))
-                 })                    
             }
+            async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this

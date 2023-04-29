@@ -24,12 +24,16 @@
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#context = useResponse
-                        window.requestAnimationFrame(() => {
+                        node.addEventListener('ready', event => {
                             if (node.eContext) Object.assign(node.eContext, this.#context)
                         })
                     }
                 }}
             })
+        }
+
+        async readyCallback() {
+            console.log('context line 37', 'readyCallback')
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
