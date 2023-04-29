@@ -348,6 +348,7 @@ const ElementHTML = Object.defineProperties({}, {
                             $this.constructor.eWasmModules[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
                 }
+console.log('line 351', $this.isConnected)                
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
@@ -487,14 +488,11 @@ const ElementHTML = Object.defineProperties({}, {
             }
             static e = ElementHTML
             async connectedCallback() {
-                for (const property in this.dataset) this.eRender('set', property, this.dataset[property]) 
-console.log('element line 491', this.eConnectionQueue)
-                for (const q of (this.eConnectionQueue||[])) {
-                    console.log('element line 493', q)
-                    if (typeof q === 'function') q()
-                } 
+                for (const property in this.dataset) this.eRender('set', property, this.dataset[property])
+                 window.requestAnimationFrame(() => {
+                    this.dispatchEvent(new CustomEvent('ready'))
+                 })                    
             }
-            eConnectionQueue = []
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
                 const $this = this
