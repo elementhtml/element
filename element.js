@@ -181,12 +181,16 @@ const ElementHTML = Object.defineProperties({}, {
         return result
     }},
     applyField: {enumerable: true, value: function(field, data) {
-        if (!field) return data
+        if (!field || (typeof field !== 'string') || (field === '.')) return data
         const fieldedData = data, resultArray = [], fieldFrags = field.split(',').map(s => s.trim())
         for (const fieldFrag of fieldFrags) {
             let [fieldFragName, fieldFragVector] = fieldFrag.split(':', 2).map(s => s.trim()), thisData = data
             fieldFragVector ?? ([fieldFragVector, fieldFragName] = [fieldFragName, fieldFragVector])
-            for (const vector of (fieldFragVector).split('.').map(s => s.trim())) {
+            if (fieldFragVector === '.') {
+                resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
+                continue
+            }
+            for (const vector of fieldFragVector.split('.').map(s => s.trim())) {
                 thisData = thisData[vector]
                 if (!(thisData instanceof Object)) break
             }
