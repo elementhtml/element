@@ -366,7 +366,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
           }
         } else {
-          Object.assign(element.eDataset instanceof Object ? element.eDataset : element.dataset, data)
+            if (element.eDataset instanceof Object) {
+                Object.assign(element.eDataset, data)
+            } else {
+                for (const [k, v] of Object.entries(data)) {
+                    if (v.startsWith('@')) element.setAttribute(k.slice(1), v)
+                    if (v.startsWith('.')) element[k.slice(1)] = v
+                }
+            }
         }
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
@@ -475,6 +482,7 @@ const ElementHTML = Object.defineProperties({}, {
                         get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
+                    eData: {enumerable: true, writable: true, value: {}},
                     eSchema: {enumerable: true, writable: true, value: Object.defineProperties({}, {
                         map: {get: () => Object.fromEntries(Object.keys($this.dataset).map(k => [k, undefined]))},
                         sanitize: {value : (e, p,v) => [v]}, validate: {value: (e, p,v) => [v]}
