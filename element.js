@@ -480,12 +480,10 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.defineProperty($this, 'eMeta', {enumerable: true, 
                         get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
                     })
-
                      window.requestAnimationFrame(() => {
-                        this.dispatchEvent(new CustomEvent('ready'))
                         this.readyCallback()
+                        this.dispatchEvent(new CustomEvent('ready'))
                      })
-
                 } catch(e) {}
             }
             static get observedAttributes() { 
