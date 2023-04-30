@@ -277,6 +277,119 @@ const ElementHTML = Object.defineProperties({}, {
         if (tag === 'time') return element[attrMethod]('datetime', value)
         element.textContent = value
     }},
+
+
+
+
+
+
+
+    sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
+
+        sinkFlag ||= pointerElement?.sink
+        if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
+          const useNode = element === document.head ? element : document
+          for (const [k, v] of Object.entries(data)) {
+            if (k==='title' || k==='@title' || k==='.title') {
+              useNode.querySelector('title').textContent = v
+            } else {
+              const metaElements = useNode.children,
+                metaElement = (k.startsWith('@') || k.startsWith('.')) ? metaElements[k.slice(1)] : metaElements[k]
+              metaElement && metaElement.setAttribute('content', v)
+            }
+          }
+          return
+        }
+        const tag = element.tagName.toLowerCase()
+        if (sinkFlag === '@') {
+          for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
+        } else if (sinkFlag === '.') {
+          for (const [k, v] of Object.entries(data)) element[k] = v
+        } else if (sinkFlag === 'dataset') {
+          for (const [k, v] of Object.entries(data)) element.dataset[k] = v
+        } else if (sinkFlag === 'eDataset' && element.eDataset instanceof Object) {
+          Object.assign(element.eDataset, data)
+        } else if (sinkFlag.startsWith('auto')) {
+          if (element.eDataset instanceof Object) {
+            Object.assign(element.eDataset, data)
+          } else {
+            for (const [k, v] of Object.entries(data)) {
+              if (v.startsWith('@')) element.setAttribute(k.slice(1), v)
+              if (v.startsWith('.')) element[k.slice(1)] = v
+              if (sinkFlag === 'auto-data') element.dataset[k] = v
+            }
+          }
+        } else if (sinkFlag && ((sinkFlag.startsWith('...')) || (typeof element[sinkFlag] === 'function'))) {
+          if (sinkFlag.startsWith('...')) {
+            const sinkFunctionName = sinkFlag.slice(3)
+            if (typeof element[sinkFunctionName] === 'function') {
+              element[sinkFunctionName](...data)
+            } else if (element[sinkFunctionName] instanceof Object) {
+              element[sinkFunctionName] = {...element[sinkFunctionName], ...data}
+            }
+          } else { element[sinkFlag](data) }
+        } else if (sinkFlag && element[sinkFlag] instanceof Object) {
+          Object.assign(element[sinkFlag], data)
+        } else if (['input', 'select', 'datalist'].includes(tag)) {
+          const optionElements = []
+          for (const k in data) {
+            const optionElement = document.createElement('option')
+            optionElement.value = Array.isArray(data) ? data[k] : k
+            optionElement.setAttribute(optionElement.value)
+            optionElement.textContent = data[k]
+            optionElements.push(optionElement)
+          }
+          if (tag === 'select' || tag === 'datalist') {
+            element.replaceChildren(...optionElements)
+          } else if (tag === 'input' && pointerElement) {
+            const datalist = document.createElement('datalist')
+            datalist.replaceChildren(...optionElements)
+            pointerElement.dataset.datalistId = crypto.randomUUID()
+            datalist.setAttribute('id', pointerElement.dataset.datalistId)
+            document.body.append(datalist)
+            element.setAttribute('list', pointerElement.dataset.datalistId)
+          }
+        } else if (['form', 'fieldset'].includes(tag)) {
+                for (const [k, v] of Object.entries(data)) (element.querySelector([name="${k}"])||{}).value = v
+        } else if (['table', 'tbody'].includes(tag)) {
+          let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
+          if (!tbody) element.append(tbody = document.createElement('tbody'))
+          let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r)))
+            || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
+          if (rowsData) {
+            if (tag === 'table') {
+              const headers = rowsData.shift()
+              let thead = element.querySelector('thead')
+              if (!thead) element.prepend(thead = document.createElement('thead'))
+              let thRow = thead.querySelector('tr')
+              if (!thRow) thead.prepend(thRow = document.createElement('tr'))
+              for (const h of headers) thead.appendChild(document.createElement('th')),textContent = h
+            }
+            const namedRows = data instanceof Object
+            for (const [k, v] of Object.entries(rowsData)) {
+              const tr = document.createElement('tr')
+              namedRows && tr.setAttribute('name', k)
+              for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
+              tbody.append(tr)
+            }
+          }
+        } else if (element.hasAttribute('itemscope') && data instanceof Object) {
+          for (const [k, v] of data) {
+            if (Array.isArray(v)) {
+                        for (const [i, nn] of Array.from(element.querySelectorAll([itemprop="${k}"]))) nn.textContent = v[i] ?? ''
+                    } else { (element.querySelector([itemprop="${k}"])||{}).textContent = v }
+          }
+        } else {
+          Object.assign(element.eDataset instanceof Object ? element.eDataset : element.dataset, data)
+        }
+    }},
+
+
+
+
+
+
+
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[id]
