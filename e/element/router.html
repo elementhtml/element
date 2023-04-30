@@ -10,7 +10,7 @@
         #fetchOptions = {}
 
         _defaultProcessor = function(router, mode, flag=undefined, get=false) {
-            const url = `${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`
+            const url = new URL(`${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`, this.baseURI).href
             return get ? fetch(this.e.getURL(url), Object.assign({priority: this.#priority, cache: this.#cache}, this.#fetchOptions)) : url
         }
 

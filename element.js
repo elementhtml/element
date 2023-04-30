@@ -79,10 +79,10 @@ const ElementHTML = Object.defineProperties({}, {
         let metaElement
         const rootNode = element.shadowRoot || element.getRootNode()
         if (rootNode instanceof ShadowRoot) {
-            for (const m of rootNode.querySelectorAll('meta')) if (((!name || m.name === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
+            for (const m of rootNode.querySelectorAll('meta')) if (((!name || m.id === id || m.name === name || m.getAttribute('propname') === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
             return metaElement || this.resolveMeta(rootNode.host.getRootNode(), is, name, namespace, exact)
         } else {
-            for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
+            for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.id === name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
                     if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
                         metaElement = m
                         break
@@ -118,6 +118,7 @@ const ElementHTML = Object.defineProperties({}, {
         if (this.ids[tag]) return this.ids[tag]
         const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
         let tagRouter = this.resolveRouter(element, tagRouterName)
+console.log('line 121', await tagRouter?.element(tagComponent))
         return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
             tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
     }},
@@ -481,8 +482,8 @@ const ElementHTML = Object.defineProperties({}, {
                         get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
                     })
                      window.requestAnimationFrame(() => {
-                        this.readyCallback()
                         this.dispatchEvent(new CustomEvent('ready'))
+                        this.readyCallback()
                      })
                 } catch(e) {}
             }
