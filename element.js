@@ -277,16 +277,8 @@ const ElementHTML = Object.defineProperties({}, {
         if (tag === 'time') return element[attrMethod]('datetime', value)
         element.textContent = value
     }},
-
-
-
-
-
-
-
-    sinkData: {enumerable: true, value: function(element, data, sinkFlag, pointerElement) {
-
-        sinkFlag ||= pointerElement?.sink
+    sinkData: {enumerable: true, value: function(element, data, flag, pointerElement) {
+        flag ||= pointerElement?.flag
         if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
           const useNode = element === document.head ? element : document
           for (const [k, v] of Object.entries(data)) {
@@ -301,35 +293,35 @@ const ElementHTML = Object.defineProperties({}, {
           return
         }
         const tag = element.tagName.toLowerCase()
-        if (sinkFlag === '@') {
+        if (flag === '@') {
           for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
-        } else if (sinkFlag === '.') {
+        } else if (flag === '.') {
           for (const [k, v] of Object.entries(data)) element[k] = v
-        } else if (sinkFlag === 'dataset') {
+        } else if (flag === 'dataset') {
           for (const [k, v] of Object.entries(data)) element.dataset[k] = v
-        } else if (sinkFlag === 'eDataset' && element.eDataset instanceof Object) {
+        } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
           Object.assign(element.eDataset, data)
-        } else if (sinkFlag.startsWith('auto')) {
+        } else if (flag.startsWith('auto')) {
           if (element.eDataset instanceof Object) {
             Object.assign(element.eDataset, data)
           } else {
             for (const [k, v] of Object.entries(data)) {
               if (v.startsWith('@')) element.setAttribute(k.slice(1), v)
               if (v.startsWith('.')) element[k.slice(1)] = v
-              if (sinkFlag === 'auto-data') element.dataset[k] = v
+              if (flag === 'auto-data') element.dataset[k] = v
             }
           }
-        } else if (sinkFlag && ((sinkFlag.startsWith('...')) || (typeof element[sinkFlag] === 'function'))) {
-          if (sinkFlag.startsWith('...')) {
-            const sinkFunctionName = sinkFlag.slice(3)
+        } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
+          if (flag.startsWith('...')) {
+            const sinkFunctionName = flag.slice(3)
             if (typeof element[sinkFunctionName] === 'function') {
               element[sinkFunctionName](...data)
             } else if (element[sinkFunctionName] instanceof Object) {
               element[sinkFunctionName] = {...element[sinkFunctionName], ...data}
             }
-          } else { element[sinkFlag](data) }
-        } else if (sinkFlag && element[sinkFlag] instanceof Object) {
-          Object.assign(element[sinkFlag], data)
+          } else { element[flag](data) }
+        } else if (flag && element[flag] instanceof Object) {
+          Object.assign(element[flag], data)
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
@@ -350,7 +342,7 @@ const ElementHTML = Object.defineProperties({}, {
             element.setAttribute('list', pointerElement.dataset.datalistId)
           }
         } else if (['form', 'fieldset'].includes(tag)) {
-                for (const [k, v] of Object.entries(data)) (element.querySelector([name="${k}"])||{}).value = v
+            for (const [k, v] of Object.entries(data)) (element.querySelector([name="${k}"])||{}).value = v
         } else if (['table', 'tbody'].includes(tag)) {
           let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
           if (!tbody) element.append(tbody = document.createElement('tbody'))
@@ -373,23 +365,10 @@ const ElementHTML = Object.defineProperties({}, {
               tbody.append(tr)
             }
           }
-        } else if (element.hasAttribute('itemscope') && data instanceof Object) {
-          for (const [k, v] of data) {
-            if (Array.isArray(v)) {
-                        for (const [i, nn] of Array.from(element.querySelectorAll([itemprop="${k}"]))) nn.textContent = v[i] ?? ''
-                    } else { (element.querySelector([itemprop="${k}"])||{}).textContent = v }
-          }
         } else {
           Object.assign(element.eDataset instanceof Object ? element.eDataset : element.dataset, data)
         }
     }},
-
-
-
-
-
-
-
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
         template.innerHTML = templateInnerHTML || this.templates[id]
