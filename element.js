@@ -118,7 +118,6 @@ const ElementHTML = Object.defineProperties({}, {
         if (this.ids[tag]) return this.ids[tag]
         const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
         let tagRouter = this.resolveRouter(element, tagRouterName)
-console.log('line 121', await tagRouter?.element(tagComponent))
         return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
             tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
     }},
@@ -131,7 +130,9 @@ console.log('line 121', await tagRouter?.element(tagComponent))
         const extendsRegExp = /class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
         let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends || 'HTMLElement'
         if (extendsId) {
-            if (extendsId.includes('/')) {
+            if (extendsId.startsWith('e-')) {
+                extendsId = await this.getTagId(extendsId)
+            } else if (extendsId.includes('/')) {
                 if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
                 if (!extendsId.endsWith('.html')) extendsId += '.html'
             }
