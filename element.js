@@ -303,7 +303,6 @@ const ElementHTML = Object.defineProperties({}, {
           }
           return element
         }
-console.log('line 306', element, data)
         const tag = element.tagName.toLowerCase()
         if (flag === '@') {
           for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
@@ -335,10 +334,10 @@ console.log('line 306', element, data)
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
-console.log('line 337', data)
             if (Array.isArray(data)) {
                 for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true).children[0], v, flag, transform))
             } else {
+console.log('line 337', data)
 
 
 
