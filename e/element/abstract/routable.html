@@ -76,7 +76,8 @@
                 _activate: {value: async () => {
                     const observed = this.e.getObserved(this, this.#scope, this.#observe)
                     if (observed === this.parentElement && !this.#match) {
-                        return await this._as(await this._useResponse, 'add', this, this.previousElementSibling, this.nextElementSibling, {})
+                        return await this._as(await this._useResponse, 'add', this.parentElement, 
+                            this.parentElement.previousElementSibling, this.parentElement.nextElementSibling, {})
                     }
                     const processRecords = async recordsToProcess => {
                         const queue = {}

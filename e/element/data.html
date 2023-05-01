@@ -31,7 +31,7 @@
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#data = useResponse
-                        this.e.sinkData(node, this.#data, undefined, this)
+                        this.e.sinkData(node, this.#data, this.as, undefined)
                     } 
                 }}
             })

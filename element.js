@@ -283,11 +283,11 @@ const ElementHTML = Object.defineProperties({}, {
         for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
         return newData
     }},
-    sinkData: {enumerable: true, value: function(element, data, flag, transform, pointerElement) {
+    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement) {
         if (!element || !data || !(data instanceof Object) || !Object.keys(data).length) return element
         if (transform) data = this.transformData(data, transform)
-        flag ||= pointerElement?.flag
-        if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
+        flag ||= sourceElement?.flag
+        if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
           const useNode = element === document.head ? element : document
           for (const [k, v] of Object.entries(data)) {
             if (k==='title' || k==='@title' || k==='.title') {
@@ -309,7 +309,7 @@ const ElementHTML = Object.defineProperties({}, {
           for (const [k, v] of Object.entries(data)) element.dataset[k] = v
         } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
           Object.assign(element.eDataset, data)
-        } else if (flag.startsWith('auto')) {
+        } else if (flag && flag.startsWith('auto')) {
           if (element.eDataset instanceof Object) {
             Object.assign(element.eDataset, data)
           } else {
@@ -341,13 +341,13 @@ const ElementHTML = Object.defineProperties({}, {
           }
           if (tag === 'select' || tag === 'datalist') {
             element.replaceChildren(...optionElements)
-          } else if (tag === 'input' && pointerElement) {
+          } else if (tag === 'input' && sourceElement) {
             const datalist = document.createElement('datalist')
             datalist.replaceChildren(...optionElements)
-            pointerElement.dataset.datalistId = crypto.randomUUID()
-            datalist.setAttribute('id', pointerElement.dataset.datalistId)
+            sourceElement.dataset.datalistId = crypto.randomUUID()
+            datalist.setAttribute('id', sourceElement.dataset.datalistId)
             document.body.append(datalist)
-            element.setAttribute('list', pointerElement.dataset.datalistId)
+            element.setAttribute('list', sourceElement.dataset.datalistId)
           }
         } else if (['form', 'fieldset'].includes(tag)) {
             for (const [k, v] of Object.entries(data)) (element.querySelector([name="${k}"])||{}).value = v
@@ -377,6 +377,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (element.eDataset instanceof Object) {
                 Object.assign(element.eDataset, data)
             } else {
+console.log('element line 380', flag, data)                
                 for (const [k, v] of Object.entries(data)) {
                     if (k.startsWith('@')) element.setAttribute(k.slice(1), v)
                     if (k.startsWith('.')) element[k.slice(1)] = v
