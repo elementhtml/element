@@ -279,9 +279,8 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     transformData: {enumerable: true, value: function(data, transformSignature) {
         if (!transformSignature || !data || !(data instanceof Object) || !Object.keys(data).length) return data
-        const map = Object.fromEntries(transformSignature.split(';').map(s => s.trim().split(':').map(ss => ss.trim()).reverse())),
-            newData = {}
-        for (const k in data) newData[map[k] ?? k] = data[k]
+        const newData = Object.fromEntries(transformSignature.split(';').map(s => s.trim().split(':').map(ss => ss.trim())))
+        for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
         return newData
     }},
     sinkData: {enumerable: true, value: function(element, data, flag, transform, pointerElement) {
