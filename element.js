@@ -314,9 +314,14 @@ const ElementHTML = Object.defineProperties({}, {
           if (element.eDataset instanceof Object) {
             Object.assign(element.eDataset, data)
           } else {
+console.log('element line 317', element, data)
             for (const [k, v] of Object.entries(data)) {
-              if (v.startsWith('@')) element.setAttribute(k.slice(1), v)
-              if (v.startsWith('.')) element[k.slice(1)] = v
+console.log('element line 319', k, v)
+              if (k.startsWith('@')) element.setAttribute(k.slice(1), v)
+              if (k.startsWith('.')) {
+console.log('element line 322', k.slice(1), v)
+                element[k.slice(1)] = v
+              } 
               if (flag === 'auto-data') element.dataset[k] = v
             }
           }
