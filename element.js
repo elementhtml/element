@@ -232,7 +232,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        if (!element) return
+        if (!element) return element
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
@@ -260,22 +260,23 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
             } else { Object.assign((element.eDataset || element.dataset), value) }
-            return
+            return element
         }
         let valueproxy
         if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
             element.eDataset[valueproxy] = value
             if (value === undefined) delete element.eDataset[valueproxy]
-            return
+            return element
         }
         const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
-        if (tag === 'meta') return element[attrMethod]('content', value)
-        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return element[attrMethod]('src', value)
-        if (['a','area','link'].includes(tag)) return element[attrMethod]('href', value)
-        if (tag === 'object') return element[attrMethod]('data', value)
-        if (['data','meter','input','select','textarea'].includes(tag)) return (element.value = (value ??'')) || element[attrMethod]('value', value)
-        if (tag === 'time') return element[attrMethod]('datetime', value)
+        if (tag === 'meta') element[attrMethod]('content', value)
+        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) element[attrMethod]('src', value)
+        if (['a','area','link'].includes(tag)) element[attrMethod]('href', value)
+        if (tag === 'object') element[attrMethod]('data', value)
+        if (['data','meter','input','select','textarea'].includes(tag)) (element.value = (value ??'')) || element[attrMethod]('value', value)
+        if (tag === 'time') element[attrMethod]('datetime', value)
         element.textContent = value
+        return element
     }},
     transformData: {enumerable: true, value: function(data, transformSignature) {
         if (!transformSignature || !data || !(data instanceof Object) || !Object.keys(data).length) return data
@@ -284,8 +285,10 @@ const ElementHTML = Object.defineProperties({}, {
         return newData
     }},
     sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement) {
-        if (!element || !data || !(data instanceof Object) || !Object.keys(data).length) return element
+        if (!element) return element
         if (transform) data = this.transformData(data, transform)
+        if (!(data instanceof Object)) return this.setValue(element, data)
+        if (!Object.keys(data).length) return element
         flag ||= sourceElement?.flag
         if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
           const useNode = element === document.head ? element : document
@@ -330,6 +333,15 @@ const ElementHTML = Object.defineProperties({}, {
           } else { element[flag](data) }
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
+        } else if (element.querySelector('template')) {
+console.log('line 334', data)
+            if (Array.isArray(data)) {
+                for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true), v, flag, transform))
+            } else {
+
+
+
+            }
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
@@ -377,7 +389,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (element.eDataset instanceof Object) {
                 Object.assign(element.eDataset, data)
             } else {
-console.log('element line 380', flag, data)                
                 for (const [k, v] of Object.entries(data)) {
                     if (k.startsWith('@')) element.setAttribute(k.slice(1), v)
                     if (k.startsWith('.')) element[k.slice(1)] = v
