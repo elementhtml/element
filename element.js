@@ -277,7 +277,16 @@ const ElementHTML = Object.defineProperties({}, {
         if (tag === 'time') return element[attrMethod]('datetime', value)
         element.textContent = value
     }},
-    sinkData: {enumerable: true, value: function(element, data, flag, pointerElement) {
+    transformData: {enumerable: true, value: function(data, transformSignature) {
+        if (!transformSignature || !data || !(data instanceof Object) || !Object.keys(data).length) return data
+        const map = Object.fromEntries(transformSignature.split(';').map(s => s.trim().split(':').map(ss => ss.trim()).reverse())),
+            newData = {}
+        for (const k in data) newData[map[k] ?? k] = data[k]
+        return newData
+    }},
+    sinkData: {enumerable: true, value: function(element, data, flag, transform, pointerElement) {
+        if (!element || !data || !(data instanceof Object) || !Object.keys(data).length) return element
+        if (transform) data = this.transformData(data, transform)
         flag ||= pointerElement?.flag
         if (element === document.head || element === document || (element === pointerElement && pointerElement?.parentElement === document.head)) {
           const useNode = element === document.head ? element : document
@@ -290,7 +299,7 @@ const ElementHTML = Object.defineProperties({}, {
               metaElement && metaElement.setAttribute('content', v)
             }
           }
-          return
+          return element
         }
         const tag = element.tagName.toLowerCase()
         if (flag === '@') {
@@ -375,6 +384,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
         }
+        return element
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
         const template = document.createElement('template')
