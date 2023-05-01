@@ -303,6 +303,7 @@ const ElementHTML = Object.defineProperties({}, {
           }
           return element
         }
+console.log('line 306', element, data)
         const tag = element.tagName.toLowerCase()
         if (flag === '@') {
           for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
@@ -334,9 +335,9 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
-console.log('line 334', data)
+console.log('line 337', data)
             if (Array.isArray(data)) {
-                for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true), v, flag, transform))
+                for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true).children[0], v, flag, transform))
             } else {
 
 
@@ -384,7 +385,7 @@ console.log('line 334', data)
               for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
               tbody.append(tr)
             }
-          }
+          }  
         } else {
             if (element.eDataset instanceof Object) {
                 Object.assign(element.eDataset, data)
