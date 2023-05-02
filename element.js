@@ -339,14 +339,15 @@ const ElementHTML = Object.defineProperties({}, {
                 const entryTemplate = element.querySelector(`:scope > template[itemprop="${key}"]`) 
                     || element.querySelector(`:scope > template[itemprop="*"]`) || element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
                 if (entryTemplate) {
-                    const entryNode = entryTemplate.content.cloneNode(true), 
+                    const entryNode = entryTemplate.content.cloneNode(true).children[0], 
                         keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplate) valueTemplate.replaceWith(this.sinkData(valueTemplate.content.cloneNode(true).children[0], value, flag, transform))
+                    if (!keyTemplate && !valueTemplate) this.sinkData(entryNode, value)
                     if (entryTemplate.getAttribute('itemprop')) {
                         entryTemplate.after(entryNode)
-                    } else {
-                        after = after.insertAdjacentElement('afterend', entryNode)
+                    } else { 
+                        after = after.insertAdjacentElement('afterend', entryNode) 
                     }
                 }
             }
