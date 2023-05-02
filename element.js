@@ -345,17 +345,20 @@ const ElementHTML = Object.defineProperties({}, {
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplate) {
                         const valueFragment = valueTemplate.content.cloneNode(true)
+console.log('line 348', valueTemplate, valueFragment, valueTemplate.content.cloneNode(true))
                         this.sinkData(valueFragment.children[0], value, flag, transform)
                         for (const scopedTemplate of scopedTemplates) {
+console.log('line 351', scopedTemplate)
                             const scopeQuerySelector = scopedTemplate.getAttribute('itemprop').replace('. ', ':scope '), 
                                 scopedTarget = valueFragment.querySelector(scopeQuerySelector)
+console.log('line 354', valueFragment, scopeQuerySelector)
                             if (scopedTarget) {
                                 const scopedTemplateCopy = scopedTemplate.cloneNode(true)
                                 scopedTemplateCopy.removeAttribute('itemprop')
                                 scopedTarget.prepend(scopedTemplateCopy)
                             }
                         }
-                        valueTemplate.replaceWith(valueFragment)
+                        valueTemplate.replaceWith(...valueFragment.children)
                     }
                     if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
                     if (entryTemplate.getAttribute('itemprop')) {
