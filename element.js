@@ -334,30 +334,25 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
-            let after = element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
+            let after = element.querySelector(`template:not([itemprop]):last-of-type`)
             for (const [key, value] of Object.entries(data)) {
-                const entryTemplate = element.querySelector(`:scope > template[itemprop="${key}"]`) 
-                    || element.querySelector(`:scope > template[itemprop="*"]`) || element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
+                const entryTemplate = element.querySelector(`template[itemprop="${key}"]`) 
+                    || element.querySelector(`template[itemprop="*"]`) || element.querySelector(`template:not([itemprop]):last-of-type`)
                 if (entryTemplate) {
-                    const scopedTemplates = element.querySelectorAll(':scope > template[itemprop^=". "]')
+                    const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
                         keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplate) {
-                        const valueTemplateCopy = valueTemplate.cloneNode(true)
+                        const valueNode = valueTemplate.content.cloneNode(true)
+                        this.sinkData(valueNode.children[0], value, flag, transform)
                         for (const scopedTemplate of scopedTemplates) {
-console.log('line 349', scopedTemplate)
-                            const scopeQuerySelector = scopedTemplate.getAttribute('itemprop').replace('. ', ':scope '), 
-                                scopedTarget = valueTemplateCopy.content.querySelector(scopeQuerySelector)
-console.log('line 354', scopeQuerySelector, scopedTarget)
+                            const scopedTarget = valueNode.querySelector(scopedTemplate.getAttribute('data-e-scope'))
                             if (scopedTarget) {
-                                const scopedTemplateCopy = scopedTemplate.cloneNode(true)
-                                scopedTemplateCopy.removeAttribute('itemprop')
-                                scopedTarget.prepend(scopedTemplateCopy)
+                                scopedTarget.prepend(...scopedTemplate.content.cloneNode(true).children)
                             }
                         }
-                        valueTemplate.replaceWith(...valueTemplateCopy.content.cloneNode(true).children)
-                        //this.sinkData(valueFragment.children[0], value, flag, transform)
+                        valueTemplate.replaceWith(...valueNode.children)
                     }
                     if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
                     if (entryTemplate.getAttribute('itemprop')) {
