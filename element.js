@@ -334,14 +334,20 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
-            if (Array.isArray(data)) {
-                for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true).children[0], v, flag, transform))
-            } else {
-console.log('line 340', JSON.stringify(data, null, 4))
-                for (const itemprop in data) {
-                    const propTemplate = element.querySelector(`template[itemprop="${itemprop}"]`)?.content.cloneNode(true)
-                    element.append(propTemplate)
-
+            let after = element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
+            for (const [key, value] of Object.entries(data)) {
+                const entryTemplate = element.querySelector(`:scope > template[itemprop="${key}"]`) 
+                    || element.querySelector(`:scope > template[itemprop="*"]`) || element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
+                if (entryTemplate) {
+                    const entryNode = entryTemplate.content.cloneNode(true), 
+                        keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
+                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
+                    if (valueTemplate) valueTemplate.replaceWith(this.sinkData(valueTemplate.content.cloneNode(true).children[0], value, flag, transform))
+                    if (entryTemplate.getAttribute('itemprop')) {
+                        entryTemplate.after(entryNode)
+                    } else {
+                        after = after.insertAdjacentElement('afterend', entryNode)
+                    }
                 }
             }
         } else if (['input', 'select', 'datalist'].includes(tag)) {
