@@ -345,13 +345,13 @@ const ElementHTML = Object.defineProperties({}, {
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplate) {
                         const valueNode = valueTemplate.content.cloneNode(true)
-                        this.sinkData(valueNode.children[0], value, flag, transform)
                         for (const scopedTemplate of scopedTemplates) {
                             const scopedTarget = valueNode.querySelector(scopedTemplate.getAttribute('data-e-scope'))
                             if (scopedTarget) {
-                                scopedTarget.prepend(...scopedTemplate.content.cloneNode(true).children)
+                                scopedTarget.prepend(scopedTemplate.cloneNode(true))
                             }
                         }
+                        this.sinkData(valueNode.children[0], value, flag, transform)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
                     if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
