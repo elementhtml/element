@@ -339,13 +339,24 @@ const ElementHTML = Object.defineProperties({}, {
                 const entryTemplate = element.querySelector(`:scope > template[itemprop="${key}"]`) 
                     || element.querySelector(`:scope > template[itemprop="*"]`) || element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
                 if (entryTemplate) {
+                    const scopedTemplates = element.querySelectorAll(':scope > template[itemprop^=". "]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
                         keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
-
-console.log('element line 342', entryNode)
-
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
-                    if (valueTemplate) valueTemplate.replaceWith(this.sinkData(valueTemplate.content.cloneNode(true).children[0], value, flag, transform))
+                    if (valueTemplate) {
+                        const valueFragment = valueTemplate.content.cloneNode(true)
+                        this.sinkData(valueFragment.children[0], value, flag, transform)
+                        for (const scopedTemplate of scopedTemplates) {
+                            const scopeQuerySelector = scopedTemplate.getAttribute('itemprop').replace('. ', ':scope '), 
+                                scopedTarget = valueFragment.querySelector(scopeQuerySelector)
+                            if (scopedTarget) {
+                                const scopedTemplateCopy = scopedTemplate.cloneNode(true)
+                                scopedTemplateCopy.removeAttribute('itemprop')
+                                scopedTarget.prepend(scopedTemplateCopy)
+                            }
+                        }
+                        valueTemplate.replaceWith(valueFragment)
+                    }
                     if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
                     if (entryTemplate.getAttribute('itemprop')) {
                         entryTemplate.after(...entryNode.children)
