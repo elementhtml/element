@@ -337,10 +337,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (Array.isArray(data)) {
                 for (const v of data) element.append(this.sinkData(element.querySelector('template').content.cloneNode(true).children[0], v, flag, transform))
             } else {
-console.log('line 337', data)
+console.log('line 340', JSON.stringify(data, null, 4))
+                for (const itemprop in data) {
+                    const propTemplate = element.querySelector(`template[itemprop="${itemprop}"]`)?.content.cloneNode(true)
+                    element.append(propTemplate)
 
-
-
+                }
             }
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []

@@ -14,13 +14,8 @@
                     let parsed = {}
                     if (this.#parser) {
                         /* parser might be YAML or Protobuf parser libraries, for example */
-                        if (typeof this.e.processors[this.#parser] === 'function') {
-                            parsed = await this.e.processors[this.#parser](await response.text())
-                        }
-                    } else {
-                        try { parsed = JSON.parse(await response.text()) } catch(e) {}
-                    }
-                    return parsed
+                        if (typeof this.e.processors[this.#parser] === 'function') return await this.e.processors[this.#parser](await response.text())
+                    } else { return await response.json() }
                 }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
                     return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
