@@ -334,10 +334,9 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
-            let after = element.querySelector(`template:not([itemprop]):last-of-type`)
+            let after = element.querySelector(`template:last-of-type`)
             for (const [key, value] of Object.entries(data)) {
-                const entryTemplate = element.querySelector(`template[itemprop="${key}"]`) 
-                    || element.querySelector(`template[itemprop="*"]`) || element.querySelector(`template:not([itemprop]):last-of-type`)
+                const entryTemplate = element.querySelector(`template[itemprop="${key}"]`) || element.querySelector(`template:not([itemprop]):last-of-type`)
                 if (entryTemplate) {
                     const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
@@ -349,6 +348,8 @@ const ElementHTML = Object.defineProperties({}, {
                             const scopedTarget = valueNode.querySelector(scopedTemplate.getAttribute('data-e-scope'))
                             if (scopedTarget) {
                                 scopedTarget.prepend(scopedTemplate.cloneNode(true))
+                            } else {
+                                scopedTarget.prepend(scopedTemplate.cloneNode(true))                                
                             }
                         }
                         this.sinkData(valueNode.children[0], value, flag, transform)
@@ -364,6 +365,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
+            for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
