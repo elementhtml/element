@@ -340,22 +340,27 @@ const ElementHTML = Object.defineProperties({}, {
                 if (entryTemplate) {
                     const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
-                        keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
+                        keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplates = entryNode.querySelectorAll('template[itemprop="."]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
-                    if (valueTemplate) {
+                    if (valueTemplates.length) {
+                        const valueTempatesFragment = new DocumentFragment()
+                        valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
+                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]`)
+                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]`)
+                        valueTemplate = valueTemplates[valueTemplates.length-1]
                         const valueNode = valueTemplate.content.cloneNode(true)
                         for (const scopedTemplate of scopedTemplates) {
                             const scopedTarget = valueNode.querySelector(scopedTemplate.getAttribute('data-e-scope'))
                             if (scopedTarget) {
                                 scopedTarget.prepend(scopedTemplate.cloneNode(true))
                             } else {
-                                scopedTarget.prepend(scopedTemplate.cloneNode(true))                                
+                                valueNode.prepend(scopedTemplate.cloneNode(true))                                
                             }
                         }
                         this.sinkData(valueNode.children[0], value, flag, transform)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
-                    if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
+                    if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value)
                     if (entryTemplate.getAttribute('itemprop')) {
                         entryTemplate.after(...entryNode.children)
                     } else {
