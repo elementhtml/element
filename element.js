@@ -339,15 +339,20 @@ const ElementHTML = Object.defineProperties({}, {
                 const entryTemplate = element.querySelector(`:scope > template[itemprop="${key}"]`) 
                     || element.querySelector(`:scope > template[itemprop="*"]`) || element.querySelector(`:scope > template:not([itemprop]):last-of-type`)
                 if (entryTemplate) {
-                    const entryNode = entryTemplate.content.cloneNode(true).children[0], 
+                    const entryNode = entryTemplate.content.cloneNode(true), 
                         keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplate = entryNode.querySelector('template[itemprop="."]')
+
+console.log('element line 342', entryNode)
+
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplate) valueTemplate.replaceWith(this.sinkData(valueTemplate.content.cloneNode(true).children[0], value, flag, transform))
-                    if (!keyTemplate && !valueTemplate) this.sinkData(entryNode, value)
+                    if (!keyTemplate && !valueTemplate) this.sinkData(entryNode.children[0], value)
                     if (entryTemplate.getAttribute('itemprop')) {
-                        entryTemplate.after(entryNode)
-                    } else { 
-                        after = after.insertAdjacentElement('afterend', entryNode) 
+                        entryTemplate.after(...entryNode.children)
+                    } else {
+                        const nextAfter = entryNode.children[entryNode.children.length-1]
+                        after.after(...entryNode.children)
+                        after = nextAfter
                     }
                 }
             }
