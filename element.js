@@ -77,18 +77,22 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, searchBody=false, equals={}, startsWith={}, includes={}) {
         let resolved
-        const rootNode = element.shadowRoot || element.getRootNode(), testNode = node => {
-            for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
+        const testNode = (node, useConditions=false) => {
+            if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
             for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
             for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
             for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
-        }
+            if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
+        }, query = Object.keys(conditions).length ?  `${tagName}[${Object.entries(conditions).map(e => e[0]+'="'+e[1]+'"').join('][') }]` : tagName
+        for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
+        if (resolved) return resolved
+        const rootNode = element.shadowRoot || element.getRootNode()
         if (rootNode instanceof ShadowRoot) {
-            for (const m of rootNode.querySelectorAll(tagName)) if (resolved = testNode(m)) break
+            for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
             return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
         } else {
-            for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m)) break
-            if (searchBody) for (const m of document.body.querySelectorAll(tagName)) if (resolved = testNode(m)) break
+            for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
+            if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
             return resolved
         }
     }}, 
@@ -301,8 +305,9 @@ const ElementHTML = Object.defineProperties({}, {
         for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
         return newData
     }},
-    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0) {
+    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=null) {
         if (!element) return element
+        rootElement ||= element
         if (transform) data = this.transformData(data, transform)
         if (!(data instanceof Object)) return this.setValue(element, data)
         if (!Object.keys(data).length) return element
@@ -383,9 +388,12 @@ const ElementHTML = Object.defineProperties({}, {
                 if (replacewiths) {
                     const fragmentsToReplaceWith = []
                     for (const replacewith of replacewiths.split(' ')) {
-                        const fragmentToReplaceWith = this.resolveForElement(template, 'template', conditions={'data-e-fragment': include}, true)
+console.log('line 391', replacewith)
+                        const fragmentToReplaceWith = this.resolveForElement(rootElement, 'template', {'data-e-fragment': replacewith}, true)
+console.log('line 393', fragmentToReplaceWith)
                         if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...fragmentToReplaceWith.content.cloneNode(true).children)
                     }
+console.log('line 396', fragmentsToReplaceWith)
                     if (fragmentsToReplaceWith.length) template.content.replaceChildren(...fragmentsToReplaceWith)
                 }
                 return template
@@ -416,10 +424,10 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             if (!placed) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
-                        this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1)
+                        this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
-                    if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer+1)
+                    if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
                     if (entryTemplate.getAttribute('data-e-property')) {
                         entryTemplate.after(...entryNode.children)
                     } else {
