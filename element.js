@@ -343,18 +343,17 @@ const ElementHTML = Object.defineProperties({}, {
                     if (ifLayer) {
                         const separator = ifLayer.includes('||') ? '||' : '&&', results = [], 
                             ops = {'=': c => layer == c, '!': c => layer != c, '<': c => layer < c, 
-                            '>': c => layer > c, '~': c => !!(layer % c), '%': c => !(layer % c)}
+                            '>': c => layer > c, '%': c => !!(layer % c), '~': c => !(layer % c)}
                         for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1)))
                         if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue 
                     }
                     const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
                     if (ifContext.length) {
-                        const ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, 
-                            '>': (c,v) => v > c, '~': (c,v) => !!(v % c), '%': (c,v) => !(v % c), 
-
-                            '>': (c,v) => v > c,  
-
-                        }
+                        const ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
+                            '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
+                            '*': (c,v) => `${v}`.includes(c), '-': (c,v) => !`${v}`.includes(c), 
+                            '+': (c,v) => `${v}`.split(' ').includes(c), '_': (c,v) => !`${v}`.split(' ').includes(c), 
+                            '/': (c,v) => (new RegExp(...this.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
                         for (const [ck, cond] of ifContext) {
                             if (typeof context[ck] === 'function') if (!context[ck](cond, ck, layer, context, el.cloneNode(true))) continue 
                             const separator = ifContext.includes('||') ? '||' : '&&', results = []
