@@ -337,23 +337,20 @@ const ElementHTML = Object.defineProperties({}, {
             let after = element.querySelector(`template:last-of-type`)
             const filterEntryTemplates = entryTemplates => {
                 if (!entryTemplates.length) return
-                const matchingTemplates = []
+                const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
+                    '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
+                    '*': (c,v) => `${v}`.includes(c), '-': (c,v) => !`${v}`.includes(c), 
+                    '+': (c,v) => `${v}`.split(' ').includes(c), '_': (c,v) => !`${v}`.split(' ').includes(c), 
+                    '/': (c,v) => (new RegExp(...this.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
                 for (const et of entryTemplates) {
                     const ifLayer = et.getAttribute('data-e-if-layer')
                     if (ifLayer) {
-                        const separator = ifLayer.includes('||') ? '||' : '&&', results = [], 
-                            ops = {'=': c => layer == c, '!': c => layer != c, '<': c => layer < c, 
-                            '>': c => layer > c, '%': c => !!(layer % c), '~': c => !(layer % c)}
-                        for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1)))
+                        const separator = ifLayer.includes('||') ? '||' : '&&', results = []
+                        for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1), layer))
                         if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue 
                     }
                     const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
                     if (ifContext.length) {
-                        const ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
-                            '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
-                            '*': (c,v) => `${v}`.includes(c), '-': (c,v) => !`${v}`.includes(c), 
-                            '+': (c,v) => `${v}`.split(' ').includes(c), '_': (c,v) => !`${v}`.split(' ').includes(c), 
-                            '/': (c,v) => (new RegExp(...this.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
                         for (const [ck, cond] of ifContext) {
                             if (typeof context[ck] === 'function') if (!context[ck](cond, ck, layer, context, el.cloneNode(true))) continue 
                             const separator = ifContext.includes('||') ? '||' : '&&', results = []
@@ -366,19 +363,19 @@ const ElementHTML = Object.defineProperties({}, {
                 return
             }
             for (const [key, value] of Object.entries(data)) {
-                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]`)) 
-                    || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property])`))
+                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]:not([data-e-fragment])`)) 
+                    || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property]):not([data-e-fragment])`))
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
-                        entryNode = entryTemplate.content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]')
-                    let valueTemplates = entryNode.querySelectorAll('template[data-e-value]')
+                        entryNode = entryTemplate.content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
+                    let valueTemplates = entryNode.querySelectorAll('template[data-e-value]:not([data-e-fragment])')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
-                    if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key])')
+                    if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key]):not([data-e-fragment])')
                     if (valueTemplates.length) {
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
-                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]`)
-                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]`)
+                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]:not([data-e-fragment])`)
+                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]:not([data-e-fragment])`)
                         valueTemplate = valueTemplates[valueTemplates.length-1]
                         const valueNode = valueTemplate.content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
