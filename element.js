@@ -336,12 +336,15 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (element.querySelector('template')) {
             let after = element.querySelector(`template:last-of-type`)
             for (const [key, value] of Object.entries(data)) {
-                const entryTemplate = element.querySelector(`template[data-e-property="${key}"]`) || element.querySelector(`template:not([data-e-property]):last-of-type`)
+                const entryTemplate = element.querySelector(`template[data-e-property="${key}"]`) 
+                    || element.querySelector(`template:not([data-e-property])`)
                 if (entryTemplate) {
                     const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
-                        keyTemplate = entryNode.querySelector('template[data-e-key]'), valueTemplates = entryNode.querySelectorAll('template[data-e-value]')
+                        keyTemplate = entryNode.querySelector('template[data-e-key]')
+                    let valueTemplates = entryNode.querySelectorAll('template[data-e-value]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
+                    if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key])')
                     if (valueTemplates.length) {
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
