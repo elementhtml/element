@@ -284,7 +284,7 @@ const ElementHTML = Object.defineProperties({}, {
         for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
         return newData
     }},
-    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement) {
+    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0) {
         if (!element) return element
         if (transform) data = this.transformData(data, transform)
         if (!(data instanceof Object)) return this.setValue(element, data)
@@ -339,9 +339,8 @@ const ElementHTML = Object.defineProperties({}, {
                 const entryTemplate = element.querySelector(`template[data-e-property="${key}"]`) 
                     || element.querySelector(`template:not([data-e-property])`)
                 if (entryTemplate) {
-                    const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
-                    const entryNode = entryTemplate.content.cloneNode(true), 
-                        keyTemplate = entryNode.querySelector('template[data-e-key]')
+                    const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
+                        entryNode = entryTemplate.content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]')
                     let valueTemplates = entryNode.querySelectorAll('template[data-e-value]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key])')
@@ -352,18 +351,18 @@ const ElementHTML = Object.defineProperties({}, {
                         valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]`)
                         valueTemplate = valueTemplates[valueTemplates.length-1]
                         const valueNode = valueTemplate.content.cloneNode(true)
-                        for (const scopedTemplate of scopedTemplates) {
-                            const scopedTarget = valueNode.querySelector(scopedTemplate.getAttribute('data-e-scope'))
-                            if (scopedTarget) {
-                                scopedTarget.prepend(scopedTemplate.cloneNode(true))
-                            } else {
-                                valueNode.prepend(scopedTemplate.cloneNode(true))                                
+                        for (const recursiveTemplate of recursiveTemplates) {
+                            let placed = false
+                            for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-recurse-into'))) {
+                                scopedTarget.prepend(recursiveTemplate.cloneNode(true))
+                                placed = true
                             }
+                            if (!placed) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
-                        this.sinkData(valueNode.children[0], value, flag, transform)
+                        this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
-                    if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value)
+                    if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer+1)
                     if (entryTemplate.getAttribute('data-e-property')) {
                         entryTemplate.after(...entryNode.children)
                     } else {
