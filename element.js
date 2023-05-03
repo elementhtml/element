@@ -383,20 +383,15 @@ const ElementHTML = Object.defineProperties({}, {
                     return et 
                 }
                 return
-            }, replacewithFragments = template => {
-                const replacewiths = template.getAttribute('data-e-replacewith')
-                if (replacewiths) {
-                    const fragmentsToReplaceWith = []
+            }, build = template => {
+                for (const replaceWithTemplate of template.querySelectorAll('template[data-e-replacewith]')) {
+                    const replacewiths = template.getAttribute('data-e-replacewith') || '', fragmentsToReplaceWith = []
                     for (const replacewith of replacewiths.split(' ')) {
-console.log('line 391', replacewith)
                         const fragmentToReplaceWith = this.resolveForElement(rootElement, 'template', {'data-e-fragment': replacewith}, true)
-console.log('line 393', fragmentToReplaceWith)
                         if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...fragmentToReplaceWith.content.cloneNode(true).children)
                     }
-console.log('line 396', fragmentsToReplaceWith)
-                    if (fragmentsToReplaceWith.length) template.content.replaceChildren(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
+                    if (fragmentsToReplaceWith.length) replaceWithTemplate.replaceWith(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
                 }
-console.log('line 399', template)
                 return template
             }
             for (const [key, value] of Object.entries(data)) {
@@ -404,10 +399,10 @@ console.log('line 399', template)
                     || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property]):not([data-e-fragment])`))
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
-                        entryNode = replacewithFragments(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
+                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
                     let valueTemplates = entryNode.querySelectorAll('template[data-e-value]:not([data-e-fragment])')
                     if (keyTemplate) {
-                        keyTemplate.replaceWith(this.setValue(replacewithFragments(keyTemplate).content.cloneNode(true).children[0], key))
+                        keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
                     } 
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key]):not([data-e-fragment])')
                     if (valueTemplates.length) {
@@ -416,7 +411,7 @@ console.log('line 399', template)
                         let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]:not([data-e-fragment])`)
                         valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]:not([data-e-fragment])`)
                         valueTemplate = valueTemplates[valueTemplates.length-1]
-                        const valueNode = replacewithFragments(valueTemplate).content.cloneNode(true)
+                        const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
                             for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-recurse-into'))) {
