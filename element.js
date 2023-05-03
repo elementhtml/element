@@ -335,9 +335,28 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
             let after = element.querySelector(`template:last-of-type`)
+            const filterEntryTemplates = entryTemplates => {
+                if (!entryTemplates.length) return
+                const matchingTemplates = []
+                for (const et of entryTemplates) {
+                    const ifLayer = et.getAttribute('data-e-if-layer')
+                    if (!ifLayer) return et
+                    const separator = ifLayer.includes('||') ? '||' : '&&', results = []
+                    for (const cond of ifLayer.split(separator).map(s => s.trim())) {
+                        if (cond[0] === '=') { results.push(layer == cond.slice(1)); continue }
+                        if (cond[0] === '!') { results.push(layer != cond.slice(1)); continue }
+                        if (cond[0] === '<') { results.push(layer < cond.slice(1)); continue }
+                        if (cond[0] === '>') { results.push(layer > cond.slice(1)); continue }
+                        if (cond[0] === '%') { results.push(layer % cond.slice(1)); continue }
+
+                    }
+
+                }
+                return
+            }
             for (const [key, value] of Object.entries(data)) {
-                const entryTemplate = element.querySelector(`template[data-e-property="${key}"]`) 
-                    || element.querySelector(`template:not([data-e-property])`)
+                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]`)) 
+                    || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property])`))
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
                         entryNode = entryTemplate.content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]')
