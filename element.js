@@ -75,7 +75,7 @@ const ElementHTML = Object.defineProperties({}, {
         str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
         return r
     }},
-    resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, equals={}, startsWith={}, includes={}, searchBody=false) {
+    resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, searchBody=false, equals={}, startsWith={}, includes={}) {
         let resolved
         const rootNode = element.shadowRoot || element.getRootNode(), testNode = node => {
             for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
@@ -85,7 +85,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
         if (rootNode instanceof ShadowRoot) {
             for (const m of rootNode.querySelectorAll(tagName)) if (resolved = testNode(m)) break
-            return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, equals, startsWith, includes, searchBody)
+            return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
         } else {
             for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m)) break
             if (searchBody) for (const m of document.body.querySelectorAll(tagName)) if (resolved = testNode(m)) break
@@ -378,10 +378,15 @@ const ElementHTML = Object.defineProperties({}, {
                     return et 
                 }
                 return
-            }, includeFragments = template => {
-                const include = template.getAttribute('data-e-include')
-                if (include) {
-                    this.resolveForElement(element, tagName, conditions={}, equals={}, startsWith={}, includes={}, searchBody=false)
+            }, replacewithFragments = template => {
+                const replacewiths = template.getAttribute('data-e-replacewith')
+                if (replacewiths) {
+                    const fragmentsToReplaceWith = []
+                    for (const replacewith of replacewiths.split(' ')) {
+                        const fragmentToReplaceWith = this.resolveForElement(template, 'template', conditions={'data-e-fragment': include}, true)
+                        if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...fragmentToReplaceWith.content.cloneNode(true).children)
+                    }
+                    if (fragmentsToReplaceWith.length) template.content.replaceChildren(...fragmentsToReplaceWith)
                 }
                 return template
             }
@@ -390,10 +395,10 @@ const ElementHTML = Object.defineProperties({}, {
                     || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property]):not([data-e-fragment])`))
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
-                        entryNode = includeFragments(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
+                        entryNode = replacewithFragments(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
                     let valueTemplates = entryNode.querySelectorAll('template[data-e-value]:not([data-e-fragment])')
                     if (keyTemplate) {
-                        keyTemplate.replaceWith(this.setValue(includeFragments(keyTemplate).content.cloneNode(true).children[0], key))
+                        keyTemplate.replaceWith(this.setValue(replacewithFragments(keyTemplate).content.cloneNode(true).children[0], key))
                     } 
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key]):not([data-e-fragment])')
                     if (valueTemplates.length) {
@@ -402,7 +407,7 @@ const ElementHTML = Object.defineProperties({}, {
                         let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]:not([data-e-fragment])`)
                         valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]:not([data-e-fragment])`)
                         valueTemplate = valueTemplates[valueTemplates.length-1]
-                        const valueNode = includeFragments(valueTemplate).content.cloneNode(true)
+                        const valueNode = replacewithFragments(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
                             for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-recurse-into'))) {
