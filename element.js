@@ -336,11 +336,11 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (element.querySelector('template')) {
             let after = element.querySelector(`template:last-of-type`)
             for (const [key, value] of Object.entries(data)) {
-                const entryTemplate = element.querySelector(`template[itemprop="${key}"]`) || element.querySelector(`template:not([itemprop]):last-of-type`)
+                const entryTemplate = element.querySelector(`template[data-e-property="${key}"]`) || element.querySelector(`template:not([data-e-property]):last-of-type`)
                 if (entryTemplate) {
                     const scopedTemplates = element.querySelectorAll('template[data-e-scope]')
                     const entryNode = entryTemplate.content.cloneNode(true), 
-                        keyTemplate = entryNode.querySelector('template[itemprop="#"]'), valueTemplates = entryNode.querySelectorAll('template[itemprop="."]')
+                        keyTemplate = entryNode.querySelector('template[data-e-key]'), valueTemplates = entryNode.querySelectorAll('template[data-e-value]')
                     if (keyTemplate) keyTemplate.replaceWith(this.setValue(keyTemplate.content.cloneNode(true).children[0], key))
                     if (valueTemplates.length) {
                         const valueTempatesFragment = new DocumentFragment()
@@ -361,7 +361,7 @@ const ElementHTML = Object.defineProperties({}, {
                         valueTemplate.replaceWith(...valueNode.children)
                     }
                     if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value)
-                    if (entryTemplate.getAttribute('itemprop')) {
+                    if (entryTemplate.getAttribute('data-e-property')) {
                         entryTemplate.after(...entryNode.children)
                     } else {
                         const nextAfter = entryNode.children[entryNode.children.length-1]
