@@ -339,20 +339,28 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!entryTemplates.length) return
                 const matchingTemplates = []
                 for (const et of entryTemplates) {
-                    let matched = true
                     const ifLayer = et.getAttribute('data-e-if-layer')
                     if (ifLayer) {
                         const separator = ifLayer.includes('||') ? '||' : '&&', results = [], 
                             ops = {'=': c => layer == c, '!': c => layer != c, '<': c => layer < c, 
                             '>': c => layer > c, '~': c => (layer % c) === 0, '=': c => (layer % c) !== 0}
-                        for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) result.push((ops[cond[0]] ?? ops['='])(cond.slice(1)))
+                        for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1)))
                         if (!((separator == '||') ? results.includes(true) : !result.includes(false))) continue 
                     }
-                    
-
-
-                    
-
+                    const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
+                    if (ifContext.length) {
+                        const ops = {'=': c => layer == c, '!': c => layer != c, '<': c => layer < c, 
+                            '>': c => layer > c, '~': c => (layer % c) === 0, '=': c => (layer % c) !== 0}
+                        for (const [ck, cond] of ifContext) {
+                            const separator = ifContext.includes('||') ? '||' : '&&', results = []
+                            if (typeof context[ck] === 'function') {
+                                if (context[ck](cond, el.cloneNode(true), layer, context)) return el
+                                continue 
+                            }
+                            for (const cond of ifContext.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1)))
+                            if (!((separator == '||') ? results.includes(true) : !result.includes(false))) continue
+                        }
+                    } else { return et }
                 }
                 return
             }
