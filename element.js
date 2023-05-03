@@ -384,32 +384,32 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return
             }, build = template => {
-                for (const replaceWithTemplate of template.querySelectorAll('template[data-e-replacewith]')) {
-                    const replacewiths = template.getAttribute('data-e-replacewith') || '', fragmentsToReplaceWith = []
+                for (const replaceWithTemplate of template.content.querySelectorAll('template[data-e-replacewith]')) {
+                    const replacewiths = replaceWithTemplate.getAttribute('data-e-replacewith') || '', fragmentsToReplaceWith = []
                     for (const replacewith of replacewiths.split(' ')) {
                         const fragmentToReplaceWith = this.resolveForElement(rootElement, 'template', {'data-e-fragment': replacewith}, true)
-                        if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...fragmentToReplaceWith.content.cloneNode(true).children)
+                        if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...Array.from(fragmentToReplaceWith.content.children).map(c => c.cloneNode(true)))
                     }
-                    if (fragmentsToReplaceWith.length) replaceWithTemplate.replaceWith(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
+                    replaceWithTemplate.replaceWith(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
                 }
                 return template
             }
             for (const [key, value] of Object.entries(data)) {
-                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]:not([data-e-fragment])`)) 
+                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]:not([data-e-fragment]):not([data-e-replacewith])`)) 
                     || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property]):not([data-e-fragment])`))
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
-                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment])')
-                    let valueTemplates = entryNode.querySelectorAll('template[data-e-value]:not([data-e-fragment])')
+                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector('template[data-e-key]:not([data-e-fragment]:not([data-e-replacewith]))')
+                    let valueTemplates = entryNode.querySelectorAll('template[data-e-value]:not([data-e-fragment]):not([data-e-replacewith])')
                     if (keyTemplate) {
                         keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
                     } 
-                    if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key]):not([data-e-fragment])')
+                    if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll('template:not([data-e-key]):not([data-e-fragment]):not([data-e-replacewith])')
                     if (valueTemplates.length) {
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
-                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]:not([data-e-fragment])`)
-                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]:not([data-e-fragment])`)
+                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]:not([data-e-fragment]):not([data-e-replacewith])`)
+                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]:not([data-e-fragment]):not([data-e-replacewith])`)
                         valueTemplate = valueTemplates[valueTemplates.length-1]
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
