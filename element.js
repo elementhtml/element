@@ -394,8 +394,9 @@ console.log('line 393', fragmentToReplaceWith)
                         if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...fragmentToReplaceWith.content.cloneNode(true).children)
                     }
 console.log('line 396', fragmentsToReplaceWith)
-                    if (fragmentsToReplaceWith.length) template.content.replaceChildren(...fragmentsToReplaceWith)
+                    if (fragmentsToReplaceWith.length) template.content.replaceChildren(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
                 }
+console.log('line 399', template)
                 return template
             }
             for (const [key, value] of Object.entries(data)) {
