@@ -395,8 +395,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return
             }, build = template => {
-                for (const replaceWithTemplate of template.content.querySelectorAll('template[data-e-replacewith]')) {
-                    const replacewiths = replaceWithTemplate.getAttribute('data-e-replacewith') || '', fragmentsToReplaceWith = []
+                for (const replaceWithTemplate of template.content.querySelectorAll('template[data-e-use]')) {
+                    const replacewiths = replaceWithTemplate.getAttribute('data-e-use') || '', fragmentsToReplaceWith = []
                     for (const replacewith of replacewiths.split(' ')) {
                         const fragmentToReplaceWith = this.resolveForElement(rootElement, 'template', {'data-e-fragment': replacewith}, true)
                         if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...Array.from(fragmentToReplaceWith.content.children).map(c => c.cloneNode(true)))
@@ -404,7 +404,7 @@ const ElementHTML = Object.defineProperties({}, {
                     replaceWithTemplate.replaceWith(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
                 }
                 return template
-            }, querySuffix = ':not([data-e-fragment]):not([data-e-replacewith])'
+            }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
             for (const [key, value] of Object.entries(data)) {
                 let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data) 
                     || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
@@ -419,7 +419,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (valueTemplates.length) {
                         let valueTemplate = valueTemplates[valueTemplates.length-1]
                         for (const t of valueTemplates) {
-                            if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-replacewith')) continue
+                            if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-use')) continue
                             const templateDataType = t.getAttribute('data-e-if-type')
                             if ((value?.constructor?.name?.toLowerCase() === templateDataType) 
                                 || ((templateDataType === 'object') && (value instanceof Object))
