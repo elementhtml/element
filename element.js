@@ -357,7 +357,7 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element[flag], data)
         } else if (element.querySelector(':scope > template')) {
             let after = element.querySelector(`:scope > template:last-of-type`)
-            const filterTemplates = (templates, value) => {
+            const filterTemplates = (templates, value, data) => {
                 if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
                     '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
@@ -387,8 +387,10 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                     const ifType = et.getAttribute('data-e-if-type')
-                    if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType) 
+                    if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType.toLowerCase()) 
                         || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue 
+                    const ifParentIs = et.getAttribute('data-e-if-parent-is')
+                    if (ifParentIs && !((data?.constructor?.name?.toLowerCase() === ifParentIs.toLowerCase()))) continue 
                     return et
                 }
                 return
@@ -404,11 +406,11 @@ const ElementHTML = Object.defineProperties({}, {
                 return template
             }, querySuffix = ':not([data-e-fragment]):not([data-e-replacewith])'
             for (const [key, value] of Object.entries(data)) {
-                let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`)) 
-                    || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`))
+                let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data) 
+                    || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'), 
-                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`))
+                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
                     if (keyTemplate) {
                         keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
@@ -445,7 +447,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            //for (const template of element.querySelectorAll('template')) template.remove()
+            for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
