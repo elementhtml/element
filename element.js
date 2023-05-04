@@ -404,18 +404,25 @@ const ElementHTML = Object.defineProperties({}, {
                     if (keyTemplate) {
                         keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
                     } 
-console.log('line 407', value, valueTemplates.length)
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
-console.log('line 409', value, valueTemplates.length)
                     if (valueTemplates.length) {
-
-                        const valueTempatesFragment = new DocumentFragment()
-                        valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
-                        let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]${querySuffix}`)
-                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
-                        valueTemplate ||= valueTemplates[valueTemplates.length-1]
-
-                        
+                        let valueTemplate = valueTemplates[valueTemplates.length-1]
+                        for (const t of valueTemplates) {
+                            if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-replacewith')) continue
+                            const templateDataType = t.getAttribute('data-e-type')
+                            if (value?.constructor?.name?.toLowerCase() === templateDataType) {
+                                valueTemplate = t
+                                break
+                            }
+                            if ((templateDataType === 'object') && (value instanceof Object)) {
+                                valueTemplate = t
+                                break
+                            }
+                            if ((templateDataType === 'scalar') && !(value instanceof Object)) {
+                                valueTemplate = t
+                                break
+                            }
+                        }
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
@@ -438,7 +445,7 @@ console.log('line 409', value, valueTemplates.length)
                     }
                 }
             }
-            //for (const template of element.querySelectorAll('template')) template.remove()
+            for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
