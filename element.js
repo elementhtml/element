@@ -404,13 +404,18 @@ const ElementHTML = Object.defineProperties({}, {
                     if (keyTemplate) {
                         keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
                     } 
+console.log('line 407', value, valueTemplates.length)
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
+console.log('line 409', value, valueTemplates.length)
                     if (valueTemplates.length) {
+
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
                         let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]${querySuffix}`)
                         valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
                         valueTemplate ||= valueTemplates[valueTemplates.length-1]
+
+                        
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
@@ -420,9 +425,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
-console.log('line 423', value, valueNode.children[0])
                         this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
-console.log('line 425', value, valueNode.children[0])
                         valueTemplate.replaceWith(...valueNode.children)
                     }
                     if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
@@ -435,7 +438,7 @@ console.log('line 425', value, valueNode.children[0])
                     }
                 }
             }
-            for (const template of element.querySelectorAll('template')) template.remove()
+            //for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
