@@ -357,16 +357,17 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element[flag], data)
         } else if (element.querySelector('template')) {
             let after = element.querySelector(`template:last-of-type`)
-            const filterEntryTemplates = entryTemplates => {
-                if (!entryTemplates.length) return
+            const filterTemplates = templates => {
+                if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
                     '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
                     '*': (c,v) => `${v}`.includes(c), '-': (c,v) => !`${v}`.includes(c), 
                     '+': (c,v) => `${v}`.split(' ').includes(c), '_': (c,v) => !`${v}`.split(' ').includes(c), 
                     '/': (c,v) => (new RegExp(...this.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
-                for (const et of entryTemplates) {
+                for (const et of templates) {
                     const ifLayer = et.getAttribute('data-e-if-layer')
                     if (ifLayer) {
+//console.log('line 370', templates)
                         const separator = ifLayer.includes('||') ? '||' : '&&', results = []
                         for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1), layer))
                         if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue 
@@ -395,11 +396,11 @@ const ElementHTML = Object.defineProperties({}, {
                 return template
             }, querySuffix = ':not([data-e-fragment]):not([data-e-replacewith])'
             for (const [key, value] of Object.entries(data)) {
-                let entryTemplate = filterEntryTemplates(element.querySelectorAll(`template[data-e-property="${key}"]${querySuffix}`)) 
-                    || filterEntryTemplates(element.querySelectorAll(`template:not([data-e-property])${querySuffix}`))
+                let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`)) 
+                    || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`))
                 if (entryTemplate) {
-                    const recursiveTemplates = element.querySelectorAll('template[data-e-recurse-into]'), 
-                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = entryNode.querySelector(`template[data-e-key]${querySuffix}`)
+                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-recurse-into]'), 
+                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`))
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
                     if (keyTemplate) {
                         keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
@@ -445,7 +446,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            for (const template of element.querySelectorAll('template')) template.remove()
+            //for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
