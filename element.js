@@ -389,8 +389,8 @@ const ElementHTML = Object.defineProperties({}, {
                     const ifType = et.getAttribute('data-e-if-type')
                     if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType.toLowerCase()) 
                         || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue 
-                    const ifParentIs = et.getAttribute('data-e-if-parent-is')
-                    if (ifParentIs && !((data?.constructor?.name?.toLowerCase() === ifParentIs.toLowerCase()))) continue 
+                    const ifParent = et.getAttribute('data-e-if-parent')
+                    if (ifParent && !((data?.constructor?.name?.toLowerCase() === ifParent.toLowerCase()))) continue 
                     return et
                 }
                 return
