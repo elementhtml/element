@@ -395,13 +395,19 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return
             }, build = template => {
-                for (const replaceWithTemplate of template.content.querySelectorAll('template[data-e-use]')) {
-                    const replacewiths = replaceWithTemplate.getAttribute('data-e-use') || '', fragmentsToReplaceWith = []
-                    for (const replacewith of replacewiths.split(' ')) {
-                        const fragmentToReplaceWith = this.resolveForElement(rootElement, 'template', {'data-e-fragment': replacewith}, true)
-                        if (fragmentToReplaceWith) fragmentsToReplaceWith.push(...Array.from(fragmentToReplaceWith.content.children).map(c => c.cloneNode(true)))
+                for (const useTemplate of template.content.querySelectorAll('template[data-e-use]')) {
+                    const fragmentsToUse = []
+                    for (const use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
+                        if (use.startsWith('`') && use.endsWith('`')) {
+                            const htmlFragment = document.createElement('template')
+                            htmlFragment.innerHTML = use.slice(1, -1)
+                            fragmentsToUse.push(...Array.from(htmlFragment.content.children).map(c => c.cloneNode(true)))
+                        } else {
+                            const fragmentToUse = this.resolveForElement(rootElement, 'template', {'data-e-fragment': use}, true)
+                            if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)))
+                        }
                     }
-                    replaceWithTemplate.replaceWith(...fragmentsToReplaceWith.map(n => n.cloneNode(true)))
+                    useTemplate.replaceWith(...fragmentsToUse.map(n => n.cloneNode(true)))
                 }
                 return template
             }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
