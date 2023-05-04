@@ -416,18 +416,9 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const t of valueTemplates) {
                             if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-replacewith')) continue
                             const templateDataType = t.getAttribute('data-e-type')
-                            if (value?.constructor?.name?.toLowerCase() === templateDataType) {
-                                valueTemplate = t
-                                break
-                            }
-                            if ((templateDataType === 'object') && (value instanceof Object)) {
-                                valueTemplate = t
-                                break
-                            }
-                            if ((templateDataType === 'scalar') && !(value instanceof Object)) {
-                                valueTemplate = t
-                                break
-                            }
+                            if ((value?.constructor?.name?.toLowerCase() === templateDataType) 
+                                || ((templateDataType === 'object') && (value instanceof Object))
+                                || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
                         }
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
