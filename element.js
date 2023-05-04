@@ -409,19 +409,18 @@ const ElementHTML = Object.defineProperties({}, {
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
                         let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]${querySuffix}`)
-                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
+                        //valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
                         valueTemplate ||= valueTemplates[valueTemplates.length-1]
-console.log('line 414', value, valueTemplate)
                         const valueNode = build(valueTemplate).content.cloneNode(true)
-console.log('line 416', value, valueNode)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
                             for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-recurse-into'))) {
                                 scopedTarget.prepend(recursiveTemplate.cloneNode(true))
                                 placed = true
                             }
-                            if (!placed) valueNode.prepend(recursiveTemplate.cloneNode(true))
+                            if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
+//console.log('line 423', value, valueNode.children[0])
                         this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
