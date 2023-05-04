@@ -16,7 +16,11 @@ const ElementHTML = Object.defineProperties({}, {
             ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
             ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
         }},
-        options: {enumerable: true, value: {}}
+        options: {enumerable: true, value: Object.defineProperties({}, {
+            security: {enumerable: true, value: {
+                allowTemplateUseScripts: false, allowTemplateUseCustom: []
+            }}
+        })}
     })},
     ids: {enumerable: true, value: {}},
     tags: {enumerable: true, value: {}},
@@ -30,7 +34,7 @@ const ElementHTML = Object.defineProperties({}, {
     load: {enumerable: true, value: async function(rootElement=undefined) {
         if (!rootElement && this.env.globalLoadCalled) return
         rootElement || (Object.defineProperty(this.env, 'globalLoadCalled', {configurable: false, enumerable: true, writable: false, value: true})
-            && this._enscapulateNative())
+            && Object.freeze(this.env.options.security) && this._enscapulateNative())
         rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
         if (rootElement && !rootElement.shadowRoot) return
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
@@ -403,7 +407,8 @@ const ElementHTML = Object.defineProperties({}, {
                             typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
                             for (const element of htmlFragment.querySelectorAll('*')) {
                                 const tag = element.tagName.toLowerCase()
-                                if ((tag === 'script') || (tag.includes('-')) || (element.getAttribute('is') && !elementIs.startsWith('e-'))) element.remove()
+                                if (tag==='script' && !this.env.options.security.allowTemplateUseScripts) element.remove()
+                                if (tag.includes('-') && !tag.startsWith('e-') && !this.env.options.security.allowTemplateUseCustom.includes(tag)) element.remove()
                             }
                             console.log('line 404', htmlFragment.setHTML, htmlFragment.innerHTML)
                             fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
