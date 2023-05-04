@@ -399,9 +399,14 @@ const ElementHTML = Object.defineProperties({}, {
                     const fragmentsToUse = []
                     for (const use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
                         if (use.startsWith('`') && use.endsWith('`')) {
-                            const htmlFragment = document.createElement('template')
-                            htmlFragment.innerHTML = use.slice(1, -1)
-                            fragmentsToUse.push(...Array.from(htmlFragment.content.children).map(c => c.cloneNode(true)))
+                            const htmlFragment = document.createElement('div')
+                            typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
+                            for (const element of htmlFragment.querySelectorAll('*')) {
+                                const tag = element.tagName.toLowerCase()
+                                if ((tag === 'script') || (tag.includes('-')) || (element.getAttribute('is') && !elementIs.startsWith('e-'))) element.remove()
+                            }
+                            console.log('line 404', htmlFragment.setHTML, htmlFragment.innerHTML)
+                            fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                         } else {
                             const fragmentToUse = this.resolveForElement(rootElement, 'template', {'data-e-fragment': use}, true)
                             if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)))
