@@ -367,9 +367,14 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const et of templates) {
                     const ifLayer = et.getAttribute('data-e-if-layer')
                     if (ifLayer) {
-console.log('line 370', templates)
                         const separator = ifLayer.includes('||') ? '||' : '&&', results = []
-                        for (const cond of ifLayer.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1), layer))
+                        for (const cond of ifLayer.split(separator).map(s => s.trim())) {
+                            if (cond[0] in ops) {
+                                results.push(ops[cond[0]](cond.slice(1), layer))
+                            } else {
+                                results.push(ops['='](cond, layer))
+                            }
+                        }
                         if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue 
                     }
                     const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
@@ -446,7 +451,7 @@ console.log('line 370', templates)
                     }
                 }
             }
-            //for (const template of element.querySelectorAll('template')) template.remove()
+            for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
