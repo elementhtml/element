@@ -305,7 +305,7 @@ const ElementHTML = Object.defineProperties({}, {
         for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
         return newData
     }},
-    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=null) {
+    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
         if (!element) return element
         rootElement ||= element
         if (transform) data = this.transformData(data, transform)
