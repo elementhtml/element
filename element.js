@@ -44,9 +44,7 @@ const ElementHTML = Object.defineProperties({}, {
                 })
             }
             Object.defineProperty(this.env, 'modes', {enumerable: true, value: newModes})
-
             this._enscapulateNative()
-
         }
         rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
         if (rootElement && !rootElement.shadowRoot) return
@@ -779,5 +777,5 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
-await ElementHTML.load()
+if ((new URL(import.meta.url)).search.slice(1) !== 'static') await ElementHTML.load()
 export { ElementHTML }
