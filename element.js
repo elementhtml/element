@@ -413,7 +413,7 @@ const ElementHTML = Object.defineProperties({}, {
                         entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
                     if (keyTemplate) {
-                        keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0], key))
+                        keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0] || '', key))
                     } 
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
                     if (valueTemplates.length) {
