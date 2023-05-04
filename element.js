@@ -357,7 +357,7 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element[flag], data)
         } else if (element.querySelector(':scope > template')) {
             let after = element.querySelector(`:scope > template:last-of-type`)
-            const filterTemplates = templates => {
+            const filterTemplates = (templates, value) => {
                 if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
                     '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
@@ -386,7 +386,10 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!((separator == '||') ? results.includes(true) : !result.includes(false))) continue
                         }
                     }
-                    return et 
+                    const ifType = et.getAttribute('data-e-if-type')
+                    if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType) 
+                        || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue 
+                    return et
                 }
                 return
             }, build = template => {
@@ -404,7 +407,7 @@ const ElementHTML = Object.defineProperties({}, {
                 let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`)) 
                     || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`))
                 if (entryTemplate) {
-                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-recurse-into]'), 
+                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'), 
                         entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`))
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
                     if (keyTemplate) {
@@ -415,7 +418,7 @@ const ElementHTML = Object.defineProperties({}, {
                         let valueTemplate = valueTemplates[valueTemplates.length-1]
                         for (const t of valueTemplates) {
                             if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-replacewith')) continue
-                            const templateDataType = t.getAttribute('data-e-type')
+                            const templateDataType = t.getAttribute('data-e-if-type')
                             if ((value?.constructor?.name?.toLowerCase() === templateDataType) 
                                 || ((templateDataType === 'object') && (value instanceof Object))
                                 || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
@@ -423,7 +426,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
-                            for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-recurse-into'))) {
+                            for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-place-into'))) {
                                 scopedTarget.prepend(recursiveTemplate.cloneNode(true))
                                 placed = true
                             }
@@ -442,7 +445,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            for (const template of element.querySelectorAll('template')) template.remove()
+            //for (const template of element.querySelectorAll('template')) template.remove()
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {
