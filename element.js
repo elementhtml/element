@@ -30,9 +30,24 @@ const ElementHTML = Object.defineProperties({}, {
     classes: {enumerable: true, value: {}},
     constructors: {enumerable: true, value: {}},
     load: {enumerable: true, value: async function(rootElement=undefined) {
-        if (!rootElement && this.env.globalLoadCalled) return
-        rootElement || (Object.defineProperty(this.env, 'globalLoadCalled', {configurable: false, enumerable: true, writable: false, value: true})
-            && Object.freeze(this.env.options.security) && this._enscapulateNative())
+        if (!rootElement) {
+            if (this.env.globalLoadCalled) return
+            Object.defineProperty(this.env, 'globalLoadCalled', {enumerable: true, value: true})
+            Object.defineProperty(ElementHTML.env, 'ElementHTML', {enumerable: true, value: ElementHTML})
+            Object.freeze(this.env.options.security)
+            const newModes = {}
+            for (const mode in this.env.modes) {
+                const [d, s] = this.env.modes[mode].split('.')
+                Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
+                        default: {enumerable: true, value: d}, suffix: {enumerable: true, value: s}
+                    })
+                })
+            }
+            Object.defineProperty(this.env, 'modes', {enumerable: true, value: newModes})
+
+            this._enscapulateNative()
+
+        }
         rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
         if (rootElement && !rootElement.shadowRoot) return
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
@@ -764,15 +779,5 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
-Object.defineProperty(ElementHTML.env, 'ElementHTML', {enumerable: true, value: ElementHTML})
-const newModes = {}
-for (const mode in ElementHTML.env.modes) {
-    const [d, s] = ElementHTML.env.modes[mode].split('.')
-    Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
-            default: {enumerable: true, value: d}, suffix: {enumerable: true, value: s}
-        })
-    })
-}
-Object.defineProperty(ElementHTML.env, 'modes', {enumerable: true, value: newModes})
 await ElementHTML.load()
 export { ElementHTML }
