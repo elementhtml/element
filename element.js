@@ -355,8 +355,8 @@ const ElementHTML = Object.defineProperties({}, {
           } else { element[flag](data) }
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
-        } else if (element.querySelector('template')) {
-            let after = element.querySelector(`template:last-of-type`)
+        } else if (element.querySelector(':scope > template')) {
+            let after = element.querySelector(`:scope > template:last-of-type`)
             const filterTemplates = templates => {
                 if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
