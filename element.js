@@ -409,7 +409,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const valueTempatesFragment = new DocumentFragment()
                         valueTempatesFragment.replaceChildren(...Array.from(valueTemplates).map(t => t.cloneNode(true)))
                         let valueTemplate = valueTempatesFragment.querySelector(`template[data-e-type="${value?.constructor?.name?.toLowerCase()}"]${querySuffix}`)
-                        //valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
+                        valueTemplate ||= valueTempatesFragment.querySelector(`template[data-e-type="${(value instanceof Object)?'object':'scalar'}"]${querySuffix}`)
                         valueTemplate ||= valueTemplates[valueTemplates.length-1]
                         const valueNode = build(valueTemplate).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
@@ -420,8 +420,9 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
-//console.log('line 423', value, valueNode.children[0])
+console.log('line 423', value, valueNode.children[0])
                         this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
+console.log('line 425', value, valueNode.children[0])
                         valueTemplate.replaceWith(...valueNode.children)
                     }
                     if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer+1, element)
