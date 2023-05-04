@@ -17,9 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
             ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
         }},
         options: {enumerable: true, value: Object.defineProperties({}, {
-            security: {enumerable: true, value: {
-                allowTemplateUseScripts: false, allowTemplateUseCustom: []
-            }}
+            security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}
         })}
     })},
     ids: {enumerable: true, value: {}},
@@ -410,7 +408,6 @@ const ElementHTML = Object.defineProperties({}, {
                                 if (tag==='script' && !this.env.options.security.allowTemplateUseScripts) element.remove()
                                 if (tag.includes('-') && !tag.startsWith('e-') && !this.env.options.security.allowTemplateUseCustom.includes(tag)) element.remove()
                             }
-                            console.log('line 404', htmlFragment.setHTML, htmlFragment.innerHTML)
                             fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                         } else {
                             const fragmentToUse = this.resolveForElement(rootElement, 'template', {'data-e-fragment': use}, true)
