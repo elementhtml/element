@@ -119,21 +119,18 @@ const ElementHTML = Object.defineProperties({}, {
         } else {
             for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.id === name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
                     if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
-                        metaElement = m
-                        break
+                        metaElement = m; break
                     }
                 } else {
-                    metaElement = m
-                    break
+                    metaElement = m; break
                 }
             return metaElement
         }
     }},
     resolveProcessor: {enumerable: true, value: function(element, name) {
         if (!name || !element) return
-        let processor = this.resolveMeta(element, 'e-processor', name)
-            || this.resolveMeta(element, 'e-proce', undefined, name, true) || this.resolveMeta(element, 'e-proce', undefined, name, false)
-        return processor
+        return this.resolveMeta(element, 'e-processor', name)
+            || this.resolveMeta(element, 'e-processor', undefined, name, true) || this.resolveMeta(element, 'e-processor', undefined, name, false)
     }},
     resolveRouter: {enumerable: true, value: function(element, name) {
         if (!name || !element) return
@@ -221,10 +218,7 @@ const ElementHTML = Object.defineProperties({}, {
         for (const fieldFrag of fieldFrags) {
             let [fieldFragName, fieldFragVector] = fieldFrag.split(':', 2).map(s => s.trim()), thisData = data
             fieldFragVector ?? ([fieldFragVector, fieldFragName] = [fieldFragName, fieldFragVector])
-            if (fieldFragVector === '.') {
-                resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
-                continue
-            }
+            if (fieldFragVector === '.') { resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData); continue }
             for (const vector of fieldFragVector.split('.').map(s => s.trim())) {
                 thisData = thisData[vector]
                 if (!(thisData instanceof Object)) break
@@ -385,26 +379,22 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const cond of ifLayer.split(separator).map(s => s.trim())) {
                             if (cond[0] in ops) {
                                 results.push(ops[cond[0]](cond.slice(1), layer))
-                            } else {
-                                results.push(ops['='](cond, layer))
-                            }
+                            } else { results.push(ops['='](cond, layer)) }
                         }
-                        if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue 
+                        if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue
                     }
                     const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
-                    if (ifContext.length) {
-                        for (const [ck, cond] of ifContext) {
-                            if (typeof context[ck] === 'function') if (!context[ck](cond, ck, layer, context, el.cloneNode(true))) continue 
+                    if (ifContext.length) for (const [ck, cond] of ifContext) {
+                            if (typeof context[ck] === 'function') if (!context[ck](cond, ck, layer, context, el.cloneNode(true))) continue
                             const separator = ifContext.includes('||') ? '||' : '&&', results = []
                             for (const cond of ifContext.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1), context[ck]))
                             if (!((separator == '||') ? results.includes(true) : !result.includes(false))) continue
                         }
-                    }
                     const ifType = et.getAttribute('data-e-if-type')
-                    if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType.toLowerCase()) 
-                        || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue 
+                    if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType.toLowerCase())
+                        || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue
                     const ifParent = et.getAttribute('data-e-if-parent')
-                    if (ifParent && !((data?.constructor?.name?.toLowerCase() === ifParent.toLowerCase()))) continue 
+                    if (ifParent && !((data?.constructor?.name?.toLowerCase() === ifParent.toLowerCase()))) continue
                     return et
                 }
                 return
@@ -431,23 +421,20 @@ const ElementHTML = Object.defineProperties({}, {
                 return template
             }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
             for (const [key, value] of Object.entries(data)) {
-                let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data) 
+                let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
                     || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
                 if (entryTemplate) {
-                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'), 
+                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
                         entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
-                    if (keyTemplate) {
-                        keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0] || '', key))
-                    } 
+                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0] || '', key))
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
                     if (valueTemplates.length) {
                         let valueTemplate = valueTemplates[valueTemplates.length-1]
                         for (const t of valueTemplates) {
                             if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-use')) continue
                             const templateDataType = t.getAttribute('data-e-if-type')
-                            if ((value?.constructor?.name?.toLowerCase() === templateDataType) 
-                                || ((templateDataType === 'object') && (value instanceof Object))
+                            if ((value?.constructor?.name?.toLowerCase() === templateDataType) || ((templateDataType === 'object') && (value instanceof Object))
                                 || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
                         }
                         const valueNode = build(valueTemplate).content.cloneNode(true)
@@ -497,8 +484,7 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (['table', 'tbody'].includes(tag)) {
           let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
           if (!tbody) element.append(tbody = document.createElement('tbody'))
-          let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r)))
-            || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
+          let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r))) || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
           if (rowsData) {
             if (tag === 'table') {
               const headers = rowsData.shift()
@@ -515,7 +501,7 @@ const ElementHTML = Object.defineProperties({}, {
               for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
               tbody.append(tr)
             }
-          }  
+          }
         } else {
             if (element.eDataset instanceof Object) {
                 Object.assign(element.eDataset, data)
@@ -549,19 +535,15 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     _observer: {writable: true, value: undefined},
     _enscapulateNative: {value: function() {
-        const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em',
-            'figcaption', 'figure', 'footer', 'header', 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby',
-            's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
+        const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
+            'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
         for (const tag of HTMLElements) this.ids[tag] = 'HTMLElement'
-        Object.assign(this.ids, {
-            a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement',
-            col: 'HTMLTableColElement', colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement',
-            fieldset: 'HTMLFieldSetElement', h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement', h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement',
-            h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement', iframe: 'HTMLIFrameElement', img: 'HTMLImageElement',
-            ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement', p: 'HTMLParagraphElement', q: 'HTMLQuoteElement',
-            tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement', tfoot: 'HTMLTableSectionElement',
-            th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
-        })
+        Object.assign(this.ids, {a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement', col: 'HTMLTableColElement',
+            colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement', fieldset: 'HTMLFieldSetElement',
+            h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement',  h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement', h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement',
+            iframe: 'HTMLIFrameElement', img: 'HTMLImageElement', ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement',
+            p: 'HTMLParagraphElement', q: 'HTMLQuoteElement', tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement',
+            tfoot: 'HTMLTableSectionElement', th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement' })
         for (const [tag, id] in Object.entries(this.ids)) {
             if (tag.includes('-')) continue
             if (!this.tags[id]) { this.tags[id] = tag; continue }
@@ -575,7 +557,7 @@ const ElementHTML = Object.defineProperties({}, {
         for (const id in this.ids) {
             this.classes[id] = globalThis[this.ids[id]]
             this.constructors[id] = this._base(this.classes[id])
-        } 
+        }
     }},
     _dispatchPropertyEvent: {value: function(element, eventNamePrefix, property, eventDetail) {
         eventDetail = {detail: {property: property, ...eventDetail}}
@@ -614,15 +596,9 @@ const ElementHTML = Object.defineProperties({}, {
                             if (propElement.closest('[itemscope]')) continue
                             for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
                             if (operation === 'has') return true
-                            if (operation === 'set') {
-                                elementList.push(propElement)
-                                continue
-                            }
+                            if (operation === 'set') { elementList.push(propElement); continue }
                             const propValue = ElementHTML.getValue(propElement)
-                            if (value === undefined) {
-                                value = propValue
-                                continue
-                            }
+                            if (value === undefined) { value = propValue; continue }
                             if (!Array.isArray(value)) value = [value]
                             value.push(propValue)
                         }
@@ -678,25 +654,22 @@ const ElementHTML = Object.defineProperties({}, {
                                 [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, cleanProperty, value)
                                 value = sanitizedValue;
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
-                                return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
+                                return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue,
                                     validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails}
                             default:
                                 [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, property, value)
                                 if (sanitizedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'sanitized', property, {
-                                            property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails
-                                        })
+                                            property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails})
                                 value = sanitizedValue;
                                 if (oldValue === value) return value
                                 if (!(value instanceof Object)) target[property] = value
                                 $this.eRender('set', property, value);
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
                                 if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
-                                            property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails
-                                        })
+                                            property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails})
                                 ElementHTML._dispatchPropertyEvent($this, 'change', property, {
-                                    property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue, 
-                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails
-                                })
+                                    property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue,
+                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails})
                                 return value
                             }
                         },
@@ -717,11 +690,9 @@ const ElementHTML = Object.defineProperties({}, {
                                 $this.eRender('deleteProperty', property);
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
                                 if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
-                                            property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails
-                                        })
+                                            property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails})
                                 ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, {
-                                    property: property, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails
-                                })
+                                    property: property, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails})
                                 return retval
                             }
                         }
@@ -735,7 +706,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const templateNode = document.createElement('template')
                     templateNode.innerHTML = ElementHTML.stackTemplates(this.constructor.id)
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    Object.defineProperty($this, 'eMeta', {enumerable: true, 
+                    Object.defineProperty($this, 'eMeta', {enumerable: true,
                         get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
                     })
                      window.requestAnimationFrame(() => {
@@ -744,13 +715,9 @@ const ElementHTML = Object.defineProperties({}, {
                      })
                 } catch(e) {}
             }
-            static get observedAttributes() { 
-                return ['valueproxy'] 
-            }
+            static get observedAttributes() { return ['valueproxy'] }
             static e = ElementHTML
-            async connectedCallback() {
-                for (const property in this.dataset) this.eRender('set', property, this.dataset[property])
-            }
+            async connectedCallback() { for (const property in this.dataset) this.eRender('set', property, this.dataset[property]) }
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
