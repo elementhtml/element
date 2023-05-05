@@ -31,7 +31,10 @@
                         }
                     }
                     node.replaceWith(...replaceWithElements)
-                    if (typeof this.e.processors[postProcessor] === 'function') this.e.processors[postProcessor](replaceWithElements)                    
+                    if (postProcessor) {
+                        const postProcessFunction = this.e.resolveProcessor(this, postProcessor)
+                        if (typeof postProcessFunction === 'function') postProcessFunction(replaceWithElements)
+                    }
                 }}
             })
     	}
