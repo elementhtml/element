@@ -1,14 +1,11 @@
 const ElementHTML = Object.defineProperties({}, {
     version: {enumerable: true, value: '0.8.0'},
     env: {enumerable: true, value: Object.defineProperties({}, {
-        auth: {enumerable: true, value: {}},
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
-        globalThis: {enumerable: true, value: globalThis},
         modes: {configurable: true, enumerable: true, writable: true, value: {
-            element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html',
-            theme: 'default.css', data: 'main.json', media: 'image.webp', processor: 'module.js',
-            schema: 'Thing', context: 'root.json'
+            element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html', theme: 'default.css',
+            data: 'main.json', media: 'image.webp', processor: 'module.js', schema: 'Thing', context: 'root.json'
         }},
         routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
         proxies: {enumerable: true, value: {}},
@@ -33,8 +30,10 @@ const ElementHTML = Object.defineProperties({}, {
         if (!rootElement) {
             if (this.env.globalLoadCalled) return
             Object.defineProperty(this.env, 'globalLoadCalled', {enumerable: true, value: true})
-            Object.defineProperty(ElementHTML.env, 'ElementHTML', {enumerable: true, value: ElementHTML})
+            Object.defineProperty(this.env, 'ElementHTML', {enumerable: true, value: this})
             Object.freeze(this.env.options.security)
+            Object.freeze(this.env.proxies)
+            Object.freeze(this.env.gateways)
             const newModes = {}
             for (const mode in this.env.modes) {
                 const [d, s] = this.env.modes[mode].split('.')
@@ -110,7 +109,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
             return resolved
         }
-    }}, 
+    }},
     resolveMeta: {enumerable: true, value: function(element, is,  name, namespace, exact=false) {
         let metaElement
         const rootNode = element.shadowRoot || element.getRootNode()
