@@ -25,9 +25,21 @@
     	constructor() {
     		super()
             for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
-                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor =  typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor
+                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor =  typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir, default, suffix
+                if (attrMode) {
+                    let [ dirCheck, fileName ] = attrMode.split('/', 2)
+                    dir = dirCheck ? dirCheck : mode
+                    if (fileName) {
 
-                const [dir=mode, default=this.constructor._modes[mode].default, suffix=this.constructor._modes[mode].suffix] = this.getAttribute(mode) ? [this.getAttribute(mode).split('/')] : []
+                    } else {
+                        { default, suffix } = this.constructor._modes[mode]
+                    }
+                } else { 
+                    dir = mode
+                    { default, suffix } = this.constructor._modes[mode]
+                }
+
+                const [dir=mode, default=this.constructor._modes[mode].default, suffix=this.constructor._modes[mode].suffix] = attrMode ? [attrMode.split('/')] : []
 
                 const f = processor.bind(this.e, this, mode)
                 f.toString = processor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
