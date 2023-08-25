@@ -10,12 +10,12 @@
         #fetchOptions = {}
 
         _defaultProcessor = function(router, mode, flag=undefined, get=false) {
-            const url = new URL(`${router.baseURI}${mode}/${flag}${router._modes[mode]?.suffix?'.'+router._modes[mode].suffix:''}`, this.baseURI).href
-            return get ? fetch(this.e.getURL(url), Object.assign({priority: this.#priority, cache: this.#cache}, this.#fetchOptions)) : url
+            const url = new URL(`./${router.name}/${mode}/${flag}${router.constructor._modes[mode]?.suffix?'.'+router.constructor._modes[mode].suffix:''}`, router.baseURI).href
+            return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
         static {
-            Object.defineProperty(this, '_modes', {value: this.e.env.modes})            
+            Object.defineProperty(this, '_modes', {value: this.e.env.modes})         
         }
 
     	constructor() {

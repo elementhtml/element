@@ -26,6 +26,7 @@
             set: (value) => this._setter(mode, value),
             get: () => {
                 const f = this.constructor._defaultProcessor.bind(this, mode)
+                console.log(this.#repo)
                 f.toString = this.constructor._defaultProcessor.bind(this, mode, this.#repo[mode].default, false)
                 return f
             }})

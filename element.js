@@ -153,6 +153,9 @@ const ElementHTML = Object.defineProperties({}, {
         if (this.ids[tag]) return this.ids[tag]
         const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
         let tagRouter = this.resolveRouter(element, tagRouterName)
+        
+        if (tagRouter) window.router = tagRouter
+
         return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
             tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
     }},

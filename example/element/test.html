@@ -1,0 +1,18 @@
+<style>
+    
+</style>
+<template>
+    Test
+    <slot></slot>
+</template>
+<script>
+    class extends `HTMLElement` {
+
+    	constructor() {
+    		super()
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+    }
+</script>
