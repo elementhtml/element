@@ -26,8 +26,7 @@ const ElementHTML = Object.defineProperties({}, {
         getCustomTag: {enumerable: true, value: function(element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                     || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-        }},
-
+        }}
     })},
     ids: {enumerable: true, value: {}},
     tags: {enumerable: true, value: {}},
@@ -47,10 +46,9 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(this.env.proxies)
             Object.freeze(this.env.gateways)
             const newModes = {}
-            for (const mode in this.env.modes) {
-                const [d, s] = this.env.modes[mode].split('.')
+            for (const [mode, suffix] of Object.entries(this.env.modes)) {
                 Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
-                        default: {enumerable: true, value: d}, suffix: {enumerable: true, value: s}
+                        default: {enumerable: true, value: mode}, suffix: {enumerable: true, value: suffix}
                     })
                 })
             }
@@ -83,6 +81,9 @@ const ElementHTML = Object.defineProperties({}, {
         })
         observerRoot._observer.observe(domRoot, {subtree: true, childList: true})
         if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
+    }},
+    expose: {enumerable: true, value: function(globalName='ElementHTML') {
+        if (globalName && !window[globalName]) window[globalName] = this
     }},
     getURL: {enumerable: true, value: function(value) {
         if (value.startsWith('https://') || !value.includes('://')) return value
@@ -720,8 +721,5 @@ const ElementHTML = Object.defineProperties({}, {
     }}
 })
 let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
-if (metaSearch) {
-    let flags = metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]])
-    for (const [func, args=[]] of flags) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
-}
+if (metaSearch) for (const [func, args=[]] of (metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]]))) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
 export { ElementHTML }
