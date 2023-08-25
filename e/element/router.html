@@ -3,6 +3,7 @@
 <script>
     class extends `meta` {
 
+        #base
         #name
         #processor
         #priority = 'auto'
@@ -10,12 +11,12 @@
         #fetchOptions = {}
 
         _defaultProcessor = function(router, mode, flag=undefined, get=false) {
-            const url = new URL(`./${router.name}/${mode}/${flag}${router.constructor._modes[mode]?.suffix?'.'+router.constructor._modes[mode].suffix:''}`, router.baseURI).href
+            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${mode}/${flag}${router.constructor._modes[mode]?.suffix?'.'+router.constructor._modes[mode].suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
             return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
         static {
-            Object.defineProperty(this, '_modes', {value: this.e.env.modes})         
+            Object.defineProperty(this, '_modes', {value: this.e.env.modes})
         }
 
     	constructor() {
@@ -32,7 +33,10 @@
 
         connectedCallback() {}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'processor', 'priority', 'cache') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'processor', 'priority', 'cache') }
+
+        set base(value) { this.#base = value }
+        get base() { return this.#base }
 
         set name(value) { if (value !== this.#name) this.#name = value }
         get name() { return this.#name }
