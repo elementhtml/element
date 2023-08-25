@@ -6,7 +6,7 @@
         #use
         #mode
         #router
-        #flag
+        #tag
         #field
         #hash
 
@@ -14,13 +14,12 @@
         #observe
         #match
         #as
-        #namespace
 
         #getRouterMode() {
             const routerMode = (document.head.children[this.#router] || {})[this._mode] 
             if (typeof routerMode === 'function') return routerMode
-            const _defaultRouterMode = (flag=undefined, get=false) => {
-                const url = new URL(`./${this._mode}/${flag}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location).href
+            const _defaultRouterMode = (tag=undefined, get=false) => {
+                const url = new URL(`./${this._mode}/${tag}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location).href
                 return get ? fetch(this.e.getURL(url)) : url
             }
             Object.assign(_defaultRouterMode, this.e.env.modes[this._mode])
@@ -33,20 +32,20 @@
             Object.defineProperties(this, {
                 _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}, 
                 _router: {get: () => this.#router}, 
-                _flag: {get: () => this.#flag}, 
+                _tag: {get: () => this.#tag}, 
                 _hash: {get: () => this.#hash}, 
                 _field: {get: () => this.#field}, 
                 _rawResponse: {get: async () => {
                         if (this.#router === '$') {
                             const rootNode = this.getRootNode() 
-                            return (rootNode === document ? this.e.eDataset : rootNode.host.eDataset)[this.#flag]
+                            return (rootNode === document ? this.e.eDataset : rootNode.host.eDataset)[this.#tag]
                         }
                         if (this.#router === '.') {
                             const rootNode = this.getRootNode() 
-                            return (rootNode === document ? this.e.env : rootNode.host)[this.#flag]
+                            return (rootNode === document ? this.e.env : rootNode.host)[this.#tag]
                         }
-                        return (this.e.isURL(this.#use)) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await this.#getRouterMode()(this.#flag||this.#getRouterMode().default, true)
+                        return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
+                                : await this.#getRouterMode()(this.#tag||this.#getRouterMode().default, true)
                             }
                     },
                 _parse: {configurable: true, writable: true, value: async (response) => {
@@ -105,7 +104,7 @@
                     if (this.#router === '$') {
                         const rootNode = this.getRootNode(), listenTo = rootNode.host || this.e.eDataset
                         listenTo.addEventListener('change', async event => {
-                            if (event.detail.property = this.#flag) {
+                            if (event.detail.property = this.#tag) {
                                 const useResponse = await this._applyField(await this._applyHash(event.detail.value)), 
                                 matches = observed.querySelectorAll(this.#match||':scope')
                                 for (const matched of matches) this._as(useResponse, 'add', matched, 
@@ -126,39 +125,39 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as', 'namespace') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as') }
 
         async connectedCallback() {
             await this._activate()
         }
 
-        toString() { return this.#getRouterMode()(this.#flag, false) }
+        toString() { return this.#getRouterMode()(this.#tag, false) }
 
         set use(value) {
             this.#use = value
-            if (!value || this.e.isURL(value)) return
+            if (!value || value.includes('/')) return
             if (typeof value === 'string') {
-                let valueSplit, parseHashField = (valueSplit1, defaultFlag) => {
+                let valueSplit, parseHashField = (valueSplit1, defaulttag) => {
                     if (valueSplit[1].includes('#')) {
-                        let flagField
-                        [flagField, this.#hash] = [...valueSplit[1].split(/#(.+)/).map(s => s.trim())]
-                        let hasDot = flagField.includes('.')
-                        hasDot && ([this.#flag=defaultFlag, this.#field] = flagField.split(/\.(.+)/).map(s => s.trim()))
-                        hasDot || ([this.#flag, this.#field] = [flagField, undefined])
+                        let tagField
+                        [tagField, this.#hash] = [...valueSplit[1].split(/#(.+)/).map(s => s.trim())]
+                        let hasDot = tagField.includes('.')
+                        hasDot && ([this.#tag=defaulttag, this.#field] = tagField.split(/\.(.+)/).map(s => s.trim()))
+                        hasDot || ([this.#tag, this.#field] = [tagField, undefined])
                     } else if (valueSplit[1].includes('.')) {
                         let fieldHash
-                        [this.#flag=defaultFlag, fieldHash] = [...valueSplit[1].split(/\.(.+)/).map(s => s.trim())]
+                        [this.#tag=defaulttag, fieldHash] = [...valueSplit[1].split(/\.(.+)/).map(s => s.trim())]
                         let hasHash = fieldHash.includes('#')
                         hasHash && ([this.#field, this.#hash] = fieldHash.split(/#(.+)/).map(s => s.trim()))
                         hasHash || ([this.#field, this.#hash] = [fieldHash, undefined])
                     } else {
-                        [this.#flag, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
+                        [this.#tag, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
                     }
                 }
                 if (value.startsWith('$')) {
                     valueSplit = this.e.splitOnce(value, '.').map(s => s.trim())
                     this.#router = '$'
-                    this.#flag = valueSplit[0].slice(1) || 'eDataset'
+                    this.#tag = valueSplit[0].slice(1) || 'eDataset'
                     if (valueSplit.length > 1) {
                         parseHashField(valueSplit[1], 'eDataset')
                     } else {
@@ -169,7 +168,7 @@
                 } else if (value.startsWith('.')) {
                     this.#router = '.'
                     valueSplit = this.e.splitOnce(value.slice(1), '.').map(s => s.trim())
-                    this.#flag = valueSplit[0] || 'dataset'
+                    this.#tag = valueSplit[0] || 'dataset'
                     if (valueSplit.length > 1) {
                         parseHashField(valueSplit[1], 'dataset')
                     } else {
@@ -181,7 +180,7 @@
                     valueSplit = this.e.splitOnce(value, '-').map(s => s.trim())
                     if (valueSplit.length === 1) {
                         this.#router = 'e'
-                        this.#flag = valueSplit[0] || this.#getRouterMode().default
+                        this.#tag = valueSplit[0] || this.#getRouterMode().default
                         this.#hash = undefined
                         this.#field = undefined
                     } else {
@@ -191,12 +190,12 @@
                 }
             } else if (value instanceof Object) {
                 value.router && (this.#router = value.router)
-                value.flag && (this.#flag = value.flag)
+                value.tag && (this.#tag = value.tag)
                 value.field && (this.#field = value.field)
                 value.hash && (this.#hash = value.hash)
             }
         }
-        get use() { return `${this.#router||'e'}-${this.#flag||this.#getRouterMode().default}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+        get use() { return `${this.#router||'e'}-${this.#tag||this.#getRouterMode().default}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
@@ -209,9 +208,6 @@
 
         set as(value) { this.#as = value }
         get as() { return this.#as }
-
-        set namespace(value) { this.#namespace = value }
-        get namespace() { return this.#namespace }
 
     }
 </script>

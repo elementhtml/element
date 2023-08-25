@@ -9,12 +9,11 @@
         <meta name="twitter:card" content="summary_large_image">
         <title>ElementHTML 1.0.0 Test Page</title>
         <meta name="twitter:title" content="ElementHTML 1.0.0 Test Page">
-        <meta name="description" content="b37.me">
-        <meta name="twitter:description" content="b37.me">
+        <meta name="description" content="">
+        <meta name="twitter:description" content="">
         <link rel="shortcut icon" type="image/*" href="./media/icon.png">
         <meta name="twitter:image" content="./media/icon.png">
         <meta property="og:image" content="./media/icon.png">
-        <link rel="stylesheet" href="./css/index.css">
         <script type="module" src="./element.js?load;expose(E)"></script>
         <style>
             body {
@@ -29,8 +28,11 @@
   </head>
   <body>
     <noscript>ElementHTML requires javascript enabled</noscript>
+    <meta is="e-layout" use="example-testlayout" scope="body" match=".container">
   
     <example-test>More Details</example-test>
+
+    <div class="container"></div>
     
   </body>
 </html>

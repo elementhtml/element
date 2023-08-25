@@ -201,7 +201,7 @@ const ElementHTML = Object.defineProperties({}, {
         if (!useScope && scope && scope.startsWith('closest(') && scope.endWith(')')) useScope = element.closest(scope.slice(8, -1))
         useScope ||= element.parentElement
         useScope ||= element.getRootNode()
-        return useScope.querySelector(observe) || useScope
+        return observe ? (useScope.querySelector(observe) || useScope) : useScope
     }},
     createObserver: {enumerable: true, value: function(element, observed, takeRecordsCallback, observerCallback) {
         if (element._observer) takeRecordsCallback(element._observer.takeRecords())
