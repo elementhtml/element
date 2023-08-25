@@ -48,7 +48,7 @@ const ElementHTML = Object.defineProperties({}, {
             const newModes = {}
             for (const [mode, suffix] of Object.entries(this.env.modes)) {
                 Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
-                        default: {enumerable: true, value: mode}, suffix: {enumerable: true, value: suffix}
+                        pointer: {enumerable: true, value: mode}, suffix: {enumerable: true, value: suffix}
                     })
                 })
             }
