@@ -15,18 +15,6 @@
         #match
         #as
 
-        #getRouterMode() {
-            const routerMode = (document.head.children[this.#router] || {})[this._mode] 
-            if (typeof routerMode === 'function') return routerMode
-            const _defaultRouterMode = (pointer=undefined, get=false) => {
-                const url = new URL(`./${this._mode}/${pointer}${this.e.env.modes[this._mode]?.suffix?'.'+this.e.env.modes[this._mode].suffix:''}`, document.location).href
-                return get ? fetch(this.e.getURL(url)) : url
-            }
-            Object.assign(_defaultRouterMode, this.e.env.modes[this._mode])
-            _defaultRouterMode.toString = _defaultRouterMode.bind(this.e.env.modes[this._mode].pointer, false)
-            return _defaultRouterMode
-        }
-
     	constructor() {
     		super()
             Object.defineProperties(this, {
@@ -45,7 +33,7 @@
                             return (rootNode === document ? this.e.env : rootNode.host)[this.#pointer]
                         }
                         return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await this.#getRouterMode()(this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer, true)
+                                : await document.head.children[this.#router][this._mode](this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer, true)
                             }
                     },
                 _parse: {configurable: true, writable: true, value: async (response) => {
@@ -131,7 +119,7 @@
             await this._activate()
         }
 
-        toString() { return this.#getRouterMode()(this.#pointer, false) }
+        toString() { return document.head.children[this.#router][this._mode](this.#pointer, false) }
 
         set use(value) {
             this.#use = value
