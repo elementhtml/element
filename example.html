@@ -1,42 +1,35 @@
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Element 1.0.0 test page</title>
-    <style>
-        body {
-            background-color: darkslategray;
-            color: whitesmoke;
-        }
-    </style>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <meta name="twitter:card" content="summary_large_image">
+        <title>ElementHTML 1.0.0 Test Page</title>
+        <meta name="twitter:title" content="ElementHTML 1.0.0 Test Page">
+        <meta name="description" content="b37.me">
+        <meta name="twitter:description" content="b37.me">
+        <link rel="shortcut icon" type="image/*" href="./media/icon.png">
+        <meta name="twitter:image" content="./media/icon.png">
+        <meta property="og:image" content="./media/icon.png">
+        <link rel="stylesheet" href="./css/index.css">
+        <script type="module" src="./element.js?load"></script>
+        <style>
+            body {
+                background-color: #171717;
+                color: #e8e8e8;
+            }
+        </style>
+        <style type="module">
+            
+        </style>
   </head>
   <body>
-    <noscript>Element requires javascript enabled</noscript>
+    <noscript>ElementHTML requires javascript enabled</noscript>
   
     <!--<element-thing>Test Thing</element-thing>-->
-    <element-product>Test Product</element-product>
     
-    <script type="module">
-      import { Element as E } from './element.js'
-    
-      /* optional to allow for loading from anywhere */
-      //Object.assign(E.repositories, {
-      //  element3: './element3/', 
-      //  other: 'https://example.com/otherrepositories/'
-      //})
-
-      /* optional to allow for using themes from anywhere */
-      //Object.assign(E.themes, {
-      //  awesome: 'https://example.com/awesometheme/'
-      //})
-
-      await E.autoload()
-
-      /* optional to allow for live console inspection of the Element library */
-      window.E = E
-
-      window.temp1 = document.querySelector('element-product')
-    </script>
   </body>
 </html>

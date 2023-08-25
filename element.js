@@ -4,18 +4,30 @@ const ElementHTML = Object.defineProperties({}, {
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
-            element: 'element.html', layout: 'default.html', content: 'home.html', meta: 'home.html', theme: 'default.css',
-            data: 'main.json', media: 'image.webp', processor: 'module.js', schema: 'Thing', context: 'root.json'
+            element: 'html', layout: 'html', content: 'html', meta: 'html', theme: 'css',
+            data: 'json', media: 'webp', processor: 'js', schema: 'schema.json', context: 'context.json'
         }},
         routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
-            ipfs: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
-            ipns: hostpath => `https://${this.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
+            ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
+            ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
         }},
         options: {enumerable: true, value: Object.defineProperties({}, {
             security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}
         })}
+    })},
+    utils: {enumerable: true, value: Object.defineProperties({}, {
+        splitOnce: {enumerable: true, value: function(str, delimiter) {
+            let r
+            str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
+            return r
+        }},        
+        getCustomTag: {enumerable: true, value: function(element) {
+            return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
+                    || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }},
+
     })},
     ids: {enumerable: true, value: {}},
     tags: {enumerable: true, value: {}},
@@ -45,11 +57,11 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperty(this.env, 'modes', {enumerable: true, value: newModes})
             this._enscapulateNative()
         }
-        rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
+        rootElement && await this.activateTag(this.utils.getCustomTag(rootElement), rootElement)
         if (rootElement && !rootElement.shadowRoot) return
         const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
             observerRoot = rootElement || this
-        for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) await this.load(element)
+        for (const element of domTraverser.call(domRoot, '*')) if (this.utils.getCustomTag(element)) await this.load(element)
         const parseHeadMeta = (addedNode) => {
             const addedNodeMatches = addedNode.matches('title') ? 'title' : (addedNode.matches('meta[content][name]') ? 'meta' : false)
             let property, value
@@ -65,16 +77,12 @@ const ElementHTML = Object.defineProperties({}, {
         }
         observerRoot._observer ||= new MutationObserver(async records => {
             for (const record of records) for (const addedNode of (record.addedNodes||[])) {
-                if (this.getCustomTag(addedNode)) await this.load(addedNode)
+                if (this.utils.getCustomTag(addedNode)) await this.load(addedNode)
                 if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
             }
         })
         observerRoot._observer.observe(domRoot, {subtree: true, childList: true})
         if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
-    }},
-    getCustomTag: {enumerable: true, value: function(element) {
-        return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
-                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
     }},
     getURL: {enumerable: true, value: function(value) {
         if (value.startsWith('https://') || !value.includes('://')) return value
@@ -82,12 +90,6 @@ const ElementHTML = Object.defineProperties({}, {
         value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
         for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
         return value
-    }},
-    isURL: {enumerable: true, value: function(value) { return value && value.includes('/') }},
-    splitOnce: {enumerable: true, value: function(str, delimiter) {
-        let r
-        str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
-        return r
     }},
     resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, searchBody=false, equals={}, startsWith={}, includes={}) {
         let resolved
@@ -200,32 +202,6 @@ const ElementHTML = Object.defineProperties({}, {
         element._observer && (element._observer.disconnect() || (delete element._observer))
         element._observer = new MutationObserver(observerCallback)
         element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
-    }},
-    applyHash: {enumerable: true, value: function(hash, data) {
-        if (!hash) return data
-        if (data instanceof HTMLCollection) data = Array.from(data)
-        if (!Array.isArray(data)) return data
-        const result = []
-        for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
-                data = Array.from(data)
-                result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
-            } else { result.push(data[hashFrag]) }
-        return result
-    }},
-    applyField: {enumerable: true, value: function(field, data) {
-        if (!field || (typeof field !== 'string') || (field === '.')) return data
-        const fieldedData = data, resultArray = [], fieldFrags = field.split(',').map(s => s.trim())
-        for (const fieldFrag of fieldFrags) {
-            let [fieldFragName, fieldFragVector] = fieldFrag.split(':', 2).map(s => s.trim()), thisData = data
-            fieldFragVector ?? ([fieldFragVector, fieldFragName] = [fieldFragName, fieldFragVector])
-            if (fieldFragVector === '.') { resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData); continue }
-            for (const vector of fieldFragVector.split('.').map(s => s.trim())) {
-                thisData = thisData[vector]
-                if (!(thisData instanceof Object)) break
-            }
-            resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
-        }
-        return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
     getValue: {enumerable: true, value: function(element) {
         if (!element) return
@@ -371,7 +347,7 @@ const ElementHTML = Object.defineProperties({}, {
                     '~': (c,v) => !(v % c), '^': (c,v) => `${v}`.startsWith(c), '$': (c,v) => `${v}`.endsWith(c), 
                     '*': (c,v) => `${v}`.includes(c), '-': (c,v) => !`${v}`.includes(c), 
                     '+': (c,v) => `${v}`.split(' ').includes(c), '_': (c,v) => !`${v}`.split(' ').includes(c), 
-                    '/': (c,v) => (new RegExp(...this.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
+                    '/': (c,v) => (new RegExp(...this.utils.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)}
                 for (const et of templates) {
                     const ifLayer = et.getAttribute('data-e-if-layer')
                     if (ifLayer) {
@@ -743,5 +719,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
-if ((new URL(import.meta.url)).search.slice(1) !== 'static') await ElementHTML.load()
+let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
+if (metaSearch) {
+    let flags = metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]])
+    for (const [func, args=[]] of flags) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
+}
 export { ElementHTML }
