@@ -19,7 +19,6 @@
                     if (addOrRemove !== 'add') return 
                     const [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
                     if (`${useResponse}` == useResponse) useResponse = [useResponse]
-
                     if (preProcessor) {
                         if (preProcessor.startsWith('<') && preProcessor.endsWith('>')) {
                             const tagName = preProcessor.slice(1,-1)
