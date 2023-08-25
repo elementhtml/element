@@ -17,8 +17,9 @@
                 }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
+                    const responseNodes = Array.from(useResponse).map(n => n.cloneNode(true))
                     const [useFromLayoutSelector, insertIntoLayoutAtSelector, usefromTargetSelector, postProcessor] = (this.as||'').split(';', 4).map(s => s.trim()), template = document.createElement('template')
-                    template.content.replaceChildren(...useResponse)
+                    template.content.replaceChildren(...responseNodes)
                     const documentFragment = template.content.cloneNode(true), 
                         replaceWithElements = useFromLayoutSelector ? documentFragment.querySelectorAll(useFromLayoutSelector) : documentFragment.children
                     if (insertIntoLayoutAtSelector) {
@@ -30,7 +31,11 @@
                             for (const rs of replaceAt) rs.replaceChildren(...insertContent)
                         }
                     }
-                    node.replaceWith(...replaceWithElements)
+                    if (!this.hasAttribute('scope') && !this.hasAttribute('observe') && !this.hasAttribute('match')) {
+                        this.replaceWith(...replaceWithElements)
+                    } else {
+                        node.replaceWith(...replaceWithElements)                    
+                    }
                     if (postProcessor) {
                         const postProcessFunction = this.e.resolveProcessor(this, postProcessor)
                         if (typeof postProcessFunction === 'function') postProcessFunction(replaceWithElements)

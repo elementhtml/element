@@ -28,11 +28,15 @@
   </head>
   <body>
     <noscript>ElementHTML requires javascript enabled</noscript>
-    <meta is="e-layout" use="example-testlayout" scope="body" match=".container">
+    <meta is="e-layout" use="example-testlayout" scope="body" match=".container" as="i;b;:scope">
   
     <example-test>More Details</example-test>
 
-    <div class="container"></div>
+    <div class="container">1</div>
+    <div class="container">2</div>
+    <div class="container">3</div>
+
+    <section><meta is="e-layout" use="example-testlayout"></section>
     
   </body>
 </html>
