@@ -145,7 +145,8 @@ const ElementHTML = Object.defineProperties({}, {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
         const id = await this.getTagId(tag, element);
         [this.ids[tag], this.tags[id]] = [id, tag]
-        await this.loadTagAssetsFromId(id, forceReload)
+        const loadResult = await this.loadTagAssetsFromId(id, forceReload)
+        if (!loadResult) return
         const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
         globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? {extends: baseTag} : undefined)
     }},
@@ -157,8 +158,10 @@ const ElementHTML = Object.defineProperties({}, {
             tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
-        if (!id.includes('://') || (!forceReload && this.files[id])) return
-        this.files[id] = await fetch(this.getURL(id)).then(r => r.text())
+        if (!id || !id.includes('://') || (!forceReload && this.files[id])) return
+        const fileFetch = await fetch(this.getURL(id))
+        if (fileFetch.status >= 400) return
+        this.files[id] = await fileFetch.text()
         this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>')+7, this.files[id].indexOf('</style>')).trim()
         this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>')+10, this.files[id].indexOf('</template>')).trim()
         this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>')+8, this.files[id].indexOf('</script>')).trim()
@@ -173,11 +176,13 @@ const ElementHTML = Object.defineProperties({}, {
             }
             this.extends[id] = extendsId
             this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
+            if (!this.files[extendsId] && extendsId.includes('/')) return
         }
         let sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`)
         this.classes[id] = Function('ElementHTML', 'return ' + sanitizedScript)(this)
         this.classes[id].id = id
         this.constructors[id] = class extends this.classes[id] {constructor() {super()}}
+        return true
     }},
     getInheritance: {enumerable: true, value: function(id='HTMLElement') {
         const inheritance = [id]

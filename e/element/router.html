@@ -10,11 +10,10 @@
         #cache = 'default'
         #fetchOptions = {}
 
-        _defaultProcessor = function(router, mode, flag=undefined, suffix=undefined, get=false) {
-            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${mode}/${flag}${router.constructor._modes[mode]?.suffix?'.'+router.constructor._modes[mode].suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-
-            console.log(url)
-
+        _defaultProcessor = function(router, mode, dir=undefined, suffix=undefined, fileHandle=undefined, get=false) {
+            fileHandle ||= router.constructor._modes[mode]?.default ?? mode
+            suffix ||= router.constructor._modes[mode]?.suffix ?? ''
+            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${dir ?? mode}/${fileHandle}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
             return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
@@ -25,24 +24,21 @@
     	constructor() {
     		super()
             for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
-                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor =  typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir, default, suffix
+                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor =  typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir, defaultFileHandle, suffix
                 if (attrMode) {
                     let [ dirCheck, fileName ] = attrMode.split('/', 2)
                     dir = dirCheck ? dirCheck : mode
                     if (fileName) {
-
-                    } else {
-                        { default, suffix } = this.constructor._modes[mode]
+                        let fileNameSplit = this.e.utils.splitOnce(fileName, '.')
+                        defaultFileHandle = fileNameSplit[0]
+                        suffix = fileNameSplit[1]
                     }
-                } else { 
-                    dir = mode
-                    { default, suffix } = this.constructor._modes[mode]
                 }
-
-                const [dir=mode, default=this.constructor._modes[mode].default, suffix=this.constructor._modes[mode].suffix] = attrMode ? [attrMode.split('/')] : []
-
-                const f = processor.bind(this.e, this, mode)
-                f.toString = processor.bind(this.e, this, mode, this.constructor._modes[mode].default, false)
+                dir ||= mode
+                defaultFileHandle ||= this.constructor._modes[mode].default
+                suffix ||= this.constructor._modes[mode].suffix
+                const f = processor.bind(this.e, this, mode, dir, suffix)
+                f.toString = processor.bind(this.e, this, mode, dir, suffix, false, defaultFileHandle)
                 return f
             }})
     	}
