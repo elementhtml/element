@@ -152,10 +152,10 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     getTagId: {enumerable: true, value: async function(tag, element) {
         if (this.ids[tag]) return this.ids[tag]
-        const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
-        let tagRouter = this.resolveRouter(element, tagRouterName)
-        return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
-            tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
+        const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
+        let tagRouter = this.resolveRouter(element, routerName)
+        return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
+            routerName === 'e' ? import.meta.url : element.baseURI)).href
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
         if (!id || !id.includes('://') || (!forceReload && this.files[id])) return

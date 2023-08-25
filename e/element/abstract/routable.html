@@ -23,7 +23,7 @@
                 return get ? fetch(this.e.getURL(url)) : url
             }
             Object.assign(_defaultRouterMode, this.e.env.modes[this._mode])
-            _defaultRouterMode.toString = _defaultRouterMode.bind(this.e.env.modes[this._mode].default, false)
+            _defaultRouterMode.toString = _defaultRouterMode.bind(this.e.env.modes[this._mode].pointer, false)
             return _defaultRouterMode
         }
 
@@ -44,8 +44,10 @@
                             const rootNode = this.getRootNode() 
                             return (rootNode === document ? this.e.env : rootNode.host)[this.#pointer]
                         }
+                        let routerElement = document.head.children[this.#router]
+                        console.log(routerElement._modes)
                         return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await this.#getRouterMode()(this.#pointer||this.#getRouterMode().default, true)
+                                : await this.#getRouterMode()(this.#pointer||this.#getRouterMode().pointer, true)
                             }
                     },
                 _parse: {configurable: true, writable: true, value: async (response) => {
@@ -159,7 +161,7 @@
                     this.#router = '$'
                     this.#pointer = valueSplit[0].slice(1) || 'eDataset'
                     if (valueSplit.length > 1) {
-                        parseHashField(valueSplit[1], 'eDataset')
+                        parseHashField(valueSplit, 'eDataset')
                     } else {
                         this.#hash = undefined
                         this.#field = undefined
@@ -170,7 +172,7 @@
                     valueSplit = this.e.utils.splitOnce(value.slice(1), '.').map(s => s.trim())
                     this.#pointer = valueSplit[0] || 'dataset'
                     if (valueSplit.length > 1) {
-                        parseHashField(valueSplit[1], 'dataset')
+                        parseHashField(valueSplit, 'dataset')
                     } else {
                         this.#hash = undefined
                         this.#field = undefined
@@ -178,14 +180,15 @@
                     }
                 } else {
                     valueSplit = this.e.utils.splitOnce(value, '-').map(s => s.trim())
+                    this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
+
                     if (valueSplit.length === 1) {
-                        this.#router = 'e'
-                        this.#pointer = valueSplit[0] || this.#getRouterMode().default
+                        this.#pointer = valueSplit[0] || this.#getRouterMode().pointer
                         this.#hash = undefined
                         this.#field = undefined
                     } else {
-                        this.#router = valueSplit[0] || 'e'
-                        parseHashField(valueSplit[1], this.#getRouterMode().default)
+                        console.log((document.head.children[this.#router] || {}).constructor._modes, this.#getRouterMode())
+                        parseHashField(valueSplit, this.#getRouterMode().pointer)
                     }
                 }
             } else if (value instanceof Object) {
@@ -195,7 +198,7 @@
                 value.hash && (this.#hash = value.hash)
             }
         }
-        get use() { return `${this.#router||'e'}-${this.#pointer||this.#getRouterMode().default}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+        get use() { return `${this.#router||'e'}-${this.#pointer||this.#getRouterMode().pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }

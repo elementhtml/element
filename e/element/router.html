@@ -9,6 +9,7 @@
         #priority = 'auto'
         #cache = 'default'
         #fetchOptions = {}
+        _modes = {}
 
         _defaultProcessor = function(router, mode, dir=undefined, suffix=undefined, pointer=undefined, get=false) {
             pointer ||= router.constructor._modes[mode]?.pointer ?? mode
@@ -23,24 +24,25 @@
 
     	constructor() {
     		super()
-            for (const mode in this.constructor._modes) Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => {
-                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor =  typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir, defaultPointer, suffix
+            for (const mode in this.constructor._modes) {
+                this._modes[mode] ||= {...this.constructor._modes[mode]}            
+                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
                 if (attrMode) {
                     let [ dirCheck, fileName ] = attrMode.split('/', 2)
                     dir = dirCheck ? dirCheck : mode
                     if (fileName) {
                         let fileNameSplit = this.e.utils.splitOnce(fileName, '.')
-                        defaultPointer = fileNameSplit[0]
-                        suffix = fileNameSplit[1]
+                        this._modes[mode].pointer = fileNameSplit[0]
+                        this._modes[mode].suffix = fileNameSplit[1]
                     }
                 }
                 dir ||= mode
-                defaultPointer ||= this.constructor._modes[mode].pointer
-                suffix ||= this.constructor._modes[mode].suffix
-                const f = processor.bind(this.e, this, mode, dir, suffix)
-                f.toString = processor.bind(this.e, this, mode, dir, suffix, false, defaultPointer)
-                return f
-            }})
+                this._modes[mode].pointer ||= this.constructor._modes[mode].pointer
+                this._modes[mode].suffix ||= this.constructor._modes[mode].suffix
+                const f = processor.bind(this.e, this, mode, dir, this._modes[mode].suffix)
+                f.toString = processor.bind(this.e, this, mode, dir, this._modes[mode].suffix, false, this._modes[mode].pointer)
+                Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => f})
+            } 
     	}
 
         toString() { return this.#name }
