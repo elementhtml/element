@@ -44,10 +44,8 @@
                             const rootNode = this.getRootNode() 
                             return (rootNode === document ? this.e.env : rootNode.host)[this.#pointer]
                         }
-                        let routerElement = document.head.children[this.#router]
-                        console.log(routerElement._modes)
                         return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await this.#getRouterMode()(this.#pointer||this.#getRouterMode().pointer, true)
+                                : await this.#getRouterMode()(this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer, true)
                             }
                     },
                 _parse: {configurable: true, writable: true, value: async (response) => {
@@ -183,12 +181,11 @@
                     this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
 
                     if (valueSplit.length === 1) {
-                        this.#pointer = valueSplit[0] || this.#getRouterMode().pointer
+                        this.#pointer = valueSplit[0] || document.head.children[this.#router]?._modes[this._mode]?.pointer
                         this.#hash = undefined
                         this.#field = undefined
                     } else {
-                        console.log((document.head.children[this.#router] || {}).constructor._modes, this.#getRouterMode())
-                        parseHashField(valueSplit, this.#getRouterMode().pointer)
+                        parseHashField(valueSplit, document.head.children[this.#router]?._modes[this._mode]?.pointer)
                     }
                 }
             } else if (value instanceof Object) {
@@ -198,7 +195,7 @@
                 value.hash && (this.#hash = value.hash)
             }
         }
-        get use() { return `${this.#router||'e'}-${this.#pointer||this.#getRouterMode().pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+        get use() { return `${this.#router||'e'}-${this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
