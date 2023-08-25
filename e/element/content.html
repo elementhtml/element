@@ -16,22 +16,24 @@
                     return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
                 }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    if (addOrRemove === 'add') {
-                        const [useContentScope, postProcessor] = (this.as||'').split(';', 2).map(s => s.trim()), 
-                            useProcessor = postProcessor && typeof this.e.processors[postProcessor] === 'function' ? this.e.processors[postProcessor] : i => i
-                        if (`${useResponse}` == useResponse) useResponse = [useResponse]
-                        switch(useContentScope) {
-                        case 'innerHTML': 
-                        case 'innerText': 
-                        case 'textContent':
-                            const div = document.createElement('div')
-                            div[useContentScope] = useProcessor(useResponse.map(n => n[useContentScope].trim()).join(''))
-                            useResponse = div.childNodes
-                        case 'outerHTML':
-                        default:
-                            node === this ? node.replaceWith(...useResponse) : node.replaceChildren(...useResponse)
+                    if (addOrRemove !== 'add') return 
+                    const [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
+                    if (`${useResponse}` == useResponse) useResponse = [useResponse]
+
+                    if (preProcessor) {
+                        if (preProcessor.startsWith('<') && preProcessor.endsWith('>')) {
+                            const tagName = preProcessor.slice(1,-1)
+                            if (tagName) for (const [i, c] of useResponse.entries()) useResponse[i] = `<${tagName}>${c}</${tagName}>`  
+                        } else if (preProcessor.startsWith('|') && preProcessor.endsWith('|')) {
+                            const joiner = preProcessor.slice(1,-1)
+                            useResponse = [useResponse.join(joiner)]
+                        } else {
+                            let preProcessFunction = preProcessor ? this.e.resolveProcessor(this, preProcessor) : undefined
+                            if (preProcessFunction) for (const [i, c] of useResponse.entries()) useResponse[i] = await preProcessFunction(c)
                         }
                     }
+                    useContentScope ||= 'innerHTML'
+                    node[useContentScope] = useResponse.join('')
                 }}
             })
     	}
