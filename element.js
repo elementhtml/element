@@ -86,7 +86,7 @@ const ElementHTML = Object.defineProperties({}, {
         if (globalName && !window[globalName]) window[globalName] = this
     }},
     getURL: {enumerable: true, value: function(value) {
-        if (value.startsWith('https://') || !value.includes('://')) return value
+        if (value.startsWith('http://') || value.startsWith('https://') || !value.includes('://')) return value
         const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
         value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
         for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
@@ -153,9 +153,6 @@ const ElementHTML = Object.defineProperties({}, {
         if (this.ids[tag]) return this.ids[tag]
         const [tagRouterName, tagComponent] = tag.split('-', 2).map(t => t.toLowerCase())
         let tagRouter = this.resolveRouter(element, tagRouterName)
-        
-        if (tagRouter) window.router = tagRouter
-
         return await tagRouter?.element(tagComponent) || (new URL(`./${(tagRouterName)}/element/${tagComponent}.html`,
             tagRouterName === 'e' ? import.meta.url : element.baseURI)).href
     }},
