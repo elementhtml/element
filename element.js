@@ -517,8 +517,13 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(element.eDataset, data)
             } else {
                 for (const [k, v] of Object.entries(data)) {
-                    if (k.startsWith('@')) element.setAttribute(k.slice(1), v)
-                    if (k.startsWith('.')) element[k.slice(1)] = v
+                    if (k.startsWith('@')) {
+                        element.setAttribute(k.slice(1), v)
+                    } else if (k.startsWith('.')) {
+                        element[k.slice(1)] = v
+                    } else {
+                        element.dataset[k] = v
+                    }
                 }
             }
         }
