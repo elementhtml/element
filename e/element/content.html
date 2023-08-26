@@ -8,31 +8,24 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    const text = await this._routable._parse(response), template = document.createElement('template')
-                    template.innerHTML = text
-                    return template.content.cloneNode(true).children
+                    return response.status >= 400 ? '' : (await response.text()) 
                 }},
-                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
-                }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
-                    const [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
+                    let [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
                     if (`${useResponse}` == useResponse) useResponse = [useResponse]
                     if (preProcessor) {
-                        if (preProcessor.startsWith('<') && preProcessor.endsWith('>')) {
-                            const tagName = preProcessor.slice(1,-1)
-                            if (tagName) for (const [i, c] of useResponse.entries()) useResponse[i] = `<${tagName}>${c}</${tagName}>`  
-                        } else if (preProcessor.startsWith('|') && preProcessor.endsWith('|')) {
-                            const joiner = preProcessor.slice(1,-1)
-                            useResponse = [useResponse.join(joiner)]
-                        } else {
-                            let preProcessFunction = preProcessor ? this.e.resolveProcessor(this, preProcessor) : undefined
-                            if (preProcessFunction) for (const [i, c] of useResponse.entries()) useResponse[i] = await preProcessFunction(c)
-                        }
+                        let preProcessFunction = preProcessor ? this.e.resolveProcessor(this, preProcessor) : undefined
+                        if (preProcessFunction) useResponse = await preProcessFunction(useResponse)
                     }
-                    useContentScope ||= 'innerHTML'
-                    node[useContentScope] = useResponse.join('')
+                    if (useContentScope.startsWith('@')) {
+                        node.setAttribute(useContentScope.slice(1), useResponse)
+                    } else {
+                        const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
+                        if (!validContentScopes.includes(useContentScope)) useContentScope = 'innerHTML'
+                        useContentScope ||= 'innerHTML'
+                        node[useContentScope] = useResponse
+                    }
                 }}
             })
     	}
