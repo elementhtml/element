@@ -352,6 +352,8 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element.eDataset, data)
         } else if (flag === 'eContext' && element.eContext instanceof Object) {
           Object.assign(element.eContext, data)
+        } else if (flag === 'eSchema' && element.eSchema instanceof Object) {
+          Object.assign(element.eSchema, data)
         } else if (flag && flag.startsWith('auto')) {
           if (element.eDataset instanceof Object) {
             Object.assign(element.eDataset, data)
@@ -758,6 +760,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
+
+import ajv from 'https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm'
+window.ajv = ajv
+console.log(ajv)
+
 let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
 if (metaSearch) for (const [func, args=[]] of (metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]]))) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
 export { ElementHTML }

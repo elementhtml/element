@@ -23,6 +23,9 @@
                     }
                     return processorObject
                 }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     this.#module = useResponse
                     if (this.#module instanceof Object) {

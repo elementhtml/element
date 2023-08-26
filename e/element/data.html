@@ -21,6 +21,12 @@
                     }
                     return parsed
                 }},
+                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
+                }}, 
+                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
+                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                }},                
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#data = useResponse
