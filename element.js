@@ -258,7 +258,7 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (element.eDataset) {
             const valueproxy = element.getAttribute('valueproxy')
             if (valueproxy) return element.eDataset[valueproxy]
-            return Object.assign({}, element.dataset)
+            return Object.assign({}, element.eDataset)
         } else {
             const tag = element.tagName.toLowerCase()
             if (tag === 'meta') return element.getAttribute('content')
@@ -639,6 +639,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#':
                                 return property.slice(1) in $this.eSchema.map
                             default:
+                                if (property.includes('-')) return (property.replaceAll('-', '__') in target) || $this.eRender('has', property)
                                 return (property in target) || $this.eRender('has', property)
                             }
                         },
@@ -651,7 +652,10 @@ const ElementHTML = Object.defineProperties({}, {
                             case '#':
                                 return $this.eSchema.map[property.slice(1)]
                             default:
-                                if (target[property] !== undefined) return target[property]
+                                if (property.includes('-')) {
+                                    const safeProperty = property.replaceAll('-', '__')
+                                    if (target[safeProperty] !== undefined) return target[safeProperty]
+                                } else { if (target[property] !== undefined) return target[property] }
                                 return $this.eRender('get', property)
                             }
                         },
@@ -671,19 +675,17 @@ const ElementHTML = Object.defineProperties({}, {
                                 return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue,
                                     validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails}
                             default:
-                                [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, property, value)
-                                if (sanitizedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'sanitized', property, {
-                                            property: property, givenValue: value, sanitizedValue: sanitizedValue, sanitizerDetails: sanitizerDetails})
-                                value = sanitizedValue;
-                                if (oldValue === value) return value
-                                if (!(value instanceof Object)) target[property] = value
-                                $this.eRender('set', property, value);
-                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, value)
-                                if (validatedValue !== value) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
-                                            property: property, givenValue: value, validatedValue: validatedValue, validatorDetails: validatorDetails})
-                                ElementHTML._dispatchPropertyEvent($this, 'change', property, {
-                                    property: property, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue,
-                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails})
+                                let oldValue
+                                if (property.includes('-')) {
+                                    const safeProperty = property.replaceAll('-', '__')
+                                    oldValue = target[safeProperty]
+                                    target[safeProperty] = value
+                                } else { 
+                                    oldValue = target[property]
+                                    target[property] = value 
+                                }
+                                $this.eRender('set', property, value)
+                                ElementHTML._dispatchPropertyEvent($this, 'change', property, {property: property, value: value, oldValue: oldValue})
                                 return value
                             }
                         },
@@ -700,13 +702,17 @@ const ElementHTML = Object.defineProperties({}, {
                                 [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, undefined)
                                 return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
-                                let retval = delete target[property]
-                                $this.eRender('deleteProperty', property);
-                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, property, undefined)
-                                if (validatedValue !== undefined) ElementHTML._dispatchPropertyEvent($this, 'validated', property, {
-                                            property: property, givenValue: undefined, validatedValue: validatedValue, validatorDetails: validatorDetails})
-                                ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, {
-                                    property: property, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails})
+                                let retval, oldValue
+                                if (property.includes('-')) {
+                                    const safeProperty = property.replaceAll('-', '__')
+                                    oldValue = target[safeProperty]
+                                    retval = delete target[safeProperty]
+                                } else { 
+                                    oldValue = target[property]
+                                    retval = delete target[property] 
+                                }
+                                $this.eRender('deleteProperty', property)
+                                ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, {property: property, value: undefined, oldValue: oldValue})
                                 return retval
                             }
                         }
