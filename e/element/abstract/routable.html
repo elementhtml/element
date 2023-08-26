@@ -44,6 +44,7 @@
                     case 'data':
                         return await response.text()
                     case 'processor':
+                    case 'schema':
                         return response
                     default:
                         return await response.arrayBuffer()
@@ -55,6 +56,7 @@
                         if (this.#router === '$') return await this._applyField(await this._applyHash(await this._rawResponse))
                         if (this._mode === 'media') return `${this}`
                         if (this._mode === 'processor') return await this._applyField(await this._applyHash(await this._parse(`${this}`)))
+                        if (this._mode === 'schema') return await this._applyField(await this._applyHash(await this._parse(`${this}`)))
                         return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
                     }}, 
                 _activate: {value: async () => {

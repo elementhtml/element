@@ -7,12 +7,13 @@ const ElementHTML = Object.defineProperties({}, {
             element: 'html', layout: 'html', content: 'html', meta: 'html', theme: 'css',
             data: 'json', media: 'webp', processor: 'js', schema: 'schema.json', context: 'context.json'
         }},
-        routerTags: {enumerable: true, value: ['e-router', 'e-repository']},
+        routerTags: {enumerable: true, value: ['e-router']},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
             ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
             ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
         }},
+        libraries: {enumerable: true, value: {}},
         options: {enumerable: true, value: Object.defineProperties({}, {
             security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}
         })}
@@ -628,10 +629,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eData: {enumerable: true, writable: true, value: {}},
-                    eSchema: {enumerable: true, writable: true, value: Object.defineProperties({}, {
-                        map: {get: () => Object.fromEntries(Object.keys($this.dataset).map(k => [k, undefined]))},
-                        sanitize: {value : (e, p,v) => [v]}, validate: {value: (e, p,v) => [v]}
-                    })},
+                    eSchema: {enumerable: true, writable: true, value: {}},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             switch(property[0]) {
@@ -761,9 +759,6 @@ const ElementHTML = Object.defineProperties({}, {
     }}
 })
 
-import ajv from 'https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm'
-window.ajv = ajv
-console.log(ajv)
 
 let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
 if (metaSearch) for (const [func, args=[]] of (metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]]))) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
