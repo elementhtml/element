@@ -3,8 +3,6 @@
 <script>
     class extends `./abstract/routable` {
 
-        #selfObserver
-
     	constructor() {
     		super()
             Object.defineProperties(this, {
@@ -61,14 +59,14 @@
                             const shadow = node instanceof ShadowRoot ? node : node.shadowRoot
                             this.as === 'underlay' ? shadow.prepend(styleNode) : shadow.querySelector('style:last-of-type')?.after(styleNode)                            
                         }
-                        if (!this.#selfObserver) {
-                            this.#selfObserver = new MutationObserver(event => {
+                        if (!this._selfObserver) {
+                            this._selfObserver = new MutationObserver(event => {
                                 if (event[0] && event[0].attributeName == 'use') {
                                     document.getElementById(this.dataset.stylesheetId)?.remove()
                                     this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
                                 }
                             })
-                            this.#selfObserver.observe(this, { attributes: true })
+                            this._selfObserver.observe(this, { attributes: true })
                         }
                     }
                 }}

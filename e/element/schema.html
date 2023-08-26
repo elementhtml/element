@@ -34,10 +34,20 @@
                     if (validate) this.#validate = validate
                     if (addOrRemove === 'add') {
                         node.eSchema = this.#canonicalUri
+                        const abortController = new AbortController(), signal = abortController.signal
                         node.addEventListener('change', event => {
                             const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
                             if (!valid) node.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                        })
+                        }, { signal })
+                        if (!this._selfObserver) {
+                            this._selfObserver = new MutationObserver(event => {
+                                if (event[0] && event[0].attributeName == 'use') {
+                                    abortController.abort()
+                                    this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
+                                }
+                            })
+                            this._selfObserver.observe(this, { attributes: true })
+                        }
                     }
                 }}
             })
@@ -46,6 +56,8 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
         get validate() { return this.#validate }        
+
+        get canonicalUri() { return this.#canonicalUri }
 
     }
 </script>

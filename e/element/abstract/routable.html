@@ -3,6 +3,8 @@
 <script>
     class extends `meta` {
 
+        #selfObserver
+
         #use
         #mode
         #router
@@ -195,6 +197,9 @@
 
         set as(value) { this.#as = value }
         get as() { return this.#as }
+
+        set _selfObserver(value) { this.#selfObserver = value }
+        get _selfObserver() { return this.#selfObserver }        
 
     }
 </script>
