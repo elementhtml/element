@@ -8,6 +8,7 @@ const ElementHTML = Object.defineProperties({}, {
             data: 'json', media: 'webp', processor: 'js', schema: 'schema.json', context: 'context.json'
         }},
         routerTags: {enumerable: true, value: ['e-router']},
+        routableLoadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
             ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,

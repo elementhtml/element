@@ -86,10 +86,10 @@
                         }
                     }
                     this.e.createObserver(this, observed, processRecords, processRecords)
-                    const useResponse = await this._useResponse, matches = observed.querySelectorAll(this.#match||':scope')
-                    for (const matched of matches) this._as(useResponse, 'add', matched, 
+                    const useResponse = await this._useResponse, matches = observed.querySelectorAll(this.#match||':scope'), promises = []
+                    for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
-                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
+                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)})))))
                     if (this.#router === '$') {
                         const rootNode = this.getRootNode(), listenTo = rootNode.host || this.e.eDataset
                         listenTo.addEventListener('change', async event => {
@@ -102,6 +102,11 @@
                             }
                         })
                     }
+                    Promise.all(promises).then(() => {
+                        delete this.e.env.routableLoadingRegistry[this]
+                        this.dispatchEvent(new CustomEvent('loadended')) 
+                        if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
+                    } )
                 }},
                 _as: {configurable: true, writable: true, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
@@ -117,6 +122,9 @@
 		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as') }
 
         async connectedCallback() {
+            if (!Object.keys(this.e.env.registry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
+            this.e.env.routableLoadingRegistry[this] = true
+            this.dispatchEvent(new CustomEvent('loadstarted'))
             await this._activate()
         }
 
