@@ -9,7 +9,11 @@
     		super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'theme'}, 
-                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => await (new CSSStyleSheet()).replace(await response.text())},
+                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => { 
+                    let text = await response.text()
+                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                    return await (new CSSStyleSheet()).replace(text) 
+                }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
                     parsedResponse = await this._routable._applyHash(parsedResponse)
                     if (this._hash) {

@@ -12,6 +12,7 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let parsed = await response.text()
+                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
                     if (this.#parser) {
                         let parserFunction = this.e.resolveProcessor(this, this.#parser)
                         if (parserFunction) parsed = await parserFunction(parsed)

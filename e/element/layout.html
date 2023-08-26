@@ -8,7 +8,8 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'layout'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    const text = await this._routable._parse(response), template = document.createElement('template')
+                    let text = await response.text(), template = document.createElement('template')
+                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
                     template.innerHTML = text
                     return template.content.cloneNode(true).children
                 }},

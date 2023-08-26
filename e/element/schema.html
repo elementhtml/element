@@ -19,17 +19,13 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let parsed = {}
+                    let parsed = await response.text()
+                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
                     if (this.#parser) {
-                        if (typeof this.e.processors[this.#parser] === 'function') parsed = await this.e.processors[this.#parser](await response.text())
+                        let parserFunction = this.e.resolveProcessor(this, this.#parser)
+                        if (parserFunction) parsed = await parserFunction(parsed)
                     } else {
-                        const text = await response.text()
-                        if (response.url === `https://schema.org/${$this.name}`) {
-                            const template = document.createElement('template')
-                            template.innerHTML = text
-                            try { parsed = JSON.parse(template.content.cloneNode(true).querySelector('script[type="application/ld+json"]')).textContent } catch(e) {}
-                        }
-                        try { parsed = JSON.parse(text) } catch(e) {}
+                        try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} }
                     }
                     return parsed
                 }},
