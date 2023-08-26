@@ -40,13 +40,10 @@
                     switch(this._mode) {
                     case 'layout':
                     case 'content':
-                    case 'meta':
                     case 'theme':
                     case 'data':
-                    case 'context':
                         return await response.text()
                     case 'processor':
-                    case 'media':
                         return response
                     default:
                         return await response.arrayBuffer()

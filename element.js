@@ -120,7 +120,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const m of rootNode.querySelectorAll('meta')) if (((!name || m.id === id || m.name === name || m.getAttribute('propname') === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
             return metaElement || this.resolveMeta(rootNode.host.getRootNode(), is, name, namespace, exact)
         } else {
-            for (const m of document.head.getElementsByTagName('meta')) if ((!name || m.id === name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
+            for (const m of document.getElementsByTagName('meta')) if ((!name || m.id === name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
                     if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
                         metaElement = m; break
                     }

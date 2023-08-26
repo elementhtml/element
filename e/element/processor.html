@@ -28,7 +28,15 @@
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     this.#module = useResponse
-                    if (this.as && (useResponse instanceof Object) && typeof useResponse[this.as] === 'function') this.#func = useResponse[this.as]
+                    if (this.#module instanceof Object) {
+                        if (this.as && typeof this.#module[this.as] === 'function') {
+                            this.#func = this.#module[this.as]
+                        } else if (typeof this.#module.default === 'function') {
+                            this.#func = this.#module.default
+                        } else if (typeof this.#module === 'function') {
+                            this.#func = this.#module
+                        }
+                    }
                 }}
             })
         }
