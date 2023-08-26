@@ -3,7 +3,7 @@
 <script>
     class extends `./abstract/routable` {
 
-        #canonicalUri
+        #canonicalUrl
         #validate = input => true
 
         constructor() {
@@ -18,22 +18,22 @@
                         const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
                         addFormats(this.e.env.libraries.ajv)
                     } 
-                    const canonicalUri = this.e.getURL(response)
-                    let validate = this.e.env.libraries.ajv.getSchema(canonicalUri)
+                    const canonicalUrl = this.e.getURL(response)
+                    let validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
                     if (!validate) {
-                        let schemaFetch = await fetch(canonicalUri), schemaText = await schemaFetch.text()
+                        let schemaFetch = await fetch(canonicalUrl), schemaText = await schemaFetch.text()
                         if (schemaFetch.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
-                        this.e.env.libraries.ajv.addSchema(schemaText, canonicalUri)
-                        validate = this.e.env.libraries.ajv.getSchema(canonicalUri)
+                        this.e.env.libraries.ajv.addSchema(schemaText, canonicalUrl)
+                        validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
                     }
-                    return [canonicalUri, typeof validate === 'function' ? validate : null]
+                    return [canonicalUrl, typeof validate === 'function' ? validate : null]
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    let [ canonicalUri, validate ] = useResponse
-                    if (canonicalUri) this.#canonicalUri = canonicalUri
+                    let [ canonicalUrl, validate ] = useResponse
+                    if (canonicalUrl) this.#canonicalUrl = canonicalUrl
                     if (validate) this.#validate = validate
                     if (addOrRemove === 'add') {
-                        node.eSchema = this.#canonicalUri
+                        node.eSchema = this.#canonicalUrl
                         const abortController = new AbortController(), signal = abortController.signal
                         node.addEventListener('change', event => {
                             const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
@@ -55,9 +55,12 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
-        get validate() { return this.#validate }        
+        get validate(data) { 
+            const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
+            return [valid, errors]
+        }
 
-        get canonicalUri() { return this.#canonicalUri }
+        get canonicalUrl() { return this.#canonicalUrl }
 
     }
 </script>
