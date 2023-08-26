@@ -26,7 +26,7 @@
     		super()
             for (const mode in this.constructor._modes) {
                 this._modes[mode] ||= {...this.constructor._modes[mode]}            
-                let requestedProcessor = this.e.resolveProcessor[this, this.#processor], processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
+                let requestedProcessor = this.e.resolveMeta[this, 'e-processor', this.#processor]?.func, processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
                 if (attrMode) {
                     let [ dirCheck, fileName ] = attrMode.split('/', 2)
                     dir = dirCheck ? dirCheck : mode

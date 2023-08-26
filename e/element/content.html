@@ -17,7 +17,7 @@
                     let [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
                     if (`${useResponse}` == useResponse) useResponse = [useResponse]
                     if (preProcessor) {
-                        let preProcessFunction = this.e.resolveProcessor(this, preProcessor)
+                        let preProcessFunction = this.e.resolveMeta(this, 'e-processor', preProcessor)?.func
                         if (preProcessFunction) useResponse = await preProcessFunction(useResponse)
                     }
                     if (useContentScope.startsWith('@')) {

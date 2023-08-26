@@ -14,7 +14,7 @@
                     let parsed = await response.text()
                     if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
                     if (this.#parser) {
-                        let parserFunction = this.e.resolveProcessor(this, this.#parser)
+                        let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
                         if (parserFunction) parsed = await parserFunction(parsed)
                     } else { try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} } }
                     return parsed

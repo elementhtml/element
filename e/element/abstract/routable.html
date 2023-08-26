@@ -34,10 +34,14 @@
                             const rootNode = this.getRootNode() 
                             return (rootNode === document ? this.e.env : rootNode.host)[this.#pointer]
                         }
-                        return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                : await document.head.children[this.#router][this._mode](this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer, true)
-                            }
-                    },
+                        if (this.#router) {
+                            let router = this.e.resolveMeta(this, 'e-router', this.#router)
+                            return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
+                                    : (router ? (await router[this._mode](this.#pointer||router?._modes[this._mode]?.pointer, true)) : (new Response('null', {status: 599})))
+                        } else {
+                            return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) : (new Response('null', {status: 599}))
+                        }                       
+                }},
                 _parse: {configurable: true, writable: true, value: async (response) => {
                     switch(this._mode) {
                     case 'layout':
@@ -130,7 +134,14 @@
             await this._activate()
         }
 
-        toString() { return document.head.children[this.#router][this._mode](this.#pointer, false) }
+        toString() { 
+            if (this.#router) {
+                let router = this.e.resolveMeta(this, 'e-router', this.#router)
+                return router ? this.e.resolveMeta(this, 'e-router', this.#router)[this._mode](this.#pointer, false) : (`${this.#use}`.includes('/') ? this.e.getURL(new URL(this.#use, this.baseURI).href) : `${this.#use}` )
+            } else {
+                return `${this.#use}`.includes('/') ? this.e.getURL(new URL(this.#use, this.baseURI).href) : `${this.#use}`
+            }
+        }
 
         set use(value) {
             this.#use = value
@@ -180,11 +191,11 @@
                     this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
 
                     if (valueSplit.length === 1) {
-                        this.#pointer = valueSplit[0] || document.head.children[this.#router]?._modes[this._mode]?.pointer
+                        this.#pointer = valueSplit[0] || this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer
                         this.#hash = undefined
                         this.#field = undefined
                     } else {
-                        parseHashField(valueSplit, document.head.children[this.#router]?._modes[this._mode]?.pointer)
+                        parseHashField(valueSplit, this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer)
                     }
                 }
             } else if (value instanceof Object) {
@@ -194,7 +205,7 @@
                 value.hash && (this.#hash = value.hash)
             }
         }
-        get use() { return `${this.#router||'e'}-${this.#pointer||document.head.children[this.#router]?._modes[this._mode]?.pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+        get use() { return `${this.#router||'e'}-${this.#pointer||this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }

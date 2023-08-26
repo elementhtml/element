@@ -38,7 +38,7 @@
                         node.replaceWith(...replaceWithElements)                    
                     }
                     if (postProcessor) {
-                        const postProcessFunction = this.e.resolveProcessor(this, postProcessor)
+                        const postProcessFunction = this.e.resolveMeta(this, 'e-processor', postProcessor)?.func
                         if (typeof postProcessFunction === 'function') postProcessFunction(replaceWithElements)
                     }
                 }}

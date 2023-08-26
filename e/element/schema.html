@@ -9,12 +9,18 @@
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let schemaText = await response.text()
-                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: schemaText}}))
                     if (!this.e.env.libraries.ajv) {
-                        this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default({allErrors: true, verbose: true})
+                        let options = {}
+                        if (this.as) {
+                            options = Object.fromEntries(this.as.split(';').map(s => s.split(':', 2)))
+                            for (const k in options) if (options[k].includes(',')) { options[k] = options[k].split(',') } else if (
+                                (['null', 'true', 'false'].includes(options[k])) || (options[k].startsWith('{') && options[k].endsWith('}')) || (options[k].startsWith('[') && options[k].endsWith(']'))
+                            ) { options[k] = JSON.parse(options[k]) }
+                        }
+                        this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default({allErrors: true, verbose: true, validateSchema: 'log', 
+                            strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true, ...options})
                         const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
                         addFormats(this.e.env.libraries.ajv)
                     } 
@@ -23,8 +29,27 @@
                     if (!validate) {
                         let schemaFetch = await fetch(canonicalUrl), schemaText = await schemaFetch.text()
                         if (schemaFetch.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
-                        this.e.env.libraries.ajv.addSchema(schemaText, canonicalUrl)
-                        validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
+                        let schemaJson
+                        try { schemaJson = JSON.parse(schemaText) } catch(e) {}
+                        if (schemaJson instanceof Object) {
+                            /*let $schema = schemaJson['$schema'], traceError
+                            while ($schema && !traceError && !this.e.env.libraries.ajv.getSchema($schema)) {
+                                let thisSchema
+                                try { thisSchema = await (await fetch($schema)).json() } catch(e) { traceError = true }
+                                if (thisSchema instanceof Object) {
+                                    this.e.env.libraries.ajv.addSchema(thisSchema, $schema)
+                                    if (!this.e.env.libraries.ajv.getSchema(thisSchema, $schema)) traceError = true
+                                    $schema = thisSchema['$schema']
+                                } else { $schema = undefined }
+                            }
+                            if (traceError) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
+                                return [canonicalUrl, null]
+                            }*/
+                            delete schemaJson['$schema']
+                            this.e.env.libraries.ajv.addSchema(schemaJson, canonicalUrl)
+                            validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
+                        } else { this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: schemaFetch.status, message: schemaText}})) } 
                     }
                     return [canonicalUrl, typeof validate === 'function' ? validate : null]
                 }},
@@ -32,33 +57,34 @@
                     let [ canonicalUrl, validate ] = useResponse
                     if (canonicalUrl) this.#canonicalUrl = canonicalUrl
                     if (validate) this.#validate = validate
-                    if (addOrRemove === 'add') {
-                        node.eSchema = this.#canonicalUrl
-                        const abortController = new AbortController(), signal = abortController.signal
-                        node.addEventListener('change', event => {
-                            const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
-                            if (!valid) node.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                        }, { signal })
-                        if (!this._selfObserver) {
-                            this._selfObserver = new MutationObserver(event => {
-                                if (event[0] && event[0].attributeName == 'use') {
-                                    abortController.abort()
-                                    this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
-                                }
-                            })
-                            this._selfObserver.observe(this, { attributes: true })
-                        }
-                    }
+                    if ((addOrRemove !== 'add') || !canonicalUrl || !validate) return
+                    node.eSchema = this.#canonicalUrl
+                    const abortController = new AbortController(), signal = abortController.signal
+                    node.addEventListener('change', event => {
+                        const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
+                        if (!valid) node.dispatchEvent(new CustomEvent('error', {detail: errors}))
+                    }, { signal })
+                    if (!this._selfObserver) {
+                        this._selfObserver = new MutationObserver(event => {
+                            if (event[0] && event[0].attributeName == 'use') {
+                                abortController.abort()
+                                this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
+                            }
+                        })
+                        this._selfObserver.observe(this, { attributes: true })
+                    }                    
                 }}
             })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
-        get validate(data) { 
-            if (data instanceof HTMLElement) data = this.e.getValue(data)
-            const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
-            return [valid, errors]
+        get validate() {
+            return (data) => {
+                if (data instanceof HTMLElement) data = this.e.getValue(data)
+                const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
+                return [valid, errors]                
+            } 
         }
 
         get canonicalUrl() { return this.#canonicalUrl }

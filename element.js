@@ -7,7 +7,6 @@ const ElementHTML = Object.defineProperties({}, {
             element: 'html', layout: 'html', content: 'html', meta: 'html', theme: 'css',
             data: 'json', media: 'webp', processor: 'js', schema: 'schema.json', context: 'context.json'
         }},
-        routerTags: {enumerable: true, value: ['e-router']},
         routableLoadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
@@ -115,33 +114,10 @@ const ElementHTML = Object.defineProperties({}, {
             return resolved
         }
     }},
-    resolveMeta: {enumerable: true, value: function(element, is,  name, namespace, exact=false) {
+    resolveMeta: {enumerable: true, value: function(element, is, name) {
         let metaElement
         const rootNode = element.shadowRoot || element.getRootNode()
-        if (rootNode instanceof ShadowRoot) {
-            for (const m of rootNode.querySelectorAll('meta')) if (((!name || m.id === id || m.name === name || m.getAttribute('propname') === name) && (!is || (is === m.getAttribute('is'))))) if (metaElement = m) break
-            return metaElement || this.resolveMeta(rootNode.host.getRootNode(), is, name, namespace, exact)
-        } else {
-            for (const m of document.getElementsByTagName('meta')) if ((!name || m.id === name || m.name === name) && (!is || (is === m.getAttribute('is')))) if (namespace && m.namespace) {
-                    if ((exact && namespace.split(' ').includes(m.namespace)) || (!exact && namespace.split(' ').some(s => s.startsWith(m.namespace)))) {
-                        metaElement = m; break
-                    }
-                } else {
-                    metaElement = m; break
-                }
-            return metaElement
-        }
-    }},
-    resolveProcessor: {enumerable: true, value: function(element, name) {
-        if (!name || !element) return
-        return this.resolveMeta(element, 'e-processor', name)
-            || this.resolveMeta(element, 'e-processor', undefined, name, true) || this.resolveMeta(element, 'e-processor', undefined, name, false)
-    }},
-    resolveRouter: {enumerable: true, value: function(element, name) {
-        if (!name || !element) return
-        let router = this.resolveMeta(element, this.env.routerTags[0], name)
-        if (!router) for(const routerTag of this.env.routerTags.slice(1)) router ||= this.resolveMeta(element, routerTag, name)
-        return router
+        return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`) 
     }},
     activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
@@ -155,7 +131,7 @@ const ElementHTML = Object.defineProperties({}, {
     getTagId: {enumerable: true, value: async function(tag, element) {
         if (this.ids[tag]) return this.ids[tag]
         const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
-        let tagRouter = this.resolveRouter(element, routerName)
+        let tagRouter = this.resolveMeta(element, 'e-router', routerName)
         return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
             routerName === 'e' ? import.meta.url : element.baseURI)).href
     }},
@@ -258,7 +234,13 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (element.eDataset) {
             const valueproxy = element.getAttribute('valueproxy')
             if (valueproxy) return element.eDataset[valueproxy]
-            return Object.assign({}, element.eDataset)
+            const retval = Object.assign({}, element.eDataset)
+            for (const k of Object.keys(retval)) if (k.includes('__')) {
+                const unsafeProperty = k.replaceAll('__', '-')
+                retval[unsafeProperty] = retval[k]
+                delete retval[k]
+            }
+            return retval
         } else {
             const tag = element.tagName.toLowerCase()
             if (tag === 'meta') return element.getAttribute('content')
@@ -305,6 +287,9 @@ const ElementHTML = Object.defineProperties({}, {
         if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
             element.eDataset[valueproxy] = value
             if (value === undefined) delete element.eDataset[valueproxy]
+            return element
+        } else if (element.eDataset instanceof Object && value instanceof Object) {
+            Object.assign(element.eDataset, value)
             return element
         }
         const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
@@ -606,26 +591,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
-                    eRender: {writable: true, enumerable: true, value: (operation, property, value) => {
-                        let itemRelIds = [], has = false, elementList = []
-                        for (const itemrel of $this.shadowRoot.querySelectorAll('itemrel')) itemRelIds.push(...itemrel.getAttribute('itemrel').split(' '))
-                        propget: for (const propElement of $this.shadowRoot.querySelectorAll(`[itemprop="${property}"]`)) {
-                            if (propElement.closest('[itemscope]')) continue
-                            for (const relid of itemRelIds) if (propElement.closest(`[id="${relid}"]`)) continue propget
-                            if (operation === 'has') return true
-                            if (operation === 'set') { elementList.push(propElement); continue }
-                            const propValue = ElementHTML.getValue(propElement)
-                            if (value === undefined) { value = propValue; continue }
-                            if (!Array.isArray(value)) value = [value]
-                            value.push(propValue)
-                        }
-                        if (operation === 'has') return false
-                        if (operation === 'get') return value
-                        for (const propElement of elementList) ElementHTML.setValue(propElement, value, $this.shadowRoot)
-                    }},
-                    eProcessors: {enumerable: true, value: new Proxy({}, {
-                        get(target, property, receiver) { return (ElementHTML.resolveMeta($this, property, 'e-processor') || {}).func }
-                    })},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eData: {enumerable: true, writable: true, value: {}},
                     eSchema: {enumerable: true, writable: true, value: null},
@@ -636,11 +601,8 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.hasAttribute(property.slice(1))
                             case '.':
                                 return property.slice(1) in $this
-                            case '#':
-                                return property.slice(1) in $this.eSchema.map
                             default:
-                                if (property.includes('-')) return (property.replaceAll('-', '__') in target) || $this.eRender('has', property)
-                                return (property in target) || $this.eRender('has', property)
+                                return property.includes('-') ? (property.replaceAll('-', '__') in target) : (property in target)
                             }
                         },
                         get(target, property, receiver) {
@@ -649,31 +611,16 @@ const ElementHTML = Object.defineProperties({}, {
                                 return $this.getAttribute(property.slice(1))
                             case '.':
                                 return $this[property.slice(1)]
-                            case '#':
-                                return $this.eSchema.map[property.slice(1)]
                             default:
-                                if (property.includes('-')) {
-                                    const safeProperty = property.replaceAll('-', '__')
-                                    if (target[safeProperty] !== undefined) return target[safeProperty]
-                                } else { if (target[property] !== undefined) return target[property] }
-                                return $this.eRender('get', property)
+                                return property.includes('-') ? target[property.replaceAll('-', '__')] : target[property]
                             }
                         },
                         set(target, property, value, receiver) {
-                            const oldValue = target[property]
-                            let sanitizedValue, sanitizerDetails, validatedValue, validatorDetails;
                             switch(property[0]) {
                             case '@':
                                 return $this.setAttribute(property.slice(1), value)
                             case '.':
                                 return $this[property.slice(1)] = value
-                            case '#':
-                                let cleanProperty = property.slice(1);
-                                [sanitizedValue, sanitizerDetails] = $this.eSchema.sanitize($this, cleanProperty, value)
-                                value = sanitizedValue;
-                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, value)
-                                return {property: cleanProperty, value: value, oldValue: oldValue, sanitizedValue: sanitizedValue,
-                                    validatedValue: validatedValue, sanitizerDetails: sanitizerDetails, validatorDetails: validatorDetails}
                             default:
                                 let oldValue
                                 if (property.includes('-')) {
@@ -684,23 +631,16 @@ const ElementHTML = Object.defineProperties({}, {
                                     oldValue = target[property]
                                     target[property] = value 
                                 }
-                                $this.eRender('set', property, value)
                                 ElementHTML._dispatchPropertyEvent($this, 'change', property, {property: property, value: value, oldValue: oldValue})
                                 return value
                             }
                         },
                         deleteProperty(target, property) {
-                            const oldValue = target[property]
-                            let validatedValue, validatorDetails
                             switch(property[0]) {
                             case '@':
                                 return $this.removeAttribute(property.slice(1))
                             case '.':
                                 return delete $this[property.slice(1)]
-                            case '#':
-                                const cleanProperty = property.slice(1);
-                                [validatedValue, validatorDetails] = $this.eSchema.validate($this, cleanProperty, undefined)
-                                return {property: cleanProperty, value: undefined, oldValue: oldValue, validatedValue: validatedValue, validatorDetails: validatorDetails}
                             default:
                                 let retval, oldValue
                                 if (property.includes('-')) {
@@ -711,7 +651,6 @@ const ElementHTML = Object.defineProperties({}, {
                                     oldValue = target[property]
                                     retval = delete target[property] 
                                 }
-                                $this.eRender('deleteProperty', property)
                                 ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, {property: property, value: undefined, oldValue: oldValue})
                                 return retval
                             }
@@ -737,7 +676,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             static get observedAttributes() { return ['valueproxy'] }
             static e = ElementHTML
-            async connectedCallback() { for (const property in this.dataset) this.eRender('set', property, this.dataset[property]) }
+            async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             eProcessQueuedAttributes() {
@@ -763,8 +702,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
-
-
 let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
 if (metaSearch) for (const [func, args=[]] of (metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]]))) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
 export { ElementHTML }
