@@ -32,20 +32,6 @@
                         let schemaJson
                         try { schemaJson = JSON.parse(schemaText) } catch(e) {}
                         if (schemaJson instanceof Object) {
-                            /*let $schema = schemaJson['$schema'], traceError
-                            while ($schema && !traceError && !this.e.env.libraries.ajv.getSchema($schema)) {
-                                let thisSchema
-                                try { thisSchema = await (await fetch($schema)).json() } catch(e) { traceError = true }
-                                if (thisSchema instanceof Object) {
-                                    this.e.env.libraries.ajv.addSchema(thisSchema, $schema)
-                                    if (!this.e.env.libraries.ajv.getSchema(thisSchema, $schema)) traceError = true
-                                    $schema = thisSchema['$schema']
-                                } else { $schema = undefined }
-                            }
-                            if (traceError) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
-                                return [canonicalUrl, null]
-                            }*/
                             delete schemaJson['$schema']
                             this.e.env.libraries.ajv.addSchema(schemaJson, canonicalUrl)
                             validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
