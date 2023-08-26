@@ -3,6 +3,7 @@
 <script>
     class extends `./abstract/routable` {
 
+        #canonicalUri
         #validate = input => true
 
         constructor() {
@@ -25,11 +26,14 @@
                         this.e.env.libraries.ajv.addSchema(schemaText, canonicalUri)
                         validate = this.e.env.libraries.ajv.getSchema(canonicalUri)
                     }
-                    return typeof validate === 'function' ? validate : undefined
+                    return [canonicalUri, typeof validate === 'function' ? validate : null]
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    let [ canonicalUri, validate ] = useResponse
+                    if (canonicalUri) this.#canonicalUri = canonicalUri
                     if (validate) this.#validate = validate
                     if (addOrRemove === 'add') {
+                        node.eSchema = this.#canonicalUri
                         node.addEventListener('change', event => {
                             const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
                             if (!valid) node.dispatchEvent(new CustomEvent('error', {detail: errors}))

@@ -353,8 +353,6 @@ const ElementHTML = Object.defineProperties({}, {
           Object.assign(element.eDataset, data)
         } else if (flag === 'eContext' && element.eContext instanceof Object) {
           Object.assign(element.eContext, data)
-        } else if (flag === 'eSchema' && element.eSchema instanceof Object) {
-          Object.assign(element.eSchema, data)
         } else if (flag && flag.startsWith('auto')) {
           if (element.eDataset instanceof Object) {
             Object.assign(element.eDataset, data)
@@ -629,7 +627,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eData: {enumerable: true, writable: true, value: {}},
-                    eSchema: {enumerable: true, writable: true, value: {}},
+                    eSchema: {enumerable: true, writable: true, value: null},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             switch(property[0]) {
