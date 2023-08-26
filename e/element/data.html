@@ -11,22 +11,19 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let parsed = {}
+                    let parsed = await response.text()
                     if (this.#parser) {
-                        /* parser might be YAML or Protobuf parser libraries, for example */
-                        if (typeof this.e.processors[this.#parser] === 'function') return await this.e.processors[this.#parser](await response.text())
-                    } else { return await response.json() }
-                }},
-                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
-                }}, 
-                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
+                        let parserFunction = this.e.resolveProcessor(this, this.#parser)
+                        if (parserFunction) parsed = await parserFunction(parsed)
+                    } else {
+                        try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} }
+                    }
+                    return parsed
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         this.#data = useResponse
-                        this.e.sinkData(node, this.#data, this.as, undefined)
+                        this.e.sinkData(node, this.#data, ...this.e.utils.splitOnce(this.#as, ';'))
                     } 
                 }}
             })
