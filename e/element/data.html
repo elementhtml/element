@@ -16,9 +16,7 @@
                     if (this.#parser) {
                         let parserFunction = this.e.resolveProcessor(this, this.#parser)
                         if (parserFunction) parsed = await parserFunction(parsed)
-                    } else {
-                        try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} }
-                    }
+                    } else { try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} } }
                     return parsed
                 }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
