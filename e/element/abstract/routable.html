@@ -62,10 +62,16 @@
                         return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
                     }}, 
                 _activate: {value: async () => {
-                    const observed = this.e.getObserved(this, this.#scope, this.#observe)
+                    const observed = this.e.getObserved(this, this.#scope, this.#observe), recordLoadEnd = () => {
+                        window.requestAnimationFrame(() => {
+                            this.dispatchEvent(new CustomEvent('loadended'))
+                            delete this.e.env.routableLoadingRegistry[this]
+                            if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
+                        })                        
+                    }
                     if (observed === this.parentElement && !this.#match) {
                         return await this._as(await this._useResponse, 'add', this.parentElement, 
-                            this.parentElement.previousElementSibling, this.parentElement.nextElementSibling, {})
+                            this.parentElement.previousElementSibling, this.parentElement.nextElementSibling, {}).then(() => recordLoadEnd())
                     }
                     const processRecords = async recordsToProcess => {
                         const queue = {}
@@ -102,11 +108,7 @@
                             }
                         })
                     }
-                    Promise.all(promises).then(() => {
-                        delete this.e.env.routableLoadingRegistry[this]
-                        this.dispatchEvent(new CustomEvent('loadended')) 
-                        if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
-                    } )
+                    Promise.all(promises).then(() => recordLoadEnd())
                 }},
                 _as: {configurable: true, writable: true, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
@@ -122,7 +124,7 @@
 		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as') }
 
         async connectedCallback() {
-            if (!Object.keys(this.e.env.registry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
+            if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
             this.e.env.routableLoadingRegistry[this] = true
             this.dispatchEvent(new CustomEvent('loadstarted'))
             await this._activate()
