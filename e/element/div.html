@@ -1,0 +1,50 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `div` {
+
+        #scope
+        #source
+        #query
+        #processor
+        #jsonata
+        #map = 'true,false,,'
+
+        #sourceElement
+
+        constructor() { super() }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('scope', 'source', 'query', 'processor', 'jsonata', 'map') }
+
+        async connectedCallback() {
+            const connectElement = this.e._connectElement.bind(this)
+            await connectElement()
+        }
+
+        toString() { return `${this.#sourceElement}` }
+
+        async render(sourceElement) {
+            const renderElement = this.e._renderElement.bind(this)
+            await renderElement(sourceElement)
+        }
+
+        set scope(value) { this.#scope = value }
+        get scope() { return this.#scope }
+
+        set source(value) { this.#source = value }
+        get source() { return this.#source }
+
+        set query(value) { this.#query = value }
+        get query() { return this.#query }
+
+        set processor(value) { this.#processor = value }
+        get processor() { return this.#processor }
+
+        set jsonata(value) { this.#jsonata = value }
+        get jsonata() { return this.#jsonata }
+
+        set map(value) { this.#map = value }
+        get map() { return this.#map }
+
+    }
+</script>
