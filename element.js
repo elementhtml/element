@@ -566,24 +566,24 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     _connectElement: {value: async function() {
-        let scope = this.#scope ? this.closest(this.#scope) : this.getRootNode()
+        let scope = this.scope ? this.closest(this.scope) : this.getRootNode()
         scope ||= this.getRootNode()
-        let sourceElement = (scope instanceof ShadowRoot) ? scope.host : ( this.#scope ? scope : this.parentElement )
+        let sourceElement = (scope instanceof ShadowRoot) ? scope.host : ( this.scope ? scope : this.parentElement )
         const trimmedContent = this.textContent.trim()
         if (trimmedContent.length && !this.children.length) {
-            if (this.#source) {
-                this.#query = trimmedContent
-            } else if (this.#query) {
-                this.#source = trimmedContent                
+            if (this.source) {
+                this.query = trimmedContent
+            } else if (this.query) {
+                this.source = trimmedContent                
             } else {
                 const [source, ...query] = trimmedContent.split('~>')
-                this.#source = source.trim()
-                this.#query = query.join('~>').trim()
+                this.source = source.trim()
+                this.query = query.join('~>').trim()
             }
         }
-        if (this.#source) sourceElement = sourceElement.querySelector(this.#source)
+        if (this.source) sourceElement = sourceElement.querySelector(this.source)
         if (!sourceElement || (sourceElement === this)) return
-        this.#sourceElement = sourceElement
+        this.sourceElement = sourceElement
         sourceElement.addEventListener('change', event => { this.render(sourceElement) })
         await this.render(sourceElement)
     }},
@@ -593,11 +593,11 @@ const ElementHTML = Object.defineProperties({}, {
             scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
             document.head.append(scriptTag)
         }
-        const [t='true', f='false', n='', u=''] = this.#map.split(',')
+        const [t='true', f='false', n='', u=''] = this.map.split(',')
         let newValue = this.e.getValue(sourceElement)
-        if (this.#query && (newValue instanceof Object)) newValue = window.jsonata ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
-        if (this.#processor) {
-            let processorFunction = this.e.resolveMeta(this, 'e-processor', this.#processor)?.func
+        if (this.query && (newValue instanceof Object)) newValue = window.jsonata ? (await window.jsonata(this.query).evaluate(newValue)) : newValue[this.query]
+        if (this.processor) {
+            let processorFunction = this.e.resolveMeta(this, 'e-processor', this.processor)?.func
             if (processorFunction) useResponse = await processorFunction(newValue)
         }
         if (newValue === true) newValue = t
