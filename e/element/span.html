@@ -3,31 +3,31 @@
 <script>
     class extends `span` {
 
+        #scope
         #source
         #query
         #processor
-        #errors  
         #jsonata
         #map = 'true,false,,'
 
-        constructor() {
-            super()
-            Object.defineProperties(this, {
-                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}
-            })
-        }
+        #sourceElement
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('scope', 'source', 'sink', 'processor', 'errors', 'jsonata') }
+        constructor() { super() }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('scope', 'source', 'query', 'processor', 'jsonata', 'map') }
 
         async connectedCallback() {
-            const scope = this.getRootNode(), sourceElement = (scope instanceof ShadowRoot) ? scope.host : this.parentElement
-            if (this.#source) sourceElement = scope.querySelector(this.#source)
-            if (!sourceElement || (sourceElement === this)) return            
+            let scope = this.#scope ? this.closest(this.#scope) : this.getRootNode()
+            scope ||= this.getRootNode()
+            let sourceElement = (scope instanceof ShadowRoot) ? scope.host : ( this.#scope ? scope : this.parentElement )
+            if (this.#source) sourceElement = sourceElement.querySelector(this.#source)
+            if (!sourceElement || (sourceElement === this)) return
+            this.#sourceElement = sourceElement
             sourceElement.addEventListener('change', event => { this.render(sourceElement) })
             await this.render(sourceElement)
         }
 
-        toString() {  }
+        toString() { return `${this.#sourceElement}` }
 
         async render(sourceElement) {
             if (this.jsonata && !window.jsonata) {
@@ -38,6 +38,10 @@
             const [t='true', f='false', n='', u=''] = this.#map.split(',')
             let newValue = this.e.getValue(sourceElement)
             if (this.#query) newValue = window.jsonata ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
+            if (this.#processor) {
+                let processorFunction = this.e.resolveMeta(this, 'e-processor', this.#processor)?.func
+                if (processorFunction) useResponse = await processorFunction(newValue)
+            }
             if (newValue === true) newValue = t
             if (newValue === false) newValue = f
             if (newValue === null) newValue = n
@@ -51,6 +55,9 @@
             } else { this.textContent = newValue }
         }
 
+        set scope(value) { this.#scope = value }
+        get scope() { return this.#scope }
+
         set source(value) { this.#source = value }
         get source() { return this.#source }
 
@@ -59,9 +66,6 @@
 
         set processor(value) { this.#processor = value }
         get processor() { return this.#processor }
-
-        set errors(value) { this.#errors = value }
-        get errors() { return this.#errors }
 
         set jsonata(value) { this.#jsonata = value }
         get jsonata() { return this.#jsonata }
