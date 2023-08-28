@@ -20,11 +20,6 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('scope', 'source', 'sink', 'processor', 'errors', 'jsonata') }
 
         async connectedCallback() {
-            if (this.jsonata && !window.jsonata) {
-                const scriptTag = document.createElement('script')
-                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                document.head.append(scriptTag)
-            }
             const scope = this.getRootNode(), sourceElement = (scope instanceof ShadowRoot) ? scope.host : this.parentElement
             if (this.#source) sourceElement = scope.querySelector(this.#source)
             if (!sourceElement || (sourceElement === this)) return            
@@ -35,9 +30,14 @@
         toString() {  }
 
         async render(sourceElement) {
+            if (this.jsonata && !window.jsonata) {
+                const scriptTag = document.createElement('script')
+                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                document.head.append(scriptTag)
+            }
             const [t='true', f='false', n='', u=''] = this.#map.split(',')
             let newValue = this.e.getValue(sourceElement)
-            if (this.#query) newValue = (this.jsonata && window.jsonata) ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
+            if (this.#query) newValue = window.jsonata ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
             if (newValue === true) newValue = t
             if (newValue === false) newValue = f
             if (newValue === null) newValue = n
