@@ -565,11 +565,22 @@ const ElementHTML = Object.defineProperties({}, {
             this.constructors[id] = this._base(this.classes[id])
         }
     }},
-
     _connectElement: {value: async function() {
         let scope = this.#scope ? this.closest(this.#scope) : this.getRootNode()
         scope ||= this.getRootNode()
         let sourceElement = (scope instanceof ShadowRoot) ? scope.host : ( this.#scope ? scope : this.parentElement )
+        const trimmedContent = this.textContent.trim()
+        if (trimmedContent.length && !this.children.length) {
+            if (this.#source) {
+                this.#query = trimmedContent
+            } else if (this.#query) {
+                this.#source = trimmedContent                
+            } else {
+                const [source, ...query] = trimmedContent.split('~>')
+                this.#source = source.trim()
+                this.#query = query.join('~>').trim()
+            }
+        }
         if (this.#source) sourceElement = sourceElement.querySelector(this.#source)
         if (!sourceElement || (sourceElement === this)) return
         this.#sourceElement = sourceElement
@@ -584,7 +595,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
         const [t='true', f='false', n='', u=''] = this.#map.split(',')
         let newValue = this.e.getValue(sourceElement)
-        if (this.#query) newValue = window.jsonata ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
+        if (this.#query && (newValue instanceof Object)) newValue = window.jsonata ? (await window.jsonata(this.#query).evaluate(newValue)) : newValue[this.#query]
         if (this.#processor) {
             let processorFunction = this.e.resolveMeta(this, 'e-processor', this.#processor)?.func
             if (processorFunction) useResponse = await processorFunction(newValue)
@@ -601,9 +612,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else { this.e.setValue(this.children[0], newValue) }
         } else { this.textContent = newValue }
     }},
-
-
-
     _dispatchPropertyEvent: {value: function(element, eventNamePrefix, property, eventDetail) {
         eventDetail = {detail: {property: property, ...eventDetail}}
         element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
