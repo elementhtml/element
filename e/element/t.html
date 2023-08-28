@@ -1,0 +1,60 @@
+<style></style>
+<template><slot></slot></template>
+<script>
+    class extends `span` {
+
+        #scope
+        #source
+        #query
+        #sink
+        #processor
+        #errors  
+        #jsonata
+
+        #scopeElement
+        #sourceElement
+        #sinkElement
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('scope', 'source', 'sink', 'processor', 'errors', 'jsonata') }
+
+        async connectedCallback() {
+            if (this.jsonata && !window.jsonata) {
+                const scriptTag = document.createElement('script')
+                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                document.head.append(scriptTag)
+            }
+            await this.render()
+        }
+
+        toString() {  }
+
+        set scope(value) { this.#scope = value }
+        get scope() { return this.#scope }
+
+        set source(value) { this.#source = value }
+        get source() { return this.#source }
+
+        set query(value) { this.#query = value }
+        get query() { return this.#query }
+
+        set sink(value) { this.#sink = value }
+        get sink() { return this.#sink }
+
+        set processor(value) { this.#processor = value }
+        get processor() { return this.#processor }
+
+        set errors(value) { this.#errors = value }
+        get errors() { return this.#errors }
+
+        set jsonata(value) { this.#jsonata = jsonata }
+        get jsonata() { return this.#jsonata }
+
+    }
+</script>
