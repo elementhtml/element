@@ -12,7 +12,10 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let parsed = await response.text()
-                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
+                    if (response.status >= 400) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
+                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { parsed = '{}' }
+                    }
                     if (this.#parser) {
                         let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
                         if (parserFunction) parsed = await parserFunction(parsed)

@@ -28,7 +28,10 @@
                     let validate = this.e.env.libraries.ajv.getSchema(canonicalUrl)
                     if (!validate) {
                         let schemaFetch = await fetch(canonicalUrl), schemaText = await schemaFetch.text()
-                        if (schemaFetch.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
+                        if (schemaFetch.status >= 400) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
+                            if (this.errors === 'throw') { throw new Error(schemaText); return } else if (this.errors === 'hide') { schemaText = '{}' }
+                        }
                         let schemaJson
                         try { schemaJson = JSON.parse(schemaText) } catch(e) {}
                         if (schemaJson instanceof Object) {

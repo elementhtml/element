@@ -213,7 +213,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
     }},
-    getValue: {enumerable: true, value: function(element) {
+    getValue: {enumerable: true, value: function(element, useDataset='auto') {
         if (!element) return
         if (element.hasAttribute('itemscope')) {
             const value = {}, parseElementForValues = (el) => {
@@ -242,6 +242,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
             return retval
         } else {
+            if (useDataset === 'auto') useDataset = !!Object.keys(element.dataset).length
+            if (useDataset) return {...element.dataset}
             const tag = element.tagName.toLowerCase()
             if (tag === 'meta') return element.getAttribute('content')
             if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
@@ -280,7 +282,9 @@ const ElementHTML = Object.defineProperties({}, {
                     propSiblings[i] = newSibling
                 }
                 for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
-            } else { Object.assign((element.eDataset || element.dataset), value) }
+            } else { 
+                Object.assign((element.eDataset || element.dataset), value) 
+            }
             return element
         }
         let valueproxy

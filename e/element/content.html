@@ -9,7 +9,10 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let text = await response.text()
-                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                    if (response.status >= 400) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { text = '' }
+                    }
                     return text 
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {

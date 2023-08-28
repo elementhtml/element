@@ -9,7 +9,10 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'theme'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => { 
                     let text = await response.text()
-                    if (response.status >= 400) this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                    if (response.status >= 400) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { text = '' }
+                    }
                     return await (new CSSStyleSheet()).replace(text) 
                 }},
                 _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
