@@ -134,7 +134,7 @@
                         let hasDot = pointerField.includes('.')
                         hasDot && ([this.#pointer=defaultpointer, this.#field] = pointerField.split(/\.(.+)/).map(s => s.trim()))
                         hasDot || ([this.#pointer, this.#field] = [pointerField, undefined])
-                        if (flag === '#') this.#pointer = `#${this.pointer}`
+                        if (flag === '#') this.#pointer = `#${this.#pointer}`
                     } else if (valueSplit[1].includes('.')) {
                         if (flag === '#') valueSplit[1] = valueSplit[1].slice(1)
                         let fieldHash
@@ -142,11 +142,27 @@
                         let hasHash = fieldHash.includes('#')
                         hasHash && ([this.#field, this.#hash] = fieldHash.split(/#(.+)/).map(s => s.trim()))
                         hasHash || ([this.#field, this.#hash] = [fieldHash, undefined])
-                        if (flag === '#') this.#pointer = `#${this.pointer}`
+                        if (flag === '#') this.#pointer = `#${this.#pointer}`
                     } else {
                         [this.#pointer, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
                     }
-                    if (flag) this.#pointer = flagMap[flag].replace(this.#pointer, '')
+                    if (flag) {
+                        if (this.#pointer.slice(1).startsWith('[') && this.#pointer.endsWith(']')) {
+                            if (flag === '?') {
+                                this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
+                            } else {
+                                if ((this.#pointer.length > 5) && (this.#pointer[2] === '/') && (this.#pointer.slice(-2, -1) === '/')) {
+                                    this.#pointer = flagMap[flag].match(new RegExp(this.#pointer.slice(3,-2)))[0]
+                                } else {
+                                    let [delimiter, index=0] = this.#pointer.slice(2, -1).split(';')
+                                    if (!index) index = 0
+                                    this.#pointer = flagMap[flag].slice(1).split(delimiter)[index]                                    
+                                }
+                            }
+                        } else {
+                            this.#pointer = flagMap[flag].replace(this.#pointer, '')
+                        }
+                    } 
                 }
                 valueSplit = this.e.utils.splitOnce(value, '-').map(s => s.trim())
                 this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
