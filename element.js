@@ -23,10 +23,17 @@ const ElementHTML = Object.defineProperties({}, {
             let r
             str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
             return r
-        }},        
+        }},
         getCustomTag: {enumerable: true, value: function(element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                     || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }}, 
+        wait: {enumerable: true, value: async function(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms))
+        }}, 
+        waitUntil: {enumerable: true, value: async function(cb, ms=100, max=100) {
+            let count = 0
+            while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
         }}
     })},
     ids: {enumerable: true, value: {}},
@@ -574,11 +581,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.source) {
                 this.query = trimmedContent
             } else if (this.query) {
-                this.source = trimmedContent                
-            } else {
+                this.source = trimmedContent
+            } else if (trimmedContent.includes('~>')) {
                 const [source, ...query] = trimmedContent.split('~>')
                 this.source = source.trim()
                 this.query = query.join('~>').trim()
+            } else {
+                this.source = ''
+                this.query = trimmedContent
             }
         }
         if (this.source) sourceElement = sourceElement.querySelector(this.source)
@@ -588,14 +598,31 @@ const ElementHTML = Object.defineProperties({}, {
         await this.render(sourceElement)
     }},
     _renderElement: {value: async function(sourceElement) {
-        if (this.jsonata && !window.jsonata) {
+        if (this.hasAttribute('jsonata') && !window.jsonata) {
             const scriptTag = document.createElement('script')
             scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
             document.head.append(scriptTag)
+            await this.e.utils.waitUntil(() => window.jsonata)
         }
         const [t='true', f='false', n='', u=''] = this.map.split(',')
         let newValue = this.e.getValue(sourceElement)
-        if (this.query && (newValue instanceof Object)) newValue = window.jsonata ? (await window.jsonata(this.query).evaluate(newValue)) : newValue[this.query]
+        if (this.query) {
+            if (window.jsonata) {
+                try {
+                    newValue = await window.jsonata(this.query).evaluate(newValue)
+                } catch(e) {
+                    this.dispatchEvent(new CustomEvent('error', {detail: {message: e.message, jsonataError: e, value: newValue, query: this.query}}))
+                    console.log('line 618', e.message, newValue, this.query)
+                }
+            } else {
+                try {
+                    newValue = newValue[this.query]
+                } catch(e) {
+                    this.dispatchEvent(new CustomEvent('error', {detail: {message: e, value: newValue, query: this.query}}))
+                    console.log('line 625', e, newValue, this.query)
+                }
+            }
+        }
         if (this.processor) {
             let processorFunction = this.e.resolveMeta(this, 'e-processor', this.processor)?.func
             if (processorFunction) useResponse = await processorFunction(newValue)
