@@ -121,28 +121,35 @@
 
         set use(value) {
             this.#use = value
-            if (!value || value.includes('/')) return
+            if (!value) return
             if (typeof value === 'string') {
+                if (!value || value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://')) return
                 let valueSplit, parseHashField = (valueSplit, defaultpointer) => {
+                    let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
+                    if (['/', '#', "?"].includes(valueSplit[1][0])) flag = valueSplit[1][0]
                     if (valueSplit[1].includes('#')) {
+                        if (flag === '#') valueSplit[1] = valueSplit[1].slice(1)
                         let pointerField
                         [pointerField, this.#hash] = [...valueSplit[1].split(/#(.+)/).map(s => s.trim())]
                         let hasDot = pointerField.includes('.')
                         hasDot && ([this.#pointer=defaultpointer, this.#field] = pointerField.split(/\.(.+)/).map(s => s.trim()))
                         hasDot || ([this.#pointer, this.#field] = [pointerField, undefined])
+                        if (flag === '#') this.#pointer = `#${this.pointer}`
                     } else if (valueSplit[1].includes('.')) {
+                        if (flag === '#') valueSplit[1] = valueSplit[1].slice(1)
                         let fieldHash
                         [this.#pointer=defaultpointer, fieldHash] = [...valueSplit[1].split(/\.(.+)/).map(s => s.trim())]
                         let hasHash = fieldHash.includes('#')
                         hasHash && ([this.#field, this.#hash] = fieldHash.split(/#(.+)/).map(s => s.trim()))
                         hasHash || ([this.#field, this.#hash] = [fieldHash, undefined])
+                        if (flag === '#') this.#pointer = `#${this.pointer}`
                     } else {
                         [this.#pointer, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
                     }
+                    if (flag) this.#pointer = flagMap[flag].replace(this.#pointer, '')
                 }
                 valueSplit = this.e.utils.splitOnce(value, '-').map(s => s.trim())
                 this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
-
                 if (valueSplit.length === 1) {
                     this.#pointer = valueSplit[0] || this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer
                     this.#hash = undefined
@@ -175,7 +182,7 @@
         get errors() { return this.#errors }
 
         set _selfObserver(value) { this.#selfObserver = value }
-        get _selfObserver() { return this.#selfObserver }        
+        get _selfObserver() { return this.#selfObserver }
 
     }
 </script>
