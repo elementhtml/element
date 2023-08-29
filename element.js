@@ -608,19 +608,9 @@ const ElementHTML = Object.defineProperties({}, {
         let newValue = this.e.getValue(sourceElement)
         if (this.query) {
             if (window.jsonata) {
-                try {
-                    newValue = await window.jsonata(this.query).evaluate(newValue)
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {message: e.message, jsonataError: e, value: newValue, query: this.query}}))
-                    console.log('line 618', e.message, newValue, this.query)
-                }
+                try { newValue = await window.jsonata(this.query).evaluate(newValue) } catch(e) { this.dispatchEvent(new CustomEvent('error', {detail: {message: e.message, jsonataError: e, value: newValue, query: this.query}})) }
             } else {
-                try {
-                    newValue = newValue[this.query]
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {message: e, value: newValue, query: this.query}}))
-                    console.log('line 625', e, newValue, this.query)
-                }
+                try { newValue = newValue[this.query] } catch(e) { this.dispatchEvent(new CustomEvent('error', {detail: {message: e, value: newValue, query: this.query}})) }
             }
         }
         if (this.processor) {
