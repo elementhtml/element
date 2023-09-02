@@ -28,7 +28,7 @@
             await renderElement(sourceElement)
         }
 
-        set map(value) { this.#map = {..., ...this.e.utils.parseObjectAttribute(value)} }
+        set map(value) { this.#map = {...this.#map, ...(this.e.utils.parseObjectAttribute(value) || {})}}
         get map() { return this.#map }        
 
     }
