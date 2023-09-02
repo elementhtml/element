@@ -49,7 +49,7 @@
 
         connectedCallback() {}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'processor', 'priority', 'cache') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'processor', 'priority', 'cache', 'fetch-options') }
 
         set base(value) { this.#base = value }
         get base() { return this.#base }
@@ -66,8 +66,13 @@
         set cache(value) { this.#cache = value }
         get cache() { return this.#cache }
 
-        set fetchOptions(value) { if (value instanceof Object) this.#fetchOptions = value }
+        set fetchOptions(value) {
+            this.#fetchOptions this.e.utils.parseObjectAttribute(value)
+        }
         get fetchOptions() { return this.#fetchOptions }
+
+        set ['fetch-options'](value) { this.fetchOptions = value }
+        get ['fetch-options']() { return this.fetchOptions }
 
     }
 </script>

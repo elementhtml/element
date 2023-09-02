@@ -34,6 +34,19 @@ const ElementHTML = Object.defineProperties({}, {
         waitUntil: {enumerable: true, value: async function(cb, ms=100, max=100) {
             let count = 0
             while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
+        }}, 
+        parseObjectAttribute: {enumerable: true, value: function(value) {
+            let retval = null
+            if (value instanceof Object) {
+                retval = value
+            } else if (typeof value === 'string') {
+                if ((value[0] === '{') && (value.slice(-1) === '}')) {
+                    try { retval = JSON.parse(value) } catch(e) {}
+                } else {
+                    try { retval = Object.fromEntries((new URLSearchParams(value)).entries()) } catch(e) {}
+                }
+            }
+            return retval
         }}
     })},
     ids: {enumerable: true, value: {}},
