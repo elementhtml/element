@@ -8,7 +8,7 @@
         query
         processor
         jsonata
-        map = 'true,false,,'
+        #map = {'true': 'true', 'false': 'false', 'null': '', 'undefined': ''}
 
         sourceElement
 
@@ -27,6 +27,9 @@
             const renderElement = this.e._renderElement.bind(this)
             await renderElement(sourceElement)
         }
+
+        set map(value) { this.#map = {..., ...this.e.utils.parseObjectAttribute(value)} }
+        get map() { return this.#map }        
 
     }
 </script>

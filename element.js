@@ -4,8 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
-            element: 'html', layout: 'html', content: 'html', meta: 'html', theme: 'css',
-            data: 'json', media: 'webp', processor: 'js', schema: 'schema.json', context: 'context.json'
+            element: 'html', layout: 'html', content: 'html', theme: 'css', data: 'json', processor: 'js', schema: 'schema.json'
         }},
         routableLoadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
@@ -588,7 +587,7 @@ const ElementHTML = Object.defineProperties({}, {
     _connectElement: {value: async function() {
         let scope = this.scope ? this.closest(this.scope) : this.getRootNode()
         scope ||= this.getRootNode()
-        let sourceElement = (scope instanceof ShadowRoot) ? scope.host : ( this.scope ? scope : this.parentElement )
+        let sourceElement = (scope instanceof ShadowRoot) ? scope : ( this.scope ? scope : this.parentElement )
         const trimmedContent = this.textContent.trim()
         if (trimmedContent.length && !this.children.length) {
             if (this.source) {
@@ -605,6 +604,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
         if (this.source) sourceElement = sourceElement.querySelector(this.source)
+        if (sourceElement instanceof ShadowRoot) sourceElement = sourceElement.host
         if (!sourceElement || (sourceElement === this)) return
         this.sourceElement = sourceElement
         sourceElement.addEventListener('change', event => { this.render(sourceElement) })
@@ -617,7 +617,7 @@ const ElementHTML = Object.defineProperties({}, {
             document.head.append(scriptTag)
             await this.e.utils.waitUntil(() => window.jsonata)
         }
-        const [t='true', f='false', n='', u=''] = this.map.split(',')
+        const [t='true', f='false', n='', u=''] =   this.map.split(';')
         let newValue = this.e.getValue(sourceElement)
         if (this.query) {
             if (window.jsonata) {
