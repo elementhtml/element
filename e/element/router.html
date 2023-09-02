@@ -49,7 +49,7 @@
 
         connectedCallback() {}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'processor', 'priority', 'cache', 'fetch-options') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'processor', 'fetch-options') }
 
         set base(value) { this.#base = value }
         get base() { return this.#base }
@@ -60,15 +60,7 @@
         set processor(value) { this.#processor = value }
         get processor() { return this.#processor }
 
-        set priority(value) { this.#priority = value }
-        get priority() { return this.#priority }
-
-        set cache(value) { this.#cache = value }
-        get cache() { return this.#cache }
-
-        set fetchOptions(value) {
-            this.#fetchOptions this.e.utils.parseObjectAttribute(value)
-        }
+        set fetchOptions(value) { this.#fetchOptions this.e.utils.parseObjectAttribute(value) }
         get fetchOptions() { return this.#fetchOptions }
 
         set ['fetch-options'](value) { this.fetchOptions = value }
