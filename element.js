@@ -39,6 +39,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Object) {
                 retval = value
             } else if (typeof value === 'string') {
+                if (value[0] === '?') value = decodeURIComponent(value).slice(1)
                 if ((value[0] === '{') && (value.slice(-1) === '}')) {
                     try { retval = JSON.parse(value) } catch(e) {}
                 } else {
@@ -774,6 +775,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }}
 })
-let metaUrl = new URL(import.meta.url), metaSearch = metaUrl.search.slice(1)
-if (metaSearch) for (const [func, args=[]] of (metaSearch.split(';').map(f => ([...f.split('(', 2), undefined].slice(0, 2))).map(f => [f[0], f[1] !== undefined ? (f[1].slice(0, -1).split(',')):[]]))) if (typeof ElementHTML[func] == 'function') await ElementHTML[func](...args)  
+let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
+
+console.log(metaOptions)
+
+for (const [func, args] of Object.entries(metaOptions)) if (typeof ElementHTML[func] == 'function') if (args.startsWith('[') && args.endsWith(']')) { 
+    try { await ElementHTML[func](...JSON.parse(args)) } catch(e) { await ElementHTML[func](args) } 
+} else { await ElementHTML[func](args) }
 export { ElementHTML }

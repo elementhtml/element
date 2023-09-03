@@ -16,7 +16,7 @@
         #match
         #as
 
-        #errors        
+        #errors
 
     	constructor() {
     		super()
@@ -64,13 +64,9 @@
                     const processRecords = async recordsToProcess => {
                         const queue = {}
                         for (const record of recordsToProcess) {
-                            if (record.type === 'childList') for (const addedNode of record.addedNodes) {
-                                if (typeof addedNode.matches === 'function' && addedNode.matches(this.#match||':scope')) queue[addedNode] = ['add', 
-                                    addedNode, record.previousSibling, record.nextSibling]
-                            }
-                            if (record.type === 'childList') for (const removedNode of record.removedNodes) {
-                                if (typeof removedNode.matches === 'function' && removedNode.matches(this.#match||':scope')) queue[removedNode] = ['remove', 
-                                    removedNode, record.previousSibling, record.nextSibling]
+                            if (record.type === 'childList') {
+                                for (const addedNode of record.addedNodes) if (typeof addedNode.matches === 'function' && addedNode.matches(this.#match||':scope')) queue[addedNode] = ['add', addedNode, record.previousSibling, record.nextSibling]
+                                for (const removedNode of record.removedNodes) if (typeof removedNode.matches === 'function' && removedNode.matches(this.#match||':scope')) queue[removedNode] = ['remove', removedNode, record.previousSibling, record.nextSibling]
                             }
                         }
                         const queueValues = Object.values(queue)
