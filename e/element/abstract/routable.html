@@ -13,7 +13,6 @@
         #hash
 
         #scope
-        #observe
         #match
         #as
 
@@ -54,17 +53,14 @@
                         return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
                     }}, 
                 _activate: {value: async () => {
-                    const observed = this.e.getObserved(this, this.#scope, this.#observe), recordLoadEnd = () => {
+                    const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
                         window.requestAnimationFrame(() => {
                             this.dispatchEvent(new CustomEvent('loadended'))
                             delete this.e.env.routableLoadingRegistry[this]
                             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
                         })                        
                     }
-                    if (observed === this.parentElement && !this.#match) {
-                        return await this._as(await this._useResponse, 'add', this.parentElement, 
-                            this.parentElement.previousElementSibling, this.parentElement.nextElementSibling, {}).then(() => recordLoadEnd())
-                    }
+                    if (!this.#match) return await this._as(await this._useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {}).then(() => recordLoadEnd())
                     const processRecords = async recordsToProcess => {
                         const queue = {}
                         for (const record of recordsToProcess) {
@@ -83,8 +79,8 @@
                             for (const queueValue of queueValues) this._as(useResponse, ...queueValue)
                         }
                     }
-                    this.e.createObserver(this, observed, processRecords, processRecords)
-                    const useResponse = await this._useResponse, matches = observed.querySelectorAll(this.#match||':scope'), promises = []
+                    this.e.createObserver(this, scopeElement, processRecords, processRecords)
+                    const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#match||':scope'), promises = []
                     for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
                             ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)})))))
@@ -101,7 +97,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'observe', 'match', 'as') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'match', 'as') }
 
         async connectedCallback() {
             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
@@ -184,9 +180,6 @@
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
-
-        set observe(value) { this.#observe = value }
-        get observe() { return this.#observe }
 
         set match(value) { this.#match = value }
         get match() { return this.#match }

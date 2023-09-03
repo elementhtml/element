@@ -191,15 +191,6 @@ const ElementHTML = Object.defineProperties({}, {
             ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
             .map((v, i, a) => (i === a.length-1) ? [v, this.extends[v]] : v).flat()
     }},
-    getObserved: {enumerable: true, value: function(element, scope, observe) {
-        const scopesMap = {document: document, 'document.head': document.head, 'document.body': document.body,
-        body: document.body, head: document.head, root: element.getRootNode(), parent: element.parentElement}
-        let useScope = scope && scopesMap[scope] ? scopesMap[scope] : undefined
-        if (!useScope && scope && scope.startsWith('closest(') && scope.endWith(')')) useScope = element.closest(scope.slice(8, -1))
-        useScope ||= element.parentElement
-        useScope ||= element.getRootNode()
-        return observe ? (useScope.querySelector(observe) || useScope) : useScope
-    }},
     createObserver: {enumerable: true, value: function(element, observed, takeRecordsCallback, observerCallback) {
         if (element._observer) takeRecordsCallback(element._observer.takeRecords())
         element._observer && (element._observer.disconnect() || (delete element._observer))
