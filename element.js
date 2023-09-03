@@ -776,9 +776,6 @@ const ElementHTML = Object.defineProperties({}, {
     }}
 })
 let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
-
-console.log(metaOptions)
-
 for (const [func, args] of Object.entries(metaOptions)) if (typeof ElementHTML[func] == 'function') if (args.startsWith('[') && args.endsWith(']')) { 
     try { await ElementHTML[func](...JSON.parse(args)) } catch(e) { await ElementHTML[func](args) } 
 } else { await ElementHTML[func](args) }
