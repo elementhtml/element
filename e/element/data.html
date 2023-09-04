@@ -58,7 +58,7 @@
                             }
                             if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>')
                         } else { this.#data = useResponse }
-                        this.e.sinkData(node, this.#data, flag, transform)
+                        await this.e.sinkData(node, this.#data, flag, transform)
                         if (this.processor?.func) {
                             try {
                                 if (typeof this.processor.func === 'function') this.processor.func(node)

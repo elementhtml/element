@@ -291,16 +291,16 @@ const ElementHTML = Object.defineProperties({}, {
         element.textContent = value
         return element
     }},
-    transformData: {enumerable: true, value: function(data, transformSignature) {
-        if (!transformSignature || !data || !(data instanceof Object) || !Object.keys(data).length) return data
-        const newData = Object.fromEntries(transformSignature.split(';').map(s => s.trim().split(':').map(ss => ss.trim())))
-        for (const k of Object.keys(newData)) if (newData[k] in data) newData[k] = data[newData[k]]
-        return newData
-    }},
-    sinkData: {enumerable: true, value: function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
+    sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
         if (!element) return element
         rootElement ||= element
-        if (transform) data = this.transformData(data, transform)
+        if (transform && !window.jsonata) {
+            const scriptTag = document.createElement('script')
+            scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+            document.head.append(scriptTag)
+            await this.e.utils.waitUntil(() => window.jsonata)
+            data = await window.jsonata(transform).evaluate(data)
+        }
         if (!(data instanceof Object)) return this.setValue(element, data)
         if (!Object.keys(data).length) return element
         flag ||= sourceElement?.flag
