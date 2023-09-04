@@ -14,18 +14,6 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     return this.#parser === 'wasm' ? await WebAssembly.instantiateStreaming(fetch(this.e.getURL(response))) : await import(this.e.getURL(response))
                 }},
-                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (moduleNamespaceObject) => {
-                    moduleNamespaceObject = await this._routable._applyHash(moduleNamespaceObject)
-                    const processorObject = Object.assign({}, moduleNamespaceObject)
-                    if (this._hash) {
-                        const hashSplit = this._hash.split(';').map(s => s.trim())
-                        for (const r in processorObject) if (!hashSplit.includes(r)) delete processorObject[r]
-                    }
-                    return processorObject
-                }}, 
-                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    return this.e.applyField(this._field, await this._routable._applyField(parsedResponse))
-                }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     this.#module = useResponse
                     if (this.#module instanceof Object) {

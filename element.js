@@ -198,32 +198,6 @@ const ElementHTML = Object.defineProperties({}, {
         element._observer = new MutationObserver(observerCallback)
         element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
     }},
-    applyHash: {enumerable: true, value: function(hash, data) {
-        if (!hash) return data
-        if (data instanceof HTMLCollection) data = Array.from(data)
-        if (!Array.isArray(data)) return data
-        const result = []
-        for (const hashFrag of hash.split(';').map(s => s.trim())) if (hashFrag.includes(':')) {
-                data = Array.from(data)
-                result.push(data.slice(...hashFrag.split(/:(.+)/).map((s, i) => parseInt(s.trim())||(i===0?0:data.length))))
-            } else { result.push(data[hashFrag]) }
-        return result
-    }},
-    applyField: {enumerable: true, value: function(field, data) {
-        if (!field || (typeof field !== 'string') || (field === '.')) return data
-        const fieldedData = data, resultArray = [], fieldFrags = field.split(',').map(s => s.trim())
-        for (const fieldFrag of fieldFrags) {
-            let [fieldFragName, fieldFragVector] = fieldFrag.split(':', 2).map(s => s.trim()), thisData = data
-            fieldFragVector ?? ([fieldFragVector, fieldFragName] = [fieldFragName, fieldFragVector])
-            if (fieldFragVector === '.') { resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData); continue }
-            for (const vector of fieldFragVector.split('.').map(s => s.trim())) {
-                thisData = thisData[vector]
-                if (!(thisData instanceof Object)) break
-            }
-            resultArray.push(fieldFragName ? ({[fieldFragName]: thisData }) : thisData)
-        }
-        return resultArray.length === 1 ? resultArray[0] : (resultArray.every(v => v instanceof Object) ? Object.assign({}, ...resultArray) : resultArray)
-    }},
     getValue: {enumerable: true, value: function(element, useDataset='auto') {
         if (!element) return
         if (element.hasAttribute('itemscope')) {

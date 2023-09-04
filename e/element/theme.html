@@ -15,41 +15,6 @@
                     }
                     return await (new CSSStyleSheet()).replace(text) 
                 }},
-                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    parsedResponse = await this._routable._applyHash(parsedResponse)
-                    if (this._hash) {
-                        result = {}
-                        const hashSplit = this._hash.split(';').map(s => s.trim()), layers = []
-                        for (let hashFrag of hashSplit) {
-                            for (const rule of parsedResponse.cssRules) {
-                                if (rule?.name === hashFrag) {
-                                    result[hashFrag] = rule
-                                    if (rule instanceof CSSLayerBlockRule) {
-                                        layers.push(hashFrag)
-                                    }
-                                }
-                            }
-                        }
-                        result = `${layers.length ? '@layer ' + layers.join(', ') + ';\n\n' : ''}${Object.values(result).join('\n\n')}`
-                        await parsedResponse.replace(result)
-                    }
-                    return parsedResponse
-                }}, 
-                _applyField: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    parsedResponse = await this._routable._applyField(parsedResponse)
-                    if (this._field) {
-                        const fieldSplit = this._field.split(';').map(s => s.trim())
-                        for (const i in parsedResponse.cssRules) {
-                            const rule = parsedResponse.cssRules[i]
-                            if (rule instanceof CSSStyleRule) {
-                                let keep = false
-                                for (f of fieldSplit) if (rule.selectorText.includes(f)) for (const s of rule.selectorText.split(',').map(s => s.trim())) keep = s.startsWith(f)
-                                if (!keep) parsedResponse.deleteRule(i)
-                            } 
-                        }
-                    }
-                    return parsedResponse
-                }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add') {
                         const styleNode = document.createElement('style')

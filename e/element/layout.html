@@ -16,9 +16,6 @@
                     template.innerHTML = text
                     return template.content.cloneNode(true).children
                 }},
-                _applyHash: {configurable: false, enumerable: false, writable: false, value: async (parsedResponse) => {
-                    return this.e.applyHash(this._hash, await this._routable._applyHash(parsedResponse))
-                }}, 
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
                     const responseNodes = Array.from(useResponse).map(n => n.cloneNode(true))

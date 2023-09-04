@@ -5,12 +5,9 @@
 
         #selfObserver
 
-        #use
         #mode
         #router
         #pointer
-        #field
-        #hash
 
         #scope
         #match
@@ -24,16 +21,9 @@
                 _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}, 
                 _router: {get: () => this.#router}, 
                 _pointer: {get: () => this.#pointer}, 
-                _hash: {get: () => this.#hash}, 
-                _field: {get: () => this.#field}, 
                 _rawResponse: {get: async () => {
-                        if (this.#router) {
-                            let router = this.e.resolveMeta(this, 'e-router', this.#router)
-                            return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) 
-                                    : (router ? (await router[this._mode](this.#pointer||router?._modes[this._mode]?.pointer, true)) : (new Response('null', {status: 599})))
-                        } else {
-                            return (this.#use && this.#use.includes('/')) ? await fetch(this.e.getURL(new URL(this.#use, this.baseURI).href)) : (new Response('null', {status: 599}))
-                        }                       
+                    let use = this.use
+                    return use ? await fetch(this.e.getURL(new URL(use, this.baseURI).href)) : new Response('null', {status: 599})
                 }},
                 _parse: {configurable: true, writable: true, value: async (response) => {
                     switch(this._mode) {
@@ -44,13 +34,11 @@
                         return await response.text()
                     }
                 }},
-                _applyHash: {configurable: true, writable: true, value: async (parsedResponse) => parsedResponse}, 
-                _applyField: {configurable: false, writable: true, value: async (parsedResponse) => parsedResponse},
                 _useResponse: {configurable: false, get: async () => {
                         if (this._mode === 'media') return `${this}`
-                        if (this._mode === 'processor') return await this._applyField(await this._applyHash(await this._parse(`${this}`)))
-                        if (this._mode === 'schema') return await this._applyField(await this._applyHash(await this._parse(`${this}`)))
-                        return await this._applyField(await this._applyHash(await this._parse(await this._rawResponse)))
+                        if (this._mode === 'processor') return await this._parse(`${this}`)
+                        if (this._mode === 'schema') return await this._parse(`${this}`)
+                        return await this._parse(await this._rawResponse)
                     }}, 
                 _activate: {value: async () => {
                     const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
@@ -86,14 +74,10 @@
                     console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
                 }}
             })
-            Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, {
-                    _parse: {value: this._parse.bind(this)}, _applyHash: {value: this._applyHash.bind(this)}, 
-                    _applyField: {value: this._applyField.bind(this)}, _as: {value: this._as.bind(this)}
-                })
-            })
+            Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('use', 'scope', 'match', 'as') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'r','p', 'scope', 'match', 'as') }
 
         async connectedCallback() {
             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
@@ -102,77 +86,45 @@
             await this._activate()
         }
 
-        toString() { 
-            if (this.#router) {
-                let router = this.e.resolveMeta(this, 'e-router', this.#router)
-                return router ? this.e.resolveMeta(this, 'e-router', this.#router)[this._mode](this.#pointer, false) : (`${this.#use}`.includes('/') ? this.e.getURL(new URL(this.#use, this.baseURI).href) : `${this.#use}` )
-            } else {
-                return `${this.#use}`.includes('/') ? this.e.getURL(new URL(this.#use, this.baseURI).href) : `${this.#use}`
-            }
+        toString() { return this.use ?? '' }
+
+        get use() {
+            if (this.#pointer) {
+                if (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://')) {
+                    return this.#pointer
+                } else if (this.#router) {
+                    return this.#router[this._mode](this.#pointer)
+                } else { return }
+            } else { return this.#router ? this.#router[this._mode]() : undefined }
         }
 
-        set use(value) {
-            this.#use = value
-            if (!value) return
-            if (typeof value === 'string') {
-                if (!value || value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://')) return
-                let valueSplit, parseHashField = (valueSplit, defaultpointer) => {
-                    let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
-                    if (['/', '#', "?"].includes(valueSplit[1][0])) flag = valueSplit[1][0]
-                    if (valueSplit[1].includes('#')) {
-                        if (flag === '#') valueSplit[1] = valueSplit[1].slice(1)
-                        let pointerField
-                        [pointerField, this.#hash] = [...valueSplit[1].split(/#(.+)/).map(s => s.trim())]
-                        let hasDot = pointerField.includes('.')
-                        hasDot && ([this.#pointer=defaultpointer, this.#field] = pointerField.split(/\.(.+)/).map(s => s.trim()))
-                        hasDot || ([this.#pointer, this.#field] = [pointerField, undefined])
-                        if (flag === '#') this.#pointer = `#${this.#pointer}`
-                    } else if (valueSplit[1].includes('.')) {
-                        if (flag === '#') valueSplit[1] = valueSplit[1].slice(1)
-                        let fieldHash
-                        [this.#pointer=defaultpointer, fieldHash] = [...valueSplit[1].split(/\.(.+)/).map(s => s.trim())]
-                        let hasHash = fieldHash.includes('#')
-                        hasHash && ([this.#field, this.#hash] = fieldHash.split(/#(.+)/).map(s => s.trim()))
-                        hasHash || ([this.#field, this.#hash] = [fieldHash, undefined])
-                        if (flag === '#') this.#pointer = `#${this.#pointer}`
-                    } else {
-                        [this.#pointer, this.#field, this.#hash] = [valueSplit[1], undefined, undefined]
+        set router(value) { this.#router = this.e.resolveMeta(this, 'e-router', value) }
+        get router() { return this.#router }
+
+        set pointer(value) {
+            if (!value) {
+                this.#pointer = this.e.env.modes[this.#mode].pointer
+            } else if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://')) {
+                this.#pointer = value
+            } else {
+                let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
+                if (Object.keys(flagMap).includes(value[0])) {
+                    flag = value[0]
+                    if (flag === '?' && (value[1] === '[') && (value.slice(-1) === ']')) {
+                        this.#pointer = (new URLSearchParams(flagMap[flag])).get(value.slice(2, -1))
+                    } else { 
+                        this.#pointer = (flagMap[flag].match(new RegExp(value.slice(1))) ?? [])[0] 
                     }
-                    if (flag) {
-                        if (this.#pointer.slice(1).startsWith('[') && this.#pointer.endsWith(']')) {
-                            if (flag === '?') {
-                                this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
-                            } else {
-                                if ((this.#pointer.length > 5) && (this.#pointer[2] === '/') && (this.#pointer.slice(-2, -1) === '/')) {
-                                    this.#pointer = flagMap[flag].match(new RegExp(this.#pointer.slice(3,-2)))[0]
-                                } else {
-                                    let [delimiter, index=0] = this.#pointer.slice(2, -1).split(';')
-                                    if (!index) index = 0
-                                    this.#pointer = flagMap[flag].slice(1).split(delimiter)[index]                                    
-                                }
-                            }
-                        } else {
-                            this.#pointer = flagMap[flag].replace(this.#pointer, '')
-                        }
-                    } 
                 }
-                valueSplit = this.e.utils.splitOnce(value, '-').map(s => s.trim())
-                this.#router = valueSplit.length === 1 ? 'e' : valueSplit[0]
-                if (valueSplit.length === 1) {
-                    this.#pointer = valueSplit[0] || this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer
-                    this.#hash = undefined
-                    this.#field = undefined
-                } else {
-                    parseHashField(valueSplit, this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer)
-                }
-            } else if (value instanceof Object) {
-                value.router && (this.#router = value.router)
-                value.pointer && (this.#pointer = value.pointer)
-                value.field && (this.#field = value.field)
-                value.hash && (this.#hash = value.hash)
             }
         }
-        get use() { return `${this.#router||'e'}-${this.#pointer||this.e.resolveMeta(this, 'e-router', this.#router)?._modes[this._mode]?.pointer}${this._field?'.'+this._field:''}${this._hash?'#'+this._hash:''}` }
+        get pointer() { return this.#pointer }
+
+        set r(value) { this.router = value }
+        get r() { return this.router }
+
+        set p(value) { this.pointer = value }
+        get p() { return this.pointer }
 
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
