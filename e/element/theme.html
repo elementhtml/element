@@ -10,7 +10,7 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => { 
                     let text = await response.text()
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text}}))
                         if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { text = '' }
                     }
                     return await (new CSSStyleSheet()).replace(text) 
@@ -27,15 +27,12 @@
                             const shadow = node instanceof ShadowRoot ? node : node.shadowRoot
                             this.as === 'underlay' ? shadow.prepend(styleNode) : shadow.querySelector('style:last-of-type')?.after(styleNode)                            
                         }
-                        if (!this._selfObserver) {
-                            this._selfObserver = new MutationObserver(event => {
-                                if (event[0] && event[0].attributeName == 'use') {
-                                    document.getElementById(this.dataset.stylesheetId)?.remove()
-                                    this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
-                                }
-                            })
-                            this._selfObserver.observe(this, { attributes: true })
-                        }
+                        this.addEventListener('change', event => {
+                            if (['router', 'pointer'].includes(event.detail.attributeName)) {
+                                document.getElementById(this.dataset.stylesheetId)?.remove()
+                                this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
+                            }
+                        })
                     }
                 }}
             })

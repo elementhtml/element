@@ -10,8 +10,8 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let text = await response.text(), template = document.createElement('template')
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
-                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { text = '' }
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text}}))
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return [] }
                     }
                     template.innerHTML = text
                     return template.content.cloneNode(true).children

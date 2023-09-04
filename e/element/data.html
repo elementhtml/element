@@ -13,19 +13,54 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let parsed = await response.text()
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: parsed}}))
-                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { parsed = '{}' }
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: parsed}}))
+                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
                     }
                     if (this.#parser) {
-                        let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
-                        if (parserFunction) parsed = await parserFunction(parsed)
-                    } else { try { parsed = JSON.parse(parsed) } catch(e) { parsed = {} } }
+                        try {
+                            let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
+                            if (parserFunction) parsed = await parserFunction(parsed)
+                        } catch(e) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: response.status, message: parsed}}))
+                            if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
+                        }
+                    } else { try { 
+                        if (this.hasAttribute('yaml') || response.url.endsWith('.yaml')) {
+                            if (!this.e.env.libraries.yaml) {
+                                this.e.env.libraries.yaml = await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
+                            }
+                            parsed = this.e.env.libraries.yaml.parse(parsed)
+                        } else {
+                            parsed = JSON.parse(parsed)
+                        }
+                    } catch(e) { 
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: response.status, message: parsed}}))
+                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
+                    } }
                     return parsed
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
-                        this.#data = useResponse
-                        this.e.sinkData(node, this.#data, ...this.e.utils.splitOnce((this.as || ''), ';'))
+                        let flag, transform
+                        if (this.as && !window.jsonata) {
+                            if (!window.jsonata) {
+                                const scriptTag = document.createElement('script')
+                                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                                document.head.append(scriptTag)
+                                await this.e.utils.waitUntil(() => window.jsonata)
+                            }
+                            const [pretransform, flagTransform] = this.e.utils.splitOnce(this.as, '~>')
+                            try {
+                                if (pretransform) {
+                                    this.#data = await window.jsonata(pretransform).evaluate(useResponse)
+                                } else { this.#data = useResponse }
+                            } catch(e) { 
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e}}))
+                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                                
+                            }
+                            if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>')
+                        } else { this.#data = useResponse }
+                        this.e.sinkData(node, this.#data, flag, transform)
                     }
                 }}
             })

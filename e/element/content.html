@@ -12,18 +12,18 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let text = await response.text()
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: response.status, message: text}}))
-                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { text = '' }
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text}}))
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return '' }
                     }
                     if (this.hasAttribute('md') || response.url.endsWith('.md')) {
-                        if (!this.e.env.libraries.remarkble) {
-                            this.e.env.libraries.remarkble = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
+                        if (!this.e.env.libraries.remarkable) {
+                            this.e.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
                             this.e.env.options.remarkable = {html: true}
                         }
                         let mdOptions = {...this.e.env.options.remarkable}
                         if (this.getAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((new URLSearchParams(this.getAttribute('md'))).entries())}
-                        this.e.env.libraries.remarkble.set(mdOptions)
-                        text = this.e.env.libraries.remarkble.render(text)
+                        this.e.env.libraries.remarkable.set(mdOptions)
+                        text = this.e.env.libraries.remarkable.render(text)
                     }
                     return text 
                 }},

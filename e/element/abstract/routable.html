@@ -3,8 +3,6 @@
 <script>
     class extends `meta` {
 
-        #selfObserver
-
         #mode
         #router
         #pointer
@@ -22,8 +20,8 @@
                 _router: {get: () => this.#router}, 
                 _pointer: {get: () => this.#pointer}, 
                 _rawResponse: {get: async () => {
-                    let use = this.use
-                    return use ? await fetch(this.e.getURL(new URL(use, this.baseURI).href)) : new Response('null', {status: 599})
+                    let resource = this.resource
+                    return resource ? await fetch(this.e.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
                 }},
                 _parse: {configurable: true, writable: true, value: async (response) => {
                     switch(this._mode) {
@@ -35,11 +33,10 @@
                     }
                 }},
                 _useResponse: {configurable: false, get: async () => {
-                        if (this._mode === 'media') return `${this}`
                         if (this._mode === 'processor') return await this._parse(`${this}`)
                         if (this._mode === 'schema') return await this._parse(`${this}`)
                         return await this._parse(await this._rawResponse)
-                    }}, 
+                }}, 
                 _activate: {value: async () => {
                     const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
                         window.requestAnimationFrame(() => {
@@ -77,18 +74,35 @@
             Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'r','p', 'scope', 'match', 'as') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'scope', 'match', 'as') }
 
         async connectedCallback() {
+            const parseShortHand = (attributeName) => {
+                const split = this.e.utils.splitOnce(attributeName, ':')
+                if (split[0]) this.setAttribute('router', split[0])
+                if (!this.hasAttribute('match') && split[1].includes('.')) {
+                    const matchSplit = this.e.utils.splitOnce(split[1], '.')
+                    if (matchSplit[0]) this.setAttribute('pointer', matchSplit[0])
+                    if (matchSplit[1]) this.setAttribute('match', matchSplit[1])
+                } else if (split[1]) { this.setAttribute('pointer', split[1]) }
+                this.removeAttribute(attributeName)
+            }, selfObserver = new MutationObserver(events => {
+                for (const event of events) {
+                    if (event.attributeName.includes(':') && !this.getAttribute(event.attributeName) && !this.hasAttribute('router') && !this.hasAttribute('pointer')) parseShortHand(event.attributeName)
+                    this.dispatchEvent(new CustomEvent('change', {detail: event}))
+                }
+            })
+            for (const attribute of this.attributes) if (!attribute.value && attribute.name.includes(':')) parseShortHand(attribute.name)
+            selfObserver.observe(this, { attributes: true, attributeOldValue: true })
             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
             this.e.env.routableLoadingRegistry[this] = true
             this.dispatchEvent(new CustomEvent('loadstarted'))
             await this._activate()
         }
 
-        toString() { return this.use ?? '' }
+        toString() { return this.resource ?? '' }
 
-        get use() {
+        get resource() {
             if (this.#pointer) {
                 if (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://')) {
                     return this.#pointer
@@ -120,12 +134,6 @@
         }
         get pointer() { return this.#pointer }
 
-        set r(value) { this.router = value }
-        get r() { return this.router }
-
-        set p(value) { this.pointer = value }
-        get p() { return this.pointer }
-
         set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
 
@@ -137,9 +145,6 @@
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors }
-
-        set _selfObserver(value) { this.#selfObserver = value }
-        get _selfObserver() { return this.#selfObserver }
 
     }
 </script>

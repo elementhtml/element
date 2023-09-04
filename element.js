@@ -583,7 +583,6 @@ const ElementHTML = Object.defineProperties({}, {
             document.head.append(scriptTag)
             await this.e.utils.waitUntil(() => window.jsonata)
         }
-        const [t='true', f='false', n='', u=''] =   this.map.split(';')
         let newValue = this.e.getValue(sourceElement)
         if (this.query) {
             if (window.jsonata) {
@@ -596,10 +595,10 @@ const ElementHTML = Object.defineProperties({}, {
             let processorFunction = this.e.resolveMeta(this, 'e-processor', this.processor)?.func
             if (processorFunction) useResponse = await processorFunction(newValue)
         }
-        if (newValue === true) newValue = t
-        if (newValue === false) newValue = f
-        if (newValue === null) newValue = n
-        if (newValue === undefined) newValue = u
+        if (newValue === true) newValue = this.map.true
+        if (newValue === false) newValue = this.map.false
+        if (newValue === null) newValue = this.map.null
+        if (newValue === undefined) newValue = this.map.undefined
         if (this.children.length) {
             if (Array.isArray(newValue)) {
                 for (const [i, v] of newValue.entries()) this.e.setValue(this.children[i], v)
