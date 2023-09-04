@@ -11,9 +11,9 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let parsed = await response.text()
+                    let text = await response.text()
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: parsed}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
                         if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
                     }
                     if (this.#parser) {
@@ -21,7 +21,7 @@
                             let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
                             if (parserFunction) parsed = await parserFunction(parsed)
                         } catch(e) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: response.status, message: parsed}}))
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
                             if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
                         }
                     } else { try { 
@@ -30,11 +30,9 @@
                                 this.e.env.libraries.yaml = await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
                             }
                             parsed = this.e.env.libraries.yaml.parse(parsed)
-                        } else {
-                            parsed = JSON.parse(parsed)
-                        }
+                        } else { parsed = JSON.parse(parsed) }
                     } catch(e) { 
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: response.status, message: parsed}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
                         if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
                     } }
                     return parsed
@@ -55,12 +53,20 @@
                                     this.#data = await window.jsonata(pretransform).evaluate(useResponse)
                                 } else { this.#data = useResponse }
                             } catch(e) { 
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e}}))
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e, input: useResponse}}))
                                 if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                                
                             }
                             if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>')
                         } else { this.#data = useResponse }
                         this.e.sinkData(node, this.#data, flag, transform)
+                        if (this.processor?.func) {
+                            try {
+                                if (typeof this.processor.func === 'function') this.processor.func(node)
+                            } catch(e) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: node}}))
+                                if (this.errors === 'throw') { throw new Error(e); return }
+                            }
+                        }
                     }
                 }}
             })

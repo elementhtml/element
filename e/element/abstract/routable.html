@@ -6,6 +6,7 @@
         #mode
         #router
         #pointer
+        #processor
 
         #scope
         #match
@@ -145,6 +146,9 @@
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors }
+
+        set processor(value) { this.#processor = this.e.resolveMeta(this, 'e-processor', value) }
+        get processor() { return this.#processor }
 
     }
 </script>

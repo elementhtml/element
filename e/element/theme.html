@@ -33,6 +33,14 @@
                                 this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))
                             }
                         })
+                        if (this.processor?.func) {
+                            try {
+                                if (typeof this.processor.func === 'function') this.processor.func(node)
+                            } catch(e) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: node}}))
+                                if (this.errors === 'throw') { throw new Error(e); return }
+                            }
+                        }                        
                     }
                 }}
             })

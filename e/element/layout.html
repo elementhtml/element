@@ -10,7 +10,7 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let text = await response.text(), template = document.createElement('template')
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
                         if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return [] }
                     }
                     template.innerHTML = text
@@ -19,10 +19,9 @@
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
                     const responseNodes = Array.from(useResponse).map(n => n.cloneNode(true))
-                    const [useFromLayoutSelector, insertIntoLayoutAtSelector, usefromTargetSelector, postProcessor] = (this.as||'').split(';', 4).map(s => s.trim()), template = document.createElement('template')
+                    let {from: useFromLayoutSelector, to: insertIntoLayoutAtSelector, use: usefromTargetSelector} = (this.as ? (this.e.utils.parseObjectAttribute(this.as) || {}) : {}), template = document.createElement('template')
                     template.content.replaceChildren(...responseNodes)
-                    const documentFragment = template.content.cloneNode(true), 
-                        replaceWithElements = useFromLayoutSelector ? documentFragment.querySelectorAll(useFromLayoutSelector) : documentFragment.children
+                    const documentFragment = template.content.cloneNode(true), replaceWithElements = useFromLayoutSelector ? documentFragment.querySelectorAll(useFromLayoutSelector) : documentFragment.children
                     if (insertIntoLayoutAtSelector) {
                         const insertContent = usefromTargetSelector === ':scope' ? node.childNodes 
                             : (usefromTargetSelector 
@@ -32,15 +31,17 @@
                             for (const rs of replaceAt) rs.replaceChildren(...insertContent)
                         }
                     }
-                    if (!this.hasAttribute('scope') && !this.hasAttribute('observe') && !this.hasAttribute('match')) {
+                    if (!this.hasAttribute('scope') && !this.hasAttribute('match')) {
                         this.replaceWith(...replaceWithElements)
-                    } else {
-                        node.replaceWith(...replaceWithElements)                    
-                    }
-                    if (postProcessor) {
-                        const postProcessFunction = this.e.resolveMeta(this, 'e-processor', postProcessor)?.func
-                        if (typeof postProcessFunction === 'function') postProcessFunction(replaceWithElements)
-                    }
+                    } else { node.replaceWith(...replaceWithElements) }
+                    if (this.processor?.func) {
+                        try {
+                            if (typeof this.processor.func === 'function') this.processor.func(replaceWithElements)
+                        } catch(e) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: node}}))
+                            if (this.errors === 'throw') { throw new Error(e); return }
+                        }
+                    }                    
                 }}
             })
     	}

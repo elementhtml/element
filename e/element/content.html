@@ -12,7 +12,7 @@
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     let text = await response.text()
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
                         if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return '' }
                     }
                     if (this.hasAttribute('md') || response.url.endsWith('.md')) {
@@ -29,19 +29,23 @@
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
-                    let [useContentScope, preProcessor] = (this.as||'').split(';', 2).map(s => s.trim())
                     if (`${useResponse}` == useResponse) useResponse = [useResponse]
-                    if (preProcessor) {
-                        let preProcessFunction = this.e.resolveMeta(this, 'e-processor', preProcessor)?.func
-                        if (preProcessFunction) useResponse = await preProcessFunction(useResponse)
+                    if (this.processor?.func) {
+                        const preProcessFunction = this.processor.func
+                        try {
+                            if (typeof preProcessFunction === 'function') useResponse = await preProcessFunction(useResponse)
+                        } catch(e) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: useResponse}}))
+                            if (this.errors === 'throw') { throw new Error(e); return }
+                        }
                     }
-                    if (useContentScope.startsWith('@')) {
-                        node.setAttribute(useContentScope.slice(1), useResponse)
+                    if (this.as && this.as.startsWith('@')) {
+                        node.setAttribute(this.as.slice(1), useResponse)
                     } else {
                         const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
-                        if (!validContentScopes.includes(useContentScope)) useContentScope = 'innerHTML'
-                        useContentScope ||= 'innerHTML'
-                        node[useContentScope] = useResponse
+                        if (!this.as || !validContentScopes.includes(this.as)) this.as = 'innerHTML'
+                        this.as ||= 'innerHTML'
+                        node[this.as] = useResponse
                     }
                 }}
             })
