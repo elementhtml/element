@@ -75,7 +75,7 @@
             Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'scope', 'match', 'as') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'scope', 'match', 'as', 'errors', 'processor') }
 
         async connectedCallback() {
             const parseShortHand = (attributeName) => {
@@ -104,16 +104,12 @@
         toString() { return this.resource ?? '' }
 
         get resource() {
-            if (this.#pointer) {
-                if (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://')) {
-                    return this.#pointer
-                } else if (this.#router) {
-                    return this.#router[this._mode](this.#pointer)
-                } else { return }
-            } else { return this.#router ? this.#router[this._mode]() : undefined }
+            if (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://')) return this.#pointer
+            let router = this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')
+            return router ? router[this._mode](this.#pointer) : undefined
         }
 
-        set router(value) { this.#router = this.e.resolveMeta(this, 'e-router', value) }
+        set router(value) { this.#router = value }
         get router() { return this.#router }
 
         set pointer(value) {
@@ -145,7 +141,7 @@
         get as() { return this.#as }
 
         set errors(value) { this.#errors = value }
-        get errors() { return this.#errors }
+        get errors() { return this.#errors ?? this.e.env.options.errors }
 
         set processor(value) { this.#processor = this.e.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }

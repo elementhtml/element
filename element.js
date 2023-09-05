@@ -14,7 +14,8 @@ const ElementHTML = Object.defineProperties({}, {
         }},
         libraries: {enumerable: true, value: {}},
         options: {enumerable: true, value: Object.defineProperties({}, {
-            security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}
+            security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}, 
+            errors: {enumerable: true, value: 'hide'}
         })}
     })},
     utils: {enumerable: true, value: Object.defineProperties({}, {
@@ -105,6 +106,10 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     expose: {enumerable: true, value: function(globalName='ElementHTML') {
         if (globalName && !window[globalName]) window[globalName] = this
+    }},
+    errors: {enumerable: true, value: function(mode='hide') {
+        mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
+        this.env.options.errors = mode
     }},
     getURL: {enumerable: true, value: function(value) {
         if (value.startsWith('http://') || value.startsWith('https://') || !value.includes('://')) return value
@@ -556,17 +561,19 @@ const ElementHTML = Object.defineProperties({}, {
         let sourceElement = (scope instanceof ShadowRoot) ? scope : ( this.scope ? scope : this.parentElement )
         const trimmedContent = this.textContent.trim()
         if (trimmedContent.length && !this.children.length) {
-            if (this.source) {
+            if (this.source && !this.query) {
                 this.query = trimmedContent
-            } else if (this.query) {
+            } else if (this.query && !this.source) {
                 this.source = trimmedContent
-            } else if (trimmedContent.includes('~>')) {
-                const [source, ...query] = trimmedContent.split('~>')
-                this.source = source.trim()
-                this.query = query.join('~>').trim()
-            } else {
-                this.source = ''
-                this.query = trimmedContent
+            } else if (!this.query && !this.source) {
+                if (trimmedContent.includes('~>')) {
+                    const [source, ...query] = trimmedContent.split('~>')
+                    this.source = source.trim()
+                    this.query = query.join('~>').trim()
+                } else {
+                    this.source = ''
+                    this.query = trimmedContent
+                }
             }
         }
         if (this.source) sourceElement = sourceElement.querySelector(this.source)

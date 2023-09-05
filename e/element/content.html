@@ -21,7 +21,7 @@
                             this.e.env.options.remarkable = {html: true}
                         }
                         let mdOptions = {...this.e.env.options.remarkable}
-                        if (this.getAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((new URLSearchParams(this.getAttribute('md'))).entries())}
+                        if (this.md) mdOptions = {...mdOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(this.md) || {}).entries())}
                         this.e.env.libraries.remarkable.set(mdOptions)
                         text = this.e.env.libraries.remarkable.render(text)
                     }
