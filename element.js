@@ -15,7 +15,9 @@ const ElementHTML = Object.defineProperties({}, {
         libraries: {enumerable: true, value: {}},
         options: {enumerable: true, value: Object.defineProperties({}, {
             security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}, 
-            errors: {enumerable: true, value: 'hide'}
+            errors: {enumerable: true, value: 'hide'}, 
+            ajv: {enumerable: true, value: {allErrors: true, verbose: true, validateSchema: 'log', 
+                strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true}}
         })}
     })},
     utils: {enumerable: true, value: Object.defineProperties({}, {
