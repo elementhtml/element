@@ -18,12 +18,31 @@
                     if (this.hasAttribute('md') || response.url.endsWith('.md')) {
                         if (!this.e.env.libraries.remarkable) {
                             this.e.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
+                            const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), {alt: []}), parser = (md, options) => {
+                              return (state) => {
+                                let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)','gi')
+                                while (++i < tokens.length) {
+                                  const token = tokens[i]
+                                  for (const child of (token.children ?? [])) {
+                                    if (child.type !== 'text') return
+                                    if (exp.test(child.content)) child.type = 'htmltag'
+                                  }
+                                }
+                              }
+                            }
+                            this.e.env.libraries.remarkable.use(plugin)
                             this.e.env.options.remarkable = {html: true}
                         }
                         let mdOptions = {...this.e.env.options.remarkable}
                         if (this.md) mdOptions = {...mdOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(this.md) || {}).entries())}
                         this.e.env.libraries.remarkable.set(mdOptions)
+                        const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]), 
+                            htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
+                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+                        for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
                         text = this.e.env.libraries.remarkable.render(text)
+                        for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
                     }
                     return text 
                 }},

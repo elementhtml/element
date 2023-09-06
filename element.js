@@ -99,7 +99,8 @@ const ElementHTML = Object.defineProperties({}, {
         }
         observerRoot._observer ||= new MutationObserver(async records => {
             for (const record of records) for (const addedNode of (record.addedNodes||[])) {
-                if (this.utils.getCustomTag(addedNode)) await this.load(addedNode)
+                if (addedNode?.tagName?.includes('-')) await this.load(addedNode)
+                if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.utils.getCustomTag(n)) await this.load(n)
                 if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
             }
         })
