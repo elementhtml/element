@@ -104,7 +104,7 @@
         toString() { return this.resource ?? '' }
 
         get resource() {
-            if (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://')) return this.#pointer
+            if ((this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
             let router = this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')
             return router ? router[this._mode](this.#pointer) : undefined
         }
@@ -116,7 +116,7 @@
             value = value.trim()
             if (!value) {
                 this.#pointer = this.e.env.modes[this.#mode].pointer
-            } else if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://')) {
+            } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
                 this.#pointer = value
             } else {
                 let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
@@ -135,7 +135,7 @@
                             }
                         }
                     }
-                }
+                } else { this.#pointer = value }
             }
         }
         get pointer() { return this.#pointer }
