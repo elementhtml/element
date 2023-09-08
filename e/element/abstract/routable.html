@@ -34,6 +34,29 @@
                     }
                 }},
                 _useResponse: {configurable: false, get: async () => {
+                    if (this.#pointer && this.#pointer.startsWith('$.')) {
+                        console.log('line 38', this.#pointer)
+                        let [,scope,...query] = this.#pointer.split('.')
+                        query = query.join('.')
+                        if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
+                        console.log('line 42', scope, query)
+                            if (!window.jsonata) {
+                                const scriptTag = document.createElement('script')
+                                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                                document.head.append(scriptTag)
+                                await this.e.utils.waitUntil(() => window.jsonata)
+                            }
+                            try {
+                                return await window.jsonata(query).evaluate(this[scope] ?? {})
+                            } catch(e) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'query', message: e, input: this[scope], query}}))
+                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { return {} }
+                            }
+                        } else {
+                            console.log('line 56', scope, query, this[scope])
+                            return (this[scope] ?? {})[query] 
+                        }
+                    }
                     if (this._mode === 'processor') return await this._parse(`${this}`)
                     if (this._mode === 'schema') return await this._parse(`${this}`)
                     return await this._parse(await this._rawResponse)
