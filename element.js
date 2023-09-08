@@ -248,7 +248,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        console.log('line 251', element, value)
         if (!element) return element
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
