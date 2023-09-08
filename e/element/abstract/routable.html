@@ -89,11 +89,16 @@
                 this.removeAttribute(attributeName)
             }, selfObserver = new MutationObserver(events => {
                 for (const event of events) {
-                    if (event.attributeName.includes(':') && !this.getAttribute(event.attributeName) && !this.hasAttribute('router') && !this.hasAttribute('pointer')) parseShortHand(event.attributeName)
+                    const safeAttrName = decodeURIComponent(event.attributeName)
+                    if (safeAttrName.includes(':') && !this.getAttribute(safeAttrName) && !this.hasAttribute('router') && !this.hasAttribute('pointer')) parseShortHand(safeAttrName)
                     this.dispatchEvent(new CustomEvent('change', {detail: event}))
                 }
             })
-            for (const attribute of this.attributes) if (!attribute.value && attribute.name.includes(':')) parseShortHand(attribute.name)
+            for (const attribute of this.attributes) {
+                if (attribute.value) continue
+                const safeAttrName = decodeURIComponent(attribute.name)
+                if (safeAttrName.includes(':')) parseShortHand(safeAttrName)
+            } 
             selfObserver.observe(this, { attributes: true, attributeOldValue: true })
             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
             this.e.env.routableLoadingRegistry[this] = true

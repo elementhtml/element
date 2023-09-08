@@ -99,7 +99,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
         observerRoot._observer ||= new MutationObserver(async records => {
             for (const record of records) for (const addedNode of (record.addedNodes||[])) {
-                if (addedNode?.tagName?.includes('-')) await this.load(addedNode)
+                if (this.utils.getCustomTag(addedNode)) await this.load(addedNode)
                 if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.utils.getCustomTag(n)) await this.load(n)
                 if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
             }
@@ -358,7 +358,9 @@ const ElementHTML = Object.defineProperties({}, {
         } else if (flag && element[flag] instanceof Object) {
           Object.assign(element[flag], data)
         } else if (element.querySelector(':scope > template')) {
-            let after = element.querySelector(`:scope > template:last-of-type`)
+            let after = document.createElement('meta')
+            after.toggleAttribute('after', true)
+            element.querySelector(`:scope > template:last-of-type`).after(after)
             const filterTemplates = (templates, value, data) => {
                 if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
@@ -396,6 +398,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const useTemplate of template.content.querySelectorAll('template[data-e-use]')) {
                     const fragmentsToUse = []
                     for (const use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
+                        console.log('line 400', use)
                         if (use.startsWith('`') && use.endsWith('`')) {
                             const htmlFragment = document.createElement('div')
                             typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
@@ -414,7 +417,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return template
             }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
-            for (const [key, value] of Object.entries(data)) {
+            const entries = Array.isArray(data) ? data.entries() : Object.entries(data)
+            for (const [key, value] of entries) {
+                console.log('line 418', key, value)
                 let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
                     || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
                 if (entryTemplate) {
@@ -448,12 +453,13 @@ const ElementHTML = Object.defineProperties({}, {
                         entryTemplate.after(...entryNode.children)
                     } else {
                         const nextAfter = entryNode.children[entryNode.children.length-1]
-                        after.after(...entryNode.children)
-                        after = nextAfter
+                        after?.after(...entryNode.children)
+                        if (nextAfter) after = nextAfter
                     }
                 }
             }
             for (const template of element.querySelectorAll('template')) template.remove()
+            element.querySelector('meta[after]')?.remove() 
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []
           for (const k in data) {

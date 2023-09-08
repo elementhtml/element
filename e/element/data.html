@@ -11,29 +11,29 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let text = await response.text()
+                    let text = await response.text(), parsed
                     if (response.status >= 400) {
                         this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
-                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
                     }
                     if (this.#parser) {
                         try {
                             let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
-                            if (parserFunction) parsed = await parserFunction(parsed)
+                            if (parserFunction) parsed = await parserFunction(text)
                         } catch(e) {
                             this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
-                            if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
+                            if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
                         }
                     } else { try { 
                         if (this.hasAttribute('yaml') || response.url.endsWith('.yaml')) {
                             if (!this.e.env.libraries.yaml) {
                                 this.e.env.libraries.yaml = await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
                             }
-                            parsed = this.e.env.libraries.yaml.parse(parsed)
-                        } else { parsed = JSON.parse(parsed) }
+                            parsed = this.e.env.libraries.yaml.parse(text)
+                        } else { parsed = JSON.parse(text) }
                     } catch(e) { 
                         this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
-                        if (this.errors === 'throw') { throw new Error(parsed); return } else if (this.errors === 'hide') { return {} }
+                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
                     } }
                     return parsed
                 }},
