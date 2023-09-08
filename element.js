@@ -248,6 +248,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
+        console.log('line 251', element, value)
         if (!element) return element
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
@@ -290,12 +291,12 @@ const ElementHTML = Object.defineProperties({}, {
             return element
         }
         const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
-        if (tag === 'meta') element[attrMethod]('content', value)
-        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) element[attrMethod]('src', value)
-        if (['a','area','link'].includes(tag)) element[attrMethod]('href', value)
-        if (tag === 'object') element[attrMethod]('data', value)
-        if (['data','meter','input','select','textarea'].includes(tag)) (element.value = (value ??'')) || element[attrMethod]('value', value)
-        if (tag === 'time') element[attrMethod]('datetime', value)
+        if (tag === 'meta') { element[attrMethod]('content', value); return }
+        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return }
+        if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return }
+        if (tag === 'object') { element[attrMethod]('data', value); return }
+        if (['data','meter','input','select','textarea'].includes(tag)) { (element.value = (value ??'')) || element[attrMethod]('value', value); return }
+        if (tag === 'time') { element[attrMethod]('datetime', value); return }
         element.textContent = value
         return element
     }},
@@ -394,13 +395,24 @@ const ElementHTML = Object.defineProperties({}, {
                     return et
                 }
                 return
-            }, build = template => {
+            }, build = (template, key, value) => {
                 for (const useTemplate of template.content.querySelectorAll('template[data-e-use]')) {
                     const fragmentsToUse = []
-                    for (const use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
-                        console.log('line 400', use)
+                    for (let use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
                         if (use.startsWith('`') && use.endsWith('`')) {
                             const htmlFragment = document.createElement('div')
+                            if (useTemplate.dataset.eMerge) {
+                                const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge) || {})
+                                for (const [k, v] of Object.entries(eMerge)) {
+                                    if (k === '@') {
+                                        use = use.replaceAll(eMerge[k] || k, `${key ?? ''}`)
+                                    } else if (k === '$') {
+                                        console.log('A: ', use, eMerge[k])
+                                        use = use.replaceAll(eMerge[k] || k, `${value ?? ''}`)
+                                        console.log('B: ', use)
+                                    } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
+                                }
+                            }
                             typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
                             for (const element of htmlFragment.querySelectorAll('*')) {
                                 const tag = element.tagName.toLowerCase()
@@ -419,14 +431,13 @@ const ElementHTML = Object.defineProperties({}, {
             }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
             const entries = Array.isArray(data) ? data.entries() : Object.entries(data)
             for (const [key, value] of entries) {
-                console.log('line 418', key, value)
                 let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
                     || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
                 if (entryTemplate) {
                     const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
-                        entryNode = build(entryTemplate).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
+                        entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
                     let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
-                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate).content.cloneNode(true).children[0] || '', key))
+                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key))
                     if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
                     if (valueTemplates.length) {
                         let valueTemplate = valueTemplates[valueTemplates.length-1]
@@ -436,7 +447,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if ((value?.constructor?.name?.toLowerCase() === templateDataType) || ((templateDataType === 'object') && (value instanceof Object))
                                 || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
                         }
-                        const valueNode = build(valueTemplate).content.cloneNode(true)
+                        const valueNode = build(valueTemplate, key, value).content.cloneNode(true)
                         for (const recursiveTemplate of recursiveTemplates) {
                             let placed = false
                             for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-place-into'))) {
