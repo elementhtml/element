@@ -47,7 +47,7 @@
                                 document.head.append(scriptTag)
                                 await this.e.utils.waitUntil(() => window.jsonata)
                             }
-                            const [pretransform, flagTransform] = this.e.utils.splitOnce(this.as, '~>')
+                            const [pretransform, flagTransform] = this.e.utils.splitOnce(this.as, '~>').map(s => s.trim())
                             try {
                                 if (pretransform) {
                                     this.#data = await window.jsonata(pretransform).evaluate(useResponse)
@@ -56,7 +56,7 @@
                                 this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e, input: useResponse}}))
                                 if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                                
                             }
-                            if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>')
+                            if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>').map(s => s.trim())
                         } else { this.#data = useResponse }
                         await this.e.sinkData(node, this.#data, flag, transform)
                         if (this.processor?.func) {

@@ -334,6 +334,8 @@ const ElementHTML = Object.defineProperties({}, {
           for (const [k, v] of Object.entries(data)) element.dataset[k] = v
         } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
           Object.assign(element.eDataset, data)
+        } else if (flag === 'eData' && element.eData instanceof Object) {
+          Object.assign(element.eData, data)
         } else if (flag === 'eContext' && element.eContext instanceof Object) {
           Object.assign(element.eContext, data)
         } else if (flag && flag.startsWith('auto')) {
@@ -527,6 +529,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
         }
+        element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
         return element
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {

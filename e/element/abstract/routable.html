@@ -34,9 +34,9 @@
                     }
                 }},
                 _useResponse: {configurable: false, get: async () => {
-                        if (this._mode === 'processor') return await this._parse(`${this}`)
-                        if (this._mode === 'schema') return await this._parse(`${this}`)
-                        return await this._parse(await this._rawResponse)
+                    if (this._mode === 'processor') return await this._parse(`${this}`)
+                    if (this._mode === 'schema') return await this._parse(`${this}`)
+                    return await this._parse(await this._rawResponse)
                 }}, 
                 _activate: {value: async () => {
                     const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
@@ -44,7 +44,7 @@
                             this.dispatchEvent(new CustomEvent('loadended'))
                             delete this.e.env.routableLoadingRegistry[this]
                             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
-                        })                        
+                        })
                     }
                     if (!this.#match) return await this._as(await this._useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {}).then(() => recordLoadEnd())
                     const processRecords = async recordsToProcess => {
@@ -109,7 +109,7 @@
         toString() { return this.resource ?? '' }
 
         get resource() {
-            if ((this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
+            if (this.#pointer && (this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
             let router = this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')
             return router ? router[this._mode](this.#pointer) : undefined
         }
