@@ -12,7 +12,7 @@
         #selector
         #match
         #bind
-        #bindObserver
+        #bindController
         #as
 
         #errors
@@ -38,10 +38,14 @@
                 }},
                 _useResponse: {configurable: false, get: async () => {
                     let resource = this.resource
-                    if (resource && resource.startsWith('$')) {
-                        let useResponse = {}
-                        let [,scope,...query] = resource.split('.')
-                        query = query.join('.')
+                    if (resource && resource.startsWith('$')) {                        
+                        let useResponse = {}, scope, query
+                        if (this.#bind) {
+                            let [, scopeQuery] = this.e.utils.splitOnce(resource, ').').map(s => s.trim())
+                            [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
+                        } else {
+                            [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim())
+                        }
                         if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')
@@ -131,6 +135,7 @@
         set resource(value) {
             if (value) {
                 if (value.startsWith('$(') && value.includes(')')) {
+                    if (this.#bindController) this.#bindController.abort()
                     const bindMatch = value.split(')')[0].slice(2)
                     let bindScope, bindSelector
                     if (bindMatch.includes('|')) {
@@ -152,14 +157,10 @@
                         this.#bind ||= this.getRootNode()
                     }
                     if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
-
-
-                    const selfObserver = new MutationObserver(events => {
-                        for (const event of events) this.dispatchEvent(new CustomEvent('change', {detail: event}))
-                    })
-                    selfObserver.observe(this, { attributes: true, attributeOldValue: true })
-
-
+                    this.#bindController = new AbortController()
+                    bindScope.addEventListener('sinkData', event => {
+                        if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
+                    }, {signal: this.#bindController.signal})
                     this.#router = undefined
                     this.#pointer = value
                 } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {

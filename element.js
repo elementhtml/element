@@ -530,7 +530,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
         }
-        element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
+        element.dispatchEvent(new CustomEvent('sinkData', {bubbles: true, detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
         return element
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
