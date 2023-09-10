@@ -48,7 +48,6 @@
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
-                    if (`${useResponse}` == useResponse) useResponse = [useResponse]
                     if (this.processor?.func) {
                         const preProcessFunction = this.processor.func
                         try {

@@ -31,7 +31,7 @@
                             for (const rs of replaceAt) rs.replaceChildren(...insertContent)
                         }
                     }
-                    if (!this.hasAttribute('scope') && !this.hasAttribute('match')) {
+                    if (!this.match) {
                         this.replaceWith(...replaceWithElements)
                     } else { node.replaceWith(...replaceWithElements) }
                     if (this.processor?.func) {

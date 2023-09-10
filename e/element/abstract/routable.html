@@ -9,7 +9,10 @@
         #processor
 
         #scope
+        #selector
         #match
+        #bind
+        #bindObserver
         #as
 
         #errors
@@ -34,12 +37,12 @@
                     }
                 }},
                 _useResponse: {configurable: false, get: async () => {
-                    if (this.#pointer && this.#pointer.startsWith('$.')) {
-                        console.log('line 38', this.#pointer)
-                        let [,scope,...query] = this.#pointer.split('.')
+                    let resource = this.resource
+                    if (resource && resource.startsWith('$')) {
+                        let useResponse = {}
+                        let [,scope,...query] = resource.split('.')
                         query = query.join('.')
                         if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
-                        console.log('line 42', scope, query)
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')
                                 scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
@@ -47,15 +50,13 @@
                                 await this.e.utils.waitUntil(() => window.jsonata)
                             }
                             try {
-                                return await window.jsonata(query).evaluate(this[scope] ?? {})
+                                useResponse = window.jsonata(query).evaluate((this.#bind ?? this)[scope] ?? {})
                             } catch(e) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'query', message: e, input: this[scope], query}}))
-                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { return {} }
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: (this.#bind ?? this)[scope], resource}}))
+                                if (this.errors === 'throw') { throw new Error(e); return }
                             }
-                        } else {
-                            console.log('line 56', scope, query, this[scope])
-                            return (this[scope] ?? {})[query] 
-                        }
+                        } else { useResponse = (query ? (bind[scope] ?? {})[query] : (this.#bind ?? this)[scope]) ?? {} }
+                        return useResponse
                     }
                     if (this._mode === 'processor') return await this._parse(`${this}`)
                     if (this._mode === 'schema') return await this._parse(`${this}`)
@@ -74,8 +75,8 @@
                         const queue = {}
                         for (const record of recordsToProcess) {
                             if (record.type === 'childList') {
-                                for (const addedNode of record.addedNodes) if (typeof addedNode.matches === 'function' && addedNode.matches(this.#match||':scope')) queue[addedNode] = ['add', addedNode, record.previousSibling, record.nextSibling]
-                                for (const removedNode of record.removedNodes) if (typeof removedNode.matches === 'function' && removedNode.matches(this.#match||':scope')) queue[removedNode] = ['remove', removedNode, record.previousSibling, record.nextSibling]
+                                for (const addedNode of record.addedNodes) if (typeof addedNode.matches === 'function' && addedNode.matches(this.#selector||':scope')) queue[addedNode] = ['add', addedNode, record.previousSibling, record.nextSibling]
+                                for (const removedNode of record.removedNodes) if (typeof removedNode.matches === 'function' && removedNode.matches(this.#selector||':scope')) queue[removedNode] = ['remove', removedNode, record.previousSibling, record.nextSibling]
                             }
                         }
                         const queueValues = Object.values(queue)
@@ -85,11 +86,19 @@
                         }
                     }
                     this.e.createObserver(this, scopeElement, processRecords, processRecords)
-                    const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#match||':scope'), promises = []
+                    const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#selector||':scope'), promises = []
                     for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
                             ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)})))))
                     Promise.all(promises).then(() => recordLoadEnd())
+                }},
+                _refresh: {configurable: true, writable: true, value: async () => {
+                    let useResponse = await this._useResponse
+                    const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement
+                    if (!this.#match) return await this._as(useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {})
+                    for (const matched of scopeElement.querySelectorAll(this.#selector||':scope')) this._as(useResponse, 'add', matched, 
+                        matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
+                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
                 }},
                 _as: {configurable: true, writable: true, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
@@ -98,80 +107,125 @@
             Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('router', 'pointer', 'scope', 'match', 'as', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'errors', 'processor') }
 
         async connectedCallback() {
-            const parseShortHand = (attributeName) => {
-                const split = this.e.utils.splitOnce(attributeName, ':')
-                if (split[0]) this.setAttribute('router', split[0])
-                if (!this.hasAttribute('match') && split[1].includes('.')) {
-                    const matchSplit = this.e.utils.splitOnce(split[1], '.')
-                    if (matchSplit[0]) this.setAttribute('pointer', matchSplit[0])
-                    if (matchSplit[1]) this.setAttribute('match', matchSplit[1])
-                } else if (split[1]) { this.setAttribute('pointer', split[1]) }
-                this.removeAttribute(attributeName)
-            }, selfObserver = new MutationObserver(events => {
-                for (const event of events) {
-                    const safeAttrName = decodeURIComponent(event.attributeName)
-                    if (safeAttrName.includes(':') && !this.getAttribute(safeAttrName) && !this.hasAttribute('router') && !this.hasAttribute('pointer')) parseShortHand(safeAttrName)
-                    this.dispatchEvent(new CustomEvent('change', {detail: event}))
-                }
+            const selfObserver = new MutationObserver(events => {
+                for (const event of events) this.dispatchEvent(new CustomEvent('change', {detail: event}))
             })
-            for (const attribute of this.attributes) {
-                if (attribute.value) continue
-                const safeAttrName = decodeURIComponent(attribute.name)
-                if (safeAttrName.includes(':')) parseShortHand(safeAttrName)
-            } 
             selfObserver.observe(this, { attributes: true, attributeOldValue: true })
             if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
             this.e.env.routableLoadingRegistry[this] = true
             this.dispatchEvent(new CustomEvent('loadstarted'))
+            this.addEventListener('sinkData', event => {
+                if (this.#pointer && this.#pointer.startsWith('$.eData')) this._refresh()
+            })            
+            this.addEventListener('change', event => {
+                if (this.#pointer && this.#pointer.startsWith('$.eDataset')) this._refresh()
+            })            
             await this._activate()
         }
 
         toString() { return this.resource ?? '' }
 
-        get resource() {
-            if (this.#pointer && (this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
-            let router = this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')
-            return router ? router[this._mode](this.#pointer) : undefined
-        }
-
-        set router(value) { this.#router = value }
-        get router() { return this.#router }
-
-        set pointer(value) {
-            value = value.trim()
-            if (!value) {
-                this.#pointer = this.e.env.modes[this.#mode].pointer
-            } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
-                this.#pointer = value
-            } else {
-                let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
-                if (Object.keys(flagMap).includes(value[0])) {
-                    flag = value[0]
-                    if (flag === '?' && (value[1] === '[') && (value.slice(-1) === ']')) {
-                        this.#pointer = (new URLSearchParams(flagMap[flag])).get(value.slice(2, -1))
+        set resource(value) {
+            if (value) {
+                if (value.startsWith('$(') && value.includes(')')) {
+                    const bindMatch = value.split(')')[0].slice(2)
+                    let bindScope, bindSelector
+                    if (bindMatch.includes('|')) {
+                        [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
+                        bindScope = this.closest(bindScope)
+                        if (!bindScope) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, input: value}}))
+                            if (this.errors === 'throw') { throw new Error(e); return }
+                            bindScope ||= this.getRootNode()
+                        }
                     } else {
-                        if (value === flag) {
-                            this.#pointer = flagMap[flag].slice(1)
+                        bindScope = this.getRootNode()
+                        bindSelector = bindMatch
+                    }
+                    this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
+                    if (!this.#bind) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, input: value}}))
+                        if (this.errors === 'throw') { throw new Error(e); return }
+                        this.#bind ||= this.getRootNode()
+                    }
+                    if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
+
+
+                    const selfObserver = new MutationObserver(events => {
+                        for (const event of events) this.dispatchEvent(new CustomEvent('change', {detail: event}))
+                    })
+                    selfObserver.observe(this, { attributes: true, attributeOldValue: true })
+
+
+                    this.#router = undefined
+                    this.#pointer = value
+                } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
+                    this.#pointer = value
+                } else if (value.includes(':')) {
+                    [this.#router, this.#pointer] = this.e.utils.splitOnce(value, ':').map(s => s.trim())
+                } else {
+                    this.#router = undefined
+                    this.#pointer = value
+                }
+                if (!this.#pointer) {
+                    this.#pointer = this.e.env.modes[this.#mode].pointer
+                } else {
+                    let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
+                    if (Object.keys(flagMap).includes(this.#pointer[0])) {
+                        flag = this.#pointer[0]
+                        if (flag === '?' && (this.#pointer[1] === '[') && (this.#pointer.slice(-1) === ']')) {
+                            this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
                         } else {
-                            try {
-                                this.#pointer = flagMap[flag].replace(new RegExp(value), '')
-                            } catch(e) {
-                                this.#pointer = flagMap[flag].replace(value, '')
+                            if (this.#pointer === flag) {
+                                this.#pointer = flagMap[flag].slice(1)
+                            } else {
+                                try {
+                                    this.#pointer = flagMap[flag].replace(new RegExp(this.#pointer), '')
+                                } catch(e) {
+                                    this.#pointer = flagMap[flag].replace(this.#pointer, '')
+                                }
                             }
                         }
                     }
-                } else { this.#pointer = value }
+                }
+            } else {
+                this.#router = undefined
+                this.#pointer = undefined
             }
         }
+        get resource() {
+            if (this.#pointer && this.#pointer.startsWith('$')) return this.#pointer
+            if (this.#pointer && (this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
+            let router = this.#router ? (this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')) : undefined
+            return router ? router[this._mode](this.#pointer) : undefined
+        }
+
+        get router() { return this.#router }
+
         get pointer() { return this.#pointer }
 
-        set scope(value) { this.#scope = value }
         get scope() { return this.#scope }
+        get selector() { return this.#selector }
 
-        set match(value) { this.#match = value }
+        get bind() { return this.#bind }        
+
+        set match(value) { 
+            this.#match = value
+            if (!value) {
+                this.#scope = undefined
+                this.#selector = undefined
+                return
+            }
+            if (!value.includes('|')) {
+                this.#scope = undefined
+                this.#selector = value
+                return
+            }
+            [this.#scope, this.#selector] = this.e.utils.splitOnce(value, '|').map(s => s.trim())
+        }
         get match() { return this.#match }
 
         set as(value) { this.#as = value }

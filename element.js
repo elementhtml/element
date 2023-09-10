@@ -363,6 +363,7 @@ const ElementHTML = Object.defineProperties({}, {
             let after = document.createElement('meta')
             after.toggleAttribute('after', true)
             element.querySelector(`:scope > template:last-of-type`).after(after)
+            while (after.nextElementSibling) after.nextElementSibling.remove()
             const filterTemplates = (templates, value, data) => {
                 if (!templates.length) return
                 const matchingTemplates = [], ops = {'=': (c,v) => v == c, '!': (c,v) => v != c, '<': (c,v) => v < c, '>': (c,v) => v > c, '%': (c,v) => !!(v % c), 
@@ -470,7 +471,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            for (const template of element.querySelectorAll('template')) template.remove()
+            //for (const template of element.querySelectorAll('template')) template.remove()
             element.querySelector('meta[after]')?.remove() 
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []

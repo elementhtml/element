@@ -40,7 +40,7 @@
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         let flag, transform
-                        if (this.as && !window.jsonata) {
+                        if (this.as) {
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')
                                 scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
