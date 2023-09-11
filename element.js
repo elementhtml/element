@@ -300,6 +300,7 @@ const ElementHTML = Object.defineProperties({}, {
         return element
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
+        console.log('line 303', element, data, flag, transform)
         if (!element) return element
         rootElement ||= element
         if (transform && !window.jsonata) {
@@ -343,9 +344,18 @@ const ElementHTML = Object.defineProperties({}, {
             Object.assign(element.eDataset, data)
           } else {
             for (const [k, v] of Object.entries(data)) {
-              if (k.startsWith('@')) element.setAttribute(k.slice(1), v)
-              if (k.startsWith('.')) element[k.slice(1)] = v
-              if (flag === 'auto-data') element.dataset[k] = v
+                let key = k, target = element
+                if (key.startsWith('$')) {
+                    let [qs, kk] = this.utils.splitOnce(k, ')')
+                    qs = qs.slice(2).trim()
+                    key = kk
+                    if (!qs) continue
+                    target = target.querySelector(qs)
+                    if (!target) continue
+                }
+                if (key.startsWith('@')) target.setAttribute(key.slice(1), v)
+                if (key.startsWith('.')) target[key.slice(1)] = v
+                if (flag === 'auto-data') target.dataset[key] = v
             }
           }
         } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
@@ -520,12 +530,21 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(element.eDataset, data)
             } else {
                 for (const [k, v] of Object.entries(data)) {
-                    if (k.startsWith('@')) {
-                        element.setAttribute(k.slice(1), v)
-                    } else if (k.startsWith('.')) {
-                        element[k.slice(1)] = v
+                    let key = k, target = element
+                    if (key.startsWith('$')) {
+                        let [qs, kk] = this.utils.splitOnce(k, ')')
+                        qs = qs.slice(2).trim()
+                        key = kk
+                        if (!qs) continue
+                        target = target.querySelector(qs)
+                        if (!target) continue
+                    }
+                    if (key.startsWith('@')) {
+                        target.setAttribute(key.slice(1), v)
+                    } else if (key.startsWith('.')) {
+                        target[key.slice(1)] = v
                     } else {
-                        element.dataset[k] = v
+                        target.dataset[key] = v
                     }
                 }
             }

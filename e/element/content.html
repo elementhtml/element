@@ -48,7 +48,6 @@
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
-
                     if (useResponse instanceof HTMLElement) {
                         useResponse = useResponse.textContent
                     } else if (Array.isArray(useResponse) && useResponse.some(v => v instanceof HTMLElement)) {
