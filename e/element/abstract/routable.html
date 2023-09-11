@@ -41,18 +41,17 @@
                     if (resource && resource.startsWith('$')) {
                         let useResponse = {}, scope, query
                         if (this.#bind) {
-                            let [, scopeQuery] = this.e.utils.splitOnce(resource, ').').map(s => s.trim())
+                            let [, scopeQuery] = this.e.utils.splitOnce(resource, ').').map(s => s.trim());
                             [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
                         } else { [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim()) }
-                        if (scope.startsWith('eSelf')) {
-                            let subScope = (scope === 'eSelf') ? '' : scope.replace('eSelf.', '')
-                            useResponse = subScope ? (this.#bind ?? this)[subScope] : (this.#bind ?? this)
+                        if (scope === 'eSelf') {
+                            useResponse = query ? (this.#bind ?? this)[query] : (this.#bind ?? this)
                         } else if (scope.startsWith('eSubtree')) {
                             scope = scope.replace('eSubtree', '')
                             let subTree = (this.#bind || this).querySelectorAll(scope[0] === '(' ? scope.slice(1, -1).trim() : ':scope > *')
-                            useResponse = Array.from(subtree)
+                            useResponse = Array.from(subTree)
                             scope = scope.slice(1).trim()
-                            if (scope) useResponse = useResponse.map(n => n[scope])
+                            if (query) useResponse = useResponse.map(n => n[query])
                         } else if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')

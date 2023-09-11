@@ -38,6 +38,11 @@
                     return parsed
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
+                    if (useResponse instanceof HTMLElement) {
+                        useResponse = this.e.getValue(useResponse)
+                    } else if (Array.isArray(useResponse) && useResponse.some(v => v instanceof HTMLElement)) {
+                        for (const k of useResponse.keys()) if (useResponse[k] instanceof HTMLElement) useResponse[k] = this.e.getValue(useResponse[k])
+                    }
                     if (addOrRemove === 'add' && (useResponse instanceof Object)) {
                         let flag, transform
                         if (this.as) {

@@ -48,6 +48,12 @@
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     if (addOrRemove !== 'add') return 
+
+                    if (useResponse instanceof HTMLElement) {
+                        useResponse = useResponse.textContent
+                    } else if (Array.isArray(useResponse) && useResponse.some(v => v instanceof HTMLElement)) {
+                        for (const k of useResponse.keys()) if (useResponse[k] instanceof HTMLElement) useResponse[k] = useResponse[k].textContent
+                    }
                     if (this.processor?.func) {
                         const preProcessFunction = this.processor.func
                         try {
@@ -57,6 +63,7 @@
                             if (this.errors === 'throw') { throw new Error(e); return }
                         }
                     }
+                    if (Array.isArray(useResponse)) useResponse = useResponse.join('')
                     if (this.as && this.as.startsWith('@')) {
                         node.setAttribute(this.as.slice(1), useResponse)
                     } else {
