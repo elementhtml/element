@@ -300,7 +300,6 @@ const ElementHTML = Object.defineProperties({}, {
         return element
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
-        console.log('line 303', element, data, flag, transform)
         if (!element) return element
         rootElement ||= element
         if (transform && !window.jsonata) {

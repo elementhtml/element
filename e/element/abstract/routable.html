@@ -45,7 +45,6 @@
                             [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
                         } else { [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim()) }
                         if (scope !== 'eSelf' && !scope.startsWith('eSubtree')) [query, scope] = [scope, 'eSelf']
-                        console.log('line 51', this, this.#bind, scope, query)
                         if (scope === 'eSelf') {
                             useResponse = query ? (this.#bind ?? this)[query] : (this.#bind ?? this)
                         } else if (scope.startsWith('eSubtree')) {
