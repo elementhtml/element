@@ -38,15 +38,24 @@
                 }},
                 _useResponse: {configurable: false, get: async () => {
                     let resource = this.resource
-                    if (resource && resource.startsWith('$')) {                        
+                    if (resource && resource.startsWith('$')) {
                         let useResponse = {}, scope, query
                         if (this.#bind) {
                             let [, scopeQuery] = this.e.utils.splitOnce(resource, ').').map(s => s.trim())
                             [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
-                        } else {
-                            [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim())
-                        }
-                        if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
+                        } else { [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim()) }
+                        if (scope.startsWith('eSelf')) {
+                            let subScope = scope.replace('eSelf.', '')
+                            useResponse = subScope ? (this.#bind ?? this)[subScope] : (this.#bind ?? this)
+                        } else if (scope.startsWith('eSubtree')) {
+                            let [qs, subScope] = this.e.utils.splitOnce(scope, ')')
+                            qs = qs.replace('eSubtree', '')
+                            if (qs[0] === '(') qs = qs.slice(1)
+                            qs = qs.trim()
+                            let subtree = scope.querySelectorAll(qs)
+                            if (subScope[0] === '.') subScope = subScope.slice(1)
+                            useResponse = Arrayfrom(subtree).map(n => n[subScope])
+                        } else if (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')
                                 scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
