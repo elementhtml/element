@@ -52,7 +52,13 @@
                             let subTree = (this.#bind || this).querySelectorAll(scope[0] === '(' ? scope.slice(1, -1).trim() : ':scope > *')
                             useResponse = Array.from(subTree)
                             scope = scope.slice(1).trim()
-                            if (query) useResponse = useResponse.map(n => n[query])
+                            if (query) {
+                                if (query.startsWith('@')) {
+                                    useResponse = useResponse.map(n => n.getAttribute(query.slice(1)))
+                                } else {
+                                    useResponse = useResponse.map(n => n[query])
+                                }
+                            } 
                         } else if (query && query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' ')) {
                             if (!window.jsonata) {
                                 const scriptTag = document.createElement('script')
