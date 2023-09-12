@@ -674,14 +674,14 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const src of ($this.constructor.eJs || [])) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
                 for (const src of ($this.constructor.eMjs || [])) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body, [['type', 'module']])
                 for (const src of ($this.constructor.eCss || [])) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
-                $this.constructor.eWasmModules ||= {}
+                $this.constructor.eWasm ||= {}
                 for (const moduleName in ($this.constructor.eWasm||{})) {
-                    if ($this.constructor.eWasmModules[moduleName]) continue
-                    $this.constructor.eWasmModules[moduleName] = true
+                    if ($this.constructor.eWasm[moduleName]) continue
+                    $this.constructor.eWasm[moduleName] = true
                     WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL($this.constructor.eWasm[moduleName].src)),
                         $this.constructor.eWasm[moduleName].importObject).then(importResult => 
-                            $this.constructor.eWasmModules[moduleName] = importResult
-                    ).catch(e => $this.constructor.eWasmModules[moduleName] = {})
+                            $this.constructor.eWasm[moduleName] = importResult
+                    ).catch(e => $this.constructor.eWasm[moduleName] = {})
                 }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
