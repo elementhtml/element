@@ -59,7 +59,7 @@
                                 } else { this.#data = useResponse }
                             } catch(e) { 
                                 this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e, input: useResponse}}))
-                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                                
+                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                               
                             }
                             if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, '~>').map(s => s.trim())
                         } else { this.#data = useResponse }
