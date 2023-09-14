@@ -6,7 +6,7 @@ const ElementHTML = Object.defineProperties({}, {
         modes: {configurable: true, enumerable: true, writable: true, value: {
             element: 'html', layout: 'html', content: 'html', theme: 'css', data: 'json', processor: 'js', schema: 'schema.json'
         }},
-        routableLoadingRegistry: {enumerable: true, value: {}},
+        loadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
             ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
@@ -278,26 +278,26 @@ const ElementHTML = Object.defineProperties({}, {
             } else { 
                 Object.assign((element.eDataset || element.dataset), value) 
             }
-            return element
+        } else {
+            let valueproxy
+            if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
+                element.eDataset[valueproxy] = value
+                if (value === undefined) delete element.eDataset[valueproxy]
+            } else if (element.eDataset instanceof Object && value instanceof Object) {
+                Object.assign(element.eDataset, value)
+            } else {
+                const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
+                if (tag === 'meta') { element[attrMethod]('content', value); return }
+                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return }
+                if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return }
+                if (tag === 'object') { element[attrMethod]('data', value); return }
+                if (['data','meter','input','select','textarea'].includes(tag)) { (element.value = (value ??'')) || element[attrMethod]('value', value); return }
+                if (tag === 'time') { element[attrMethod]('datetime', value); return }
+                element.textContent = value
+            }
         }
-        let valueproxy
-        if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
-            element.eDataset[valueproxy] = value
-            if (value === undefined) delete element.eDataset[valueproxy]
-            return element
-        } else if (element.eDataset instanceof Object && value instanceof Object) {
-            Object.assign(element.eDataset, value)
-            return element
-        }
-        const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
-        if (tag === 'meta') { element[attrMethod]('content', value); return }
-        if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return }
-        if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return }
-        if (tag === 'object') { element[attrMethod]('data', value); return }
-        if (['data','meter','input','select','textarea'].includes(tag)) { (element.value = (value ??'')) || element[attrMethod]('value', value); return }
-        if (tag === 'time') { element[attrMethod]('datetime', value); return }
-        element.textContent = value
-        return element
+        element.dispatchEvent(new CustomEvent('change', {bubbles: true, detail: {value, scopeNode}}))        
+        return element        
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
         if (!element) return element
@@ -480,7 +480,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            //for (const template of element.querySelectorAll('template')) template.remove()
             element.querySelector('meta[after]')?.remove() 
         } else if (['input', 'select', 'datalist'].includes(tag)) {
           const optionElements = []

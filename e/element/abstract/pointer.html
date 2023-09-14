@@ -83,8 +83,8 @@
                     const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
                         window.requestAnimationFrame(() => {
                             this.dispatchEvent(new CustomEvent('loadended'))
-                            delete this.e.env.routableLoadingRegistry[this]
-                            if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
+                            delete this.e.env.loadingRegistry[this]
+                            if (!Object.keys(this.e.env.loadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
                         })
                     }
                     if (!this.#match) return await this._as(await this._useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {}).then(() => recordLoadEnd())
@@ -109,8 +109,8 @@
                             ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)})))))
                     Promise.all(promises).then(() => recordLoadEnd())
                 }},
-                _refresh: {configurable: true, writable: true, value: async () => {
-                    let useResponse = await this._useResponse
+                _refresh: {configurable: true, writable: true, value: async (payload) => {
+                    let useResponse = payload ? payload : await this._useResponse
                     const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement
                     if (!this.#match) return await this._as(useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {})
                     for (const matched of scopeElement.querySelectorAll(this.#selector||':scope')) this._as(useResponse, 'add', matched, 
@@ -121,7 +121,7 @@
                     console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
                 }}
             })
-            Object.defineProperty(this, '_routable', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })
+            /*Object.defineProperty(this, '_pointer', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })*/
     	}
 
 		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'errors', 'processor') }
@@ -131,8 +131,8 @@
                 for (const event of events) this.dispatchEvent(new CustomEvent('change', {detail: event}))
             })
             selfObserver.observe(this, { attributes: true, attributeOldValue: true })
-            if (!Object.keys(this.e.env.routableLoadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
-            this.e.env.routableLoadingRegistry[this] = true
+            if (!Object.keys(this.e.env.loadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
+            this.e.env.loadingRegistry[this] = true
             this.dispatchEvent(new CustomEvent('loadstarted'))
             this.addEventListener('sinkData', event => {
                 if (this.#pointer && this.#pointer.startsWith('$.eData')) this._refresh()
@@ -143,6 +143,13 @@
             await this._activate()
         }
 
+// $(scope|selector!eventName)... -> bind to scope|selector node, and return the data from the node, ... re-rendering whenever it emits 'eventName' event
+// $(scope|selector)!eventName -> bind to $() node, but return only the data from the 'eventName' event when it occurs
+
+// https://example.com -> implicitly return the parsed Response through to this.as and optionally re-render after this.send() method call
+// wss://example.com/path -> implicitly return the MessageEvent.data object through to this.as and re-render on event message event, use this.send() to push data
+// https://example.com/see!eventName -> use for Server-Sent Events, returning the event data when the 'eventName' event is received
+
         toString() { return this.resource ?? '' }
 
         set resource(value) {
@@ -150,7 +157,7 @@
                 if (value.startsWith('$(') && value.includes(')')) {
                     if (this.#bindController) this.#bindController.abort()
                     const bindMatch = value.split(')')[0].slice(2)
-                    let bindScope, bindSelector
+                    let bindScope, bindSelector, bindEvents
                     if (bindMatch.includes('|')) {
                         [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
                         bindScope = this.closest(bindScope)
@@ -163,6 +170,7 @@
                         bindScope = this.getRootNode()
                         bindSelector = bindMatch
                     }
+                    if (bindSelector.includes('!')) [bindSelector, bindEvents] = this.e.utils.splitOnce(bindSelector, '!').map(s => s.trim())
                     this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
                     if (!this.#bind) {
                         this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, input: value}}))
@@ -170,41 +178,62 @@
                         this.#bind ||= this.getRootNode()
                     }
                     if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
+                    const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
                     this.#bindController = new AbortController()
-                    bindScope.addEventListener('sinkData', event => {
-                        if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
-                    }, {signal: this.#bindController.signal})
+                    for (const eventName of eventsToBind) {
+                        bindScope.addEventListener(eventName, event => {
+                            if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
+                        }, {signal: this.#bindController.signal})
+                    }
+                    if (value.includes(')!')) {
+                        const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
+                        for (const eventPayload of eventPayloads) {
+                            bindScope.addEventListener(eventPayload, event => {
+                                if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
+                            }, {signal: this.#bindController.signal})
+                        }   
+                    }
                     this.#router = undefined
                     this.#pointer = value
                 } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
                     this.#pointer = value
+                    let eventSource, eventPayloadList = ['message']
+                    if (this.#pointer.startsWith('wss://') || this.#pointer.startsWith('ws://')) {
+                        eventSource = new WebSocket(this.#pointer)                        
+                    } else if (this.#pointer.includes('!')) {
+                        const [sourceUrl, eventList] = this.e.utils.splitOnce(this.#pointer, '!').map(s => s.trim())
+                        eventSource = new EventSource(sourceUrl)
+                        if (eventList) eventPayloadList = eventList.split(',')
+                    }
+                    eventSource.addEventListener('open', event => {
+                        this.#bindController = new AbortController()
+                        for (const eventName of eventPayloadList) {
+                            eventSource.addEventListener(eventName, event => {
+                                this._refresh(event.data)
+                            }, {signal: this.#bindController.signal})
+                        }
+                    })
                 } else if (value.includes(':')) {
                     [this.#router, this.#pointer] = this.e.utils.splitOnce(value, ':').map(s => s.trim())
                 } else {
                     this.#router = undefined
                     this.#pointer = value
                 }
-                if (!this.#pointer) {
-                    this.#pointer = this.e.env.modes[this.#mode].pointer
-                } else {
-                    let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
-                    if (Object.keys(flagMap).includes(this.#pointer[0])) {
-                        flag = this.#pointer[0]
-                        if (flag === '?' && (this.#pointer[1] === '[') && (this.#pointer.slice(-1) === ']')) {
-                            this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
+                let flag, flagMap = {'/': document.location.pathname, '#': document.location.hash, '?': document.location.search}
+                if (this.#pointer && Object.keys(flagMap).includes(this.#pointer[0])) {
+                    flag = this.#pointer[0]
+                    if (flag === '?' && (this.#pointer[1] === '[') && (this.#pointer.slice(-1) === ']')) {
+                        this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
+                    } else {
+                        if (this.#pointer === flag) {
+                            this.#pointer = flagMap[flag].slice(1)
                         } else {
-                            if (this.#pointer === flag) {
-                                this.#pointer = flagMap[flag].slice(1)
-                            } else {
-                                try {
-                                    this.#pointer = flagMap[flag].replace(new RegExp(this.#pointer), '')
-                                } catch(e) {
-                                    this.#pointer = flagMap[flag].replace(this.#pointer, '')
-                                }
-                            }
+                            try {
+                                this.#pointer = flagMap[flag].replace(new RegExp(this.#pointer), '')
+                            } catch(e) { this.#pointer = flagMap[flag].replace(this.#pointer, '') }
                         }
                     }
-                }
+                } else { this.#pointer ||= this.e.env.modes[this.#mode].pointer }
             } else {
                 this.#router = undefined
                 this.#pointer = undefined
