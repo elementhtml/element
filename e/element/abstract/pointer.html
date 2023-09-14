@@ -14,6 +14,7 @@
         #bind
         #bindController
         #as
+        #to
 
         #errors
 
@@ -31,6 +32,7 @@
                     switch(this._mode) {
                     case 'processor':
                     case 'schema':
+                    case 'socket':
                         return response
                     default: 
                         return await response.text()
@@ -75,8 +77,7 @@
                         } else { useResponse = (query ? (bind[scope] ?? {})[query] : (this.#bind ?? this)[scope]) ?? {} }
                         return useResponse
                     }
-                    if (this._mode === 'processor') return await this._parse(`${this}`)
-                    if (this._mode === 'schema') return await this._parse(`${this}`)
+                    if (['processor', 'schema', 'socket'].includes(this._mode)) return await this._parse(`${this}`)
                     return await this._parse(await this._rawResponse)
                 }}, 
                 _activate: {value: async () => {
@@ -124,7 +125,7 @@
             /*Object.defineProperty(this, '_pointer', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })*/
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'to', 'errors', 'processor') }
 
         async connectedCallback() {
             const selfObserver = new MutationObserver(events => {
@@ -143,16 +144,48 @@
             await this._activate()
         }
 
-// $(scope|selector!eventName)... -> bind to scope|selector node, and return the data from the node, ... re-rendering whenever it emits 'eventName' event
-// $(scope|selector)!eventName -> bind to $() node, but return only the data from the 'eventName' event when it occurs
-
-// https://example.com -> implicitly return the parsed Response through to this.as and optionally re-render after this.send() method call
-// wss://example.com/path -> implicitly return the MessageEvent.data object through to this.as and re-render on event message event, use this.send() to push data
-// https://example.com/see!eventName -> use for Server-Sent Events, returning the event data when the 'eventName' event is received
-
         toString() { return this.resource ?? '' }
 
+        async read() { if (this.#as ?? this.hasAttribute('as')) return await this._useResponse }
+
+        async write(payload) {
+            if (this.#to ?? this.hasAttribute('to')) {
+                if (this.#to) {
+                    let selfSource, transform
+                    if (this.#to.includes('~>')) {
+                        [selfSource, transform] = this.e.utils.splitOnce(this.#to, '~>').map(s => s.trim())
+                    } else { transform = this.#to.trim() }
+                    payload ||= selfSource ? this[selfSource] : this.eData //maybe???
+                    if (transform) {
+                        if (!window.jsonata) {
+                            const scriptTag = document.createElement('script')
+                            scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                            document.head.append(scriptTag)
+                            await this.e.utils.waitUntil(() => window.jsonata)
+                        }
+                        try {
+                            payload = await window.jsonata(transform).evaluate(payload)
+                        } catch(e) { 
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: payload}}))
+                            if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { payload = {} }
+                        }
+                    }
+                } else { payload ||= this.eData }
+                if (this.#bind) {
+                    if (this.#bind instanceof HTMLElement) {
+                        await this.e.sinkData(this.#bind, payload)
+                    } else if (this.#bind instanceof WebSocket) {
+                        this.#bind.send(JSON.stringify(payload)) //add support for custom parser/formatter
+                    }
+                } else {
+                    let resource = this.resource
+                    //await fetch(resource, {})
+                }
+            }
+        }        
+
         set resource(value) {
+            this.#bind = undefined            
             if (value) {
                 if (value.startsWith('$(') && value.includes(')')) {
                     if (this.#bindController) this.#bindController.abort()
@@ -178,20 +211,22 @@
                         this.#bind ||= this.getRootNode()
                     }
                     if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
-                    const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
-                    this.#bindController = new AbortController()
-                    for (const eventName of eventsToBind) {
-                        bindScope.addEventListener(eventName, event => {
-                            if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
-                        }, {signal: this.#bindController.signal})
-                    }
-                    if (value.includes(')!')) {
-                        const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
-                        for (const eventPayload of eventPayloads) {
-                            bindScope.addEventListener(eventPayload, event => {
-                                if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
+                    if (this.#as ?? this.hasAttribute('as')) {
+                        const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
+                        this.#bindController = new AbortController()
+                        for (const eventName of eventsToBind) {
+                            bindScope.addEventListener(eventName, event => {
+                                if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
                             }, {signal: this.#bindController.signal})
-                        }   
+                        }
+                        if (value.includes(')!')) {
+                            const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
+                            for (const eventPayload of eventPayloads) {
+                                bindScope.addEventListener(eventPayload, event => {
+                                    if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
+                                }, {signal: this.#bindController.signal})
+                            }   
+                        }
                     }
                     this.#router = undefined
                     this.#pointer = value
@@ -199,20 +234,25 @@
                     this.#pointer = value
                     let eventSource, eventPayloadList = ['message']
                     if (this.#pointer.startsWith('wss://') || this.#pointer.startsWith('ws://')) {
-                        eventSource = new WebSocket(this.#pointer)                        
+                        eventSource = new WebSocket(this.#pointer)
                     } else if (this.#pointer.includes('!')) {
                         const [sourceUrl, eventList] = this.e.utils.splitOnce(this.#pointer, '!').map(s => s.trim())
                         eventSource = new EventSource(sourceUrl)
                         if (eventList) eventPayloadList = eventList.split(',')
+                    } else { this.#bind = this.#pointer }
+                    if (eventSource) {
+                        eventSource.addEventListener('open', event => {
+                            this.#bind = eventSource
+                            if (this.#as ?? this.hasAttribute('as')) {
+                                this.#bindController = new AbortController()
+                                for (const eventName of eventPayloadList) {
+                                    eventSource.addEventListener(eventName, event => {
+                                        this._refresh(event.data)
+                                    }, {signal: this.#bindController.signal})
+                                }
+                            }
+                        })
                     }
-                    eventSource.addEventListener('open', event => {
-                        this.#bindController = new AbortController()
-                        for (const eventName of eventPayloadList) {
-                            eventSource.addEventListener(eventName, event => {
-                                this._refresh(event.data)
-                            }, {signal: this.#bindController.signal})
-                        }
-                    })
                 } else if (value.includes(':')) {
                     [this.#router, this.#pointer] = this.e.utils.splitOnce(value, ':').map(s => s.trim())
                 } else {
@@ -273,6 +313,9 @@
 
         set as(value) { this.#as = value }
         get as() { return this.#as }
+
+        set to(value) { this.#to = value }
+        get to() { return this.#to }
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
