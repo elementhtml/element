@@ -162,7 +162,7 @@
                         [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
                         bindScope = this.closest(bindScope)
                         if (!bindScope) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, input: value}}))
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, attribute: 'resource', input: value}}))
                             if (this.errors === 'throw') { throw new Error(e); return }
                             bindScope ||= this.getRootNode()
                         }
@@ -173,7 +173,7 @@
                     if (bindSelector.includes('!')) [bindSelector, bindEvents] = this.e.utils.splitOnce(bindSelector, '!').map(s => s.trim())
                     this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
                     if (!this.#bind) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, input: value}}))
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, attribute: 'resource', input: value}}))
                         if (this.errors === 'throw') { throw new Error(e); return }
                         this.#bind ||= this.getRootNode()
                     }

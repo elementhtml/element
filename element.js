@@ -595,65 +595,6 @@ const ElementHTML = Object.defineProperties({}, {
             this.constructors[id] = this._base(this.classes[id])
         }
     }},
-    _connectElement: {value: async function() {
-        let scope = this.scope ? this.closest(this.scope) : this.getRootNode()
-        scope ||= this.getRootNode()
-        let sourceElement = (scope instanceof ShadowRoot) ? scope : ( this.scope ? scope : this.parentElement )
-        const trimmedContent = this.textContent.trim()
-        if (trimmedContent.length && !this.children.length) {
-            if (this.source && !this.query) {
-                this.query = trimmedContent
-            } else if (this.query && !this.source) {
-                this.source = trimmedContent
-            } else if (!this.query && !this.source) {
-                if (trimmedContent.includes('~>')) {
-                    const [source, ...query] = trimmedContent.split('~>')
-                    this.source = source.trim()
-                    this.query = query.join('~>').trim()
-                } else {
-                    this.source = ''
-                    this.query = trimmedContent
-                }
-            }
-        }
-        if (this.source) sourceElement = sourceElement.querySelector(this.source)
-        if (sourceElement instanceof ShadowRoot) sourceElement = sourceElement.host
-        if (!sourceElement || (sourceElement === this)) return
-        this.sourceElement = sourceElement
-        sourceElement.addEventListener('change', event => { this.render(sourceElement) })
-        await this.render(sourceElement)
-    }},
-    _renderElement: {value: async function(sourceElement) {
-        if (this.hasAttribute('jsonata') && !window.jsonata) {
-            const scriptTag = document.createElement('script')
-            scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-            document.head.append(scriptTag)
-            await this.e.utils.waitUntil(() => window.jsonata)
-        }
-        let newValue = this.e.getValue(sourceElement)
-        if (this.query) {
-            if (window.jsonata) {
-                try { newValue = await window.jsonata(this.query).evaluate(newValue) } catch(e) { this.dispatchEvent(new CustomEvent('error', {detail: {message: e.message, jsonataError: e, value: newValue, query: this.query}})) }
-            } else {
-                try { newValue = newValue[this.query] } catch(e) { this.dispatchEvent(new CustomEvent('error', {detail: {message: e, value: newValue, query: this.query}})) }
-            }
-        }
-        if (this.processor) {
-            let processorFunction = this.e.resolveMeta(this, 'e-processor', this.processor)?.func
-            if (processorFunction) useResponse = await processorFunction(newValue)
-        }
-        if (newValue === true) newValue = this.map.true
-        if (newValue === false) newValue = this.map.false
-        if (newValue === null) newValue = this.map.null
-        if (newValue === undefined) newValue = this.map.undefined
-        if (this.children.length) {
-            if (Array.isArray(newValue)) {
-                for (const [i, v] of newValue.entries()) this.e.setValue(this.children[i], v)
-            } else if ((newValue instanceof Object) && this.querySelectorAll('[name]').length) {
-                for (const [k, v] of Object.entries(newValue)) this.e.setValue(this.querySelector(`[name="${k}"]`), v)
-            } else { this.e.setValue(this.children[0], newValue) }
-        } else { this.textContent = newValue }
-    }},
     _dispatchPropertyEvent: {value: function(element, eventNamePrefix, property, eventDetail) {
         eventDetail = {detail: {property: property, ...eventDetail}}
         element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
