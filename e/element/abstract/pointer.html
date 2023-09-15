@@ -28,7 +28,7 @@
                 _pointer: {get: () => this.#pointer}, 
                 _rawResponse: {get: async () => {
                     let resource = this.resource
-                    return resource ? await fetch(this.e.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
+                    return resource ? await fetch(this.e.utils.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
                 }},
                 _parse: {configurable: true, writable: true, value: async (response) => {
                     switch(this._mode) {
@@ -288,7 +288,7 @@
         get resource() {
             if (this.#pointer && this.#pointer.startsWith('$')) return this.#pointer
             if (this.#pointer && (this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
-            let router = this.#router ? (this.e.resolveMeta(this, 'e-router', this.#router) ?? this.e.resolveMeta(this, 'e-router')) : undefined
+            let router = this.#router ? (this.e.utils.resolveMeta(this, 'e-router', this.#router) ?? this.e.utils.resolveMeta(this, 'e-router')) : undefined
             return router ? router[this._mode](this.#pointer) : undefined
         }
 
@@ -326,10 +326,10 @@
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
 
-        set processor(value) { this.#processor = this.e.resolveMeta(this, 'e-processor', value) }
+        set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }
 
-        set serializer(value) { this.#serializer = this.e.resolveMeta(this, 'e-processor', value) }
+        set serializer(value) { this.#serializer = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get serializer() { return this.#serializer }        
 
         set fetchOptions(value) { this.#fetchOptions = this.e.utils.parseObjectAttribute(value) }

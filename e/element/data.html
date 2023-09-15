@@ -18,7 +18,7 @@
                     }
                     if (this.#parser) {
                         try {
-                            let parserFunction = this.e.resolveMeta(this, 'e-processor', this.#parser)?.func
+                            let parserFunction = this.e.utils.resolveMeta(this, 'e-processor', this.#parser)?.func
                             if (parserFunction) parsed = await parserFunction(text)
                         } catch(e) {
                             this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))

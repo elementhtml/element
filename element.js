@@ -30,6 +30,13 @@ const ElementHTML = Object.defineProperties({}, {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                     || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
         }}, 
+        getURL: {enumerable: true, value: function(value) {
+            if (value.startsWith('http://') || value.startsWith('https://') || !value.includes('://')) return value
+            const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+            value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+            for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
+            return value
+        }},        
         wait: {enumerable: true, value: async function(ms) {
             return new Promise((resolve) => setTimeout(resolve, ms))
         }}, 
@@ -50,7 +57,34 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             return retval
-        }}
+        }}, 
+        resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, searchBody=false, equals={}, startsWith={}, includes={}) {
+            let resolved
+            const testNode = (node, useConditions=false) => {
+                if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
+                for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
+                for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
+                for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
+                if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
+            }, query = Object.keys(conditions).length ?  `${tagName}[${Object.entries(conditions).map(e => e[0]+'="'+e[1]+'"').join('][') }]` : tagName
+            for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
+            if (resolved) return resolved
+            const rootNode = element.shadowRoot || element.getRootNode()
+            if (rootNode instanceof ShadowRoot) {
+                for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
+                return resolved || this.utils.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
+            } else {
+                for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
+                if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
+                return resolved
+            }
+        }},
+        resolveMeta: {enumerable: true, value: function(element, is, name) {
+            let metaElement
+            const rootNode = element.shadowRoot || element.getRootNode()
+            return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`) 
+        }},
+        
     })},
     ids: {enumerable: true, value: {}},
     tags: {enumerable: true, value: {}},
@@ -114,39 +148,6 @@ const ElementHTML = Object.defineProperties({}, {
         mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
         this.env.options.errors = mode
     }},
-    getURL: {enumerable: true, value: function(value) {
-        if (value.startsWith('http://') || value.startsWith('https://') || !value.includes('://')) return value
-        const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-        value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
-        for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
-        return value
-    }},
-    resolveForElement: {enumerable: true, value: function(element, tagName, conditions={}, searchBody=false, equals={}, startsWith={}, includes={}) {
-        let resolved
-        const testNode = (node, useConditions=false) => {
-            if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
-            for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
-            for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
-            for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
-            if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
-        }, query = Object.keys(conditions).length ?  `${tagName}[${Object.entries(conditions).map(e => e[0]+'="'+e[1]+'"').join('][') }]` : tagName
-        for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
-        if (resolved) return resolved
-        const rootNode = element.shadowRoot || element.getRootNode()
-        if (rootNode instanceof ShadowRoot) {
-            for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
-            return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
-        } else {
-            for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
-            if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
-            return resolved
-        }
-    }},
-    resolveMeta: {enumerable: true, value: function(element, is, name) {
-        let metaElement
-        const rootNode = element.shadowRoot || element.getRootNode()
-        return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`) 
-    }},
     activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
         const id = await this.getTagId(tag, element);
@@ -159,13 +160,13 @@ const ElementHTML = Object.defineProperties({}, {
     getTagId: {enumerable: true, value: async function(tag, element) {
         if (this.ids[tag]) return this.ids[tag]
         const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
-        let tagRouter = this.resolveMeta(element, 'e-router', routerName)
+        let tagRouter = this.utils.resolveMeta(element, 'e-router', routerName)
         return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
             routerName === 'e' ? import.meta.url : element.baseURI)).href
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
         if (!id || !id.includes('://') || (!forceReload && this.files[id])) return
-        const fileFetch = await fetch(this.getURL(id))
+        const fileFetch = await fetch(this.utils.getURL(id))
         if (fileFetch.status >= 400) return
         this.files[id] = await fileFetch.text()
         this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>')+7, this.files[id].indexOf('</style>')).trim()
@@ -432,7 +433,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                         } else {
-                            const fragmentToUse = this.resolveForElement(rootElement, 'template', {'data-e-fragment': use}, true)
+                            const fragmentToUse = this.utils.resolveForElement(rootElement, 'template', {'data-e-fragment': use}, true)
                             if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)))
                         }
                     }
@@ -618,7 +619,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const moduleName in ($this.constructor.eWasm||{})) {
                     if ($this.constructor.eWasm[moduleName]) continue
                     $this.constructor.eWasm[moduleName] = true
-                    WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL($this.constructor.eWasm[moduleName].src)),
+                    WebAssembly.instantiateStreaming(fetch(ElementHTML.utils.getURL($this.constructor.eWasm[moduleName].src)),
                         $this.constructor.eWasm[moduleName].importObject).then(importResult => 
                             $this.constructor.eWasm[moduleName] = importResult
                     ).catch(e => $this.constructor.eWasm[moduleName] = {})

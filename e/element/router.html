@@ -15,7 +15,7 @@
             pointer ||= router.constructor._modes[mode]?.pointer ?? mode
             suffix ||= router.constructor._modes[mode]?.suffix ?? ''
             const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${dir ?? mode}/${pointer}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-            return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
+            return get ? fetch(router.e.utils.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
         static {
@@ -26,7 +26,7 @@
     		super()
             for (const mode in this.constructor._modes) {
                 this._modes[mode] ||= {...this.constructor._modes[mode]}
-                let requestedProcessor = this.e.resolveMeta[this, 'e-processor', this.#processor]?.func, processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
+                let requestedProcessor = this.e.utils.resolveMeta(this, 'e-processor', this.#processor)?.func, processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
                 if (attrMode) {
                     let [ dirCheck, fileName ] = attrMode.split('/', 2)
                     dir = dirCheck ? dirCheck : mode
