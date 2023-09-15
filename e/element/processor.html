@@ -12,7 +12,7 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    return this.#parser === 'wasm' ? await WebAssembly.instantiateStreaming(fetch(this.e.utils.getURL(response))) : await import(this.e.utils.getURL(response))
+                    return this.#parser === 'wasm' ? await WebAssembly.instantiateStreaming(fetch(this.e.getURL(response))) : await import(this.e.getURL(response))
                 }},
                 _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
                     this.#module = useResponse

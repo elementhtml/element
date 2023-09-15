@@ -15,7 +15,7 @@
             pointer ||= router.constructor._modes[mode]?.pointer ?? mode
             suffix ||= router.constructor._modes[mode]?.suffix ?? ''
             const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${dir ?? mode}/${pointer}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-            return get ? fetch(router.e.utils.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
+            return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
         static {

@@ -28,7 +28,7 @@
                 _pointer: {get: () => this.#pointer}, 
                 _rawResponse: {get: async () => {
                     let resource = this.resource
-                    return resource ? await fetch(this.e.utils.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
+                    return resource ? await fetch(this.e.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
                 }},
                 _parse: {configurable: true, writable: true, value: async (response) => {
                     switch(this._mode) {
@@ -105,7 +105,7 @@
                             for (const queueValue of queueValues) this._as(useResponse, ...queueValue)
                         }
                     }
-                    this.e.createObserver(this, scopeElement, processRecords, processRecords)
+                    this.e.utils.createObserver(this, scopeElement, processRecords, processRecords)
                     const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#selector||':scope'), promises = []
                     for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
