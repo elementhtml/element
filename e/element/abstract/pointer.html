@@ -7,6 +7,8 @@
         #router
         #pointer
         #processor
+        #serializer
+        #fetchOptions
 
         #scope
         #selector
@@ -125,7 +127,7 @@
             /*Object.defineProperty(this, '_pointer', {configurable: false, writable: false, value: Object.defineProperties({}, { _parse: {value: this._parse.bind(this)} }) })*/
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'to', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'to', 'serializer', 'errors', 'processor') }
 
         async connectedCallback() {
             const selfObserver = new MutationObserver(events => {
@@ -173,13 +175,17 @@
                 } else { payload ||= this.eData }
                 if (this.#bind) {
                     if (this.#bind instanceof HTMLElement) {
-                        await this.e.sinkData(this.#bind, payload)
-                    } else if (this.#bind instanceof WebSocket) {
-                        this.#bind.send(JSON.stringify(payload)) //add support for custom parser/formatter
+                        return await this.e.sinkData(this.#bind, payload)
+                    } else {
+                        let serialized = typeof this.#serializer?.func === 'function' ? (await serializer.func(payload)) : JSON.stringify(payload)
+                        if (this.#bind instanceof WebSocket) return this.#bind.send(serialized)
                     }
                 } else {
                     let resource = this.resource
-                    //await fetch(resource, {})
+                    if (!resource || typeof resource != 'string') return
+                    let serialized = typeof this.#serializer?.func === 'function' ? (await serializer.func(payload)) : JSON.stringify(payload)
+                    let responseValue = await fetch(resource, {...this.fetchOptions, body: serialized})
+                    if (responseValue) await this._refresh(responseValue)
                 }
             }
         }        
@@ -322,6 +328,15 @@
 
         set processor(value) { this.#processor = this.e.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }
+
+        set serializer(value) { this.#serializer = this.e.resolveMeta(this, 'e-processor', value) }
+        get serializer() { return this.#serializer }        
+
+        set fetchOptions(value) { this.#fetchOptions = this.e.utils.parseObjectAttribute(value) }
+        get fetchOptions() { return this.#fetchOptions }
+
+        set ['fetch-options'](value) { this.fetchOptions = value }
+        get ['fetch-options']() { return this.fetchOptions }        
 
     }
 </script>

@@ -38,10 +38,10 @@
 
         get func() { return this.#func }        
 
-        exec(...args) { return this.#func(...args) }
-        apply(thisArg, argsArray) { return this.#func.apply(thisArg || this.e, argsArray) } 
+        async exec(...args) { return await this.#func(...args) }
+        async apply(thisArg, argsArray) { return await this.#func.apply(thisArg || this.e, argsArray) } 
+        async call(thisArg, ...args) { return await this.#func.call(thisArg || this.e, ...args) }
         bind(thisArg, ...args) { return this.#func.bind(thisArg || this.e, ...args) } 
-        call(thisArg, ...args) { return this.#func.call(thisArg || this.e, ...args) }
 
     }
 </script>
