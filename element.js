@@ -411,9 +411,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (k === '@') {
                                         use = use.replaceAll(eMerge[k] || k, `${key ?? ''}`)
                                     } else if (k === '$') {
-                                        console.log('A: ', use, eMerge[k])
                                         use = use.replaceAll(eMerge[k] || k, `${value ?? ''}`)
-                                        console.log('B: ', use)
                                     } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
                                 }
                             }
@@ -608,12 +606,13 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const src of ($this.constructor.eCss || [])) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
                 $this.constructor.eWasm ||= {}
                 for (const moduleName in ($this.constructor.eWasm||{})) {
-                    if ($this.constructor.eWasm[moduleName]) continue
+                    if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
+                    if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue } 
+                    const {src, importObject} = $this.constructor.eWasm[moduleName]
                     $this.constructor.eWasm[moduleName] = true
-                    WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL($this.constructor.eWasm[moduleName].src)),
-                        $this.constructor.eWasm[moduleName].importObject).then(importResult => 
-                            $this.constructor.eWasm[moduleName] = importResult
-                    ).catch(e => $this.constructor.eWasm[moduleName] = {})
+                    WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL(src)), importObject).then(importResult => 
+                        $this.constructor.eWasm[moduleName] = importResult
+                    ).catch(e => $this.constructor.eWasm[moduleName] = false)
                 }
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
@@ -681,8 +680,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 return retval
                             }
                         }
-                    })},
-                    eQueuedAttributes: {enumerable: true, value: {}}
+                    })}
                 })
                 try {
                     $this.shadowRoot || $this.attachShadow({mode: 'open'})
@@ -691,9 +689,6 @@ const ElementHTML = Object.defineProperties({}, {
                     const templateNode = document.createElement('template')
                     templateNode.innerHTML = ElementHTML.stackTemplates(this.constructor.id)
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    Object.defineProperty($this, 'eMeta', {enumerable: true,
-                        get: () => Object.fromEntries(Array.from($this.shadowRoot.children).filter(n => n.matches('meta')).map((n,i) => [[n.name, n], [i, n]]).flat())
-                    })
                      window.requestAnimationFrame(() => {
                         this.dispatchEvent(new CustomEvent('ready'))
                         this.readyCallback()
@@ -705,23 +700,6 @@ const ElementHTML = Object.defineProperties({}, {
             async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-            eProcessQueuedAttributes() {
-                const $this = this
-                for (const k in $this.eQueuedAttributes) {
-                    if (typeof $this.eQueuedAttributes[k]?.requires === 'function' && $this.eQueuedAttributes[k].requires() === false) continue
-                    if ($this.eQueuedAttributes[k].attribute && $this.eQueuedAttributes[k].value) {
-                        $this.setAttribute($this.eQueuedAttributes[k].attribute, $this.eQueuedAttributes[k].value)
-                        typeof $this.eQueuedAttributes[k].callback === 'function' && $this.eQueuedAttributes[k].callback()
-                    }
-                    delete $this.eQueuedAttributes[k]
-                }
-                if (Object.keys($this.eQueuedAttributes).length === 0) globalThis.clearInterval($this.eQueuedAttributeInterval)
-            }
-            eAddQueuedAttribute(attribute, value, requires, callback) {
-                const $this = this
-                $this.eQueuedAttributes[`${Date.now()}-${parseInt(Math.random() * 1000000)}`] = {attribute: attribute, value: value, requires: requires, callback: callback}
-                $this.eQueuedAttributeInterval ||= globalThis.setInterval(() => $this.eProcessQueuedAttributes(), 1000)
-            }
             valueOf() { return this.e.getValue(this) }
             set ['e-value-proxy'](value) { this.#eValueProxy = value }
             get ['e-value-proxy']() { return this.#eValueProxy }
