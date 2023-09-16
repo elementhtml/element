@@ -21,21 +21,9 @@ const ElementHTML = Object.defineProperties({}, {
         })}
     })},
     utils: {enumerable: true, value: Object.defineProperties({}, {
-        splitOnce: {enumerable: true, value: function(str, delimiter) {
-            let r
-            str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
-            return r
-        }},
         getCustomTag: {enumerable: true, value: function(element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                     || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-        }}, 
-        wait: {enumerable: true, value: async function(ms) {
-            return new Promise((resolve) => setTimeout(resolve, ms))
-        }}, 
-        waitUntil: {enumerable: true, value: async function(cb, ms=100, max=100) {
-            let count = 0
-            while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
         }}, 
         parseObjectAttribute: {enumerable: true, value: function(value) {
             let retval = null
@@ -56,11 +44,17 @@ const ElementHTML = Object.defineProperties({}, {
             const rootNode = element.shadowRoot || element.getRootNode()
             return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`) 
         }},
-        createObserver: {enumerable: true, value: function(element, observed, takeRecordsCallback, observerCallback) {
-            if (element._observer) takeRecordsCallback(element._observer.takeRecords())
-            element._observer && (element._observer.disconnect() || (delete element._observer))
-            element._observer = new MutationObserver(observerCallback)
-            element._observer.observe(observed, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
+        splitOnce: {enumerable: true, value: function(str, delimiter) {
+            let r
+            str.split(delimiter).some((e,i,a) => r = a.length<=2?(a):[a[0], a.slice(1).join(delimiter)])
+            return r
+        }},
+        wait: {enumerable: true, value: async function(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms))
+        }}, 
+        waitUntil: {enumerable: true, value: async function(cb, ms=100, max=100) {
+            let count = 0
+            while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
         }}
     })},
     ids: {enumerable: true, value: {}},
@@ -126,9 +120,11 @@ const ElementHTML = Object.defineProperties({}, {
         this.env.options.errors = mode
     }},
     getURL: {enumerable: true, value: function(value) {
-        if (value.startsWith('http://') || value.startsWith('https://') || !value.includes('://')) return value
-        const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-        value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+        if (!value.includes('://')) return value
+        if (!value.startsWith('http://') && !value.startsWith('https://')) {
+            const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+            value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+        } 
         for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
         return value
     }},        
@@ -193,7 +189,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
             for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
             if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
-        }, query = Object.keys(conditions).length ?  `${tagName}[${Object.entries(conditions).map(e => e[0]+'="'+e[1]+'"').join('][') }]` : tagName
+        }, query = Object.keys(conditions).length ? `${tagName}[${Object.entries(conditions).map(e => e[0]+'="'+e[1]+'"').join('][') }]` : tagName
         for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
         if (resolved) return resolved
         const rootNode = element.shadowRoot || element.getRootNode()
@@ -225,8 +221,8 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
             } else { parseElementForValues(element) }
         } else if (element.eDataset) {
-            const valueproxy = element.getAttribute('valueproxy')
-            if (valueproxy) return element.eDataset[valueproxy]
+            const eValueProxy = element.getAttribute('e-value-proxy')
+            if (eValueProxy) return element.eDataset[eValueProxy]
             const retval = Object.assign({}, element.eDataset)
             for (const k of Object.keys(retval)) if (k.includes('__')) {
                 const unsafeProperty = k.replaceAll('__', '-')
@@ -279,12 +275,9 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign((element.eDataset || element.dataset), value) 
             }
         } else {
-            let valueproxy
-            if (element.eDataset instanceof Object && (valueproxy = element.getAttribute('valueproxy'))) {
-                element.eDataset[valueproxy] = value
-                if (value === undefined) delete element.eDataset[valueproxy]
-            } else if (element.eDataset instanceof Object && value instanceof Object) {
-                Object.assign(element.eDataset, value)
+            if (element.eDataset instanceof Object && element.eValueProxy) {
+                element.eDataset[element.eValueProxy] = value
+                if (value === undefined) delete element.eDataset[element.eValueProxy]
             } else {
                 const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
                 if (tag === 'meta') { element[attrMethod]('content', value); return }
@@ -362,8 +355,8 @@ const ElementHTML = Object.defineProperties({}, {
             const sinkFunctionName = flag.slice(3)
             if (typeof element[sinkFunctionName] === 'function') {
               element[sinkFunctionName](...data)
-            } else if (element[sinkFunctionName] instanceof Object) {
-              element[sinkFunctionName] = {...element[sinkFunctionName], ...data}
+            } else if (!element[sinkFunctionName] || (element[sinkFunctionName] instanceof Object)) {
+              element[sinkFunctionName] = {...(element[sinkFunctionName] ?? {}), ...data}
             }
           } else { element[flag](data) }
         } else if (flag && element[flag] instanceof Object) {
@@ -601,7 +594,7 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     _base: {value: function(baseClass=globalThis.HTMLElement) {
         return class extends baseClass {
-            #valueproxy
+            #eValueProxy
             constructor() {
                 super()
                 const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs=[]) => {
@@ -707,7 +700,7 @@ const ElementHTML = Object.defineProperties({}, {
                      })
                 } catch(e) {}
             }
-            static get observedAttributes() { return ['valueproxy'] }
+            static get observedAttributes() { return ['e-value-proxy'] }
             static e = ElementHTML
             async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
             async readyCallback() {}
@@ -730,8 +723,10 @@ const ElementHTML = Object.defineProperties({}, {
                 $this.eQueuedAttributeInterval ||= globalThis.setInterval(() => $this.eProcessQueuedAttributes(), 1000)
             }
             valueOf() { return this.e.getValue(this) }
-            set valueproxy(value) { this.#valueproxy = value }
-            get valueproxy() { return this.#valueproxy }
+            set ['e-value-proxy'](value) { this.#eValueProxy = value }
+            get ['e-value-proxy']() { return this.#eValueProxy }
+            set eValueProxy(value) { this.#eValueProxy = value }
+            get eValueProxy() { return this.#eValueProxy }
         }
     }}
 })

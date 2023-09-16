@@ -105,7 +105,10 @@
                             for (const queueValue of queueValues) this._as(useResponse, ...queueValue)
                         }
                     }
-                    this.e.utils.createObserver(this, scopeElement, processRecords, processRecords)
+                    if (this._observer) processRecords(this._observer.takeRecords())
+                    this._observer && (this._observer.disconnect() || (delete this._observer))
+                    this._observer = new MutationObserver(processRecords)
+                    this._observer.observe(scopeElement, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                     const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#selector||':scope'), promises = []
                     for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
                         matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
