@@ -16,6 +16,7 @@
         #bind
         #bindController
         #as
+        #rewrite
         #to
 
         #errors
@@ -127,7 +128,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'to', 'serializer', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'match', 'as', 'rewrite', 'to', 'serializer', 'errors', 'processor') }
 
         async connectedCallback() {
             const selfObserver = new MutationObserver(events => {
@@ -284,6 +285,12 @@
                 this.#router = undefined
                 this.#pointer = undefined
             }
+            if (this.#pointer) {
+                let rewriteAttr = this.getAttribute('rewrite'), rewrite = []
+                if (typeof value === 'string') value = this.e.utils.parseObjectAttribute(rewriteAttr) ?? {}
+                if (value instanceof Object) for (const [re, p] of Object.entries(value)) rewrite.push([new RegExp(re), p])
+                if (this.#pointer && rewrite.length) for (const [rx, p] of rewrite) { if (this.#pointer.match(rx)) this.#pointer = p; break }
+            }
         }
         get resource() {
             if (this.#pointer && this.#pointer.startsWith('$')) return this.#pointer
@@ -319,6 +326,9 @@
 
         set as(value) { this.#as = value }
         get as() { return this.#as }
+
+        set rewrite(value) { this.#rewrite = value }
+        get rewrite() { return this.#rewrite }
 
         set to(value) { this.#to = value }
         get to() { return this.#to }

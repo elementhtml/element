@@ -348,9 +348,13 @@ const ElementHTML = Object.defineProperties({}, {
                     target = target.querySelector(qs)
                     if (!target) continue
                 }
-                if (key.startsWith('@')) (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                if (key.startsWith('.')) (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
-                if (flag === 'auto-data') target.dataset[key] = v
+                if (key.startsWith('@')) {
+                    (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
+                } else if (key.startsWith('.')) {
+                    (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
+                } else if (flag === 'auto-data') {
+                    target.dataset[key] = v
+                }
             }
           }
         } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
