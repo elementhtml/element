@@ -289,17 +289,20 @@ const ElementHTML = Object.defineProperties({}, {
                 element.textContent = value
             }
         }
-        element.dispatchEvent(new CustomEvent('change', {bubbles: true, detail: {value, scopeNode}}))        
+        element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))        
         return element        
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
         if (!element) return element
         rootElement ||= element
-        if (transform && !window.jsonata) {
-            const scriptTag = document.createElement('script')
-            scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-            document.head.append(scriptTag)
-            await this.e.utils.waitUntil(() => window.jsonata)
+        if (transform) {
+            if (!window.jsonata) {
+                const scriptTag = document.createElement('script')
+                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                document.head.append(scriptTag)
+                await this.e.utils.waitUntil(() => window.jsonata)                
+            }
+            if (transform.includes('$node.')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             data = await window.jsonata(transform).evaluate(data)
         }
         if (!(data instanceof Object)) return this.setValue(element, data)
@@ -320,9 +323,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
         const tag = element.tagName.toLowerCase()
         if (flag === '@') {
-          for (const [k, v] of Object.entries(data)) element.setAttribute(k, v)
+          for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? element.removeAttribute(k) : element.setAttribute(k, v)
         } else if (flag === '.') {
-          for (const [k, v] of Object.entries(data)) element[k] = v
+          for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? delete element[k] : element[k] = v
         } else if (flag === 'dataset') {
           for (const [k, v] of Object.entries(data)) element.dataset[k] = v
         } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
@@ -345,8 +348,8 @@ const ElementHTML = Object.defineProperties({}, {
                     target = target.querySelector(qs)
                     if (!target) continue
                 }
-                if (key.startsWith('@')) target.setAttribute(key.slice(1), v)
-                if (key.startsWith('.')) target[key.slice(1)] = v
+                if (key.startsWith('@')) (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
+                if (key.startsWith('.')) (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
                 if (flag === 'auto-data') target.dataset[key] = v
             }
           }
@@ -529,16 +532,14 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!target) continue
                     }
                     if (key.startsWith('@')) {
-                        target.setAttribute(key.slice(1), v)
+                        (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
                     } else if (key.startsWith('.')) {
-                        target[key.slice(1)] = v
-                    } else {
-                        target.dataset[key] = v
-                    }
+                        (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
+                    } else { target.dataset[key] = v }
                 }
             }
         }
-        element.dispatchEvent(new CustomEvent('sinkData', {bubbles: true, detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
+        element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
         return element
     }},
     stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
@@ -643,9 +644,13 @@ const ElementHTML = Object.defineProperties({}, {
                         set(target, property, value, receiver) {
                             switch(property[0]) {
                             case '@':
-                                return $this.setAttribute(property.slice(1), value)
+                                if (value === null || value === undefined) {
+                                    return $this.removeAttribute(property.slice(1))
+                                } else { return $this.setAttribute(property.slice(1), value) }
                             case '.':
-                                return $this[property.slice(1)] = value
+                                if (value === null || value === undefined) {
+                                    return delete $this[property.slice(1)]
+                                } else { return $this[property.slice(1)] = value }
                             default:
                                 let oldValue
                                 if (property.includes('-')) {
