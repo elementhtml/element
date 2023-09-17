@@ -302,7 +302,7 @@ const ElementHTML = Object.defineProperties({}, {
                 document.head.append(scriptTag)
                 await this.e.utils.waitUntil(() => window.jsonata)                
             }
-            if (transform.includes('$node.')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
+            if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             data = await window.jsonata(transform).evaluate(data)
         }
         if (!(data instanceof Object)) return this.setValue(element, data)
