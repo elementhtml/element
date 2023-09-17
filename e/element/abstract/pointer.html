@@ -48,7 +48,10 @@
                         if (this.#bind) {
                             let [, scopeQuery='eSelf'] = this.e.utils.splitOnce(resource, ').').map(s => s.trim())
                             if (scopeQuery) [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
-                        } else { [,scope,query] = this.e.utils.splitOnce(resource, '.').map(s => s.trim()) }
+                        } else { 
+                            [,scope,...query] = resource.split('.').map(s => s.trim())
+                            query = query.join('.') 
+                        }
                         if (scope && scope.startsWith('eSubtree')) {
                             scope = scope.replace('eSubtree', '')
                             let subTree = (this.#bind || this).querySelectorAll(scope[0] === '(' ? scope.slice(1, -1).trim() : ':scope > *')
@@ -194,49 +197,51 @@
         set resource(value) {
             this.#bind = undefined            
             if (value) {
-                if (value.startsWith('$(') && value.includes(')')) {
-                    if (this.#bindController) this.#bindController.abort()
-                    const bindMatch = value.split(')')[0].slice(2)
-                    let bindScope, bindSelector, bindEvents
-                    if (bindMatch.includes('|')) {
-                        [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
-                        bindScope = this.closest(bindScope)
-                        if (!bindScope) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, attribute: 'resource', input: value}}))
+                if (value && value.startsWith('$')) {
+                    if (value.startsWith('$(') && value.includes(')')) {
+                        if (this.#bindController) this.#bindController.abort()
+                        const bindMatch = value.split(')')[0].slice(2)
+                        let bindScope, bindSelector, bindEvents
+                        if (bindMatch.includes('|')) {
+                            [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
+                            bindScope = this.closest(bindScope)
+                            if (!bindScope) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, attribute: 'resource', input: value}}))
+                                if (this.errors === 'throw') { throw new Error(e); return }
+                                bindScope ||= this.getRootNode()
+                            }
+                        } else {
+                            bindScope = this.getRootNode()
+                            bindSelector = bindMatch
+                        }
+                        if (bindSelector?.includes('!')) [bindSelector, bindEvents] = this.e.utils.splitOnce(bindSelector, '!').map(s => s.trim())
+                        this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
+                        if (!this.#bind) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, attribute: 'resource', input: value}}))
                             if (this.errors === 'throw') { throw new Error(e); return }
-                            bindScope ||= this.getRootNode()
+                            this.#bind ||= this.getRootNode()
                         }
-                    } else {
-                        bindScope = this.getRootNode()
-                        bindSelector = bindMatch
-                    }
-                    if (bindSelector?.includes('!')) [bindSelector, bindEvents] = this.e.utils.splitOnce(bindSelector, '!').map(s => s.trim())
-                    this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
-                    if (!this.#bind) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, attribute: 'resource', input: value}}))
-                        if (this.errors === 'throw') { throw new Error(e); return }
-                        this.#bind ||= this.getRootNode()
-                    }
-                    if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
-                    if (this.#as ?? this.hasAttribute('as')) {
-                        const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
-                        this.#bindController = new AbortController()
-                        for (const eventName of eventsToBind) {
-                            bindScope.addEventListener(eventName, event => {
-                                if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
-                            }, {signal: this.#bindController.signal})
-                        }
-                        if (value.includes(')!')) {
-                            const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
-                            for (const eventPayload of eventPayloads) {
-                                bindScope.addEventListener(eventPayload, event => {
-                                    if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
+                        if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
+                        if (this.#as ?? this.hasAttribute('as')) {
+                            const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
+                            this.#bindController = new AbortController()
+                            for (const eventName of eventsToBind) {
+                                bindScope.addEventListener(eventName, event => {
+                                    if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
                                 }, {signal: this.#bindController.signal})
-                            }   
+                            }
+                            if (value.includes(')!')) {
+                                const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
+                                for (const eventPayload of eventPayloads) {
+                                    bindScope.addEventListener(eventPayload, event => {
+                                        if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
+                                    }, {signal: this.#bindController.signal})
+                                }   
+                            }
                         }
                     }
                     this.#router = undefined
-                    this.#pointer = value
+                    this.#pointer = value                    
                 } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
                     this.#pointer = value
                     let eventSource, eventPayloadList = ['message']
