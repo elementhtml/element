@@ -15,7 +15,8 @@
         #match
         #bind
         #bindController
-        #as
+        #transform
+        #apply
         #rewrite
         #to
 
@@ -133,7 +134,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'apply', 'match', 'as', 'rewrite', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'apply', 'match', 'rewrite', 'errors', 'processor') }
 
         async connectedCallback() {
             const selfObserver = new MutationObserver(events => {
@@ -178,8 +179,14 @@
         set resource(value) {
             this.#scope = undefined            
             this.#bind = undefined  
-            this.#scopeObserver = undefined          
+            this.#scopeObserver = undefined
             if (!value || (this.#resource === value)) { this.#resource = (value || undefined); return }
+
+            let rewrite = [], useValue = value
+            const rewriteRules = this.e.utils.parseObjectAttribute(this.getAttribute('rewrite') || '') ?? {}
+            for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
+            if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
+
             const sliceAndStep = (selector, bind) {
                 let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
                 bind = bind.slice(start, end)
@@ -190,8 +197,8 @@
                 }
                 return bind
             }
-            if (value.includes('|')) {
-                let [closest, selector, takeWhat, refreshOn] = value.split('|').map(s => decodeURIComponent(s).trim())
+            if (useValue.includes('|')) {
+                let [closest, selector, takeWhat, refreshOn] = useValue.split('|').map(s => decodeURIComponent(s).trim())
                 takeWhat ||= refreshOn ? '!' : '$'
                 takeWhat = takeWhat.trim()
                 if (!['!', '$', '_'].includes(takeWhat)) takeWhat = refreshOn ? '!' : '$'
@@ -238,121 +245,46 @@
                             }, {signal: this.#bindController.signal})
                         }
                     }
-
                 }
-            } else if(value.includes(':')) {
-
-            } else if (value.includes('/')) {
-
             } else {
-
-            }
-            this.#resource = value
-
-
-
-
-
-            if (value) {
-                if (value && value.startsWith('$')) {
-                    if (value.startsWith('$(') && value.includes(')')) {
-                        if (this.#bindController) this.#bindController.abort()
-                        const bindMatch = value.split(')')[0].slice(2)
-                        let bindScope, bindSelector, bindEvents
-                        if (bindMatch.includes('|')) {
-                            [bindScope, bindSelector] = this.e.utils.splitOnce(bindMatch, '|').map(s => s.trim())
-                            bindScope = this.closest(bindScope)
-                            if (!bindScope) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:scope', message: e, attribute: 'resource', input: value}}))
-                                if (this.errors === 'throw') { throw new Error(e); return }
-                                bindScope ||= this.getRootNode()
-                            }
-                        } else {
-                            bindScope = this.getRootNode()
-                            bindSelector = bindMatch
-                        }
-                        if (bindSelector?.includes('!')) [bindSelector, bindEvents] = this.e.utils.splitOnce(bindSelector, '!').map(s => s.trim())
-                        this.#bind = bindSelector ? (bindScope.querySelector(bindSelector)) : bindScope
-                        if (!this.#bind) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'bind:selector', message: e, attribute: 'resource', input: value}}))
-                            if (this.errors === 'throw') { throw new Error(e); return }
-                            this.#bind ||= this.getRootNode()
-                        }
-                        if (this.#bind instanceof ShadowRoot) this.#bind = this.#bind.host
-                        if (this.#as ?? this.hasAttribute('as')) {
-                            const eventsToBind = bindEvents ? bindEvents.split(',') : ['change', 'sinkData']
-                            this.#bindController = new AbortController()
-                            for (const eventName of eventsToBind) {
-                                bindScope.addEventListener(eventName, event => {
-                                    if (!bindSelector || event.target.matches(bindSelector)) this._refresh()
-                                }, {signal: this.#bindController.signal})
-                            }
-                            if (value.includes(')!')) {
-                                const [, eventPayloadList] = this.e.utils.splitOnce(value, ')!'), eventPayloads = eventPayloadList.split(',')
-                                for (const eventPayload of eventPayloads) {
-                                    bindScope.addEventListener(eventPayload, event => {
-                                        if (!bindSelector || event.target.matches(bindSelector)) this._refresh(event.detail)
-                                    }, {signal: this.#bindController.signal})
-                                }   
-                            }
-                        }
+                let url
+                if (useValue.includes(':') && !useValue.includes('://')) {
+                    let [routerName, routerPointer] = this.e.utils.splitOnce(), router = this.e.resolveMeta(this, 'e-router', routerName)
+                    if (router) {
+                        url = router[this.#mode](routerPointer)
+                    } else {
+                        url = `${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`
+                        url = this.e.getURL(new URL(url, this.baseURI).href)
                     }
-                    this.#router = undefined
-                    this.#pointer = value                    
-                } else if ((value !== '/') && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../') || value.includes('://'))) {
-                    this.#pointer = value
+                } else if (useValue.includes('/')) {
+                    url = this.e.getURL(new URL(useValue, this.baseURI).href) 
+                } else { url = this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
+                if (url.startsWith('wss://') || url.includes('!')) {
                     let eventSource, eventPayloadList = ['message']
-                    if (this.#pointer.startsWith('wss://') || this.#pointer.startsWith('ws://')) {
-                        eventSource = new WebSocket(this.#pointer)
-                    } else if (this.#pointer.includes('!')) {
-                        const [sourceUrl, eventList] = this.e.utils.splitOnce(this.#pointer, '!').map(s => s.trim())
+                    if (url.startsWith('wss://')) {
+                        eventSource = new WebSocket(url)
+                    } else {
+                        const [sourceUrl, eventList] = this.e.utils.splitOnce(url, '!').map(s => s.trim())
                         eventSource = new EventSource(sourceUrl)
                         if (eventList) eventPayloadList = eventList.split(',')
-                    } else { this.#bind = this.#pointer }
+                    }
                     if (eventSource) {
                         eventSource.addEventListener('open', event => {
+                            if (this.#bindController) this.#bindController.abort()
                             this.#bind = eventSource
-                            if (this.#as ?? this.hasAttribute('as')) {
-                                this.#bindController = new AbortController()
-                                for (const eventName of eventPayloadList) {
-                                    eventSource.addEventListener(eventName, event => {
-                                        this._refresh(event.data)
-                                    }, {signal: this.#bindController.signal})
-                                }
+                            this.#bindController = new AbortController()
+                            for (const eventName of eventPayloadList) {
+                                eventSource.addEventListener(eventName, event => {
+                                    this._refresh(event)
+                                }, {signal: this.#bindController.signal})
                             }
                         })
                     }
-                } else if (value.includes(':')) {
-                    [this.#router, this.#pointer] = this.e.utils.splitOnce(value, ':').map(s => s.trim())
                 } else {
-                    this.#router = undefined
-                    this.#pointer = value
+
                 }
-                let flag, flagMap = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
-                if (this.#pointer && Object.keys(flagMap).includes(this.#pointer[0])) {
-                    flag = this.#pointer[0]
-                    if (flag === '?' && (this.#pointer[1] === '[') && (this.#pointer.slice(-1) === ']')) {
-                        this.#pointer = (new URLSearchParams(flagMap[flag])).get(this.#pointer.slice(2, -1))
-                    } else {
-                        if (this.#pointer === flag) {
-                            this.#pointer = flagMap[flag]
-                        } else {
-                            try {
-                                this.#pointer = flagMap[flag].match(new RegExp(this.#pointer.slice(1)))[0]
-                            } catch(e) { this.#pointer = undefined }
-                        }
-                    }
-                } else { this.#pointer ||= this.e.env.modes[this.#mode].pointer }
-            } else {
-                this.#router = undefined
-                this.#pointer = undefined
             }
-            if (this.#pointer) {
-                let rewriteAttr = this.getAttribute('rewrite'), rewrite = []
-                if (typeof value === 'string') value = this.e.utils.parseObjectAttribute(rewriteAttr) ?? {}
-                if (value instanceof Object) for (const [re, p] of Object.entries(value)) rewrite.push([new RegExp(re), p])
-                if (this.#pointer && rewrite.length) for (const [rx, p] of rewrite) { if (this.#pointer.match(rx)) this.#pointer = p; break }
-            }
+            this.#resource = value
         }
         get resource() {
             if (this.#pointer && this.#pointer.startsWith('$')) return this.#pointer
@@ -386,8 +318,11 @@
         }
         get match() { return this.#match }
 
-        set as(value) { this.#as = value }
-        get as() { return this.#as }
+        set transform(value) { this.#transform = value }
+        get transform() { return this.#transform }
+
+        set apply(value) { this.#apply = value }
+        get apply() { return this.#apply }
 
         set rewrite(value) { this.#rewrite = value }
         get rewrite() { return this.#rewrite }
