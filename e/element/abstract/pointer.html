@@ -21,6 +21,9 @@
         #rewriteRules = {}
         #to
 
+        #fetchOptionsString = ''
+        #fetchOptions = {}
+
         #refreshCount = 0
 
         #errors
@@ -158,14 +161,23 @@
 
         async _refresh(payload) {
             if (!this.#bind) return
+            let result
             if (typeof this.#bind === 'string') {
-                const fetchOptions = {} // add more here
+                const fetchOptions = Object.assign({}, (this.e.env.options.fetchOptions[this.#fetchOptions.eBase] ?? {}), this.#fetchOptions)
+                delete fetchOptions.eBase
+                const rewriteRules = Object.assign({}, (this.e.env.options.rewriteRules[this.#rewriteRules.eBase] ?? {}), this.#rewriteRules)
+                delete rewriteRules.eBase
                 let response = await fetch(this.#bind, fetchOptions)
                 if (response.status >= 400) {
                     const status = `${response.status}`
-                    if (status in this.#rewriteRules) response = await fetch(this.#resolveUrl(this.#rewriteRules[status]), fetchOptions)
+                    if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
                 }
-
+                if (this.#parser) {
+                    let parser = this.e.resolveMeta(this, 'e-processor', this.#parser)
+                    if (parser) result = await parser.fun(await result.text())
+                } else if (response.url.endsWith('.json') || (response.headers.get('Content-Type') === 'application/json')) {
+                    result = await response.json()
+                } else { result = await response.text() }
             } else if (this.#bind instanceof Node) {
 
             } else if (Array.isArray(this.#bind)) {
@@ -342,10 +354,11 @@
         set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }
 
-        set fetchOptions(value) { this.#fetchOptions = this.e.utils.parseObjectAttribute(value) }
-        get fetchOptions() { return this.#fetchOptions }
-        set ['fetch-options'](value) { this.fetchOptions = value }
-        get ['fetch-options']() { return this.fetchOptions }        
+        set ['fetch-options'](value) {
+            this.#fetchOptions = this.e.utils.parseObjectAttribute(value)
+            this.#fetchOptionsString = value
+        }
+        get ['fetch-options']() { return this.#fetchOptionsString }
 
     }
 </script>
