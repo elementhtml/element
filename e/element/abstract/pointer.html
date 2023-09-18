@@ -18,6 +18,7 @@
         #transform
         #apply
         #rewrite
+        #rewriteRules = {}
         #to
 
         #refreshCount = 0
@@ -155,6 +156,25 @@
 
         toString() { return this.resource ?? '' }
 
+        async _refresh(payload) {
+            if (!this.#bind) return
+            if (typeof this.#bind === 'string') {
+                const fetchOptions = {} // add more here
+                let response = await fetch(this.#bind, fetchOptions)
+                if (response.status >= 400) {
+                    const status = `${response.status}`
+                    if (status in this.#rewriteRules) response = await fetch(this.#resolveUrl(this.#rewriteRules[status]), fetchOptions)
+                }
+
+            } else if (this.#bind instanceof Node) {
+
+            } else if (Array.isArray(this.#bind)) {
+
+            } else {
+
+            }
+        }
+
         /* 
 
         ## resource: 
@@ -177,16 +197,10 @@
         */
 
         set resource(value) {
-            this.#scope = undefined            
-            this.#bind = undefined  
-            this.#scopeObserver = undefined
-            if (!value || (this.#resource === value)) { this.#resource = (value || undefined); return }
-
-            let rewrite = [], useValue = value
-            const rewriteRules = this.e.utils.parseObjectAttribute(this.getAttribute('rewrite') || '') ?? {}
-            for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
+            if (this.#resource === value) return
+            let rewrite = [], useValue = value ?? '|'
+            for (const [re, p] of Object.entries(this.#rewriteRules)) rewrite.push([new RegExp(re), p])
             if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
-
             const sliceAndStep = (selector, bind) {
                 let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
                 bind = bind.slice(start, end)
@@ -205,11 +219,11 @@
                 refreshOn ||= (takeWhat === '!') ? 'change' : ''
                 this.#scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
                 if (!selector) {
-                    this.#bind = [this.#scope]
+                    this.#bind = this.#scope
                 } else if (selector.includes('[') && selector.endsWith(']')) {
                     this.#bind = sliceAndStep(selector, Array.from(this.#scope.querySelectorAll(selector)))
                 } else {
-                    this.#bind = [this.#scope.querySelector(selector)]
+                    this.#bind = this.#scope.querySelector(selector)
                 }
                 if (selector) {
                     const processRecords = records => {
@@ -247,18 +261,7 @@
                     }
                 }
             } else {
-                let url
-                if (useValue.includes(':') && !useValue.includes('://')) {
-                    let [routerName, routerPointer] = this.e.utils.splitOnce(), router = this.e.resolveMeta(this, 'e-router', routerName)
-                    if (router) {
-                        url = router[this.#mode](routerPointer)
-                    } else {
-                        url = `${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`
-                        url = this.e.getURL(new URL(url, this.baseURI).href)
-                    }
-                } else if (useValue.includes('/')) {
-                    url = this.e.getURL(new URL(useValue, this.baseURI).href) 
-                } else { url = this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
+                let url = this.#resolveUrl(useValue)
                 if (url.startsWith('wss://') || url.includes('!')) {
                     let eventSource, eventPayloadList = ['message']
                     if (url.startsWith('wss://')) {
@@ -281,24 +284,27 @@
                         })
                     }
                 } else {
-
+                    if (this.#bindController) this.#bindController.abort()
+                    this.#bindController = null
+                    this.#bind = url
                 }
             }
             this.#resource = value
         }
-        get resource() {
-            if (this.#pointer && this.#pointer.startsWith('$')) return this.#pointer
-            if (this.#pointer && (this.#pointer !== '/') && (this.#pointer.startsWith('/') || this.#pointer.startsWith('./') || this.#pointer.startsWith('../') || this.#pointer.includes('://'))) return this.#pointer
-            let router = this.#router ? (this.e.utils.resolveMeta(this, 'e-router', this.#router) ?? this.e.utils.resolveMeta(this, 'e-router')) : undefined
-            return router ? router[this._mode](this.#pointer) : undefined
+        get resource() { return this.#resource }
+
+        #resolveUrl(useValue) {
+            if (useValue.includes(':') && !useValue.includes('://')) {
+                let [routerName, routerPointer] = this.e.utils.splitOnce(), router = this.e.resolveMeta(this, 'e-router', routerName)
+                if (router) {
+                    return router[this.#mode](routerPointer)
+                } else {
+                    return this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
+                }
+            } else if (useValue.includes('/')) {
+                return this.e.getURL(new URL(useValue, this.baseURI).href) 
+            } else { return this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
         }
-
-        get router() { return this.#router }
-
-        get pointer() { return this.#pointer }
-
-        get scope() { return this.#scope }
-        get selector() { return this.#selector }
 
         get bind() { return this.#bind }        
 
@@ -324,7 +330,10 @@
         set apply(value) { this.#apply = value }
         get apply() { return this.#apply }
 
-        set rewrite(value) { this.#rewrite = value }
+        set rewrite(value) { 
+            this.#rewriteRules = this.e.utils.parseObjectAttribute(value) ?? {}
+            this.#rewrite = value 
+        }
         get rewrite() { return this.#rewrite }
 
         set errors(value) { this.#errors = value }
@@ -335,7 +344,6 @@
 
         set fetchOptions(value) { this.#fetchOptions = this.e.utils.parseObjectAttribute(value) }
         get fetchOptions() { return this.#fetchOptions }
-
         set ['fetch-options'](value) { this.fetchOptions = value }
         get ['fetch-options']() { return this.fetchOptions }        
 
