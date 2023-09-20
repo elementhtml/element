@@ -171,6 +171,10 @@
                 if (response.status >= 400) {
                     const status = `${response.status}`
                     if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
+                    if (response.status >= 400) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, fetchOptions}}))
+                        if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
+                    }
                 }
                 if (this.#parser) {
                     let parser = this.e.resolveMeta(this, 'e-processor', this.#parser)
@@ -187,56 +191,28 @@
             }
         }
 
-        /* 
-
-        ## resource: 
-
-        / => is a direct URL
-
-        : => is a router + pointer
-
-        | => is a DOM node => closest (parentElement) | querySelector[All][start:end:step] (self) | take what?  event/node/value as !/$/_ default is $ if no following event name, otherwise ! | refresh on this event(s) eventa,eventb[start:end:step] (default is change if previous stage is !, otherwise none)
-
-        none: is a direct file path using default router resolution rules
-
-        empty: is the DOM node parentElement
-
-
-        ## transform: JSONata query - the result of resource + transform is stored as this.data
-
-        ## apply: varies by pointer type, but always a parsable JSON/querystring object
-
-        */
-
         set resource(value) {
             if (this.#resource === value) return
-            let rewrite = [], useValue = value ?? '|'
-            for (const [re, p] of Object.entries(this.#rewriteRules)) rewrite.push([new RegExp(re), p])
+            let rewrite = [], rewriteRules = (this.#rewriteRules.eBase) ? Object.assign({...this.e.env.options.rewriteRules[this.#rewriteRules.eBase] || {}}, this.#rewriteRules) : {...this.#rewriteRules}, useValue = value ?? '|'
+            delete rewriteRules.eBase        
+            for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
             if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
             const sliceAndStep = (selector, bind) {
                 let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
                 bind = bind.slice(start, end)
-                if (step === 1) {
-                    bind = bind.filter((v, i) => (i+1) % 2)
-                } else if (step > 1) {
-                    bind = bind.filter((v, i) => (i+1) % step === 0)
-                }
-                return bind
+                if (!step) return bind
+                return (step === 1) ? bind.filter((v, i) => (i+1) % 2) : bind.filter((v, i) => (i+1) % step === 0)
             }
             if (useValue.includes('|')) {
-                let [closest, selector, takeWhat, refreshOn] = useValue.split('|').map(s => decodeURIComponent(s).trim())
-                takeWhat ||= refreshOn ? '!' : '$'
-                takeWhat = takeWhat.trim()
-                if (!['!', '$', '_'].includes(takeWhat)) takeWhat = refreshOn ? '!' : '$'
-                refreshOn ||= (takeWhat === '!') ? 'change' : ''
+                let [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
+                [use, refreshOn] = !useRefresh ? ['$', 'change']  
+                    : (['!', '$', '_'].includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
                 this.#scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
                 if (!selector) {
                     this.#bind = this.#scope
                 } else if (selector.includes('[') && selector.endsWith(']')) {
                     this.#bind = sliceAndStep(selector, Array.from(this.#scope.querySelectorAll(selector)))
-                } else {
-                    this.#bind = this.#scope.querySelector(selector)
-                }
+                } else { this.#bind = this.#scope.querySelector(selector) }
                 if (selector) {
                     const processRecords = records => {
                         const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
@@ -267,7 +243,7 @@
                                 if (stepRefresh) proceed = (this.#refreshCount >= start) && (this.#refreshCount < end)
                                 this.#refreshCount = this.#refreshCount + 1
                                 if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (this.#refreshCount % 2) : (this.#refreshCount % step === 0))
-                                this.refresh((takeWhat === '!') ? event : ( (takeWhat === '_') ? this.e.getValue(node) : node))
+                                this.refresh((use === '!') ? event : ( (use === '_') ? this.e.getValue(node) : node))
                             }, {signal: this.#bindController.signal})
                         }
                     }
@@ -307,12 +283,22 @@
 
         #resolveUrl(useValue) {
             if (useValue.includes(':') && !useValue.includes('://')) {
-                let [routerName, routerPointer] = this.e.utils.splitOnce(), router = this.e.resolveMeta(this, 'e-router', routerName)
-                if (router) {
-                    return router[this.#mode](routerPointer)
-                } else {
-                    return this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
+                let [routerName, routerPointer] = this.e.utils.splitOnce(useValue, ':'), router = this.e.resolveMeta(this, 'e-router', routerName)
+                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
+                    const map = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
+                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
+                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
+                    } else {
+                        if (routerPointer === routerPointer[0]) {
+                            routerPointer = map[routerPointer[0]]
+                        } else {
+                            try {
+                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
+                            } catch(e) { routerPointer = undefined }
+                        }
+                    }
                 }
+                return router ? router[this.#mode](routerPointer) : this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
             } else if (useValue.includes('/')) {
                 return this.e.getURL(new URL(useValue, this.baseURI).href) 
             } else { return this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
@@ -342,9 +328,9 @@
         set apply(value) { this.#apply = value }
         get apply() { return this.#apply }
 
-        set rewrite(value) { 
+        set rewrite(value) {
             this.#rewriteRules = this.e.utils.parseObjectAttribute(value) ?? {}
-            this.#rewrite = value 
+            this.#rewrite = value
         }
         get rewrite() { return this.#rewrite }
 
