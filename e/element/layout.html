@@ -26,6 +26,7 @@
             result = result.flat()
             const template = document.createElement('template')
             template.content.replaceChildren(...result)
+            let {from, use, into} = this.e.utils.parseObjectAttribute(this.apply ?? this.getAttribute('apply'))
             if (from) template.content.replaceChildren(...template.content.cloneNode(true).querySelectorAll(from))
             for (const t of target) {
                 const fragment = template.content.cloneNode(true)                
