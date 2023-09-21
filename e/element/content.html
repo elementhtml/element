@@ -14,7 +14,6 @@
 		static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
         _apply(result, target) {
-            target = Array.isArray(target) ? target : [target]
             if (typeof result !== 'string') {
                 if (!Array.isArray(result)) result = [result]
                 for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent

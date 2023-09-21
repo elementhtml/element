@@ -3,7 +3,6 @@
 <script>
     class extends `./abstract/pointer` {
 
-        #parser
         #module
         #func = input => input
 
@@ -11,37 +10,32 @@
             super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
-                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    return this.#parser === 'wasm' ? await WebAssembly.instantiateStreaming(fetch(this.e.getURL(response))) : await import(this.e.getURL(response))
-                }},
-                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    this.#module = useResponse
-                    if (this.#module instanceof Object) {
-                        if (this.as && typeof this.#module[this.as] === 'function') {
-                            this.#func = this.#module[this.as]
-                        } else if (typeof this.#module.default === 'function') {
-                            this.#func = this.#module.default
-                        } else if (typeof this.#module === 'function') {
-                            this.#func = this.#module
-                        }
-                    }
-                }}
+                _stream: {configurable: false, enumerable: false, writable: false, value: true}, 
+                _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/javascript'}
             })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
-        set parser(value) { this.#parser = value }
-        get parser() { return this.#parser }
-
         get module() { return this.#module }
 
         get func() { return this.#func }        
 
-        async exec(...args) { return await this.#func(...args) }
-        async apply(thisArg, argsArray) { return await this.#func.apply(thisArg || this.e, argsArray) } 
-        async call(thisArg, ...args) { return await this.#func.call(thisArg || this.e, ...args) }
         bind(thisArg, ...args) { return this.#func.bind(thisArg || this.e, ...args) } 
+
+        _apply(result, target) {
+            this.#module = result
+            let apply = this.apply ?? this.getAttribute('apply')
+            if (this.#module instanceof Object) {
+                if (apply && typeof this.#module[apply] === 'function') {
+                    this.#func = this.#module[apply]
+                } else if (typeof this.#module.default === 'function') {
+                    this.#func = this.#module.default
+                } else if (typeof this.#module === 'function') {
+                    this.#func = this.#module
+                }
+            }
+        }
 
     }
 </script>

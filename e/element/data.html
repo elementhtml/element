@@ -3,77 +3,10 @@
 <script>
     class extends `./abstract/pointer` {
 
-        #parser
-        #data
-
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}, 
-                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let text = await response.text(), parsed
-                    if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
-                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
-                    }
-                    if (this.#parser) {
-                        try {
-                            let parserFunction = this.e.utils.resolveMeta(this, 'e-processor', this.#parser)?.func
-                            if (parserFunction) parsed = await parserFunction(text)
-                        } catch(e) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
-                            if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
-                        }
-                    } else { try { 
-                        if (this.hasAttribute('yaml') || response.url.endsWith('.yaml')) {
-                            if (!this.e.env.libraries.yaml) {
-                                this.e.env.libraries.yaml = await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                            }
-                            parsed = this.e.env.libraries.yaml.parse(text)
-                        } else { parsed = JSON.parse(text) }
-                    } catch(e) { 
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: text}}))
-                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return {} }
-                    } }
-                    return parsed
-                }},
-                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    if (useResponse instanceof HTMLElement) {
-                        useResponse = this.e.getValue(useResponse)
-                    } else if (Array.isArray(useResponse) && useResponse.some(v => v instanceof HTMLElement)) {
-                        for (const k of useResponse.keys()) if (useResponse[k] instanceof HTMLElement) useResponse[k] = this.e.getValue(useResponse[k])
-                    }
-                    if (addOrRemove === 'add' && (useResponse instanceof Object)) {
-                        let flag, transform
-                        if (this.as) {
-                            if (!window.jsonata) {
-                                const scriptTag = document.createElement('script')
-                                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                                document.head.append(scriptTag)
-                                await this.e.utils.waitUntil(() => window.jsonata)
-                            }
-                            let [pretransform, flagTransform] = this.e.utils.splitOnce(this.as, '~>').map(s => s.trim())
-                            try {
-                                if (pretransform) {
-                                    this.#data = await window.jsonata(pretransform).evaluate(useResponse)
-                                } else { this.#data = useResponse }
-                            } catch(e) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'pretransform', message: e, input: useResponse}}))
-                                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { this.#data = {} }                               
-                            }
-                            if (flagTransform) [flag, transform] = this.e.utils.splitOnce(flagTransform, ':=').map(s => s.trim())
-                        } else { this.#data = useResponse }
-                        await this.e.sinkData(node, this.#data, flag, transform)
-                        if (this.processor?.func) {
-                            try {
-                                if (typeof this.processor.func === 'function') this.processor.func(node)
-                            } catch(e) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: node}}))
-                                if (this.errors === 'throw') { throw new Error(e); return }
-                            }
-                        }
-                    }
-                }}
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'data'}
             })
         }
 
@@ -83,6 +16,13 @@
         get parser() { return this.#parser }
 
         get data() { return this.#data || {} }
+
+        _apply(result, target) {
+            target = Array.isArray(target) ? target : [target]
+            let apply = this.apply ?? this.getAttribute('apply'), {flag, transform} = this.e.utils.parseObjectAttribute(apply)
+            if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()  
+            for (const t of target) this.e.sinkData(t, result, flag, transform)
+        }
 
     }
 </script>

@@ -75,16 +75,25 @@
                 }
                 const rewriteRules = Object.assign({}, (this.e.env.options.rewriteRules[this.#rewriteRules.eBase] ?? {}), this.#rewriteRules)
                 delete rewriteRules.eBase
-                let response = await fetch(this.#bind, fetchOptions)
-                if (response.status >= 400) {
-                    const status = `${response.status}`
-                    if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
+                if (this._stream) {
+                    let contentType = this.getAttribute('content-type') || this._contentType || undefined
+                    if ((contentType === 'application/wasm') || this.#bind.endsWith('.wasm')) {
+                        result = await WebAssembly.instantiateStreaming(fetch(this.#bind))
+                    } else if ((contentType === 'application/javascript') || this.#bind.endsWith('.mjs') || this.#bind.endsWith('.js')) {
+                        result = await import(this.#bind)
+                    } else { result = fetch(this.#bind, fetchOptions).then(r => r.body) }
+                } else {
+                    let response = await fetch(this.#bind, fetchOptions)
                     if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, fetchOptions}}))
-                        if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
+                        const status = `${response.status}`
+                        if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
+                        if (response.status >= 400) {
+                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, fetchOptions}}))
+                            if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
+                        }
                     }
+                    result = await this.#parse(response)                    
                 }
-                result = await this.#parse(response)
             } else { 
                 if (typeof payload === 'string') {
                     if ((this.#bind instanceof WebSocket) || (this.#bind instanceof EventSource)) result = this.#parse(payload)
@@ -115,6 +124,7 @@
                     target = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
                 } else { target = scope.querySelector(selector) }
             } else { target = this.parentElement }
+            target = Array.isArray(target) ? target : [target]            
             this._apply(result, target)
         }
 

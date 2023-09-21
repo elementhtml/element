@@ -10,6 +10,11 @@
             super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
+                _stream: {configurable: false, enumerable: false, writable: false, value: true}, 
+                _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}
+
+// application/schema+json and application/schema-instance+json
+                
                 _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
                     if (!this.e.env.libraries.ajv) {
                         let ajvOptions = {...this.e.env.options.ajv}
@@ -74,6 +79,20 @@
         }
 
         get canonicalUrl() { return this.#canonicalUrl }
+
+        _apply(result, target) {
+            this.#module = result
+            let apply = this.apply ?? this.getAttribute('apply')
+            if (this.#module instanceof Object) {
+                if (apply && typeof this.#module[apply] === 'function') {
+                    this.#func = this.#module[apply]
+                } else if (typeof this.#module.default === 'function') {
+                    this.#func = this.#module.default
+                } else if (typeof this.#module === 'function') {
+                    this.#func = this.#module
+                }
+            }
+        }
 
     }
 </script>
