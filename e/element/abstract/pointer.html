@@ -123,7 +123,7 @@
             const typeCheck = (response instanceof Response) || (typeof response === 'text')
             if (!typeCheck && (response instanceof Object)) return response
             response = typeCheck ? response : `${response}`
-            let contentType = this.getAttribute('content-type') || undefined
+            let contentType = this.getAttribute('content-type') || this._contentType || undefined
             if (!contentType && (response instanceof Response)) {
                 contentType ||= response.headers.get('Content-Type') || undefined
                 contentType = (response.url.endsWith('.json') || contentType.includes('json')) ? 'application/json' : contentType
@@ -135,6 +135,7 @@
             }
             contentType ||= 'application/json'
             if (!contentType.includes('/')) contentType = `application/${contentType}`
+            if ((contentType === 'text/html') || (contentType === 'text/plain')) return (response instanceof Response) ? await response.text() : response
             if (contentType === 'application/json') return (response instanceof Response) ? await response.json() : JSON.parse(response)
             const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer ) , 
             if (contentType.includes('protobuf')) {
@@ -176,8 +177,6 @@
             }
             return text
         }
-
-
 
         set resource(value) {
             if (this.#resource === value) return
@@ -300,6 +299,8 @@
         get ['fetch-options']() { return this.#fetchOptionsString }
 
         _apply(result, target) {
+            // result=> 
+            // target => Node, [Nodes]
             target = Array.isArray(target) ? target : [target]
             for (const t of target) this.e.setValue(t, result)
         }
