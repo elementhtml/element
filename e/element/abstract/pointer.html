@@ -138,7 +138,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'apply', 'match', 'rewrite', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'match', 'apply', 'rewrite', 'errors', 'processor') }
 
         async connectedCallback() {
             const selfObserver = new MutationObserver(events => {
@@ -160,6 +160,7 @@
         toString() { return this.resource ?? '' }
 
         async _refresh(payload) {
+            // event, Node, Array of Nodes, value, Websocket, EventSource, URL
             if (!this.#bind) return
             let result
             if (typeof this.#bind === 'string') {
@@ -183,8 +184,37 @@
                     }
                 }
                 result = await this.#parse(response)
-            } else { result = payload }
-
+            } else { 
+                if (typeof payload === 'string') {
+                    if ((this.#bind instanceof WebSocket) || (this.#bind instanceof EventSource)) result = this.#parse(payload)
+                } else { result = payload }
+            }
+            let transform = this.transform || this.getAttribute('transform')
+            if (transform) {
+                if (!window.jsonata) {
+                    const scriptTag = document.createElement('script')
+                    scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                    document.head.append(scriptTag)
+                    await this.e.utils.waitUntil(() => window.jsonata)
+                }
+                try {
+                    result await window.jsonata(transform).evaluate(result)
+                } catch(e) {
+                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
+                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
+                }
+            }
+            let match = this.match || this.getAttribute('match'), target
+            if (match) {
+                let [closest, selector] = match.split('|').map(s => decodeURIComponent(s).trim())
+                let scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
+                if (!selector) {
+                    target = scope
+                } else if (selector.includes('[') && selector.endsWith(']')) {
+                    target = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
+                } else { target = scope.querySelector(selector) }
+            } else { target = this.parentElement }
+            this.apply(result, target)
         }
 
         async #parse(response) {
@@ -246,18 +276,24 @@
             return text
         }
 
+        #sliceAndStep(selector, list) {
+            let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
+            list = list.slice(start, end)
+            if (!step) return list
+            return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
+        }
+
+        apply(result, target) {
+            target = Array.isArray(target) ? target : [target]
+            for (const t of target) this.e.setValue(t, result)
+        }
+
         set resource(value) {
             if (this.#resource === value) return
             let rewrite = [], rewriteRules = (this.#rewriteRules.eBase) ? Object.assign({...this.e.env.options.rewriteRules[this.#rewriteRules.eBase] || {}}, this.#rewriteRules) : {...this.#rewriteRules}, useValue = value ?? '|'
             delete rewriteRules.eBase        
             for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
             if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
-            const sliceAndStep = (selector, bind) {
-                let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
-                bind = bind.slice(start, end)
-                if (!step) return bind
-                return (step === 1) ? bind.filter((v, i) => (i+1) % 2) : bind.filter((v, i) => (i+1) % step === 0)
-            }
             if (useValue.includes('|')) {
                 [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
@@ -266,7 +302,7 @@
                 if (!selector) {
                     this.#bind = this.#scope
                 } else if (selector.includes('[') && selector.endsWith(']')) {
-                    this.#bind = sliceAndStep(selector, Array.from(this.#scope.querySelectorAll(selector)))
+                    this.#bind = this.#sliceAndStep(selector, Array.from(this.#scope.querySelectorAll(selector)))
                 } else { this.#bind = this.#scope.querySelector(selector) }
                 if (selector) {
                     const processRecords = records => {
@@ -280,7 +316,7 @@
                         for (const node of updatedNodes) if (node.isConnected && node.matches(selector) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
                         for (const node of addedNodes) if (node.isConnected && node.matches(selector) && !newBind.includes(node) && node.matches(selector) && !nodesToRemove.includes(node)) newBind.push(node)
                         newBind.sort((a, b) => ((a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1) )
-                        this.#bind = (selector.includes('[') && selector.endsWith(']')) ? sliceAndStep(selector, newBind) : newBind
+                        this.#bind = (selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector, newBind) : newBind
                     }
                     if (this.#scopeObserver) processRecords(this.#scopeObserver.takeRecords())
                     this.#scopeObserver && (this.#scopeObserver.disconnect())
