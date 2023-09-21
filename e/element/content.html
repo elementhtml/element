@@ -3,83 +3,32 @@
 <script>
     class extends `./abstract/pointer` {
 
-        #md
-
     	constructor() {
     		super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
-                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    let text = await response.text()
-                    if (response.status >= 400) {
-                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'fetch', status: response.status, message: text, input: response.url}}))
-                        if (this.errors === 'throw') { throw new Error(text); return } else if (this.errors === 'hide') { return '' }
-                    }
-                    if (this.hasAttribute('md') || response.url.endsWith('.md')) {
-                        if (!this.e.env.libraries.remarkable) {
-                            this.e.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
-                            const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), {alt: []}), parser = (md, options) => {
-                              return (state) => {
-                                let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)','gi')
-                                while (++i < tokens.length) {
-                                  const token = tokens[i]
-                                  for (const child of (token.children ?? [])) {
-                                    if (child.type !== 'text') return
-                                    if (exp.test(child.content)) child.type = 'htmltag'
-                                  }
-                                }
-                              }
-                            }
-                            this.e.env.libraries.remarkable.use(plugin)
-                            this.e.env.options.remarkable = {html: true}
-                        }
-                        let mdOptions = {...this.e.env.options.remarkable}
-                        if (this.md) mdOptions = {...mdOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(this.md) || {}).entries())}
-                        this.e.env.libraries.remarkable.set(mdOptions)
-                        const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]), 
-                            htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
-                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                        for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                        text = this.e.env.libraries.remarkable.render(text)
-                        for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                    }
-                    return text 
-                }},
-                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    if (addOrRemove !== 'add') return 
-                    if (useResponse instanceof HTMLElement) {
-                        useResponse = useResponse.textContent
-                    } else if (Array.isArray(useResponse) && useResponse.some(v => v instanceof HTMLElement)) {
-                        for (const k of useResponse.keys()) if (useResponse[k] instanceof HTMLElement) useResponse[k] = useResponse[k].textContent
-                    }
-                    if (this.processor?.func) {
-                        const preProcessFunction = this.processor.func
-                        try {
-                            if (typeof preProcessFunction === 'function') useResponse = await preProcessFunction(useResponse)
-                        } catch(e) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: useResponse}}))
-                            if (this.errors === 'throw') { throw new Error(e); return }
-                        }
-                    }
-                    if (Array.isArray(useResponse)) useResponse = useResponse.join('')
-                    if (this.as && this.as.startsWith('@')) {
-                        node.setAttribute(this.as.slice(1), useResponse)
-                    } else {
-                        const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
-                        if (!this.as || !validContentScopes.includes(this.as)) this.as = 'innerHTML'
-                        this.as ||= 'innerHTML'
-                        node[this.as] = useResponse
-                    }
-                }}
+                _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/md'}
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('md') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
-        set md(value) { this.#md = value }
-        get md() { return this.#md }
-
+        _apply(result, target) {
+            target = Array.isArray(target) ? target : [target]
+            if (typeof result !== 'string') {
+                if (!Array.isArray(result)) result = [result]
+                for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent
+                result = result.join('')                
+            }
+            const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
+            let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
+            if (!validContentScopes.includes(apply)) apply = 'innerHTML'
+            for (const t of target) {
+                if (apply.startsWith('@')) {
+                    t.setAttribute(apply.slice(1), useResponse)
+                } else { t[apply] = useResponse }
+            }
+        }
 
     }
 </script>
