@@ -204,14 +204,9 @@
             }
             contentType ||= 'application/json'
             if (!contentType.includes('/')) contentType = `application/${contentType}`
-
-            if (contentType === 'application/json') {
-                return (response instanceof Response) ? await response.json() : JSON.parse(response) 
-            } else if (contentType === 'application/hjson') {
-                this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.e.env.libraries.hjson.parse( (response instanceof Response) ? (await response.text()) : response )
-                //this.e.env.libraries.hjson.stringify(obj)
-            } else if (contentType === 'application/x-protobuf') {
+            if (contentType === 'application/json') return (response instanceof Response) ? await response.json() : JSON.parse(response)
+            const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer ) , 
+            if (contentType.includes('protobuf')) {
                 if (!this.e.env.libraries.protobuf) {
                     const s = document.createElement('script')
                     s.setAttribute('src', 'https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js')
@@ -220,27 +215,35 @@
                 }
                 try {
                     await this.e.utils.waitUntil(() => this.e.env.libraries.protobuf)
-                    const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer ) , 
                     root = await new Promise((resolve, reject) => { this.e.env.libraries.protobuf.load(buffer, (error, loadedRoot) => error?reject(error):resolve(loadedRoot)) }), protobufAttr = this.getAttribute('protobuf'), messageType = protobufAttr ? root.lookupType(protobufAttr) : root.nestedArray[0]
                     return MyMessage.toObject(messageType.decode(new Uint8Array(buffer)), { defaults: true, arrays: true, objects: true })
                 } catch(e) {
                     this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: response.url, fetchOptions}}))
                     if (this.errors === 'throw') { throw new Error(e); return } else { return {} }
                 }
-            } else if (contentType === 'application/msgpack') {
+            }
+            if (contentType === 'application/msgpack') {
                 this.e.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
-                const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer )
                 return this.e.env.libraries.msgpack.decode((new Uint8Array(buffer)))
                 // msgpack.encode({"foo": "bar"}) -> arrayBuffer
-            } else if (contentType === 'application/cbor') {
+            }
+            if (contentType === 'application/cbor') {
                 this.e.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
-                const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer )
                 return this.e.env.libraries.cbor.decode((new Uint8Array(buffer)))
                 // cobr.encode({"foo": "bar"}) -> arrayBuffer
-            } else if (contentType === 'application/x-yaml') {
+            }
+
+            const text = (response instanceof Response) ? await response.text() : response 
+            if (contentType === 'application/hjson') {
+                this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
+                return this.e.env.libraries.hjson.parse(text)
+                //this.e.env.libraries.hjson.stringify(obj)
+            }
+            if (contentType.includes('yaml')) {
                 this.e.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.e.env.libraries.yaml.parse( (response instanceof Response) ? await response.text() : response )
-            } else { result = (response instanceof Response) ? await response.text() : response }
+                return this.e.env.libraries.yaml.parse(text)
+            }
+            return text
         }
 
         set resource(value) {
