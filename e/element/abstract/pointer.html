@@ -4,163 +4,64 @@
     class extends `meta` {
 
         #mode
-        #router
-        #pointer
         #processor
-        #serializer
         #fetchOptions
-
-        #scope
-        #selector
         #match
         #bind
         #bindController
         #transform
         #apply
         #rewrite
+        #errors
         #rewriteRules = {}
-        #to
-
         #fetchOptionsString = ''
         #fetchOptions = {}
-
         #refreshCount = 0
-
-        #errors
 
     	constructor() {
     		super()
             Object.defineProperties(this, {
-                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}, 
-                _router: {get: () => this.#router}, 
-                _pointer: {get: () => this.#pointer}, 
-                _rawResponse: {get: async () => {
-                    let resource = this.resource
-                    return resource ? await fetch(this.e.getURL(new URL(resource, this.baseURI).href)) : new Response('null', {status: 599})
-                }},
-                _parse: {configurable: true, writable: true, value: async (response) => {
-                    switch(this._mode) {
-                    case 'processor':
-                    case 'schema':
-                    case 'socket':
-                        return response
-                    default: 
-                        return await response.text()
-                    }
-                }},
-                _useResponse: {configurable: false, get: async () => {
-                    let resource = this.resource
-                    if (resource && resource.startsWith('$')) {
-                        let useResponse = {}, scope, query
-                        if (this.#bind) {
-                            let [, scopeQuery='eSelf'] = this.e.utils.splitOnce(resource, ').').map(s => s.trim())
-                            if (scopeQuery) [scope,query] = this.e.utils.splitOnce(scopeQuery, '.').map(s => s.trim())
-                        } else { 
-                            [,scope,...query] = resource.split('.').map(s => s.trim())
-                            query = query.join('.') 
-                        }
-                        if (scope && scope.startsWith('eSubtree')) {
-                            scope = scope.replace('eSubtree', '')
-                            let subTree = (this.#bind || this).querySelectorAll(scope[0] === '(' ? scope.slice(1, -1).trim() : ':scope > *')
-                            useResponse = Array.from(subTree)
-                            scope = scope.slice(1).trim()
-                            if (query) {
-                                if (query.startsWith('@')) {
-                                    useResponse = useResponse.map(n => n.getAttribute(query.slice(1)))
-                                } else {
-                                    useResponse = useResponse.map(n => n[query])
-                                }
-                            }
-                        } else { useResponse = this.#bind ?? this }
-                        if (query && (query.includes('.') || query.includes('[') || query.includes('(') || query.includes('{') || query.includes(' '))) {
-                            if (!window.jsonata) {
-                                const scriptTag = document.createElement('script')
-                                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                                document.head.append(scriptTag)
-                                await this.e.utils.waitUntil(() => window.jsonata)
-                            }
-                            try {
-                                useResponse = await window.jsonata(query).evaluate(useResponse)
-                            } catch(e) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: useResponse, resource}}))
-                                if (this.errors === 'throw') { throw new Error(e); return }
-                            }
-                        } else if (query) { useResponse = useResponse[query] ?? {} }
-                        return useResponse
-                    }
-                    if (['processor', 'schema', 'socket'].includes(this._mode)) return await this._parse(`${this}`)
-                    return await this._parse(await this._rawResponse)
-                }}, 
-                _activate: {value: async () => {
-                    const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement, recordLoadEnd = () => {
-                        window.requestAnimationFrame(() => {
-                            this.dispatchEvent(new CustomEvent('loadended'))
-                            delete this.e.env.loadingRegistry[this]
-                            if (!Object.keys(this.e.env.loadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadended'))
-                        })
-                    }
-                    if (!this.#match) return await this._as(await this._useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {}).then(() => recordLoadEnd())
-                    const processRecords = async recordsToProcess => {
-                        const queue = {}
-                        for (const record of recordsToProcess) {
-                            if (record.type === 'childList') {
-                                for (const addedNode of record.addedNodes) if (typeof addedNode.matches === 'function' && addedNode.matches(this.#selector||':scope')) queue[addedNode] = ['add', addedNode, record.previousSibling, record.nextSibling]
-                                for (const removedNode of record.removedNodes) if (typeof removedNode.matches === 'function' && removedNode.matches(this.#selector||':scope')) queue[removedNode] = ['remove', removedNode, record.previousSibling, record.nextSibling]
-                            }
-                        }
-                        const queueValues = Object.values(queue)
-                        if (queueValues.length) {
-                            const useResponse = await this._useResponse
-                            for (const queueValue of queueValues) this._as(useResponse, ...queueValue)
-                        }
-                    }
-                    if (this._observer) processRecords(this._observer.takeRecords())
-                    this._observer && (this._observer.disconnect() || (delete this._observer))
-                    this._observer = new MutationObserver(processRecords)
-                    this._observer.observe(scopeElement, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
-                    const useResponse = await this._useResponse, matches = scopeElement.querySelectorAll(this.#selector||':scope'), promises = []
-                    for (const matched of matches) promises.push(this._as(useResponse, 'add', matched, 
-                        matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
-                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)})))))
-                    Promise.all(promises).then(() => recordLoadEnd())
-                }},
-                _refresh: {configurable: true, writable: true, value: async (payload) => {
-                    let useResponse = payload ? payload : await this._useResponse
-                    const scopeElement = this.#match ? ((this.#scope ? this.closest(this.#scope) : this.getRootNode()) ?? this.getRootNode()) : this.parentElement
-                    if (!this.#match) return await this._as(useResponse, 'add', scopeElement, scopeElement.previousElementSibling, scopeElement.nextElementSibling, {})
-                    for (const matched of scopeElement.querySelectorAll(this.#selector||':scope')) this._as(useResponse, 'add', matched, 
-                        matched.previousElementSibling, matched.nextElementSibling, Object.assign({}, 
-                            ...matched.getAttributeNames().map(a => ({[a]: matched.getAttribute(a)}))))
-                }},
-                _as: {configurable: true, writable: true, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    console.log(useResponse, addRemoveOrUpdate, node, previousSibling, nextSibling, oldAttributeValues)
-                }}
+                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}
             })
     	}
 
 		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'match', 'apply', 'rewrite', 'errors', 'processor') }
 
-        async connectedCallback() {
-            const selfObserver = new MutationObserver(events => {
-                for (const event of events) this.dispatchEvent(new CustomEvent('change', {detail: event}))
-            })
-            selfObserver.observe(this, { attributes: true, attributeOldValue: true })
-            if (!Object.keys(this.e.env.loadingRegistry).length) this.e.env.eDataset.dispatchEvent(new CustomEvent('loadstarted'))
-            this.e.env.loadingRegistry[this] = true
-            this.dispatchEvent(new CustomEvent('loadstarted'))
-            this.addEventListener('sinkData', event => {
-                if (this.#pointer && this.#pointer.startsWith('$.eData')) this._refresh()
-            })            
-            this.addEventListener('change', event => {
-                if (this.#pointer && this.#pointer.startsWith('$.eDataset')) this._refresh()
-            })            
-            await this._activate()
-        }
+        async connectedCallback() {}
 
         toString() { return this.resource ?? '' }
 
-        async _refresh(payload) {
-            // event, Node, Array of Nodes, value, Websocket, EventSource, URL
+        #sliceAndStep(selector, list) {
+            let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
+            list = list.slice(start, end)
+            if (!step) return list
+            return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
+        }
+
+        #resolveUrl(useValue) {
+            if (useValue.includes(':') && !useValue.includes('://')) {
+                let [routerName, routerPointer] = this.e.utils.splitOnce(useValue, ':'), router = this.e.resolveMeta(this, 'e-router', routerName)
+                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
+                    const map = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
+                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
+                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
+                    } else {
+                        if (routerPointer === routerPointer[0]) {
+                            routerPointer = map[routerPointer[0]]
+                        } else {
+                            try {
+                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
+                            } catch(e) { routerPointer = undefined }
+                        }
+                    }
+                }
+                return router ? router[this.#mode](routerPointer) : this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
+            } else if (useValue.includes('/')) {
+                return this.e.getURL(new URL(useValue, this.baseURI).href) 
+            } else { return this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
+        }
+
+        async #refresh(payload) {
             if (!this.#bind) return
             let result
             if (typeof this.#bind === 'string') {
@@ -214,7 +115,7 @@
                     target = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
                 } else { target = scope.querySelector(selector) }
             } else { target = this.parentElement }
-            this.apply(result, target)
+            this._apply(result, target)
         }
 
         async #parse(response) {
@@ -276,17 +177,7 @@
             return text
         }
 
-        #sliceAndStep(selector, list) {
-            let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
-            list = list.slice(start, end)
-            if (!step) return list
-            return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
-        }
 
-        apply(result, target) {
-            target = Array.isArray(target) ? target : [target]
-            for (const t of target) this.e.setValue(t, result)
-        }
 
         set resource(value) {
             if (this.#resource === value) return
@@ -298,12 +189,12 @@
                 [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
                     : (['!', '$', '_'].includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
-                this.#scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
+                const scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
                 if (!selector) {
-                    this.#bind = this.#scope
+                    this.#bind = scope
                 } else if (selector.includes('[') && selector.endsWith(']')) {
-                    this.#bind = this.#sliceAndStep(selector, Array.from(this.#scope.querySelectorAll(selector)))
-                } else { this.#bind = this.#scope.querySelector(selector) }
+                    this.#bind = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
+                } else { this.#bind = scope.querySelector(selector) }
                 if (selector) {
                     const processRecords = records => {
                         const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
@@ -321,7 +212,7 @@
                     if (this.#scopeObserver) processRecords(this.#scopeObserver.takeRecords())
                     this.#scopeObserver && (this.#scopeObserver.disconnect())
                     this.#scopeObserver = new MutationObserver(processRecords)
-                    this.#scopeObserver.observe(this.#scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
+                    this.#scopeObserver.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                 }
                 if (refreshOn) {
                     if (this.#bindController) this.#bindController.abort()
@@ -336,12 +227,12 @@
                                 this.#refreshCount = this.#refreshCount + 1
                                 if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (this.#refreshCount % 2) : (this.#refreshCount % step === 0))
                                 if (use === '!') { 
-                                    this._refresh(event) 
+                                    this.#refresh(event) 
                                 } else if (use === '_') {
-                                    this._refresh(this.#bind)
+                                    this.#refresh(this.#bind)
                                 } else if (Array.isArray(this.#bind)) {                                    
-                                    this._refresh(this.#bind.map(node => this.e.getValue(node)))
-                                } else { this._refresh(this.e.getValue(node)) }
+                                    this.#refresh(this.#bind.map(node => this.e.getValue(node)))
+                                } else { this.#refresh(this.e.getValue(node)) }
                             }, {signal: this.#bindController.signal})
                         }
                     }
@@ -364,7 +255,7 @@
                             this.#bindController = new AbortController()
                             for (const eventName of eventPayloadList) {
                                 eventSource.addEventListener(eventName, event => {
-                                    this._refresh(this.#parse(event.data))
+                                    this.#refresh(this.#parse(event.data))
                                 }, {signal: this.#bindController.signal})
                             }
                         })
@@ -379,45 +270,9 @@
         }
         get resource() { return this.#resource }
 
-        #resolveUrl(useValue) {
-            if (useValue.includes(':') && !useValue.includes('://')) {
-                let [routerName, routerPointer] = this.e.utils.splitOnce(useValue, ':'), router = this.e.resolveMeta(this, 'e-router', routerName)
-                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
-                    const map = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
-                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
-                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
-                    } else {
-                        if (routerPointer === routerPointer[0]) {
-                            routerPointer = map[routerPointer[0]]
-                        } else {
-                            try {
-                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
-                            } catch(e) { routerPointer = undefined }
-                        }
-                    }
-                }
-                return router ? router[this.#mode](routerPointer) : this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
-            } else if (useValue.includes('/')) {
-                return this.e.getURL(new URL(useValue, this.baseURI).href) 
-            } else { return this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
-        }
-
         get bind() { return this.#bind }        
 
-        set match(value) { 
-            this.#match = value
-            if (!value) {
-                this.#scope = undefined
-                this.#selector = undefined
-                return
-            }
-            if (!value.includes('|')) {
-                this.#scope = undefined
-                this.#selector = value
-                return
-            }
-            [this.#scope, this.#selector] = this.e.utils.splitOnce(value, '|').map(s => s.trim())
-        }
+        set match(value) { this.#match = value }
         get match() { return this.#match }
 
         set transform(value) { this.#transform = value }
@@ -443,6 +298,11 @@
             this.#fetchOptionsString = value
         }
         get ['fetch-options']() { return this.#fetchOptionsString }
+
+        _apply(result, target) {
+            target = Array.isArray(target) ? target : [target]
+            for (const t of target) this.e.setValue(t, result)
+        }
 
     }
 </script>
