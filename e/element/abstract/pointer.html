@@ -3,7 +3,6 @@
 <script>
     class extends `meta` {
 
-        #mode
         #processor
         #fetchOptions
         #target
@@ -30,7 +29,9 @@
     	constructor() {
     		super()
             Object.defineProperties(this, {
-                _mode: {configurable: true, enumerable: false, set: value => this.#mode = value, get: () => this.#mode}
+                _mode: {configurable: true, enumerable: false, value: undefined}, 
+                _contentType: {configurable: true, enumerable: false, value: undefined}, 
+                _isReference: {configurable: true, enumerable: false, value: false}
             })
     	}
 
@@ -85,7 +86,7 @@
                 }
                 const rewriteRules = Object.assign({}, (this.e.env.options.rewriteRules[this.#rewriteRules.eBase] ?? {}), this.#rewriteRules)
                 delete rewriteRules.eBase
-                if (this._stream) {
+                if (this._isReference) {
                     let contentType = this.getAttribute('content-type') || this._contentType || undefined
                     if ((contentType === 'application/wasm') || this.#boundResource.endsWith('.wasm')) {
                         result = await WebAssembly.instantiateStreaming(fetch(this.#boundResource))
