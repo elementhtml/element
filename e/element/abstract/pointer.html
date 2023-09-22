@@ -13,14 +13,19 @@
         #boundTargetController
         #boundResourceObserver
         #boundTargetObserver
+        #boundResourceRefreshCount = 0
+        #boundTargetRefreshCount = 0
         #transform
         #apply
         #rewrite
         #errors
         #rewriteRules = {}
-        #fetchOptionsString = ''
-        #fetchOptions = {}
-        #refreshCount = 0
+        #options = {}
+        #optionsString = ''
+        #resourceOptions = {}
+        #resourceOptionsString = ''
+        #targetOptions = {}
+        #targetOptionsString = ''
 
     	constructor() {
     		super()
@@ -29,7 +34,8 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'processor'
+            'options', 'resource-option', 'target-options') }
 
         async connectedCallback() {}
 
@@ -368,11 +374,23 @@
         set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }
 
-        set ['fetch-options'](value) {
-            this.#fetchOptions = this.e.utils.parseObjectAttribute(value)
-            this.#fetchOptionsString = value
+        set options(value) {
+            this.#options = this.e.utils.parseObjectAttribute(value)
+            this.#optionsString = value
         }
-        get ['fetch-options']() { return this.#fetchOptionsString }
+        get options() { return this.#optionsString }
+
+        set ['resource-options'](value) {
+            this.#resourceOptions = this.e.utils.parseObjectAttribute(value)
+            this.#resourceOptionsString = value
+        }
+        get ['resource-options']() { return this.#resourceOptionsString }
+
+        set ['target-options'](value) {
+            this.#targetOptions = this.e.utils.parseObjectAttribute(value)
+            this.#targetOptionsString = value
+        }
+        get ['target-options']() { return this.#targetOptionsString }
 
         _apply(result, target) {
             // result=> 
