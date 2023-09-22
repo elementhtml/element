@@ -8,7 +8,7 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'theme'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/css'}, 
-                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
                         for (const t of target) {
                             const styleNode = document.createElement('style')

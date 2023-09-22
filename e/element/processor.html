@@ -12,7 +12,7 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/javascript'}, 
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
-                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result
                         let apply = this.apply ?? this.getAttribute('apply')
                         if (this.#module instanceof Object) {

@@ -8,7 +8,7 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'layout'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/html'}, 
-                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         if (!Array.isArray(result)) result = [result]
                         for (const [i, r] of result.entries()) {
                             if (r instanceof Node) continue

@@ -12,7 +12,7 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}, 
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
-                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#canonicalUrl = result
                         let apply = this.apply ?? this.getAttribute('apply')
                         if (!this.e.env.libraries.ajv) {
