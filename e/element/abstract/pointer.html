@@ -81,6 +81,8 @@
                         result = await WebAssembly.instantiateStreaming(fetch(this.#bind))
                     } else if ((contentType === 'application/javascript') || this.#bind.endsWith('.mjs') || this.#bind.endsWith('.js')) {
                         result = await import(this.#bind)
+                    } else if (contentType === 'application/schema+json') {
+                        result = this.#bind
                     } else { result = fetch(this.#bind, fetchOptions).then(r => r.body) }
                 } else {
                     let response = await fetch(this.#bind, fetchOptions)
