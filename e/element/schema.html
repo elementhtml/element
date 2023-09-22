@@ -12,37 +12,6 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _stream: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}
-
-
-                _parse: {configurable: false, enumerable: false, writable: false, value: async (response) => {
-                    return [canonicalUrl, typeof validate === 'function' ? validate : null]
-                }},
-                _as: {configurable: false, enumerable: false, writable: false, value: async (useResponse, addOrRemove, node, previousSibling, nextSibling, oldAttributeValues) => {
-                    let [ canonicalUrl, validate ] = useResponse
-                    if (canonicalUrl) this.#canonicalUrl = canonicalUrl
-                    if (validate) this.#validate = validate
-                    if ((addOrRemove !== 'add') || !canonicalUrl || !validate) return
-                    node.eSchema = this.#canonicalUrl
-                    const abortController = new AbortController(), signal = abortController.signal
-                    node.addEventListener('change', event => {
-                        const valid = this.#validate(this.e.getValue(node)), errors = valid ? [] : [...this.#validate.errors]
-                        if (!valid) node.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                    }, { signal })
-                    this.addEventListener('change', event => {
-                        if (['router', 'pointer'].includes(event.detail.attributeName)) {
-                            abortController.abort()
-                            this._useResponse.then(r => this._as(r, 'add', node, previousSibling, nextSibling, {}))                            
-                        }
-                    })
-                    if (this.processor?.func) {
-                        try {
-                            if (typeof this.processor.func === 'function') this.processor.func(node)
-                        } catch(e) {
-                            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'processor', message: e, input: node}}))
-                            if (this.errors === 'throw') { throw new Error(e); return }
-                        }
-                    }
-                }}
             })
         }
 

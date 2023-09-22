@@ -210,6 +210,9 @@
                 }
                 return text
             }
+            if (contentType === 'text/css') {
+                return await (new CSSStyleSheet()).replace(text)                
+            }
             if (contentType === 'application/hjson') {
                 this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
                 return this.e.env.libraries.hjson.parse(text)
