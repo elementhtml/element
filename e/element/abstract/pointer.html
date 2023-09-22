@@ -6,9 +6,13 @@
         #mode
         #processor
         #fetchOptions
-        #match
-        #bind
-        #bindController
+        #target
+        #boundResource
+        #boundResourceController
+        #boundTarget
+        #boundTargetController
+        #boundResourceObserver
+        #boundTargetObserver
         #transform
         #apply
         #rewrite
@@ -25,7 +29,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'transform', 'match', 'apply', 'rewrite', 'errors', 'processor') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'processor') }
 
         async connectedCallback() {}
 
@@ -62,9 +66,9 @@
         }
 
         async #refresh(payload) {
-            if (!this.#bind) return
+            if (!this.#boundResource) return
             let result
-            if (typeof this.#bind === 'string') {
+            if (typeof this.#boundResource === 'string') {
                 const fetchOptions = Object.assign({}, (this.e.env.options.fetchOptions[this.#fetchOptions.eBase] ?? {}), this.#fetchOptions)
                 delete fetchOptions.eBase
                 if (payload instanceof Object) {
@@ -77,15 +81,15 @@
                 delete rewriteRules.eBase
                 if (this._stream) {
                     let contentType = this.getAttribute('content-type') || this._contentType || undefined
-                    if ((contentType === 'application/wasm') || this.#bind.endsWith('.wasm')) {
-                        result = await WebAssembly.instantiateStreaming(fetch(this.#bind))
-                    } else if ((contentType === 'application/javascript') || this.#bind.endsWith('.mjs') || this.#bind.endsWith('.js')) {
-                        result = await import(this.#bind)
+                    if ((contentType === 'application/wasm') || this.#boundResource.endsWith('.wasm')) {
+                        result = await WebAssembly.instantiateStreaming(fetch(this.#boundResource))
+                    } else if ((contentType === 'application/javascript') || this.#boundResource.endsWith('.mjs') || this.#boundResource.endsWith('.js')) {
+                        result = await import(this.#boundResource)
                     } else if (contentType === 'application/schema+json') {
-                        result = this.#bind
-                    } else { result = fetch(this.#bind, fetchOptions).then(r => r.body) }
+                        result = this.#boundResource
+                    } else { result = fetch(this.#boundResource, fetchOptions).then(r => r.body) }
                 } else {
-                    let response = await fetch(this.#bind, fetchOptions)
+                    let response = await fetch(this.#boundResource, fetchOptions)
                     if (response.status >= 400) {
                         const status = `${response.status}`
                         if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
@@ -98,7 +102,7 @@
                 }
             } else { 
                 if (typeof payload === 'string') {
-                    if ((this.#bind instanceof WebSocket) || (this.#bind instanceof EventSource)) result = this.#parse(payload)
+                    if ((this.#boundResource instanceof WebSocket) || (this.#boundResource instanceof EventSource)) result = this.#parse(payload)
                 } else { result = payload }
             }
             let transform = this.transform || this.getAttribute('transform')
@@ -116,18 +120,18 @@
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
             }
-            let match = this.match || this.getAttribute('match'), target
-            if (match) {
-                let [closest, selector] = match.split('|').map(s => decodeURIComponent(s).trim())
+            let target = this.target || this.getAttribute('target'), targetNodes
+            if (target) {
+                let [closest, selector] = target.split('|').map(s => decodeURIComponent(s).trim())
                 let scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
                 if (!selector) {
-                    target = scope
+                    targetNodes = scope
                 } else if (selector.includes('[') && selector.endsWith(']')) {
-                    target = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
-                } else { target = scope.querySelector(selector) }
-            } else { target = this.parentElement }
-            target = Array.isArray(target) ? target : [target]            
-            this._apply(result, target)
+                    targetNodes = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
+                } else { targetNodes = scope.querySelector(selector) }
+            } else { targetNodes = this.parentElement }
+            targetNodes = Array.isArray(targetNodes) ? targetNodes : [targetNodes]            
+            this._apply(result, targetNodes)
         }
 
         async #parse(response) {
@@ -225,22 +229,29 @@
             return text
         }
 
-        set resource(value) {
-            if (this.#resource === value) return
+        #createBound(value, mode) {
+            const setBound = v => mode === 'resource' ? (this.#boundResource = v) : (this.#boundTarget = v),
+                getBound = () => mode === 'resource' ? this.#boundResource : this.#boundTarget,  
+                setBoundController = v => mode === 'resource' ? (this.#boundResourceController = v) : (this.#boundTargetController = v), 
+                getBoundController = () => mode === 'resource' ? this.#boundResourceController : this.#boundTargetController,
+                setBoundObserver = v => mode === 'resource' ? (this.#boundResourceObserver = v) : (this.#boundTargetObserver = v), 
+                getBoundObserver = () => mode === 'resource' ? this.#boundResourceObserver : this.#boundTargetObserver, 
+                setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v), 
+                getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let rewrite = [], rewriteRules = (this.#rewriteRules.eBase) ? Object.assign({...this.e.env.options.rewriteRules[this.#rewriteRules.eBase] || {}}, this.#rewriteRules) : {...this.#rewriteRules}, useValue = value ?? '|'
             delete rewriteRules.eBase        
             for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
             if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
             if (useValue.includes('|')) {
-                [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
+                let [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
                     : (['!', '$', '_'].includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
                 const scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
                 if (!selector) {
-                    this.#bind = scope
+                    setBound(scope)
                 } else if (selector.includes('[') && selector.endsWith(']')) {
-                    this.#bind = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
-                } else { this.#bind = scope.querySelector(selector) }
+                    setBound(this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector))))
+                } else { setBound(scope.querySelector(selector)) }
                 if (selector) {
                     const processRecords = records => {
                         const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
@@ -249,37 +260,42 @@
                             if (record?.target && record.target.matches(selector)) updatedNodes.push(record.target)
                             for (const addedNode of (record?.addedNodes || [])) if (addedNode.matches(selector)) addedNodes.push(addedNode)
                         }
-                        for (const node of this.#bind) if (node.isConnected && node.matches(selector) && !nodesToRemove.includes(node)) newBind.push(node)
+                        for (const node of getBound()) if (node.isConnected && node.matches(selector) && !nodesToRemove.includes(node)) newBind.push(node)
                         for (const node of updatedNodes) if (node.isConnected && node.matches(selector) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
                         for (const node of addedNodes) if (node.isConnected && node.matches(selector) && !newBind.includes(node) && node.matches(selector) && !nodesToRemove.includes(node)) newBind.push(node)
                         newBind.sort((a, b) => ((a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1) )
-                        this.#bind = (selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector, newBind) : newBind
+                        setBound((selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector, newBind) : newBind)
                     }
-                    if (this.#scopeObserver) processRecords(this.#scopeObserver.takeRecords())
-                    this.#scopeObserver && (this.#scopeObserver.disconnect())
-                    this.#scopeObserver = new MutationObserver(processRecords)
-                    this.#scopeObserver.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
+                    let observer = getBoundObserver()
+                    if (observer) processRecords(observer.takeRecords())
+                    observer && (observer.disconnect())
+                    setBoundObserver(new MutationObserver(processRecords))
+                    observer = getBoundObserver()
+                    observer.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                 }
                 if (refreshOn) {
-                    if (this.#bindController) this.#bindController.abort()
+                    let boundController = getBoundController()
+                    if (boundController) boundController.abort()
                     const stepRefresh = refreshOn.includes('[') && refreshOn.endsWith(']') 
-                    let [start=0, end=1, step=0] = refreshOn.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
-                    const bindNodes = Array.isArray(this.#bind) ? this.#bind : [this.#bind]
+                    let [start=0, end=1, step=0] = refreshOn.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
+                    const bindNodes = Array.isArray(bound) ? bound : [bound]
                     for (const eventName of refreshOn.split(',').map(s => s.trim())) {
                         for (const node of bindNodes) {
                             node.addEventListener(eventName, event => {
                                 const proceed = true
-                                if (stepRefresh) proceed = (this.#refreshCount >= start) && (this.#refreshCount < end)
-                                this.#refreshCount = this.#refreshCount + 1
-                                if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (this.#refreshCount % 2) : (this.#refreshCount % step === 0))
+                                let count = getCount()
+                                if (stepRefresh) proceed = (count >= start) && (count < end)
+                                setCount(count + 1)
+                                count = getCount()
+                                if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
                                 if (use === '!') { 
                                     this.#refresh(event) 
                                 } else if (use === '_') {
-                                    this.#refresh(this.#bind)
-                                } else if (Array.isArray(this.#bind)) {                                    
-                                    this.#refresh(this.#bind.map(node => this.e.getValue(node)))
+                                    this.#refresh(bound)
+                                } else if (Array.isArray(bound)) {                                    
+                                    this.#refresh(bound.map(node => this.e.getValue(node)))
                                 } else { this.#refresh(this.e.getValue(node)) }
-                            }, {signal: this.#bindController.signal})
+                            }, {signal: boundController.signal})
                         }
                     }
                 }
@@ -296,30 +312,43 @@
                     }
                     if (eventSource) {
                         eventSource.addEventListener('open', event => {
-                            if (this.#bindController) this.#bindController.abort()
-                            this.#bind = eventSource
-                            this.#bindController = new AbortController()
+                            let boundController = getBoundController()
+                            if (boundController) boundController.abort()
+                            setBound(eventSource)
+                            setBoundController(new AbortController())
                             for (const eventName of eventPayloadList) {
                                 eventSource.addEventListener(eventName, event => {
                                     this.#refresh(this.#parse(event.data))
-                                }, {signal: this.#bindController.signal})
+                                }, {signal: boundController.signal})
                             }
                         })
                     }
                 } else {
-                    if (this.#bindController) this.#bindController.abort()
-                    this.#bindController = null
-                    this.#bind = url
+                    let boundController = getBoundController()
+                    if (boundController) boundController.abort()
+                    setBoundController(null)
+                    setBound(url)
                 }
             }
+        }
+
+        set resource(value) {
+            if (this.#resource === value) return
+            this.#createBound(value, 'resource')
             this.#resource = value
         }
         get resource() { return this.#resource }
 
-        get bind() { return this.#bind }        
+        get boundResource() { return this.#boundResource }        
 
-        set match(value) { this.#match = value }
-        get match() { return this.#match }
+        set target(value) { 
+            if (this.#target === value) return
+            this.#createBound(value, 'target')
+            this.#target = value
+        }
+        get target() { return this.#target }
+
+        get boundTarget() { return this.#boundTarget }
 
         set transform(value) { this.#transform = value }
         get transform() { return this.#transform }
