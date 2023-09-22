@@ -11,7 +11,22 @@
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/javascript'}, 
-                _isReference: {configurable: false, enumerable: false, writable: false, value: true}
+                _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
+                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                        this.#module = result
+                        let apply = this.apply ?? this.getAttribute('apply')
+                        if (this.#module instanceof Object) {
+                            if (apply && typeof this.#module[apply] === 'function') {
+                                this.#func = this.#module[apply]
+                            } else if (typeof this.#module.default === 'function') {
+                                this.#func = this.#module.default
+                            } else if (typeof this.#module === 'function') {
+                                this.#func = this.#module
+                            }
+                        }
+                    }
+                }
+
             })
         }
 
@@ -22,20 +37,6 @@
         get func() { return this.#func }        
 
         bind(thisArg, ...args) { return this.#func.bind(thisArg || this.e, ...args) } 
-
-        _apply(result, target) {
-            this.#module = result
-            let apply = this.apply ?? this.getAttribute('apply')
-            if (this.#module instanceof Object) {
-                if (apply && typeof this.#module[apply] === 'function') {
-                    this.#func = this.#module[apply]
-                } else if (typeof this.#module.default === 'function') {
-                    this.#func = this.#module.default
-                } else if (typeof this.#module === 'function') {
-                    this.#func = this.#module
-                }
-            }
-        }
 
     }
 </script>

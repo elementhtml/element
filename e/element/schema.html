@@ -12,6 +12,42 @@
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}, 
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
+                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                        this.#canonicalUrl = result
+                        let apply = this.apply ?? this.getAttribute('apply')
+                        if (!this.e.env.libraries.ajv) {
+                            let ajvOptions = {...this.e.env.options.ajv}
+                            if (this.as) ajvOptions = {...ajvOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(apply) || {}).entries())}
+                            this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
+                            const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
+                            addFormats(this.e.env.libraries.ajv)
+                        }
+                        this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
+                        if (!this.#validate) {
+                            let schemaFetch = await fetch(this.#canonicalUrl), schemaText = await schemaFetch.text()
+                            if (schemaFetch.status >= 400) {
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
+                                if (this.errors === 'throw') { throw new Error(schemaText); return } else if (this.errors === 'hide') { schemaText = '{}' }
+                            }
+                            let schemaJson
+                            try { schemaJson = JSON.parse(schemaText) } catch(e) {}
+                            if (schemaJson instanceof Object) {
+                                delete schemaJson['$schema']
+                                this.e.env.libraries.ajv.addSchema(schemaJson, this.#canonicalUrl)
+                                this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
+                            } else { this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: schemaFetch.status, message: schemaText}})) } 
+                        }
+                        for (const t of target) {
+                            t.eSchema = this.#canonicalUrl
+                            const abortController = new AbortController(), signal = abortController.signal
+                            t.addEventListener('change', event => {
+                                const valid = this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
+                                if (!valid) t.dispatchEvent(new CustomEvent('error', {detail: errors}))
+                            }, { signal })
+                        }
+                    }
+                }
+
             })
         }
 
@@ -24,41 +60,6 @@
         }
 
         get canonicalUrl() { return this.#canonicalUrl }
-
-        _apply(result, target) {
-            this.#canonicalUrl = result
-            let apply = this.apply ?? this.getAttribute('apply')
-            if (!this.e.env.libraries.ajv) {
-                let ajvOptions = {...this.e.env.options.ajv}
-                if (this.as) ajvOptions = {...ajvOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(apply) || {}).entries())}
-                this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
-                const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
-                addFormats(this.e.env.libraries.ajv)
-            }
-            this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
-            if (!this.#validate) {
-                let schemaFetch = await fetch(this.#canonicalUrl), schemaText = await schemaFetch.text()
-                if (schemaFetch.status >= 400) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
-                    if (this.errors === 'throw') { throw new Error(schemaText); return } else if (this.errors === 'hide') { schemaText = '{}' }
-                }
-                let schemaJson
-                try { schemaJson = JSON.parse(schemaText) } catch(e) {}
-                if (schemaJson instanceof Object) {
-                    delete schemaJson['$schema']
-                    this.e.env.libraries.ajv.addSchema(schemaJson, this.#canonicalUrl)
-                    this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
-                } else { this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: schemaFetch.status, message: schemaText}})) } 
-            }
-            for (const t of target) {
-                t.eSchema = this.#canonicalUrl
-                const abortController = new AbortController(), signal = abortController.signal
-                t.addEventListener('change', event => {
-                    const valid = this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
-                    if (!valid) t.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                }, { signal })
-            }
-        }
 
     }
 </script>

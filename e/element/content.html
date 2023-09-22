@@ -7,27 +7,27 @@
     		super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
-                _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/md'}
+                _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/md'}, 
+                _apply: {configurable: false, enumerable: false, value: (result, target) => {
+                        if (typeof result !== 'string') {
+                            if (!Array.isArray(result)) result = [result]
+                            for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent
+                            result = result.join('')                
+                        }
+                        const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
+                        let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
+                        if (!validContentScopes.includes(apply)) apply = 'innerHTML'
+                        for (const t of target) {
+                            if (apply.startsWith('@')) {
+                                t.setAttribute(apply.slice(1), useResponse)
+                            } else { t[apply] = useResponse }
+                        }
+                    }
+                }                
             })
     	}
 
 		static get observedAttributes() { return (super.observedAttributes || []).concat() }
-
-        _apply(result, target) {
-            if (typeof result !== 'string') {
-                if (!Array.isArray(result)) result = [result]
-                for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent
-                result = result.join('')                
-            }
-            const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
-            let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
-            if (!validContentScopes.includes(apply)) apply = 'innerHTML'
-            for (const t of target) {
-                if (apply.startsWith('@')) {
-                    t.setAttribute(apply.slice(1), useResponse)
-                } else { t[apply] = useResponse }
-            }
-        }
 
     }
 </script>

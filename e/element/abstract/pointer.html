@@ -31,12 +31,17 @@
             Object.defineProperties(this, {
                 _mode: {configurable: true, enumerable: false, value: undefined}, 
                 _contentType: {configurable: true, enumerable: false, value: undefined}, 
-                _isReference: {configurable: true, enumerable: false, value: false}
+                _isReference: {configurable: true, enumerable: false, value: false}, 
+                _apply: {configurable: true, enumerable: false, value: (result, target) => {
+                            target = Array.isArray(target) ? target : [target]
+                            for (const t of target) this.e.setValue(t, result)
+                        }
+                }
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'processor'
-            'options', 'resource-option', 'target-options') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors'
+            'options', 'resource-options', 'target-options') }
 
         async connectedCallback() {}
 
@@ -285,25 +290,41 @@
                     if (boundController) boundController.abort()
                     const stepRefresh = refreshOn.includes('[') && refreshOn.endsWith(']') 
                     let [start=0, end=1, step=0] = refreshOn.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
-                    const bindNodes = Array.isArray(bound) ? bound : [bound]
-                    for (const eventName of refreshOn.split(',').map(s => s.trim())) {
-                        for (const node of bindNodes) {
-                            node.addEventListener(eventName, event => {
-                                const proceed = true
-                                let count = getCount()
-                                if (stepRefresh) proceed = (count >= start) && (count < end)
-                                setCount(count + 1)
-                                count = getCount()
-                                if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
-                                if (use === '!') { 
-                                    this.#refresh(event) 
-                                } else if (use === '_') {
-                                    this.#refresh(bound)
-                                } else if (Array.isArray(bound)) {                                    
-                                    this.#refresh(bound.map(node => this.e.getValue(node)))
-                                } else { this.#refresh(this.e.getValue(node)) }
-                            }, {signal: boundController.signal})
+                    const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshOn.split(',').map(s => s.trim())
+                    if (mode === 'resource') {
+                        for (const eventName of eventNames) {
+                            for (const node of bindNodes) {
+                                node.addEventListener(eventName, event => {
+                                    const proceed = true
+                                    let count = getCount()
+                                    if (stepRefresh) proceed = (count >= start) && (count < end)
+                                    setCount(count + 1)
+                                    count = getCount()
+                                    if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                                    if (use === '!') { 
+                                        this.#refresh(event) 
+                                    } else if (use === '_') {
+                                        this.#refresh(bound)
+                                    } else if (Array.isArray(bound)) {                                    
+                                        this.#refresh(bound.map(node => this.e.getValue(node)))
+                                    } else { this.#refresh(this.e.getValue(node)) }
+                                }, {signal: boundController.signal})
+                            }
                         }
+                    } else {
+                        this.addEventListener('_apply', event => {
+                            if (use === '!') {
+                                for (const eventName of eventNames) for (const node of bindNodes) node.dispatchEvent(new CustomEvent(eventName, {detail: event.detail}))
+                            } else if (use === '_') {
+                                for (const node of bindNodes) this.e.setValue(node, event.detail)
+                            } else {
+                                let data, flag, transform, sourceElement, context 
+                                if (!Array.isArray(event.detail) && (event.detail instanceof Object)) {
+                                    {data, flag, transform, sourceElement, context} = event.detail
+                                } else { data = event.detail }
+                                for (const node of bindNodes) this.e.sinkData(node, data, flag, transform, sourceElement, context)
+                            }
+                        }, {signal: boundController.signal})
                     }
                 }
             } else {
@@ -323,10 +344,18 @@
                             if (boundController) boundController.abort()
                             setBound(eventSource)
                             setBoundController(new AbortController())
-                            for (const eventName of eventPayloadList) {
-                                eventSource.addEventListener(eventName, event => {
-                                    this.#refresh(this.#parse(event.data))
-                                }, {signal: boundController.signal})
+                            if (mode === 'resource') {
+                                for (const eventName of eventPayloadList) {
+                                    eventSource.addEventListener(eventName, event => {
+                                        this.#refresh(this.#parse(event.data))
+                                    }, {signal: boundController.signal})
+                                }
+                            } else {
+                                if (typeof eventSource.send === 'function') {
+                                    this.addEventListener('_apply', event => {
+                                        eventSource.send(event.detail)
+                                    }, {signal: boundController.signal})                                    
+                                }
                             }
                         })
                     }
@@ -335,6 +364,11 @@
                     if (boundController) boundController.abort()
                     setBoundController(null)
                     setBound(url)
+                    if (mode === 'target') {
+                        this.addEventListener('_apply', event => {
+                            fetch(getBound(), event.detail)
+                        }, {signal: boundController.signal})                        
+                    }
                 }
             }
         }
@@ -392,13 +426,6 @@
             this.#targetOptionsString = value
         }
         get ['target-options']() { return this.#targetOptionsString }
-
-        _apply(result, target) {
-            // result=> 
-            // target => Node, [Nodes]
-            target = Array.isArray(target) ? target : [target]
-            for (const t of target) this.e.setValue(t, result)
-        }
 
     }
 </script>
