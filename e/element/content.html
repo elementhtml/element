@@ -19,8 +19,8 @@
                         if (!validContentScopes.includes(apply)) apply = 'innerHTML'
                         for (const t of target) {
                             if (apply.startsWith('@')) {
-                                t.setAttribute(apply.slice(1), useResponse)
-                            } else { t[apply] = useResponse }
+                                t.setAttribute(apply.slice(1), result)
+                            } else { t[apply] = result }
                         }
                     }
                 }                
