@@ -36,7 +36,7 @@
 
         get func() { return this.#func }        
 
-        bind(thisArg, ...args) { return this.#func.bind(thisArg || this.e, ...args) } 
+        bind(thisArg, ...args) { return this.#func ? this.#func.bind(thisArg || this.e, ...args) : undefined } 
 
     }
 </script>

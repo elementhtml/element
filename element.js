@@ -304,6 +304,7 @@ const ElementHTML = Object.defineProperties({}, {
                 document.head.append(scriptTag)
                 await this.e.utils.waitUntil(() => window.jsonata)                
             }
+            if (transform.includes('$target')) transform = `( $target := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             data = await window.jsonata(transform).evaluate(data)
         }

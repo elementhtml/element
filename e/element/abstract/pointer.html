@@ -50,7 +50,7 @@
         toString() { return this.resource ?? '' }
 
         #sliceAndStep(selector, list) {
-            let [start=0, end=bind.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
+            let [start=0, end=list.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
             list = list.slice(start, end)
             if (!step) return list
             return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
@@ -116,7 +116,7 @@
             if (typeof this.#boundResource === 'string') {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
                 if (this._isReference && ((contentType === 'application/javascript') || this.#boundResource.endsWith('.mjs') || this.#boundResource.endsWith('.js'))) {
-                    result = await import(this.#boundResource)                    
+                    result = await import(this.#boundResource)
                 } else if (contentType === 'application/schema+json') { 
                     result = this.#boundResource
                 } else {
@@ -146,10 +146,10 @@
                         result = await this.#parse(response)
                     }
                 }
-            } else { 
+            } else {
                 if (typeof payload === 'string') {
                     if ((this.#boundResource instanceof WebSocket) || (this.#boundResource instanceof EventSource)) result = this.#parse(payload)
-                } else { result = payload }
+                } else { result = this.#boundResource }
             }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
@@ -159,25 +159,13 @@
                     document.head.append(scriptTag)
                     await this.e.utils.waitUntil(() => window.jsonata)
                 }
-                try {
-                    result = await window.jsonata(transform).evaluate(result)
-                } catch(e) {
+                try { result = await window.jsonata(transform).evaluate(result) } catch(e) {
                     this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
             }
-            let target = this.target || this.getAttribute('target'), targetNodes
-            if (target) {
-                let [closest, selector] = target.split('|').map(s => decodeURIComponent(s).trim())
-                let scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
-                if (!selector) {
-                    targetNodes = scope
-                } else if (selector.includes('[') && selector.endsWith(']')) {
-                    targetNodes = this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector)))
-                } else { targetNodes = scope.querySelector(selector) }
-            } else { targetNodes = this.parentElement }
-            targetNodes = Array.isArray(targetNodes) ? targetNodes : [targetNodes]
-            this._apply(result, targetNodes)//.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
+            this._apply(result, Array.isArray(this.#boundTarget) ? this.#boundTarget : [this.#boundTarget])
+            //.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
         }
 
         async #parse(response) {
@@ -309,11 +297,12 @@
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let useValue = value ?? '|'
             if (this.#rewriteRules.length) for (const [rx, p] of this.#rewriteRules) { if (useValue.match(rx)) useValue = p; break }
-            if (useValue.includes('|')) {
-                let [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
+            const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(useValue[0])
+            if (useValue.includes('|') || startsWithFlag) {
+                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
-                    : (['!', '$', '_'].includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
-                const scope = closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement
+                    : (useFlags.includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
+                const scope = startsWithFlag ? this : (closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement)
                 if (!selector) {
                     setBound(scope)
                 } else if (selector.includes('[') && selector.endsWith(']')) {
@@ -444,7 +433,14 @@
         }
         get resource() { return this.#resource }
 
-        get boundResource() { return this.#boundResource }        
+        get boundResource() { 
+            const resourceAttrVal = this.getAttribute('resource')
+            if (resourceAttrVal && !this.#resource) {
+                this.#createBound(resourceAttrVal, 'resource')
+                this.#resource = resourceAttrVal
+            }
+            return this.#boundResource 
+        }
 
         set target(value) { 
             if (this.#target === value) return
@@ -453,7 +449,14 @@
         }
         get target() { return this.#target }
 
-        get boundTarget() { return this.#boundTarget }
+        get boundTarget() { 
+            const targetAttrVal = this.getAttribute('target')
+            if (targetAttrVal && !this.#target) {
+                this.#createBound(targetAttrVal, 'target')
+                this.#target = targetAttrVal
+            }
+            return this.#boundTarget
+        }
 
         set transform(value) { this.#transform = value }
         get transform() { return this.#transform }
