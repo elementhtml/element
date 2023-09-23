@@ -1,5 +1,5 @@
 const ElementHTML = Object.defineProperties({}, {
-    version: {enumerable: true, value: '0.8.0'},
+    version: {enumerable: true, value: '0.9.0'},
     env: {enumerable: true, value: Object.defineProperties({}, {
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},

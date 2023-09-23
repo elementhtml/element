@@ -10,7 +10,7 @@
         #apply
         #errors
         #rewrite
-        #rewriteRules = {}
+        #rewriteRules = []
         #boundResource
         #boundResourceController
         #boundTarget
@@ -250,10 +250,8 @@
                 getBoundObserver = () => mode === 'resource' ? this.#boundResourceObserver : this.#boundTargetObserver, 
                 setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v), 
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
-            let rewrite = [], rewriteRules = (this.#rewriteRules.eBase) ? Object.assign({...this.e.env.options.rewriteRules[this.#rewriteRules.eBase] || {}}, this.#rewriteRules) : {...this.#rewriteRules}, useValue = value ?? '|'
-            delete rewriteRules.eBase        
-            for (const [re, p] of Object.entries(rewriteRules)) rewrite.push([new RegExp(re), p])
-            if (rewrite.length) for (const [rx, p] of rewrite) { if (useValue.match(rx)) useValue = p; break }
+            let useValue = value ?? '|'
+            if (this.#rewriteRules.length) for (const [rx, p] of this.#rewriteRules) { if (useValue.match(rx)) useValue = p; break }
             if (useValue.includes('|')) {
                 let [closest, selector, useRefresh] = useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
@@ -398,10 +396,15 @@
         get apply() { return this.#apply }
 
         set rewrite(value) {
-            this.#rewriteRules = this.e.utils.parseObjectAttribute(value) ?? {}
             this.#rewrite = value
+            this.#rewriteRules = []
+            let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}, eBase = rewriteRulesThis.eBase
+            let rewriteRulesObject = (eBase) ? Object.assign({...this.e.env.options.rewriteRules[eBase] || {}}, rewriteRulesThis) : rewriteRulesThis, 
+            for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([new RegExp(re), p])
         }
         get rewrite() { return this.#rewrite }
+
+        get rewriteRules() { return this.#rewriteRules ?? [] }
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
