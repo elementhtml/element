@@ -6,6 +6,7 @@
         #parser
         #serializer
         #fetchOptions
+        #resource
         #target
         #transform
         #apply
@@ -30,7 +31,7 @@
     	constructor() {
     		super()
             Object.defineProperties(this, {
-                _mode: {configurable: true, enumerable: false, value: undefined}, 
+                _mode: {configurable: true, enumerable: false, value: 'pointer'}, 
                 _contentType: {configurable: true, enumerable: false, value: undefined}, 
                 _isReference: {configurable: true, enumerable: false, value: false}, 
                 _apply: {configurable: true, enumerable: false, value: async (result, target) => {
@@ -41,7 +42,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors'
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors',
             'options', 'resource-options', 'target-options', 'parser', 'serializer') }
 
         async connectedCallback() {}
@@ -84,11 +85,9 @@
             }
         }
 
- 
-
         #resolveUrl(useValue) {
             if (useValue.includes(':') && !useValue.includes('://')) {
-                let [routerName, routerPointer] = this.e.utils.splitOnce(useValue, ':'), router = this.e.resolveMeta(this, 'e-router', routerName)
+                let [routerName, routerPointer] = this.e.utils.splitOnce(useValue, ':'), router = this.e.utils.resolveMeta(this, 'e-router', routerName)
                 if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
                     const map = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
                     if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
@@ -103,10 +102,10 @@
                         }
                     }
                 }
-                return router ? router[this.#mode](routerPointer) : this.e.getURL(new URL(`${this.#mode}/${routerPointer || this.e.env.modes[this.#mode].pointer}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href)
+                return router ? router[this._mode](routerPointer) : this.e.getURL(new URL(`${this._mode}/${routerPointer || this.e.env.modes[this._mode].pointer}.${this.e.env.modes[this._mode].suffix}`, this.baseURI).href)
             } else if (useValue.includes('/')) {
                 return this.e.getURL(new URL(useValue, this.baseURI).href) 
-            } else { return this.e.getURL(new URL(`${this.#mode}/${useValue}.${this.e.env.modes[this.#mode].suffix}`, this.baseURI).href) }
+            } else { return this.e.getURL(new URL(`${this._mode}/${useValue}.${this.e.env.modes[this._mode].suffix}`, this.baseURI).href) }
         }
 
         async #refresh(payload) {
@@ -158,7 +157,7 @@
                     await this.e.utils.waitUntil(() => window.jsonata)
                 }
                 try {
-                    result await window.jsonata(transform).evaluate(result)
+                    result = await window.jsonata(transform).evaluate(result)
                 } catch(e) {
                     this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
@@ -197,7 +196,7 @@
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if ((contentType === 'text/html') || (contentType === 'text/plain')) return (response instanceof Response) ? await response.text() : response
             if (contentType === 'application/json') return (response instanceof Response) ? await response.json() : JSON.parse(response)
-            const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ( (new TextEncoder()).encode(response).buffer ) , 
+            const buffer = (response instanceof Response) ? (await response.arrayBuffer()) : ((new TextEncoder()).encode(response).buffer)
             if (contentType.includes('protobuf')) {
                 await this.#installProtobuf()
                 try {
@@ -211,12 +210,10 @@
             if (contentType === 'application/msgpack') {
                 this.e.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
                 return this.e.env.libraries.msgpack.decode((new Uint8Array(buffer)))
-                // msgpack.encode({"foo": "bar"}) -> arrayBuffer
             }
             if (contentType === 'application/cbor') {
                 this.e.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
                 return this.e.env.libraries.cbor.decode((new Uint8Array(buffer)))
-                // cobr.encode({"foo": "bar"}) -> arrayBuffer
             }
 
             const text = (response instanceof Response) ? await response.text() : response 
@@ -240,7 +237,6 @@
             if (contentType === 'application/hjson') {
                 this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
                 return this.e.env.libraries.hjson.parse(text)
-                //this.e.env.libraries.hjson.stringify(obj)
             }
             if (contentType.includes('yaml')) {
                 this.e.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
@@ -257,7 +253,7 @@
             if (contentType === 'application/json') return JSON.stringify(value)
             if (contentType.includes('protobuf')) {
                 await this.#installProtobuf()
-                let schema = this.getAttribute('protobuf-schema'), type = this.getAttribute('protobuf-type'), root
+                let schema = this.getAttribute('protobuf-schema'), type = this.getAttribute('protobuf-type')
                 if (!schema.includes('{') && (this.e.env.options.protobuf?.schemas ??{})[schema]) schema = this.e.env.options.protobuf.schemas[schema]
                 const root = this.e.env.libraries.protobuf.parse(schema).root
                 if (type) return (root.lookupType(type)).encodeText(value)
@@ -376,7 +372,7 @@
                             } else {
                                 let data, flag, transform, sourceElement, context 
                                 if (!Array.isArray(event.detail) && (event.detail instanceof Object)) {
-                                    {data, flag, transform, sourceElement, context} = event.detail
+                                    ({data, flag, transform, sourceElement, context} = event.detail)
                                 } else { data = event.detail }
                                 for (const node of bindNodes) this.e.sinkData(node, data, flag, transform, sourceElement, context)
                             }
@@ -423,7 +419,7 @@
                     if (mode === 'target') {
                         this.addEventListener('_apply', event => {
                             let targetOptions = this.targetOptions, 
-                                requestOptions = (targetOptions.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[targetOptions.eEnv] || {}}, targetOptions) : targetOptions, 
+                                requestOptions = (targetOptions.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[targetOptions.eEnv] || {}}, targetOptions) : targetOptions
                             fetch(getBound(), requestOptions)
                         }, {signal: boundController.signal})
                     }
@@ -459,7 +455,7 @@
             this.#rewrite = value
             this.#rewriteRules = []
             let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}
-            let rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis, 
+            let rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
             for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([new RegExp(re), p])
         }
         get rewrite() { return this.#rewrite }
@@ -497,8 +493,8 @@
 
         get targetOptions() { return {...this.#options, ...this.#targetOptions} }
 
-        set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
-        get processor() { return this.#processor }
+        /*set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
+        get processor() { return this.#processor }*/
 
     }
 </script>
