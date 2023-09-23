@@ -469,9 +469,6 @@
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
 
-        set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
-        get processor() { return this.#processor }
-
         set parser(value) { this.#parser = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get parser() { return this.#parser }
 
@@ -499,6 +496,9 @@
         get ['target-options']() { return this.#targetOptionsString }
 
         get targetOptions() { return {...this.#options, ...this.#targetOptions} }
+
+        set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
+        get processor() { return this.#processor }
 
     }
 </script>
