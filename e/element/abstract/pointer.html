@@ -45,8 +45,7 @@
 		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors',
             'options', 'resource-options', 'target-options', 'parser', 'serializer') }
 
-        async connectedCallback() {
-        }
+        async connectedCallback() {}
 
         toString() { return this.resource ?? '' }
 
@@ -103,6 +102,8 @@
                         }
                     }
                 }
+                const rewriteRules = this.rewriteRules
+                if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (routerPointer.match(rx)) { routerPointer = p; break } 
                 return router ? router[this._mode](routerPointer) : this.e.getURL(new URL(`${this._mode}/${routerPointer || this.e.env.modes[this._mode].pointer}.${this.e.env.modes[this._mode].suffix}`, this.baseURI).href)
             } else if (useValue.includes('/')) {
                 return this.e.getURL(new URL(useValue, this.baseURI).href) 
@@ -176,7 +177,7 @@
                 } else { targetNodes = scope.querySelector(selector) }
             } else { targetNodes = this.parentElement }
             targetNodes = Array.isArray(targetNodes) ? targetNodes : [targetNodes]
-            this._apply(result, targetNodes).then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
+            this._apply(result, targetNodes)//.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
         }
 
         async #parse(response) {
@@ -198,7 +199,7 @@
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if ((contentType === 'text/html') || (contentType === 'text/plain')) return (response instanceof Response) ? await response.text() : response
             if (contentType === 'application/json') return (response instanceof Response) ? await response.json() : JSON.parse(response)
-            const text = (response instanceof Response) ? await response.text() : response 
+            let text = (response instanceof Response) ? await response.text() : response 
             if (contentType === 'text/md') {
                 await this.#installRemarkable()
                 let mdOptions = {...this.e.env.options.remarkable}
@@ -208,10 +209,10 @@
                     htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
                 for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
                 for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                const renderedText = this.e.env.libraries.remarkable.render(text)
+                text = this.e.env.libraries.remarkable.render(text)
                 for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
                 for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                return renderedText
+                return text
             }
             if (contentType === 'text/css') {
                 return await (new CSSStyleSheet()).replace(text)                
@@ -370,7 +371,7 @@
                             }
                         }
                     } else {
-                        this.addEventListener('_apply', event => {
+                        /*this.addEventListener('_apply', event => {
                             if (use === '!') {
                                 for (const eventName of eventNames) for (const node of bindNodes) node.dispatchEvent(new CustomEvent(eventName, {detail: event.detail}))
                             } else if (use === '_') {
@@ -382,7 +383,7 @@
                                 } else { data = event.detail }
                                 for (const node of bindNodes) this.e.sinkData(node, data, flag, transform, sourceElement, context)
                             }
-                        }, {signal: boundController.signal})
+                        }, {signal: boundController.signal})*/
                     }
                 }
             } else {
@@ -411,9 +412,9 @@
                                 }
                             } else {
                                 if (typeof eventSource.send === 'function') {
-                                    this.addEventListener('_apply', async event => {
+                                    /*this.addEventListener('_apply', async event => {
                                         eventSource.send(await this.#serialize(event.detail))
-                                    }, {signal: boundController.signal})                                    
+                                    }, {signal: boundController.signal})*/
                                 }
                             }
                         })
@@ -425,11 +426,11 @@
                     boundController = getBoundController()
                     setBound(url)
                     if (mode === 'target') {
-                        this.addEventListener('_apply', event => {
+                        /*this.addEventListener('_apply', event => {
                             let targetOptions = this.targetOptions, 
                                 requestOptions = (targetOptions.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[targetOptions.eEnv] || {}}, targetOptions) : targetOptions
                             fetch(getBound(), requestOptions)
-                        }, {signal: boundController.signal})
+                        }, {signal: boundController.signal})*/
                     }
                 }
             }
@@ -460,16 +461,26 @@
         set apply(value) { this.#apply = value }
         get apply() { return this.#apply }
 
+        #buildRewrites() {
+            if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
+                let value = this.getAttribute('rewrite')
+                this.#rewriteRules = []
+                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}, 
+                rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
+                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([new RegExp(re), p])
+            }
+        }
+
         set rewrite(value) {
+            this.#buildRewrites()
             this.#rewrite = value
-            this.#rewriteRules = []
-            let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}
-            let rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
-            for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([new RegExp(re), p])
         }
         get rewrite() { return this.#rewrite }
 
-        get rewriteRules() { return this.#rewriteRules ?? [] }
+        get rewriteRules() { 
+            this.#buildRewrites()
+            return this.#rewriteRules ?? [] 
+        }
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
