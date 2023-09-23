@@ -302,7 +302,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const scriptTag = document.createElement('script')
                 scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
                 document.head.append(scriptTag)
-                await this.e.utils.waitUntil(() => window.jsonata)                
+                await this.utils.waitUntil(() => window.jsonata)                
             }
             if (transform.includes('$target')) transform = `( $target := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`

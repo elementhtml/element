@@ -111,14 +111,15 @@
         }
 
         async #refresh(payload) {
-            if (!this.#boundResource) return
+            const boundResource = this.boundResource
+            if (!boundResource) return
             let result
-            if (typeof this.#boundResource === 'string') {
+            if (typeof boundResource === 'string') {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
-                if (this._isReference && ((contentType === 'application/javascript') || this.#boundResource.endsWith('.mjs') || this.#boundResource.endsWith('.js'))) {
-                    result = await import(this.#boundResource)
+                if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {
+                    result = await import(boundResource)
                 } else if (contentType === 'application/schema+json') { 
-                    result = this.#boundResource
+                    result = boundResource
                 } else {
                     let resourceOptions = this.resourceOptions, 
                         requestOptions = (resourceOptions.eEnv) ? Object.assign({...this.e.env.options.fetchOptions[resourceOptions.eEnv] || {}}, resourceOptions) : resourceOptions
@@ -128,9 +129,9 @@
                         fetchOptions.method ||= 'POST'
                         fetchOptions.body = `${payload}`
                     }
-                    const req = fetch(this.#boundResource, requestOptions)
+                    const req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
-                        if ((contentType === 'application/wasm') || this.#boundResource.endsWith('.wasm')) {
+                        if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
                             result = await WebAssembly.instantiateStreaming(req)
                         } else { result = req.then(r => r.body) }
                     } else {
@@ -148,8 +149,8 @@
                 }
             } else {
                 if (typeof payload === 'string') {
-                    if ((this.#boundResource instanceof WebSocket) || (this.#boundResource instanceof EventSource)) result = this.#parse(payload)
-                } else { result = this.#boundResource }
+                    if ((boundResource instanceof WebSocket) || (boundResource instanceof EventSource)) result = this.#parse(payload)
+                } else { result = boundResource }
             }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
@@ -164,7 +165,8 @@
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
             }
-            this._apply(result, Array.isArray(this.#boundTarget) ? this.#boundTarget : [this.#boundTarget])
+            const boundTarget = this.boundTarget
+            this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
             //.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
         }
 
