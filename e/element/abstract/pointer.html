@@ -103,7 +103,7 @@
                     }
                 }
                 const rewriteRules = this.rewriteRules
-                if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (routerPointer.match(rx)) { routerPointer = p; break } 
+                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if (routerPointer.match(rx)) return this.#resolveUrl(p) 
                 return router ? router[this._mode](routerPointer) : this.e.getURL(new URL(`${this._mode}/${routerPointer || this.e.env.modes[this._mode].pointer}.${this.e.env.modes[this._mode].suffix}`, this.baseURI).href)
             } else if (useValue.includes('/')) {
                 return this.e.getURL(new URL(useValue, this.baseURI).href) 
@@ -137,10 +137,13 @@
                     } else {
                         let response = await req
                         if (response.status >= 400) {
-                            const status = `${response.status}`
-                            if (status in rewriteRules) response = await fetch(this.#resolveUrl(rewriteRules[status]), fetchOptions)
+                            const status = `${response.status}`, rewriteRules = this.rewriteRules
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (status.match(rx)) { 
+                                response = await fetch(this.#resolveUrl(p), requestOptions)
+                                break 
+                            } 
                             if (response.status >= 400) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, fetchOptions}}))
+                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, requestOptions}}))
                                 if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
                             }
                         }
@@ -298,7 +301,7 @@
                 setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v), 
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let useValue = value ?? '|'
-            if (this.#rewriteRules.length) for (const [rx, p] of this.#rewriteRules) { if (useValue.match(rx)) useValue = p; break }
+            //if (this.#rewriteRules.length) for (const [rx, p] of this.#rewriteRules) { if (useValue.match(rx)) useValue = p; break }
             const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(useValue[0])
             if (useValue.includes('|') || startsWithFlag) {
                 let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
