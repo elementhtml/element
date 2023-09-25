@@ -114,7 +114,6 @@
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
-            console.log('line 117', boundResource)
             if (typeof boundResource === 'string') {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
                 if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {

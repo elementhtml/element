@@ -2,4 +2,4 @@
 
 Check my awesome widget below!
 
-<ex-widget>Widget 1</ex-widget>
+<ex-widget>Click a button!</ex-widget>

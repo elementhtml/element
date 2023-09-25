@@ -571,7 +571,7 @@ const ElementHTML = Object.defineProperties({}, {
         return template.innerHTML
     }},
     stackStyles: {enumerable: true, value: function(id) {
-        return this.getInheritance(id).reverse().filter(t => t.includes('-')).map(t => `/** ${t} styles */\n\n` + this.styles[t]).join("\n\n\n")
+        return this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n\n` + this.styles[id]).join("\n\n\n")
     }},
     _enscapulateNative: {value: function() {
         const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
