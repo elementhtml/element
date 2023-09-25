@@ -103,7 +103,7 @@
                     }
                 }
                 const rewriteRules = this.rewriteRules
-                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if (routerPointer.match(rx)) return this.#resolveUrl(p) 
+                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.#resolveUrl(p) 
                 return router ? router[this._mode](routerPointer) : this.e.getURL(new URL(`${this._mode}/${routerPointer || this.e.env.modes[this._mode].pointer}.${this.e.env.modes[this._mode].suffix}`, this.baseURI).href)
             } else if (useValue.includes('/')) {
                 return this.e.getURL(new URL(useValue, this.baseURI).href) 
@@ -137,8 +137,8 @@
                     } else {
                         let response = await req
                         if (response.status >= 400) {
-                            const status = `${response.status}`, rewriteRules = this.rewriteRules
-                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (status.match(rx)) { 
+                            const rewriteRules = this.rewriteRules
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { 
                                 response = await fetch(this.#resolveUrl(p), requestOptions)
                                 break 
                             } 
@@ -485,7 +485,7 @@
                 this.#rewriteRules = []
                 let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}, 
                 rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
-                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([new RegExp(re), p])
+                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             }
         }
 
