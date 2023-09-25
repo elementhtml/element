@@ -7,7 +7,6 @@
     		super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
-                _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/md'}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         if (typeof result !== 'string') {
                             if (!Array.isArray(result)) result = [result]

@@ -10,7 +10,6 @@
             super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'processor'}, 
-                _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/javascript'}, 
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result

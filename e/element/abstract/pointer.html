@@ -182,13 +182,18 @@
             response = typeCheck ? response : `${response}`
             let contentType = this.getAttribute('content-type') || this.resourceOptions['Content-Type'] || this._contentType || undefined
             if (!contentType && (response instanceof Response)) {
-                contentType ||= response.headers.get('Content-Type') || undefined
+                contentType ||= response.url.endsWith('.html') ? 'text/html' : undefined
+                contentType ||= response.url.endsWith('.css') ? 'text/css' : undefined
+                contentType ||= response.url.endsWith('.md') ? 'text/md' : undefined
+                contentType ||= response.url.endsWith('.txt') ? 'text/plain' : undefined
                 contentType = (response.url.endsWith('.json') || contentType.includes('json')) ? 'application/json' : contentType
                 contentType = (response.url.endsWith('.proto') || contentType.includes('protobuf')) ? 'application/x-protobuf' : contentType
                 contentType = (response.url.endsWith('.yaml') || contentType.includes('yaml')) ? 'application/x-yaml' : contentType
                 contentType ||= response.url.endsWith('.hjson') ? 'application/hjson' : undefined
                 contentType ||= response.url.endsWith('.msgpack') ? 'application/msgpack' : undefined
                 contentType ||= response.url.endsWith('.cbor') ? 'application/cbor' : undefined
+                const serverContentType = response.headers.get('Content-Type')
+                if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
             }
             contentType ||= 'application/json'
             if (!contentType.includes('/')) contentType = `application/${contentType}`
