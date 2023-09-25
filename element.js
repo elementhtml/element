@@ -4,9 +4,8 @@ const ElementHTML = Object.defineProperties({}, {
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
-            element: 'element/element.html', layout: 'layout/layout.html', content: 'content/content.html', 
-            theme: 'theme/theme.css', data: 'data/data.json', processor: 'processor/process.js', 
-            schema: 'schema/schema.schema.json'
+            element: 'element/element.html', content: 'content/content.html', data: 'data/data.json', 
+            theme: 'theme/theme.css', schema: 'schema/schema.schema.json', processor: 'processor/process.js'
         }},
         loadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
@@ -312,6 +311,16 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform.includes('$target')) transform = `( $target := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             data = await window.jsonata(transform).evaluate(data)
+        }
+        if (data instanceof Node) {
+            if (data.eDataset) {
+                data = Object.assign({}, data.eDataset)
+            } else {
+                data = {...data.dataset, 
+                    ...Object.fromEntries(data.getAttributeNames().map(a => ([`@${a}`, data.getAttribute(a)]))), 
+                    ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, data[p]])))
+                }
+            }
         }
         if (!(data instanceof Object)) return this.setValue(element, data)
         if (!Object.keys(data).length) return element

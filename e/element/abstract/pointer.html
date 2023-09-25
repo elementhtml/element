@@ -168,7 +168,7 @@
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
             }
-            const boundTarget = this.boundTarget
+            const boundTarget = this.boundTarget ?? this.parentElement
             this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
             //.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
         }
@@ -218,7 +218,6 @@
                 this.e.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
                 return this.e.env.libraries.yaml.parse(text)
             }
-
             const buffer = (['application/x-protobuf', 'application/msgpack', 'application/cbor'].includes(contentType)) ? ((new TextEncoder()).encode(text).buffer) : undefined
             if (contentType === 'application/x-protobuf') {
                 await this.#installProtobuf()

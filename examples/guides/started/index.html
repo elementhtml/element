@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Getting Started</title>
+    <title></title>
     <script type="module" src='../../../element.js?load&expose=E'></script>
     <link rel="stylesheet" href="../../style.css">
     <meta is="e-router" name="ex" content="content/home.md">
     <meta is="e-content" resource="ex:#" target=":root|main">
+    <meta is="e-data" resource=":root|h1 > a" transform='{"title": $.innerHTML & " | Base37 Element"}'>
+    <meta is="e-theme" resource="ex:#" rewrite="^404$=ex:home">
 </head>
 <body>
     <header>
-        <h1><a href="#">Getting Started</h1>
+        <h1><a href="">Getting Started</a></h1>
         <nav id="nav">
             <a href="#page1">Page 1</a>
             <a href="#page2">Page 2</a>
@@ -17,7 +19,7 @@
     </header>
     <main></main>
     <footer>
-        See the documentation corresponding to this app at <a href="base37.net/sdk/element/guides/started">https://base37.net/sdk/element/guides/started</a>
+        <meta is="e-content" resource="../../footer.html" content-type="text/html">
     </footer>
 </body>
 </html>
