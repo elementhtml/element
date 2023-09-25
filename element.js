@@ -302,15 +302,17 @@ const ElementHTML = Object.defineProperties({}, {
         if (!element) return element
         rootElement ||= element
         if (transform) {
-            if (!window.jsonata) {
+            if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
                 const scriptTag = document.createElement('script')
                 scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
                 document.head.append(scriptTag)
                 await this.utils.waitUntil(() => window.jsonata)                
+                this.env.libraries.jsonata = window.jsonata
             }
+            await this.utils.waitUntil(() => this.env.libraries.jsonata)
             if (transform.includes('$target')) transform = `( $target := ${JSON.stringify(this.getValue(element))} ; ${transform})`
             if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
-            data = await window.jsonata(transform).evaluate(data)
+            data = await this.env.libraries.jsonata(transform).evaluate(data)
         }
         if (data instanceof Node) {
             if (data.eDataset) {
