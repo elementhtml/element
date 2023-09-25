@@ -4,7 +4,9 @@ const ElementHTML = Object.defineProperties({}, {
         eDataset: {enumerable: true, value: new EventTarget()},
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
-            element: 'html', layout: 'html', content: 'html', theme: 'css', data: 'json', processor: 'js', schema: 'schema.json'
+            element: 'element/element.html', layout: 'layout/layout.html', content: 'content/content.html', 
+            theme: 'theme/theme.css', data: 'data/data.json', processor: 'processor/process.js', 
+            schema: 'schema/schema.schema.json'
         }},
         loadingRegistry: {enumerable: true, value: {}},
         proxies: {enumerable: true, value: {}},
@@ -77,9 +79,12 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(this.env.proxies)
             Object.freeze(this.env.gateways)
             const newModes = {}
-            for (const [mode, suffix] of Object.entries(this.env.modes)) {
+            for (const [mode, signature] of Object.entries(this.env.modes)) {
+                let [path, pointer, ...suffix] = signature.split('/').map(s => s.split('.')).flat()
+                suffix = suffix.join('.')
                 Object.defineProperty(newModes, mode, {enumerable: true, value: Object.defineProperties({}, {
-                        pointer: {enumerable: true, value: mode}, suffix: {enumerable: true, value: suffix}
+                        path: {enumerable: true, value: path }, 
+                        pointer: {enumerable: true, value: pointer}, suffix: {enumerable: true, value: suffix}
                     })
                 })
             }

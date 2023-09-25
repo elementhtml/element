@@ -114,6 +114,7 @@
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
+            console.log('line 117', boundResource)
             if (typeof boundResource === 'string') {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
                 if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {
@@ -419,7 +420,16 @@
                     setBoundController(new AbortController())
                     boundController = getBoundController()
                     setBound(url)
-                    if (mode === 'target') {
+                    if (mode === 'resource') {
+                        if (useValue.includes(':#')) {
+                            window.addEventListener('hashchange', event => {
+                                const resource = this.#resource
+                                this.#resource = undefined
+                                this.resource = resource
+                            }, {signal: boundController.signal})
+                        }
+
+                    } else if (mode === 'target') {
                         /*this.addEventListener('_apply', event => {
                             let targetOptions = this.targetOptions, 
                                 requestOptions = (targetOptions.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[targetOptions.eEnv] || {}}, targetOptions) : targetOptions

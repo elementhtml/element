@@ -11,10 +11,11 @@
         #fetchOptions = {}
         _modes = {}
 
-        _defaultProcessor = function(router, mode, dir=undefined, suffix=undefined, pointer=undefined, get=false) {
-            pointer ||= router.constructor._modes[mode]?.pointer ?? mode
-            suffix ||= router.constructor._modes[mode]?.suffix ?? ''
-            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${dir ?? mode}/${pointer}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
+        _defaultProcessor = function(router, mode, path=undefined, suffix=undefined, pointer=undefined, get=false) {
+            path ||= router._modes[mode]?.path ?? mode
+            pointer ||= router._modes[mode]?.pointer ?? mode
+            suffix ||= router._modes[mode]?.suffix ?? ''
+            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
             return get ? fetch(router.e.getURL(url), Object.assign({priority: router.#priority, cache: router.#cache}, router.#fetchOptions)) : url
         }
 
@@ -26,21 +27,19 @@
     		super()
             for (const mode in this.constructor._modes) {
                 this._modes[mode] ||= {...this.constructor._modes[mode]}
-                let requestedProcessor = this.e.utils.resolveMeta(this, 'e-processor', this.#processor)?.func, processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, attrMode = this.getAttribute(mode), dir
-                if (attrMode) {
-                    let [ dirCheck, fileName ] = attrMode.split('/', 2)
-                    dir = dirCheck ? dirCheck : mode
-                    if (fileName) {
-                        let fileNameSplit = this.e.utils.splitOnce(fileName, '.')
-                        this._modes[mode].pointer = fileNameSplit[0]
-                        this._modes[mode].suffix = fileNameSplit[1]
-                    }
+                let requestedProcessor = this.e.utils.resolveMeta(this, 'e-processor', this.#processor)?.func, processor = typeof requestedProcessor === 'function' ? requestedProcessor : this._defaultProcessor, modeSignature = this.getAttribute(mode)
+                if (modeSignature) {
+                    let [path, pointer, ...suffix] = modeSignature.split('/').map(s => s.split('.')).flat()
+                    suffix = suffix.join('.')
+                    this._modes[mode].path = path
+                    this._modes[mode].pointer = pointer
+                    this._modes[mode].suffix = suffix
                 }
-                dir ||= mode
+                this._modes[mode].path ||= this.constructor._modes[mode].path
                 this._modes[mode].pointer ||= this.constructor._modes[mode].pointer
                 this._modes[mode].suffix ||= this.constructor._modes[mode].suffix
-                const f = processor.bind(this.e, this, mode, dir, this._modes[mode].suffix)
-                f.toString = processor.bind(this.e, this, mode, dir, this._modes[mode].suffix, false, this._modes[mode].pointer)
+                const f = processor.bind(this.e, this, mode, this._modes[mode].path, this._modes[mode].suffix)
+                f.toString = processor.bind(this.e, this, mode, this._modes[mode].path, this._modes[mode].suffix, false, this._modes[mode].pointer)
                 Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => f})
             } 
     	}

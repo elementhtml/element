@@ -1,0 +1,32 @@
+<style>
+	:host {
+		color: red;
+	}
+</style>
+<template>
+	<div class="buttons"><button data-color="red">Red</button><button data-color="green">Green</button></div>
+	<div><slot></slot></div>
+</template>
+<script>
+    class extends `` {
+
+    	#color
+
+    	constructor() {
+    		super()
+    	}
+
+    	async connectedCallback() {
+    		const slot = this.shadowRoot.querySelector('slot')
+    		this.shadowRoot.querySelector('.buttons').addEventListener('click', event => {
+    			slot.style.color = event.target.dataset.color
+			})
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat('color') }
+
+		get color() { return this.#color }
+		set color(value) { this.#color = value }
+
+    }
+</script>

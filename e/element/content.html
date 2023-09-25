@@ -18,6 +18,7 @@
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
                         if (!validContentScopes.includes(apply)) apply = 'innerHTML'
                         for (const t of target) {
+                            if (!t) continue
                             if (apply.startsWith('@')) {
                                 t.setAttribute(apply.slice(1), result)
                             } else { t[apply] = result }
