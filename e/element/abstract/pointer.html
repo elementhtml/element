@@ -27,6 +27,7 @@
         #resourceOptionsString = ''
         #targetOptions = {}
         #targetOptionsString = ''
+        #use
 
     	constructor() {
     		super()
@@ -49,8 +50,9 @@
 
         toString() { return this.resource ?? '' }
 
-        #sliceAndStep(selector, list) {
-            let [start=0, end=list.length, step=0] = selector.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0))
+        #sliceAndStep(sig, list) {
+            let [start=0, end=list.length, step=0] = sig.split(':').map(s => (parseInt(s) || 0))
+            if (end === 0) end = list.length
             list = list.slice(start, end)
             if (!step) return list
             return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
@@ -114,7 +116,7 @@
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
-            if (typeof boundResource === 'string') {
+            if (!payload && (typeof boundResource === 'string')) {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
                 if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {
                     result = await import(boundResource)
@@ -150,11 +152,7 @@
                         result = await this.#parse(response)
                     }
                 }
-            } else {
-                if (typeof payload === 'string') {
-                    if ((boundResource instanceof WebSocket) || (boundResource instanceof EventSource)) result = this.#parse(payload)
-                } else { result = boundResource }
-            }
+            } else { result = payload ?? boundResource }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
             if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
@@ -307,33 +305,35 @@
                 setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v), 
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let useValue = value ?? '|'
-            //if (this.#rewriteRules.length) for (const [rx, p] of this.#rewriteRules) { if (useValue.match(rx)) useValue = p; break }
             const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(useValue[0])
             if (useValue.includes('|') || startsWithFlag) {
                 let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
                     : (useFlags.includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
                 const scope = startsWithFlag ? this : (closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement)
+                if (mode === 'resource') this.#use = use
                 if (!selector) {
                     setBound(scope)
                 } else if (selector.includes('[') && selector.endsWith(']')) {
-                    setBound(this.#sliceAndStep(selector, Array.from(scope.querySelectorAll(selector))))
+                    let [selectorStem, sig] = selector.split('[')
+                    setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
                 } else { setBound(scope.querySelector(selector)) }
                 if (selector) {
                     const processRecords = records => {
+                        let [selectorStem,] = selector.split('[')
                         const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
                         for (const record of records) {
                             nodesToRemove.push(...(record?.removedNodes || []))
-                            if (record?.target && record.target.matches(selector)) updatedNodes.push(record.target)
-                            for (const addedNode of (record?.addedNodes || [])) if (addedNode?.matches && addedNode.matches(selector)) addedNodes.push(addedNode)
+                            if (record?.target && record.target.matches(selectorStem)) updatedNodes.push(record.target)
+                            for (const addedNode of (record?.addedNodes || [])) if (addedNode?.matches && addedNode.matches(selectorStem)) addedNodes.push(addedNode)
                         }
                         let alreadyBound = getBound()
                         if (!Array.isArray(alreadyBound)) alreadyBound = [alreadyBound]
-                        for (const node of alreadyBound) if (node.isConnected && node?.matches && node.matches(selector) && !nodesToRemove.includes(node)) newBind.push(node)
-                        for (const node of updatedNodes) if (node.isConnected && node?.matches && node.matches(selector) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
-                        for (const node of addedNodes) if (node.isConnected && node?.matches && node.matches(selector) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
+                        for (const node of alreadyBound) if (node.isConnected && node?.matches && node.matches(selectorStem) && !nodesToRemove.includes(node)) newBind.push(node)
+                        for (const node of updatedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
+                        for (const node of addedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
                         newBind.sort((a, b) => ((a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1) )
-                        setBound((selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector, newBind) : newBind)
+                        setBound((selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector.split('[').pop().slice(0, -1), newBind) : newBind)
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
@@ -342,29 +342,29 @@
                     observer = getBoundObserver()
                     observer.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                 }
-                if (refreshOn) {
+                if (refreshOn && (mode === 'resource')) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()
                     setBoundController(new AbortController())
                     boundController = getBoundController()
-                    const stepRefresh = refreshOn.includes('[') && refreshOn.endsWith(']') 
-                    let [start=0, end=1, step=0] = refreshOn.split('[').pop().slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
-                    const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshOn.split(',').map(s => s.trim())
+                    const [refreshFrom, refreshStep=''] = refreshOn.split('[')
+                    let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
+                    const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
                     if (mode === 'resource') {
                         for (const eventName of eventNames) {
                             for (const node of bindNodes) {
                                 node.addEventListener(eventName, event => {
-                                    const proceed = true
-                                    let count = getCount()
-                                    if (stepRefresh) proceed = (count >= start) && (count < end)
+                                    let proceed = true, count = getCount()
+                                    if (refreshStep) proceed = (count >= start) && (!end || (count < end))
                                     setCount(count + 1)
                                     count = getCount()
-                                    if (proceed && stepRefresh && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                                    if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                                    if (!proceed) return
                                     if (use === '!') { 
-                                        this.#refresh(event) 
-                                    } else if (use === '_') {
+                                        this.#refresh(event)
+                                    } else if (use === '$') {
                                         this.#refresh(bound)
-                                    } else if (Array.isArray(bound)) {                                    
+                                    } else if (Array.isArray(bound)) {
                                         this.#refresh(bound.map(node => this.e.getValue(node)))
                                     } else { this.#refresh(this.e.getValue(node)) }
                                 }, {signal: boundController.signal})
@@ -449,7 +449,13 @@
             if (this.#resource === value) return
             this.#createBound(value, 'resource')
             this.#resource = value
-            this.#refresh()
+            if (!this.#use) {
+                this.#refresh()
+            } else if (this.#use === '$') {
+                this.#refresh(this.#boundResource)
+            } else if (this.#use === '_') {
+                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))
+            }
         }
         get resource() { return this.#resource }
 

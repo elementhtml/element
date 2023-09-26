@@ -1,33 +1,24 @@
 <style>
 	:host {
 		color: antiquewhite;
-	}	
+	}
+	.red {
+		color: red;
+	}
+	.green {
+		color: green;
+	}
+	button {
+		text-transform: capitalize;
+		cursor: pointer;
+	}
 </style>
 <template>
+	<meta is="e-data" resource=":root|button[]|!click" transform='{"@class": $.target.textContent}' target=":root|strong">
 	<strong>My Cool Widget</strong>
-	<div class="buttons"><button data-color="red">Red</button><button data-color="green">Green</button></div>
-	<div><slot></slot></div>
+	<div><button>red</button><button>green</button></div>
+	<slot></slot>
 </template>
 <script>
-    class extends `` {
-
-    	#color
-
-    	constructor() {
-    		super()
-    	}
-
-    	async connectedCallback() {
-    		const slot = this.shadowRoot.querySelector('slot')
-    		this.shadowRoot.querySelector('.buttons').addEventListener('click', event => {
-    			slot.style.color = event.target.dataset.color
-			})
-    	}
-
-		static get observedAttributes() { return (super.observedAttributes || []).concat('color') }
-
-		get color() { return this.#color }
-		set color(value) { this.#color = value }
-
-    }
+    class extends `` {}
 </script>
