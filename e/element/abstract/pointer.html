@@ -310,7 +310,20 @@
                 let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
                     : (useFlags.includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
-                const scope = startsWithFlag ? this : (closest ? (this.closest(closest) ?? this.getRootNode()) : this.parentElement)
+                let scope
+                if (startsWithFlag) {
+                    scope = this
+                } else if (useValue.startsWith('|')) {
+                    scope = this.parentElement
+                } else if (useValue.startsWith(':|') || useValue.startsWith(':root|')) {
+                    scope = this.getRootNode()
+                } else if (useValue.startsWith(':host|')) {
+                    scope = this.getRootNode()
+                    if (scope instanceof ShadowRoot) scope = scope.host
+                } else if (useValue.startsWith(':document|')) {
+                    scope = document
+                } else { scope = this.closest() }
+                if (!scope) return
                 if (mode === 'resource') this.#use = use
                 if (!selector) {
                     setBound(scope)
@@ -456,6 +469,7 @@
             } else if (this.#use === '_') {
                 this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))
             }
+            console.log('line 472', this.#boundResource)
         }
         get resource() { return this.#resource }
 
