@@ -3,6 +3,10 @@
 <script>
     class extends `./abstract/pointer` {
 
+        #transition
+        #transitionString
+        #transitionScope
+
     	constructor() {
     		super()
             Object.defineProperties(this, {
@@ -20,14 +24,39 @@
                             if (!t) continue
                             if (apply.startsWith('@')) {
                                 t.setAttribute(apply.slice(1), result)
-                            } else { t[apply] = result }
+                            } else { 
+                                if (!document.startViewTransition || !this.#transition || apply === 'value') { t[apply] = result; continue } 
+                                const transition = document.startViewTransition(() => { t[apply] = result })
+                                transition.ready.then(() => {
+                                    this.dispatchEvent(new CustomEvent('transition-ready'))
+                                    const scope = this.#transitionScope ? t.closest(this.#transitionScope) : t.getRootNode()
+                                    scope.animate(this.#transition)
+                                })
+                                transition.finished.then(() => {
+                                    this.dispatchEvent(new CustomEvent('transition-finished'))    
+                                })
+                                transition.updateCallbackDone.then(() => {
+                                    this.dispatchEvent(new CustomEvent('transition-updateCallbackDone'))    
+                                })
+                            }
                         }
                     }
                 }                
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('transition', 'transition-scope') }
+
+        set transition(value) {
+            this.#transition = this.e.utils.parseObjectAttribute(value)
+            this.#transitionString = value
+        }
+        get transition() { return this.#transitionString }
+
+        set transitionScope(value) { this.#transitionScope = value }
+        get transitionScope() { return this.#transitionScope }
+        set ['transition-scope'](value) { this.transitionScope = value }
+        get ['transition-scope']() { return this.transitionScope }
 
     }
 </script>
