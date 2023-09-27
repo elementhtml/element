@@ -29,7 +29,8 @@
                                 const transition = document.startViewTransition(() => { t[apply] = result })
                                 transition.ready.then(() => {
                                     this.dispatchEvent(new CustomEvent('transition-ready'))
-                                    const scope = this.#transitionScope ? t.closest(this.#transitionScope) : t.getRootNode()
+                                    let scope = this.#transitionScope ? t.closest(this.#transitionScope) : t.getRootNode()
+
                                     scope.animate(this.#transition)
                                 })
                                 transition.finished.then(() => {

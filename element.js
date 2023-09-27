@@ -66,6 +66,7 @@ const ElementHTML = Object.defineProperties({}, {
     files: {enumerable: true, value: {}},
     styles: {enumerable: true, value: {}},
     templates: {enumerable: true, value: {}},
+    _templates: {enumerable: false, value: {}},
     scripts: {enumerable: true, value: {}},
     classes: {enumerable: true, value: {}},
     constructors: {enumerable: true, value: {}},
@@ -565,24 +566,48 @@ const ElementHTML = Object.defineProperties({}, {
         element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
         return element
     }},
-    stackTemplates: {enumerable: true, value: function(id, templateInnerHTML=undefined) {
-        const template = document.createElement('template')
-        template.innerHTML = templateInnerHTML || this.templates[id]
-        for (const t of template.content.querySelectorAll('template[id]')) {
-            const tId = t.getAttribute('id'), tNode = document.createElement('template')
-            tNode.innerHTML = this.stackTemplates(tId)
-            const clonedNode = tNode.content.cloneNode(true)
-            if (t.hasAttribute('slot')) {
-                const tSlot = t.getAttribute('slot'), targetSlot = clonedNode.querySelector(`slot[name="${tSlot}"]`)
-                    || clonedNode.querySelector(tSlot || 'slot') || clonedNode.querySelector('slot')
-                targetSlot && targetSlot.replaceWith(this.stackTemplates(undefined, t.innerHTML))
+    stackTemplates: {enumerable: true, value: function(id) {
+        if (typeof this._templates[id] === 'string') return this._templates[id]
+        if (this.templates[id]) {
+            if (this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
+                
+
+            } else {
+                this._templates[id] = this.templates[id]
             }
-            t.replaceWith(clonedNode)
+            return this._templates[id]
         }
-        return template.innerHTML
+
+
+        if (this.templates[id] && this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
+        console.log('line 570', id, this.extends[id])
+            const template = document.createElement('template')
+            template.innerHTML = this._templates[this.extends[id]] ?? this.stackTemplates(this.extends[id])
+            console.log('line 573', template.innerHTML)
+            const childTemplate = document.createElement('template')
+            childTemplate.innerHTML = this.templates[id]
+            for (const t of childTemplate.content.querySelectorAll('template[slot]')) {
+                const slotName = t.getAttribute('slot')
+                let target
+                if (slotName[0] === '`' && slotName.endsWith('`')) {
+                    target = template.content.querySelector(slotName.slice(1, -1))
+                } else if (slotName) {
+                    target = template.content.querySelector(`slot[name="${slotName}"]`)
+                } else { target = template.content.querySelector('slot:not([name])') }
+                if (target) {
+                    target.replaceWith(...t.cloneNode(true).childNodes)
+                }
+                t.remove()
+            }
+            if (childTemplate.innerHTML) {
+                const slot = template.querySelector('slot')
+                if (slot) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
+            }
+            return template.innerHTML
+        } else { return this.templates[id] ?? '' }
     }},
     stackStyles: {enumerable: true, value: function(id) {
-        return this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n\n` + this.styles[id]).join("\n\n\n")
+        return this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
     }},
     _enscapulateNative: {value: function() {
         const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
@@ -716,7 +741,7 @@ const ElementHTML = Object.defineProperties({}, {
                     $this.shadowRoot.textContent = ''
                     $this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML.stackStyles(this.constructor.id)
                     const templateNode = document.createElement('template')
-                    templateNode.innerHTML = ElementHTML.stackTemplates(this.constructor.id)
+                    templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                      window.requestAnimationFrame(() => {
                         this.dispatchEvent(new CustomEvent('ready'))
