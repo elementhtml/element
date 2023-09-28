@@ -153,7 +153,6 @@
                     }
                 }
             } else { result = payload ?? boundResource }
-        console.log('line 156', result)
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
             if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
@@ -328,13 +327,13 @@
                 if (mode === 'resource') this.#use = use
                 if (!selector) {
                     setBound(scope)
-                } else if (selector.includes('[') && selector.endsWith(']')) {
-                    let [selectorStem, sig] = selector.split('[')
+                } else if (selector.includes('{') && selector.endsWith('}')) {
+                    let [selectorStem, sig] = selector.split('{')
                     setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
                 } else { setBound(scope.querySelector(selector)) }
                 if (selector) {
                     const processRecords = records => {
-                        let [selectorStem,] = selector.split('[')
+                        let [selectorStem,] = selector.split('{')
                         const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
                         for (const record of records) {
                             nodesToRemove.push(...(record?.removedNodes || []))
@@ -347,7 +346,7 @@
                         for (const node of updatedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
                         for (const node of addedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
                         newBind.sort((a, b) => ((a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1) )
-                        setBound((selector.includes('[') && selector.endsWith(']')) ? this.#sliceAndStep(selector.split('[').pop().slice(0, -1), newBind) : newBind)
+                        setBound((selector.includes('{') && selector.endsWith('}')) ? this.#sliceAndStep(selector.split('{').pop().slice(0, -1), newBind) : newBind)
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
@@ -361,7 +360,7 @@
                     if (boundController) boundController.abort()
                     setBoundController(new AbortController())
                     boundController = getBoundController()
-                    const [refreshFrom, refreshStep=''] = refreshOn.split('[')
+                    const [refreshFrom, refreshStep=''] = refreshOn.split('{')
                     let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
                     if (mode === 'resource') {
