@@ -248,11 +248,16 @@ const ElementHTML = Object.defineProperties({}, {
             if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
             if (['data','meter','input','select','textarea'].includes(tag)) return element.value
             if (tag === 'time') return element.getAttribute('datetime')
+            if (['form', 'fieldset'].includes(tag)) return Object.fromEntries(Array.from(element.querySelectorAll('[name]')).map(f => [f.getAttribute('name'), this.getValue(f)]))
             return element.textContent
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
         if (!element) return element
+        const close = () => {
+            element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))
+            return element
+        }
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
@@ -279,6 +284,11 @@ const ElementHTML = Object.defineProperties({}, {
                     propSiblings[i] = newSibling
                 }
                 for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
+            } else if (['form', 'fieldset'].includes(tag)) {
+                for (const [k, v] of Object.entries(value)) {
+                    const f = element.querySelector(`[name="${k}"]`)
+                    if (f) this.setValue(f, v)
+                }
             } else { 
                 Object.assign((element.eDataset || element.dataset), value) 
             }
@@ -288,17 +298,16 @@ const ElementHTML = Object.defineProperties({}, {
                 if (value === undefined) delete element.eDataset[element.eValueProxy]
             } else {
                 const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
-                if (tag === 'meta') { element[attrMethod]('content', value); return }
-                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return }
-                if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return }
-                if (tag === 'object') { element[attrMethod]('data', value); return }
-                if (['data','meter','input','select','textarea'].includes(tag)) { element.value = (value ??''); return }
-                if (tag === 'time') { element[attrMethod]('datetime', value); return }
+                if (tag === 'meta') { element[attrMethod]('content', value); return close() }
+                if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return close() }
+                if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return close() }
+                if (tag === 'object') { element[attrMethod]('data', value); return close() }
+                if (['data','meter','input','select','textarea'].includes(tag)) { element.value = (value ??''); return close() }
+                if (tag === 'time') { element[attrMethod]('datetime', value); return close() }
                 element.textContent = value
             }
         }
-        element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))        
-        return element        
+        return close()
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
         if (!element) return element
@@ -522,7 +531,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
           }
         } else if (['form', 'fieldset'].includes(tag)) {
-            for (const [k, v] of Object.entries(data)) (element.querySelector([name=`${k}`])||{}).value = v
+            for (const [k, v] of Object.entries(data)) (element.querySelector(`[name=${k}]`)||{}).value = v
         } else if (['table', 'tbody'].includes(tag)) {
           let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
           if (!tbody) element.append(tbody = document.createElement('tbody'))

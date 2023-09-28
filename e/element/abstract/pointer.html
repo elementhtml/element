@@ -155,18 +155,18 @@
             } else { result = payload ?? boundResource }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
-            if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
-                const scriptTag = document.createElement('script')
-                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                document.head.append(scriptTag)
-                await this.e.utils.waitUntil(() => window.jsonata)                
-                this.e.env.libraries.jsonata = window.jsonata
-            }
-            await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)
-                try { result = await this.e.env.libraries.jsonata(transform).evaluate(result) } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
-                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
+                if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
+                    const scriptTag = document.createElement('script')
+                    scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                    document.head.append(scriptTag)
+                    await this.e.utils.waitUntil(() => window.jsonata)                
+                    this.e.env.libraries.jsonata = window.jsonata
                 }
+                await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)
+                    try { result = await this.e.env.libraries.jsonata(transform).evaluate(result) } catch(e) {
+                        this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
+                        if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
+                    }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])

@@ -21,28 +21,33 @@
                 <input name="count">
             </label>
             <label>
-                <meta id="e-data" resource='fieldset|input[name="count"]' >
+                <meta is="e-data" resource='fieldset|input[name="count"]|_' transform="$number($) * 2" target="|input">
                 <span>Double:</span>
                 <input name="double" readonly>
             </label>
             <label>
+                <meta is="e-data" resource="main|button|!click{::1}" apply='transform=$boolean($target)?$number($target)%2B1:1' target="|input">
                 <span>Odd Clicks:</span>
                 <input name="odd" readonly>
             </label>
             <label>
+                <meta is="e-data" resource="main|button|!click{::2}" apply='transform=$boolean($target)?$number($target)%2B1:1' target="|input">
                 <span>Even Clicks:</span>
                 <input name="even" readonly>
             </label>
             <label>
+                <meta is="e-data" resource="main|button|!click{2:5}" apply='transform=$boolean($target)?$number($target)%2B1:1' target="|input">
                 <span>Clicks 3-5 only:</span>
                 <input name="3to5" readonly>
             </label>
             <label>
+                <meta is="e-data" resource="main|button|!click{::7}" apply='transform=$boolean($target)?$number($target)%2B1:1' target="|input">
                 <span>Every 7th Click:</span>
                 <input name="seventh" readonly>
             </label>
         </fieldset>
         <fieldset>
+            <meta is="e-data" resource='main|fieldset input[name="count"]|_' apply='transform=($c:=$?$number($):0;{"count": $, "double": $?$c*2:"", "odd": $?$floor($c/2)%2B($c%252):""})'>
             <legend>One data pointer for the fieldset.</legend>
             <label>
                 <span>Click Count:</span>
@@ -56,22 +61,7 @@
                 <span>Odd Clicks:</span>
                 <input name="odd" readonly>
             </label>
-            <label>
-                <span>Even Clicks:</span>
-                <input name="even" readonly>
-            </label>
-            <label>
-                <span>Clicks 3-5 only:</span>
-                <input name="3to5" readonly>
-            </label>
-            <label>
-                <span>Every 7th Click:</span>
-                <input name="seventh" readonly>
-            </label>
         </fieldset>
-
-        
-
     </main>
     <footer>
         <meta is="e-content" resource="../../footer.html">
