@@ -65,6 +65,7 @@ const ElementHTML = Object.defineProperties({}, {
     extends: {enumerable: true, value: {}},
     files: {enumerable: true, value: {}},
     styles: {enumerable: true, value: {}},
+    _styles: {enumerable: false, value: {}},
     templates: {enumerable: true, value: {}},
     _templates: {enumerable: false, value: {}},
     scripts: {enumerable: true, value: {}},
@@ -568,46 +569,41 @@ const ElementHTML = Object.defineProperties({}, {
     }},
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
-        if (this.templates[id]) {
+        if (typeof this.templates[id] === 'string') {
             if (this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
-                
-
-            } else {
-                this._templates[id] = this.templates[id]
-            }
-            return this._templates[id]
-        }
-
-
-        if (this.templates[id] && this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
-        console.log('line 570', id, this.extends[id])
-            const template = document.createElement('template')
-            template.innerHTML = this._templates[this.extends[id]] ?? this.stackTemplates(this.extends[id])
-            console.log('line 573', template.innerHTML)
-            const childTemplate = document.createElement('template')
-            childTemplate.innerHTML = this.templates[id]
-            for (const t of childTemplate.content.querySelectorAll('template[slot]')) {
-                const slotName = t.getAttribute('slot')
-                let target
-                if (slotName[0] === '`' && slotName.endsWith('`')) {
-                    target = template.content.querySelector(slotName.slice(1, -1))
-                } else if (slotName) {
-                    target = template.content.querySelector(`slot[name="${slotName}"]`)
-                } else { target = template.content.querySelector('slot:not([name])') }
-                if (target) {
-                    target.replaceWith(...t.cloneNode(true).childNodes)
+                this._templates[this.extends[id]] = this._templates[this.extends[id]] ?? this.stackTemplates(this.extends[id])
+                if (!this.templates[id]) return this._templates[id] = this._templates[this.extends[id]]
+                const template = document.createElement('template'), childTemplate = document.createElement('template')
+                template.innerHTML = this._templates[this.extends[id]]
+                childTemplate.innerHTML = this.templates[id]
+                const childTemplatesWithSlot = childTemplate.content.querySelectorAll('template[slot]')
+                if (childTemplatesWithSlot.length) {
+                    for (const t of childTemplatesWithSlot) {
+                        if (!this._templates[this.extends[id]]) { t.remove(); continue }
+                        let slotName = t.getAttribute('slot'), target
+                        if (slotName[0] === '`' && slotName.endsWith('`')) {
+                            target = template.content.querySelector(slotName.slice(1, -1))
+                        } else if (slotName) {
+                            target = template.content.querySelector(`slot[name="${slotName}"]`)
+                        } else { target = template.content.querySelector('slot:not([name])') }
+                        if (target) target.replaceWith(...t.cloneNode(true).childNodes)
+                        t.remove()
+                    }
+                    const slot = template.content.querySelector('slot')
+                    if (slot && childTemplate.innerHTML) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
+                    return this._templates[id] = this._templates[this.extends[id]] ? template.innerHTML : childTemplate.innerHTML
+                } else {
+                    return this._templates[id] = this.templates[id]
                 }
-                t.remove()
+            } else {
+                return this._templates[id] = this.templates[id]
             }
-            if (childTemplate.innerHTML) {
-                const slot = template.querySelector('slot')
-                if (slot) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
-            }
-            return template.innerHTML
-        } else { return this.templates[id] ?? '' }
+        }
     }},
     stackStyles: {enumerable: true, value: function(id) {
-        return this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
+        if (typeof this._styles[id] === 'string') return this._styles[id]
+        this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
+        return this._styles[id]
     }},
     _enscapulateNative: {value: function() {
         const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
@@ -739,7 +735,7 @@ const ElementHTML = Object.defineProperties({}, {
                 try {
                     $this.shadowRoot || $this.attachShadow({mode: 'open'})
                     $this.shadowRoot.textContent = ''
-                    $this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML.stackStyles(this.constructor.id)
+                    $this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
                     const templateNode = document.createElement('template')
                     templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
                     $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))

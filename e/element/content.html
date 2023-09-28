@@ -1,5 +1,5 @@
 <style></style>
-<template><slot></slot></template>
+<template></template>
 <script>
     class extends `./abstract/pointer` {
 
@@ -30,7 +30,6 @@
                                 transition.ready.then(() => {
                                     this.dispatchEvent(new CustomEvent('transition-ready'))
                                     let scope = this.#transitionScope ? t.closest(this.#transitionScope) : t.getRootNode()
-
                                     scope.animate(this.#transition)
                                 })
                                 transition.finished.then(() => {
