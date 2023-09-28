@@ -153,6 +153,7 @@
                     }
                 }
             } else { result = payload ?? boundResource }
+        console.log('line 156', result)
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
             if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
@@ -364,8 +365,11 @@
                     let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
                     if (mode === 'resource') {
-                        for (const eventName of eventNames) {
+                        for (let eventName of eventNames) {
                             for (const node of bindNodes) {
+                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
+                                    eventName = 'click'
+                                }
                                 node.addEventListener(eventName, event => {
                                     let proceed = true, count = getCount()
                                     if (refreshStep) proceed = (count >= start) && (!end || (count < end))
@@ -373,7 +377,7 @@
                                     count = getCount()
                                     if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
                                     if (!proceed) return
-                                    if (use === '!') { 
+                                    if (use === '!') {
                                         this.#refresh(event)
                                     } else if (use === '$') {
                                         this.#refresh(bound)

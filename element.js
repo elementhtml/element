@@ -246,7 +246,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
             if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
             if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
-            if (['data','meter','input','select','textarea'].includes(tag)) return element.getAttribute('value')
+            if (['data','meter','input','select','textarea'].includes(tag)) return element.value
             if (tag === 'time') return element.getAttribute('datetime')
             return element.textContent
         }
@@ -292,7 +292,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return }
                 if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return }
                 if (tag === 'object') { element[attrMethod]('data', value); return }
-                if (['data','meter','input','select','textarea'].includes(tag)) { (element.value = (value ??'')) || element[attrMethod]('value', value); return }
+                if (['data','meter','input','select','textarea'].includes(tag)) { element.value = (value ??''); return }
                 if (tag === 'time') { element[attrMethod]('datetime', value); return }
                 element.textContent = value
             }
@@ -504,23 +504,25 @@ const ElementHTML = Object.defineProperties({}, {
           const optionElements = []
           for (const k in data) {
             const optionElement = document.createElement('option')
-            optionElement.value = Array.isArray(data) ? data[k] : k
-            optionElement.setAttribute(optionElement.value)
+            optionElement.setAttribute('value', Array.isArray(data) ? data[k] : k)
             optionElement.textContent = data[k]
             optionElements.push(optionElement)
           }
           if (tag === 'select' || tag === 'datalist') {
             element.replaceChildren(...optionElements)
           } else if (tag === 'input' && sourceElement) {
-            const datalist = document.createElement('datalist')
+            const datalist = sourceElement.dataset.datalistId 
+                ? document.getElementById(sourceElement.dataset.datalistId) : document.createElement('datalist')
             datalist.replaceChildren(...optionElements)
-            sourceElement.dataset.datalistId = crypto.randomUUID()
-            datalist.setAttribute('id', sourceElement.dataset.datalistId)
-            document.body.append(datalist)
-            element.setAttribute('list', sourceElement.dataset.datalistId)
+            if (!sourceElement.dataset.datalistId) {
+                sourceElement.dataset.datalistId = crypto.randomUUID()
+                datalist.setAttribute('id', sourceElement.dataset.datalistId)
+                document.body.append(datalist)
+                element.setAttribute('list', sourceElement.dataset.datalistId)                
+            }
           }
         } else if (['form', 'fieldset'].includes(tag)) {
-            for (const [k, v] of Object.entries(data)) (element.querySelector([name="${k}"])||{}).value = v
+            for (const [k, v] of Object.entries(data)) (element.querySelector([name=`${k}`])||{}).value = v
         } else if (['table', 'tbody'].includes(tag)) {
           let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
           if (!tbody) element.append(tbody = document.createElement('tbody'))

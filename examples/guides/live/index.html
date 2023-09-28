@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <script type="module" src='../../../element.js?load&expose=E'></script>
+    <link rel="stylesheet" href="../../style.css">
+    <meta is="e-data" resource=":root|h1 > a" transform='{"title": $.innerHTML & " | Base37 Element"}'>
+    <meta is="e-theme" resource="theme">
+</head>
+<body>
+    <header>
+        <h1><a href="">Handling Live Data</a></h1>
+    </header>
+    <main>
+        <button>Click me!</button>
+        <fieldset>
+            <legend>Individual data pointers for each field.</legend>
+            <label>
+                <meta is="e-data" resource="main|button|!" apply='transform=$boolean($target)?$number($target)%2B1:1' target="|input">
+                <span>Click Count:</span>
+                <input name="count">
+            </label>
+            <label>
+                <span>Double:</span>
+                <input name="double" readonly>
+            </label>
+            <label>
+                <span>Odd Clicks:</span>
+                <input name="odd" readonly>
+            </label>
+            <label>
+                <span>Even Clicks:</span>
+                <input name="even" readonly>
+            </label>
+            <label>
+                <span>Clicks 3-5 only:</span>
+                <input name="3to5" readonly>
+            </label>
+            <label>
+                <span>Every 7th Click:</span>
+                <input name="seventh" readonly>
+            </label>
+        </fieldset>
+        <fieldset>
+            <legend>One data pointer for the fieldset.</legend>
+            <label>
+                <span>Click Count:</span>
+                <input name="count" readonly>
+            </label>
+            <label>
+                <span>Double:</span>
+                <input name="double" readonly>
+            </label>
+            <label>
+                <span>Odd Clicks:</span>
+                <input name="odd" readonly>
+            </label>
+            <label>
+                <span>Even Clicks:</span>
+                <input name="even" readonly>
+            </label>
+            <label>
+                <span>Clicks 3-5 only:</span>
+                <input name="3to5" readonly>
+            </label>
+            <label>
+                <span>Every 7th Click:</span>
+                <input name="seventh" readonly>
+            </label>
+        </fieldset>
+
+        
+
+    </main>
+    <footer>
+        <meta is="e-content" resource="../../footer.html">
+    </footer>
+</body>
+</html>

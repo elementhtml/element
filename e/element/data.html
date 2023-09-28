@@ -11,7 +11,7 @@
                         let apply = this.apply ?? this.getAttribute('apply') ?? '{}', {flag, transform} = this.e.utils.parseObjectAttribute(apply)
                         if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
                         if (!flag && this.hasAttribute('apply')) flag = 'auto'
-                        for (const t of target) this.e.sinkData(t, result, flag, transform)
+                        for (const t of target) this.e.sinkData(t, result, flag, transform, this)
                     }
                 }
             })
