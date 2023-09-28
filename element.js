@@ -586,7 +586,7 @@ const ElementHTML = Object.defineProperties({}, {
                         } else if (slotName) {
                             target = template.content.querySelector(`slot[name="${slotName}"]`)
                         } else { target = template.content.querySelector('slot:not([name])') }
-                        if (target) target.replaceWith(...t.cloneNode(true).childNodes)
+                        if (target) target.replaceWith(...t.content.cloneNode(true).childNodes)
                         t.remove()
                     }
                     const slot = template.content.querySelector('slot')
