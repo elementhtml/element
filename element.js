@@ -590,14 +590,11 @@ const ElementHTML = Object.defineProperties({}, {
                         t.remove()
                     }
                     const slot = template.content.querySelector('slot')
-                    if (slot && childTemplate.innerHTML) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
-                    return this._templates[id] = this._templates[this.extends[id]] ? template.innerHTML : childTemplate.innerHTML
-                } else {
-                    return this._templates[id] = this.templates[id]
+                    if (slot && childTemplate.innerHTML.trim()) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
+                    return this._templates[id] = (this._templates[this.extends[id]] ? template.innerHTML : childTemplate.innerHTML).trim()
                 }
-            } else {
-                return this._templates[id] = this.templates[id]
             }
+            return this._templates[id] = this.templates[id]
         }
     }},
     stackStyles: {enumerable: true, value: function(id) {
