@@ -321,13 +321,18 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.libraries.jsonata = window.jsonata
             }
             await this.utils.waitUntil(() => this.env.libraries.jsonata)
-            if (transform.includes('$target')) transform = `( $target := ${JSON.stringify(this.getValue(element))} ; ${transform})`
-            if (transform.includes('$node')) transform = `( $node := ${JSON.stringify(this.getValue(element))} ; ${transform})`
+            const variables = []
+            if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options', 'variables'])}`)
+            if (transform.includes('$sourceElement')) variables.push(`$sourceElement := ${JSON.stringify(sourceElement ? sourceElement.valueOf() : {})}`)
+            if (transform.includes('$target')) variables.push(`$target := ${JSON.stringify(this.getValue(element))}`)
+            if (transform.includes('$flag')) variables.push(`$flag := ${JSON.stringify(flag ?? '')}`)
+            if (transform.includes('$context')) variables.push(`$context := ${JSON.stringify(context ?? '')}`)
+            if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
             data = await this.env.libraries.jsonata(transform).evaluate(data)
         }
         if (data instanceof Node) {
             if (data.eDataset) {
-                data = Object.assign({}, data.eDataset)
+                data = data.valueOf()
             } else {
                 data = {...data.dataset, 
                     ...Object.fromEntries(data.getAttributeNames().map(a => ([`@${a}`, data.getAttribute(a)]))), 
@@ -758,7 +763,12 @@ const ElementHTML = Object.defineProperties({}, {
             async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-            valueOf() { return this.e.getValue(this) }
+            valueOf() {
+                return {...this.dataset, 
+                    ...Object.fromEntries(this.getAttributeNames().map(a => ([`@${a}`, this.getAttribute(a)]))), 
+                    ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, this[p]])))
+                }
+            }
             set ['e-value-proxy'](value) { this.#eValueProxy = value }
             get ['e-value-proxy']() { return this.#eValueProxy }
             set eValueProxy(value) { this.#eValueProxy = value }

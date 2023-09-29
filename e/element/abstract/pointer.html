@@ -159,11 +159,17 @@
                     const scriptTag = document.createElement('script')
                     scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
                     document.head.append(scriptTag)
-                    await this.e.utils.waitUntil(() => window.jsonata)                
+                    await this.e.utils.waitUntil(() => window.jsonata)
                     this.e.env.libraries.jsonata = window.jsonata
                 }
                 await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)
-                try { result = await this.e.env.libraries.jsonata(transform).evaluate(result) } catch(e) {
+                try { 
+                    const variables = []
+                    if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.e.env, ['eDataset', 'modes', 'options', 'variables'])}`)
+                    if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.valueOf())}`)
+                    if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
+                    result = await this.e.env.libraries.jsonata(transform).evaluate(result) 
+                } catch(e) {
                     this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
