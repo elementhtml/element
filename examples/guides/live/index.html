@@ -9,7 +9,7 @@
 </head>
 <body>
     <header>
-        <h1><a href="">Handling Live Data</a></h1>
+        <h1><a href="">Event Binding</a></h1>
     </header>
     <main>
         <button>Click me!</button>
@@ -47,7 +47,7 @@
             </label>
         </fieldset>
         <fieldset>
-            <meta is="e-data" resource='main|fieldset input[name="count"]|_' apply='transform=($c:=$?$number($):0;{"count": $, "double": $?$c*2:"", "odd": $?$floor($c/2)%2B($c%252):""})'>
+            <meta is="e-data" resource='main|fieldset input[name="count"]|_' transform='($c:=$?$number($):0;{"count": $, "double": $?$c*2:"", "odd": $?$floor($c/2)+($c%2):""})'>
             <legend>One data pointer for the fieldset.</legend>
             <label>
                 <span>Click Count:</span>
@@ -62,6 +62,22 @@
                 <input name="odd" readonly>
             </label>
         </fieldset>
+        <fieldset>
+            <meta is="e-data" resource='main|fieldset input[name="count"]' transform='($c:=$.value?$number($.value):0;{"count": $.value, "double": $.value?$c*2:"", "odd": $.value?$floor($c/2)+($c%2):""})'>
+            <legend>And one data pointer for the fieldset - but binding to the element, not its value.</legend>
+            <label>
+                <span>Click Count:</span>
+                <input name="count" readonly>
+            </label>
+            <label>
+                <span>Double:</span>
+                <input name="double" readonly>
+            </label>
+            <label>
+                <span>Odd Clicks:</span>
+                <input name="odd" readonly>
+            </label>
+        </fieldset>        
     </main>
     <footer>
         <meta is="e-content" resource="../../footer.html">
