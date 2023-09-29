@@ -1,0 +1,52 @@
+<style></style>
+<template></template>
+<script>
+    class extends `meta` {
+
+        #resource
+        #boundResource
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _class: {configurable: true, enumerable: false, value: 'EventTarget'}
+                _receiveEventName: {configurable: true, enumerable: false, value: 'receive'}
+                _sendMethodName: {configurable: true, enumerable: false, value: 'send'}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'options') }
+
+        async connectedCallback() {}
+
+        async _new(value) {
+            if (typeof window[this._class] === 'function') return new window[this._class](value, this._options)
+        }
+        async _send(payload) {
+            if (this.#boundResource && (typeof this.#boundResource[this._sendMethodName] === 'function')) await this.#boundResource[this._sendMethodName](payload)
+        }
+
+        set resource(value) {
+            this.#boundResource = this._newInstance(value)
+            this.#boundResource.addEventListener(this._messageEventName, event => {
+                this.dispatchEvent(new CustomEvent('receive', {detail: event}))
+            })
+            this.#resource = value
+        }
+        get resource() { return this.#resource }
+
+        set options(value) {
+            this.#options = this.e.utils.parseObjectAttribute(value)
+            this.#optionsString = value
+        }
+        get options() { return this.#optionsString }
+
+        get _options() { 
+            const optionsAttr = this.getAttribute('options')
+            if (optionsAttr && (this.#optionsString !== optionsAttr)) this.options = optionsAttr
+            return this.#options 
+        }
+
+    }
+</script>
+
