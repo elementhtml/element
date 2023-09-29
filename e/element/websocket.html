@@ -1,0 +1,32 @@
+<style></style>
+<template></template>
+<script>
+    class extends `./abstract/pipe` {
+
+    	constructor() {
+    		super()
+            Object.defineProperties(this, {
+                _class: {configurable: true, enumerable: false, value: 'WebSocket'}, 
+                _receiveEventName: {configurable: true, enumerable: false, value: 'message'}, 
+                _receiveEventPayloadProperty: {configurable: true, enumerable: false, value: 'data'},
+                _sendMethodName: {configurable: true, enumerable: false, value: 'send'}
+            })
+    	}
+
+		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+        async _new(value) {
+            const url = this.e.getURL(value), options = this._options, ws = new WebSocket(url, options.protocols)
+            if (options.binaryType) ws.binaryType = options.binaryType
+            ws.addEventListener('close', async event => {
+                if (this.isConnected) {
+                    const resource = this.resource
+                    await this.resource = undefined
+                    await this.resource = resource
+                }
+            })
+            return new Promise((resolve, reject) => { ws.addEventListener('open', event => resolve(ws)) }) 
+        }
+
+    }
+</script>
