@@ -17,11 +17,10 @@ const ElementHTML = Object.defineProperties({}, {
         options: {enumerable: true, value: Object.defineProperties({}, {
             security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}, 
             errors: {enumerable: true, value: 'hide'}, 
-            fetchOptions: {enumerable: true, value: {}},
-            rewriteRules: {enumerable: true, value: {}},
             ajv: {enumerable: true, value: {allErrors: true, verbose: true, validateSchema: 'log', 
                 strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true}}
-        })}
+        })}, 
+        variables: {enumerable: true, value: {}}
     })},
     utils: {enumerable: true, value: Object.defineProperties({}, {
         getCustomTag: {enumerable: true, value: function(element) {
@@ -583,6 +582,156 @@ const ElementHTML = Object.defineProperties({}, {
         element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
         return element
     }},
+
+    parse: {enumerable: true, value: async function(input, sourceElement) {
+        const typeCheck = (input instanceof Response) || (typeof input === 'text')
+        if (!typeCheck && (input instanceof Object)) return input
+        input = typeCheck ? input : `${input}`
+        let contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || undefined
+        if (!contentType && (input instanceof Response)) {
+            contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
+            contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
+            contentType ||= input.url.endsWith('.md') ? 'text/md' : undefined
+            contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
+            contentType = (input.url.endsWith('.json') || contentType.includes('json')) ? 'application/json' : contentType
+            contentType = (input.url.endsWith('.proto') || contentType.includes('protobuf')) ? 'application/x-protobuf' : contentType
+            contentType = (input.url.endsWith('.yaml') || contentType.includes('yaml')) ? 'application/x-yaml' : contentType
+            contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
+            contentType ||= input.url.endsWith('.msgpack') ? 'application/msgpack' : undefined
+            contentType ||= input.url.endsWith('.cbor') ? 'application/cbor' : undefined
+            const serverContentType = input.headers.get('Content-Type')
+            if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
+        }
+        contentType ||= 'application/json'
+        if (!contentType.includes('/')) contentType = `application/${contentType}`
+        if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
+        if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
+        let text = (input instanceof Response) ? await input.text() : response 
+        if (contentType === 'text/md') {
+            await this._installRemarkable()
+            let mdOptions = {...this.env.options.remarkable}
+            if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md')) || {}).entries())}
+            this.env.libraries.remarkable.set(mdOptions)
+            const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]), 
+                htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
+            for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+            for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
+            text = this.env.libraries.remarkable.render(text)
+            for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+            for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
+            return text
+        }
+        if (contentType === 'text/css') {
+            return await (new CSSStyleSheet()).replace(text)                
+        }
+        if (contentType === 'application/hjson') {
+            this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
+            return this.env.libraries.hjson.parse(text)
+        }
+        if (contentType.includes('yaml')) {
+            this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
+            return this.env.libraries.yaml.parse(text)
+        }
+        const buffer = (['application/x-protobuf', 'application/msgpack', 'application/cbor'].includes(contentType)) ? ((new TextEncoder()).encode(text).buffer) : undefined
+        if (contentType === 'application/x-protobuf') {
+            await this._installProtobuf()
+            try {
+                root = await new Promise((resolve, reject) => { this.env.libraries.protobuf.load(buffer, (error, loadedRoot) => error?reject(error):resolve(loadedRoot)) }), protobufAttr = sourceElement.getAttribute('protobufd-type'), messageType = protobufAttr ? root.lookupType(protobufAttr) : root.nestedArray[0]
+                return MyMessage.toObject(messageType.decode(new Uint8Array(buffer)), { defaults: true, arrays: true, objects: true })
+            } catch(e) {
+                sourceElement.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: response.url, fetchOptions}}))
+                if (sourceElement.errors === 'throw') { throw new Error(e); return } else { return {} }
+            }
+        }
+        if (contentType === 'application/msgpack') {
+            this.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
+            return this.env.libraries.msgpack.decode((new Uint8Array(buffer)))
+        }
+        if (contentType === 'application/cbor') {
+            this.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
+            return this.env.libraries.cbor.decode((new Uint8Array(buffer)))
+        }
+        return text        
+    }},
+    _installRemarkable: {enumerable: true, value: async function() {
+        if (!this.env.libraries.remarkable) {
+            this.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
+            const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), {alt: []}), parser = (md, options) => {
+              return (state) => {
+                let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)','gi')
+                while (++i < tokens.length) {
+                  const token = tokens[i]
+                  for (const child of (token.children ?? [])) {
+                    if (child.type !== 'text') return
+                    if (exp.test(child.content)) child.type = 'htmltag'
+                  }
+                }
+              }
+            }
+            this.env.libraries.remarkable.use(plugin)
+            this.env.options.remarkable = {html: true}
+        }
+    }},
+    _installProtobuf: {enumerable: true, value: async function() {
+        if (!this.env.libraries.protobuf) {
+            const s = document.createElement('script')
+            s.setAttribute('src', 'https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js')
+            document.head.append(s)
+            this.utils.waitUntil(() => window.protobuf).then(() => this.env.libraries.protobuf = window.protobuf) 
+        }   
+    }},
+
+    serialize: {enumerable: true, value: async function(input, sourceElement) {
+        if (typeof input === 'string') return input
+        let contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
+        if (!contentType.includes('/')) contentType = `application/${contentType}`
+        if (contentType === 'application/json') return JSON.stringify(input)
+        if (contentType.includes('protobuf')) {
+            await this._installProtobuf()
+            let schema = sourceElement.getAttribute('protobuf-schema'), type = sourceElement.getAttribute('protobuf-type')
+            if (!schema.includes('{') && (this.env.options.protobuf?.schemas ??{})[schema]) schema = this.env.options.protobuf.schemas[schema]
+            const root = this.env.libraries.protobuf.parse(schema).root
+            if (type) return (root.lookupType(type)).encodeText(input)
+            const typeClass = root.lookupType(type), message = typeClass.create()
+            for (const [k, v] in Object.entries(input)) message[k] = v
+            return typeClass.encodeText(message)
+        }
+        if (contentType === 'application/msgpack') {
+            this.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
+            return this.env.libraries.msgpack.encode(input) //ArrayBuffer
+        }
+        if (contentType === 'application/cbor') {
+            this.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
+            return this.env.libraries.cbor.encode(input) // ArrayBuffer
+        }
+        if (contentType === 'text/html' || contentType === 'text/md') {
+            if (!(input instanceof Node)) return 
+            let text = input?.outerHTML ?? input.textContent
+            if (contentType === 'text/md') {
+                await this._installRemarkable()
+                let mdOptions = {...this.env.options.remarkable}
+                if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md')) || {}).entries())}
+                this.env.libraries.remarkable.set(mdOptions)
+                text = this.env.libraries.remarkable.render(text)
+            }
+            return text
+        }
+        if (contentType === 'text/css') {
+            if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
+            if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
+        }
+        if (contentType === 'application/hjson') {
+            this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
+            return this.env.libraries.hjson.stringify(input)
+        }
+        if (contentType.includes('yaml')) {
+            this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
+            return this.env.libraries.yaml.stringify(input)
+        }
+    }},
+
+
+
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
         if (typeof this.templates[id] === 'string') {

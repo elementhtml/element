@@ -5,7 +5,6 @@
 
         #parser
         #serializer
-        #fetchOptions
         #resource
         #target
         #transform
@@ -21,12 +20,8 @@
         #boundTargetObserver
         #boundResourceRefreshCount = 0
         #boundTargetRefreshCount = 0
-        #options = {}
-        #optionsString = ''
-        #resourceOptions = {}
-        #resourceOptionsString = ''
-        #targetOptions = {}
-        #targetOptionsString = ''
+        #options = ''
+        #optionsMap = {}
         #use
 
     	constructor() {
@@ -44,7 +39,7 @@
     	}
 
 		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors',
-            'options', 'resource-options', 'target-options', 'parser', 'serializer') }
+            'options', 'parser', 'serializer') }
 
         async connectedCallback() {}
 
@@ -56,35 +51,6 @@
             list = list.slice(start, end)
             if (!step) return list
             return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
-        }
-
-        async #installProtobuf() {
-            if (!this.e.env.libraries.protobuf) {
-                const s = document.createElement('script')
-                s.setAttribute('src', 'https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js')
-                document.head.append(s)
-                this.e.utils.waitUntil(() => window.protobuf).then(() => this.e.env.libraries.protobuf = window.protobuf) 
-            }   
-        }
-
-        async #installRemarkable() {
-            if (!this.e.env.libraries.remarkable) {
-                this.e.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
-                const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), {alt: []}), parser = (md, options) => {
-                  return (state) => {
-                    let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)','gi')
-                    while (++i < tokens.length) {
-                      const token = tokens[i]
-                      for (const child of (token.children ?? [])) {
-                        if (child.type !== 'text') return
-                        if (exp.test(child.content)) child.type = 'htmltag'
-                      }
-                    }
-                  }
-                }
-                this.e.env.libraries.remarkable.use(plugin)
-                this.e.env.options.remarkable = {html: true}
-            }
         }
 
         #resolveUrl(useValue) {
@@ -123,13 +89,13 @@
                 } else if (contentType === 'application/schema+json') { 
                     result = boundResource
                 } else {
-                    let resourceOptions = this.resourceOptions, 
-                        requestOptions = (resourceOptions.eEnv) ? Object.assign({...this.e.env.options.fetchOptions[resourceOptions.eEnv] || {}}, resourceOptions) : resourceOptions
+                    let optionsMap = this.optionsMap, 
+                        requestOptions = (optionsMap.eEnv) ? Object.assign({...this.e.env.variables[optionsMap.eEnv] || {}}, optionsMap) : optionsMap
                     if (payload instanceof Object) {
                         requestOptions.body = await this.#serialize(payload)
                     } else if (payload) {
-                        fetchOptions.method ||= 'POST'
-                        fetchOptions.body = `${payload}`
+                        optionsMap.method ||= 'POST'
+                        optionsMap.body = `${payload}`
                     }
                     const req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
@@ -176,129 +142,16 @@
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
-            //.then(() => this.dispatchEvent(new CustomEvent('_apply', {detail: result})))
         }
 
         async #parse(response) {
             if (this.#parser) return await this.parser(response)
-            const typeCheck = (response instanceof Response) || (typeof response === 'text')
-            if (!typeCheck && (response instanceof Object)) return response
-            response = typeCheck ? response : `${response}`
-            let contentType = this.getAttribute('content-type') || this.resourceOptions['Content-Type'] || this._contentType || undefined
-            if (!contentType && (response instanceof Response)) {
-                contentType ||= response.url.endsWith('.html') ? 'text/html' : undefined
-                contentType ||= response.url.endsWith('.css') ? 'text/css' : undefined
-                contentType ||= response.url.endsWith('.md') ? 'text/md' : undefined
-                contentType ||= response.url.endsWith('.txt') ? 'text/plain' : undefined
-                contentType = (response.url.endsWith('.json') || contentType.includes('json')) ? 'application/json' : contentType
-                contentType = (response.url.endsWith('.proto') || contentType.includes('protobuf')) ? 'application/x-protobuf' : contentType
-                contentType = (response.url.endsWith('.yaml') || contentType.includes('yaml')) ? 'application/x-yaml' : contentType
-                contentType ||= response.url.endsWith('.hjson') ? 'application/hjson' : undefined
-                contentType ||= response.url.endsWith('.msgpack') ? 'application/msgpack' : undefined
-                contentType ||= response.url.endsWith('.cbor') ? 'application/cbor' : undefined
-                const serverContentType = response.headers.get('Content-Type')
-                if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
-            }
-            contentType ||= 'application/json'
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
-            if ((contentType === 'text/html') || (contentType === 'text/plain')) return (response instanceof Response) ? await response.text() : response
-            if (contentType === 'application/json') return (response instanceof Response) ? await response.json() : JSON.parse(response)
-            let text = (response instanceof Response) ? await response.text() : response 
-            if (contentType === 'text/md') {
-                await this.#installRemarkable()
-                let mdOptions = {...this.e.env.options.remarkable}
-                if (this.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(this.getAttribute('md')) || {}).entries())}
-                this.e.env.libraries.remarkable.set(mdOptions)
-                const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]), 
-                    htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
-                for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                text = this.e.env.libraries.remarkable.render(text)
-                for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                return text
-            }
-            if (contentType === 'text/css') {
-                return await (new CSSStyleSheet()).replace(text)                
-            }
-            if (contentType === 'application/hjson') {
-                this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.e.env.libraries.hjson.parse(text)
-            }
-            if (contentType.includes('yaml')) {
-                this.e.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.e.env.libraries.yaml.parse(text)
-            }
-            const buffer = (['application/x-protobuf', 'application/msgpack', 'application/cbor'].includes(contentType)) ? ((new TextEncoder()).encode(text).buffer) : undefined
-            if (contentType === 'application/x-protobuf') {
-                await this.#installProtobuf()
-                try {
-                    root = await new Promise((resolve, reject) => { this.e.env.libraries.protobuf.load(buffer, (error, loadedRoot) => error?reject(error):resolve(loadedRoot)) }), protobufAttr = this.getAttribute('protobufd-type'), messageType = protobufAttr ? root.lookupType(protobufAttr) : root.nestedArray[0]
-                    return MyMessage.toObject(messageType.decode(new Uint8Array(buffer)), { defaults: true, arrays: true, objects: true })
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: response.url, fetchOptions}}))
-                    if (this.errors === 'throw') { throw new Error(e); return } else { return {} }
-                }
-            }
-            if (contentType === 'application/msgpack') {
-                this.e.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
-                return this.e.env.libraries.msgpack.decode((new Uint8Array(buffer)))
-            }
-            if (contentType === 'application/cbor') {
-                this.e.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
-                return this.e.env.libraries.cbor.decode((new Uint8Array(buffer)))
-            }
-            return text
+            return await this.e.parse(response, this)    
         }
 
         async #serialize(value) {
             if (this.#serializer) return await this.serializer(value)
-            if (typeof value === 'string') return value
-            let contentType = this.getAttribute('content-type') || this.targetOptions['Content-Type'] || this._contentType || 'application/json'
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
-            if (contentType === 'application/json') return JSON.stringify(value)
-            if (contentType.includes('protobuf')) {
-                await this.#installProtobuf()
-                let schema = this.getAttribute('protobuf-schema'), type = this.getAttribute('protobuf-type')
-                if (!schema.includes('{') && (this.e.env.options.protobuf?.schemas ??{})[schema]) schema = this.e.env.options.protobuf.schemas[schema]
-                const root = this.e.env.libraries.protobuf.parse(schema).root
-                if (type) return (root.lookupType(type)).encodeText(value)
-                const typeClass = root.lookupType(type), message = typeClass.create()
-                for (const [k, v] in Object.entries(value)) message[k] = v
-                return typeClass.encodeText(message)
-            }
-            if (contentType === 'application/msgpack') {
-                this.e.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
-                return this.e.env.libraries.msgpack.encode(value) //ArrayBuffer
-            }
-            if (contentType === 'application/cbor') {
-                this.e.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
-                return this.e.env.libraries.cbor.encode(value) // ArrayBuffer
-            }
-            if (contentType === 'text/html' || contentType === 'text/md') {
-                if (!(value instanceof Node)) return 
-                let text = value?.outerHTML ?? value.textContent
-                if (contentType === 'text/md') {
-                    await this.#installRemarkable()
-                    let mdOptions = {...this.e.env.options.remarkable}
-                    if (this.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(this.getAttribute('md')) || {}).entries())}
-                    this.e.env.libraries.remarkable.set(mdOptions)
-                    text = this.e.env.libraries.remarkable.render(text)
-                }
-                return text
-            }
-            if (contentType === 'text/css') {
-                if (value instanceof Node) return (await (new CSSStyleSheet()).replace(value.textContent)).cssRules.map(rule => rule.cssText).join('\n')
-                if (value instanceof CSSStyleSheet) return value.cssRules.map(rule => rule.cssText).join('\n')
-            }
-            if (contentType === 'application/hjson') {
-                this.e.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.e.env.libraries.hjson.stringify(value)
-            }
-            if (contentType.includes('yaml')) {
-                this.e.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.e.env.libraries.yaml.stringify(value)
-            }
+            return await this.e.serialize(response, this)    
         }
 
         #createBound(value, mode) {
@@ -357,112 +210,50 @@
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
                     observer && (observer.disconnect())
-                    setBoundObserver(new MutationObserver(processRecords))
-                    observer = getBoundObserver()
+                    observer = setBoundObserver(new MutationObserver(processRecords))
                     observer.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                 }
                 if (refreshOn && (mode === 'resource')) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()
-                    setBoundController(new AbortController())
-                    boundController = getBoundController()
+                    boundController = setBoundController(new AbortController())
                     const [refreshFrom, refreshStep=''] = refreshOn.split('{')
                     let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
-                    if (mode === 'resource') {
-                        for (let eventName of eventNames) {
-                            for (const node of bindNodes) {
-                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
-                                    eventName = 'click'
-                                }
-                                node.addEventListener(eventName, event => {
-                                    let proceed = true, count = getCount()
-                                    if (refreshStep) proceed = (count >= start) && (!end || (count < end))
-                                    setCount(count + 1)
-                                    count = getCount()
-                                    if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
-                                    if (!proceed) return
-                                    if (use === '!') {
-                                        this.#refresh(event)
-                                    } else if (use === '$') {
-                                        this.#refresh(bound)
-                                    } else if (Array.isArray(bound)) {
-                                        this.#refresh(bound.map(node => this.e.getValue(node)))
-                                    } else { this.#refresh(this.e.getValue(node)) }
-                                }, {signal: boundController.signal})
+                    for (let eventName of eventNames) {
+                        for (const node of bindNodes) {
+                            if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
+                                eventName = 'click'
                             }
+                            node.addEventListener(eventName, event => {
+                                let proceed = true, count = getCount()
+                                if (refreshStep) proceed = (count >= start) && (!end || (count < end))
+                                setCount(count + 1)
+                                count = getCount()
+                                if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                                if (!proceed) return
+                                if (use === '!') {
+                                    this.#refresh(event)
+                                } else if (use === '$') {
+                                    this.#refresh(bound)
+                                } else if (Array.isArray(bound)) {
+                                    this.#refresh(bound.map(node => this.e.getValue(node)))
+                                } else { this.#refresh(this.e.getValue(node)) }
+                            }, {signal: boundController.signal})
                         }
-                    } else {
-                        /*this.addEventListener('_apply', event => {
-                            if (use === '!') {
-                                for (const eventName of eventNames) for (const node of bindNodes) node.dispatchEvent(new CustomEvent(eventName, {detail: event.detail}))
-                            } else if (use === '_') {
-                                for (const node of bindNodes) this.e.setValue(node, event.detail)
-                            } else {
-                                let data, flag, transform, sourceElement, context 
-                                if (!Array.isArray(event.detail) && (event.detail instanceof Object)) {
-                                    ({data, flag, transform, sourceElement, context} = event.detail)
-                                } else { data = event.detail }
-                                for (const node of bindNodes) this.e.sinkData(node, data, flag, transform, sourceElement, context)
-                            }
-                        }, {signal: boundController.signal})*/
                     }
                 }
             } else {
-                let url = this.#resolveUrl(useValue)
-                if (url.startsWith('wss://') || url.includes('!')) {
-                    let eventSource, eventPayloadList = ['message']
-                    if (url.startsWith('wss://')) {
-                        eventSource = new WebSocket(url)
-                    } else {
-                        const [sourceUrl, eventList] = this.e.utils.splitOnce(url, '!').map(s => s.trim())
-                        eventSource = new EventSource(sourceUrl)
-                        if (eventList) eventPayloadList = eventList.split(',')
-                    }
-                    if (eventSource) {
-                        eventSource.addEventListener('open', event => {
-                            let boundController = getBoundController()
-                            if (boundController) boundController.abort()
-                            setBound(eventSource)
-                            setBoundController(new AbortController())
-                            boundController = getBoundController()
-                            if (mode === 'resource') {
-                                for (const eventName of eventPayloadList) {
-                                    eventSource.addEventListener(eventName, event => {
-                                        this.#refresh(this.#parse(event.data))
-                                    }, {signal: boundController.signal})
-                                }
-                            } else {
-                                if (typeof eventSource.send === 'function') {
-                                    /*this.addEventListener('_apply', async event => {
-                                        eventSource.send(await this.#serialize(event.detail))
-                                    }, {signal: boundController.signal})*/
-                                }
-                            }
-                        })
-                    }
-                } else {
-                    let boundController = getBoundController()
-                    if (boundController) boundController.abort()
-                    setBoundController(new AbortController())
-                    boundController = getBoundController()
-                    setBound(url)
-                    if (mode === 'resource') {
-                        if (useValue.includes(':#')) {
-                            window.addEventListener('hashchange', event => {
-                                const resource = this.#resource
-                                this.#resource = undefined
-                                this.resource = resource
-                            }, {signal: boundController.signal})
-                        }
-
-                    } else if (mode === 'target') {
-                        /*this.addEventListener('_apply', event => {
-                            let targetOptions = this.targetOptions, 
-                                requestOptions = (targetOptions.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[targetOptions.eEnv] || {}}, targetOptions) : targetOptions
-                            fetch(getBound(), requestOptions)
-                        }, {signal: boundController.signal})*/
-                    }
+                let url = this.#resolveUrl(useValue), boundController = getBoundController()
+                if (boundController) boundController.abort()
+                setBound(url)
+                if (useValue.includes(':#')) {
+                    boundController = setBoundController(new AbortController())
+                    window.addEventListener('hashchange', event => {
+                        const resource = this.#resource
+                        this.#resource = undefined
+                        this.resource = resource
+                    }, {signal: boundController.signal})
                 }
             }
         }
@@ -512,25 +303,33 @@
         set apply(value) { this.#apply = value }
         get apply() { return this.#apply }
 
-        #buildRewrites() {
+        set rewrite(value) {
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
                 let value = this.getAttribute('rewrite')
                 this.#rewriteRules = []
                 let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}, 
-                rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.options.rewriteRules[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
+                rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.variables[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
                 for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             }
-        }
-
-        set rewrite(value) {
-            this.#buildRewrites()
             this.#rewrite = value
         }
         get rewrite() { return this.#rewrite }
-
         get rewriteRules() { 
-            this.#buildRewrites()
-            return this.#rewriteRules ?? [] 
+            const attrRewrite = this.getAttribute('rewrite')
+            if (attrRewrite && attrRewrite!== this.#rewrite) this.rewrite = attrRewrite
+            return this.#rewriteRules
+        }
+
+
+        set options(value) {
+            this.#optionsMap = this.e.utils.parseObjectAttribute(value)
+            this.#options = value
+        }
+        get options() { return this.#options }
+        get optionsMap() { 
+            const attrOptions = this.getAttribute('options')
+            if (attrOptions && attrOptions!== this.#options) this.options = attrOptions
+            return this.#optionsMap 
         }
 
         set errors(value) { this.#errors = value }
@@ -541,28 +340,6 @@
 
         set serializer(value) { this.#serializer = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get serializer() { return this.#serializer }
-
-        set options(value) {
-            this.#options = this.e.utils.parseObjectAttribute(value)
-            this.#optionsString = value
-        }
-        get options() { return this.#optionsString }
-
-        set ['resource-options'](value) {
-            this.#resourceOptions = this.e.utils.parseObjectAttribute(value)
-            this.#resourceOptionsString = value
-        }
-        get ['resource-options']() { return this.#resourceOptionsString }
-
-        get resourceOptions() { return {...this.#options, ...this.#resourceOptions} }
-
-        set ['target-options'](value) {
-            this.#targetOptions = this.e.utils.parseObjectAttribute(value)
-            this.#targetOptionsString = value
-        }
-        get ['target-options']() { return this.#targetOptionsString }
-
-        get targetOptions() { return {...this.#options, ...this.#targetOptions} }
 
         /*set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
         get processor() { return this.#processor }*/
