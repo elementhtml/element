@@ -141,7 +141,12 @@
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             if (typeof boundTarget === 'string') {
-                fetch(this.#resolveUrl(boundTarget), compileRequestOptions(result))
+                const requestOptions = compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
+                if (requestOptions.method === 'POST' && ((!requestOptions.body && (optionsKeys.length === 1)) || (requestOptions.body && (optionsKeys.length === 2)))) {
+                    navigator.sendBeacon(this.#resolveUrl(boundTarget), requestOptions.body)
+                } else {
+                    fetch(this.#resolveUrl(boundTarget), )
+                }
             } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
         }
 
