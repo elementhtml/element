@@ -3,8 +3,6 @@
 <script>
     class extends `meta` {
 
-        #parser
-        #serializer
         #resource
         #target
         #transform
@@ -39,7 +37,7 @@
     	}
 
 		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors',
-            'options', 'parser', 'serializer') }
+            'options') }
 
         async connectedCallback() {}
 
@@ -79,7 +77,16 @@
         }
 
         async #refresh(payload) {
-            const boundResource = this.boundResource
+            const boundResource = this.boundResource, compileRequestOptions = async v => {
+                let optionsMap = this.optionsMap, requestOptions = {...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap}
+                if (v instanceof Object) {
+                    requestOptions.body = await this.#serialize(v)
+                } else if (v) {
+                    requestOptions.method ||= 'POST'
+                    requestOptions.body = `${v}`
+                }
+                return requestOptions
+            }
             if (!boundResource) return
             let result
             if (!payload && (typeof boundResource === 'string')) {
@@ -89,15 +96,7 @@
                 } else if (contentType === 'application/schema+json') { 
                     result = boundResource
                 } else {
-                    let optionsMap = this.optionsMap, 
-                        requestOptions = (optionsMap.eEnv) ? Object.assign({...this.e.env.variables[optionsMap.eEnv] || {}}, optionsMap) : optionsMap
-                    if (payload instanceof Object) {
-                        requestOptions.body = await this.#serialize(payload)
-                    } else if (payload) {
-                        optionsMap.method ||= 'POST'
-                        optionsMap.body = `${payload}`
-                    }
-                    const req = fetch(boundResource, requestOptions)
+                    const req = fetch(boundResource, compileRequestOptions(payload))
                     if (this._isReference) {
                         if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
                             result = await WebAssembly.instantiateStreaming(req)
@@ -141,17 +140,17 @@
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
-            this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
+            if (typeof boundTarget === 'string') {
+                fetch(this.#resolveUrl(boundTarget), compileRequestOptions(result))
+            } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
         }
 
-        async #parse(response) {
-            if (this.#parser) return await this.parser(response)
-            return await this.e.parse(response, this)    
+        async #parse(value) {
+            return (typeof this.eParser === 'function') ? (await this.eParser(value)) : (await this.e.parse(value, this))
         }
 
         async #serialize(value) {
-            if (this.#serializer) return await this.serializer(value)
-            return await this.e.serialize(response, this)    
+            return (typeof this.eSerializer === 'function') ? (await this.eSerializer(value)) : (await this.e.serialize(value, this))
         }
 
         #createBound(value, mode) {
@@ -271,7 +270,6 @@
             }
         }
         get resource() { return this.#resource }
-
         get boundResource() { 
             const resourceAttrVal = this.getAttribute('resource')
             if (resourceAttrVal && !this.#resource) {
@@ -287,7 +285,6 @@
             this.#target = value
         }
         get target() { return this.#target }
-
         get boundTarget() { 
             const targetAttrVal = this.getAttribute('target')
             if (targetAttrVal && !this.#target) {
@@ -320,7 +317,6 @@
             return this.#rewriteRules
         }
 
-
         set options(value) {
             this.#optionsMap = this.e.utils.parseObjectAttribute(value)
             this.#options = value
@@ -334,15 +330,6 @@
 
         set errors(value) { this.#errors = value }
         get errors() { return this.#errors ?? this.e.env.options.errors }
-
-        set parser(value) { this.#parser = this.e.utils.resolveMeta(this, 'e-processor', value) }
-        get parser() { return this.#parser }
-
-        set serializer(value) { this.#serializer = this.e.utils.resolveMeta(this, 'e-processor', value) }
-        get serializer() { return this.#serializer }
-
-        /*set processor(value) { this.#processor = this.e.utils.resolveMeta(this, 'e-processor', value) }
-        get processor() { return this.#processor }*/
 
     }
 </script>

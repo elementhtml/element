@@ -825,6 +825,8 @@ const ElementHTML = Object.defineProperties({}, {
                     e: {enumerable: true, value: ElementHTML},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eData: {enumerable: true, writable: true, value: {}},
+                    eParser: {enumerable: true, writable: true, value: null},
+                    eSerializer: {enumerable: true, writable: true, value: null},
                     eProcessor: {enumerable: true, writable: true, value: null},
                     eSchema: {enumerable: true, writable: true, value: null},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
