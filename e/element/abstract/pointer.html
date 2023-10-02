@@ -78,9 +78,15 @@
 
         async #refresh(payload) {
             const boundResource = this.boundResource, compileRequestOptions = async v => {
-                let optionsMap = this.optionsMap, requestOptions = {...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap}
+                let optionsMap = this.optionsMap, requestOptions = {...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap},  headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
+                contentType ||= this.getAttribute('content-type') || this._contentType
+                if (!contentType && v) contentType ||= 'application/json'
+                if (contentType) {
+                    requestOptions.headers = headers
+                    requestOptions.headers['Content-Type'] = contentType
+                }
                 if (v instanceof Object) {
-                    requestOptions.body = await this.#serialize(v)
+                    requestOptions.body = await this.#serialize(v, contentType)
                 } else if (v) {
                     requestOptions.method ||= 'POST'
                     requestOptions.body = `${v}`
@@ -96,7 +102,7 @@
                 } else if (contentType === 'application/schema+json') { 
                     result = boundResource
                 } else {
-                    const req = fetch(boundResource, compileRequestOptions(payload))
+                    const requestOptions = await compileRequestOptions(payload), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
                             result = await WebAssembly.instantiateStreaming(req)
@@ -141,21 +147,19 @@
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             if (typeof boundTarget === 'string') {
-                const requestOptions = compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
-                if (requestOptions.method === 'POST' && ((!requestOptions.body && (optionsKeys.length === 1)) || (requestOptions.body && (optionsKeys.length === 2)))) {
+                const requestOptions = await compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
+                if (requestOptions.body && !requestOptions.method) {
                     navigator.sendBeacon(this.#resolveUrl(boundTarget), requestOptions.body)
-                } else {
-                    fetch(this.#resolveUrl(boundTarget), )
-                }
+                } else { fetch(this.#resolveUrl(boundTarget), requestOptions) }
             } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
         }
 
         async #parse(value) {
-            return (typeof this.eParser === 'function') ? (await this.eParser(value)) : (await this.e.parse(value, this))
+            return (typeof this.eParser === 'function') ? (await this.eParser(value, this)) : (await this.e.parse(value, this))
         }
 
-        async #serialize(value) {
-            return (typeof this.eSerializer === 'function') ? (await this.eSerializer(value)) : (await this.e.serialize(value, this))
+        async #serialize(value, contentType) {
+            return (typeof this.eSerializer === 'function') ? (await this.eSerializer(value, this, contentType)) : (await this.e.serialize(value, this, contentType))
         }
 
         #createBound(value, mode) {
@@ -266,9 +270,10 @@
             if (this.#resource === value) return
             this.#createBound(value, 'resource')
             this.#resource = value
-            if (!this.#use) {
-                this.#refresh()
-            } else if (this.#use === '$') {
+            if (!this.#use) { this.#refresh(); return }
+            const boundTarget = this.boundTarget
+            if (!boundTarget || (typeof boundTarget === 'string')) return
+            if (this.#use === '$') {
                 this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
                 this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))

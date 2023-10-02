@@ -625,6 +625,9 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
             return text
         }
+        if (contentType && contentType.includes('form')) {
+            return Object.fromEntries((new URLSearchParams(text)).entries())
+        }        
         if (contentType === 'text/css') {
             return await (new CSSStyleSheet()).replace(text)
         }
@@ -661,30 +664,11 @@ const ElementHTML = Object.defineProperties({}, {
             this.env.options.remarkable = {html: true}
         }
     }},
-
-    serialize: {enumerable: true, value: async function(input, sourceElement) {
+    serialize: {enumerable: true, value: async function(input, sourceElement, contentType) {
         if (typeof input === 'string') return input
-        let contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
+        contentType ||= sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
         if (!contentType.includes('/')) contentType = `application/${contentType}`
         if (contentType === 'application/json') return JSON.stringify(input)
-        if (contentType.includes('protobuf')) {
-            await this._installProtobuf()
-            let schema = sourceElement.getAttribute('protobuf-schema'), type = sourceElement.getAttribute('protobuf-type')
-            if (!schema.includes('{') && (this.env.options.protobuf?.schemas ??{})[schema]) schema = this.env.options.protobuf.schemas[schema]
-            const root = this.env.libraries.protobuf.parse(schema).root
-            if (type) return (root.lookupType(type)).encodeText(input)
-            const typeClass = root.lookupType(type), message = typeClass.create()
-            for (const [k, v] in Object.entries(input)) message[k] = v
-            return typeClass.encodeText(message)
-        }
-        if (contentType === 'application/msgpack') {
-            this.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
-            return this.env.libraries.msgpack.encode(input) //ArrayBuffer
-        }
-        if (contentType === 'application/cbor') {
-            this.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
-            return this.env.libraries.cbor.encode(input) // ArrayBuffer
-        }
         if (contentType === 'text/html' || contentType === 'text/md') {
             if (!(input instanceof Node)) return 
             let text = input?.outerHTML ?? input.textContent
@@ -697,6 +681,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
             return text
         }
+        if (contentType && contentType.includes('form')) {
+            return (new URLSearchParams(input)).toString()
+        }
         if (contentType === 'text/css') {
             if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
             if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
@@ -705,13 +692,16 @@ const ElementHTML = Object.defineProperties({}, {
             this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
             return this.env.libraries.hjson.stringify(input)
         }
-        if (contentType.includes('yaml')) {
+        if (contentType && contentType.includes('yaml')) {
             this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
             return this.env.libraries.yaml.stringify(input)
         }
+        if (contentType === 'text/csv' || contentType === 'text/tsv') {
+            this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
+            return this.env.libraries.papaparse.unparse(input)
+        }
+        return JSON.stringify(input)
     }},
-
-
 
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
