@@ -1,0 +1,12 @@
+name: Test YAML Subject
+number: 624
+properties:
+  - - Label One
+    - Label Two 
+    - Label Three
+  - - d
+    - e
+    - f
+  - - g
+    - h
+    - i

@@ -1,0 +1,22 @@
+{
+  name: Test HJSON Subject
+  number: 625
+  properties:
+  [
+    [
+      Label One
+      Label Two
+      Label Three
+    ]
+    [
+      d
+      e
+      f
+    ]
+    [
+      g
+      h
+      i
+    ]
+  ]
+}

@@ -535,7 +535,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
           }
         } else if (['form', 'fieldset'].includes(tag)) {
-            for (const [k, v] of Object.entries(data)) (element.querySelector(`[name=${k}]`)||{}).value = v
+            for (const [k, v] of Object.entries(data)) this.sinkData((element.querySelector(`[name=${k}]`)||{}), v)
         } else if (['table', 'tbody'].includes(tag)) {
           let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
           if (!tbody) element.append(tbody = document.createElement('tbody'))
@@ -547,7 +547,7 @@ const ElementHTML = Object.defineProperties({}, {
               if (!thead) element.prepend(thead = document.createElement('thead'))
               let thRow = thead.querySelector('tr')
               if (!thRow) thead.prepend(thRow = document.createElement('tr'))
-              for (const h of headers) thead.appendChild(document.createElement('th')),textContent = h
+              for (const h of headers) thead.appendChild(document.createElement('th')).textContent = h
             }
             const namedRows = data instanceof Object
             for (const [k, v] of Object.entries(rowsData)) {
@@ -592,21 +592,25 @@ const ElementHTML = Object.defineProperties({}, {
             contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
             contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
             contentType ||= input.url.endsWith('.md') ? 'text/md' : undefined
+            contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
             contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
-            contentType = (input.url.endsWith('.json') || contentType.includes('json')) ? 'application/json' : contentType
-            contentType = (input.url.endsWith('.proto') || contentType.includes('protobuf')) ? 'application/x-protobuf' : contentType
-            contentType = (input.url.endsWith('.yaml') || contentType.includes('yaml')) ? 'application/x-yaml' : contentType
+            contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
+            contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
             contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
-            contentType ||= input.url.endsWith('.msgpack') ? 'application/msgpack' : undefined
-            contentType ||= input.url.endsWith('.cbor') ? 'application/cbor' : undefined
             const serverContentType = input.headers.get('Content-Type')
             if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
+        } else if (contentType && contentType.includes('json')) {
+            contentType = 'application/json'
+        } else if (contentType && contentType.includes('yaml')) {
+            contentType = 'application/x-yaml'
+        } else if (contentType && contentType.includes('csv')) {
+            contentType = 'text/csv'
         }
         contentType ||= 'application/json'
         if (!contentType.includes('/')) contentType = `application/${contentType}`
         if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
         if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
-        let text = (input instanceof Response) ? await input.text() : response 
+        let text = ((input instanceof Response) ? await input.text() : response).trim() 
         if (contentType === 'text/md') {
             await this._installRemarkable()
             let mdOptions = {...this.env.options.remarkable}
@@ -622,7 +626,7 @@ const ElementHTML = Object.defineProperties({}, {
             return text
         }
         if (contentType === 'text/css') {
-            return await (new CSSStyleSheet()).replace(text)                
+            return await (new CSSStyleSheet()).replace(text)
         }
         if (contentType === 'application/hjson') {
             this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
@@ -632,24 +636,9 @@ const ElementHTML = Object.defineProperties({}, {
             this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
             return this.env.libraries.yaml.parse(text)
         }
-        const buffer = (['application/x-protobuf', 'application/msgpack', 'application/cbor'].includes(contentType)) ? ((new TextEncoder()).encode(text).buffer) : undefined
-        if (contentType === 'application/x-protobuf') {
-            await this._installProtobuf()
-            try {
-                root = await new Promise((resolve, reject) => { this.env.libraries.protobuf.load(buffer, (error, loadedRoot) => error?reject(error):resolve(loadedRoot)) }), protobufAttr = sourceElement.getAttribute('protobufd-type'), messageType = protobufAttr ? root.lookupType(protobufAttr) : root.nestedArray[0]
-                return MyMessage.toObject(messageType.decode(new Uint8Array(buffer)), { defaults: true, arrays: true, objects: true })
-            } catch(e) {
-                sourceElement.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: response.url, fetchOptions}}))
-                if (sourceElement.errors === 'throw') { throw new Error(e); return } else { return {} }
-            }
-        }
-        if (contentType === 'application/msgpack') {
-            this.env.libraries.msgpack ||= await import('https://cdn.jsdelivr.net/npm/msgpack-lite@0.1.26/+esm')
-            return this.env.libraries.msgpack.decode((new Uint8Array(buffer)))
-        }
-        if (contentType === 'application/cbor') {
-            this.env.libraries.cbor ||= await import('https://cdn.jsdelivr.net/npm/cbor-js@0.1.0/+esm')
-            return this.env.libraries.cbor.decode((new Uint8Array(buffer)))
+        if (contentType === 'text/csv') {
+            this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
+            return this.env.libraries.papaparse.parse(text, {dynamicTyping: true}).data
         }
         return text        
     }},
@@ -671,14 +660,6 @@ const ElementHTML = Object.defineProperties({}, {
             this.env.libraries.remarkable.use(plugin)
             this.env.options.remarkable = {html: true}
         }
-    }},
-    _installProtobuf: {enumerable: true, value: async function() {
-        if (!this.env.libraries.protobuf) {
-            const s = document.createElement('script')
-            s.setAttribute('src', 'https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js')
-            document.head.append(s)
-            this.utils.waitUntil(() => window.protobuf).then(() => this.env.libraries.protobuf = window.protobuf) 
-        }   
     }},
 
     serialize: {enumerable: true, value: async function(input, sourceElement) {

@@ -1,0 +1,9 @@
+{
+	"name": "Test JSON Subject", 
+	"number": 623, 
+	"properties": [
+		["Label One","Label Two","Label Three"], 
+		["d","e", "f"], 
+		["g", "h", "i"]
+	]
+}

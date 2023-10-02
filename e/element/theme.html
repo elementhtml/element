@@ -20,7 +20,7 @@
                                 apply === 'underlay' ? document.head.prepend(styleNode) : document.head.append(styleNode)
                             } else if (t instanceof ShadowRoot || t.shadowRoot instanceof ShadowRoot) {
                                 const shadow = t instanceof ShadowRoot ? t : t.shadowRoot
-                                apply === 'underlay' ? shadow.prepend(styleNode) : shadow.querySelector('style:last-of-type')?.after(styleNode)                            
+                                apply === 'underlay' ? shadow.prepend(styleNode) : shadow.querySelector('style:last-of-type')?.after(styleNode)
                             }
                         }
                     }
