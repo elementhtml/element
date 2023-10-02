@@ -297,10 +297,7 @@
         get target() { return this.#target }
         get boundTarget() { 
             const targetAttrVal = this.getAttribute('target')
-            if (targetAttrVal && !this.#target) {
-                this.#createBound(targetAttrVal, 'target')
-                this.#target = targetAttrVal
-            }
+            if (targetAttrVal !== !this.#target) this.target = targetAttrVal
             return this.#boundTarget
         }
 
