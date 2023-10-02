@@ -18,6 +18,7 @@
         #boundTargetObserver
         #boundResourceRefreshCount = 0
         #boundTargetRefreshCount = 0
+        #targetEvents = []
         #options = ''
         #optionsMap = {}
         #use
@@ -151,7 +152,17 @@
                 if (requestOptions.body && !requestOptions.method) {
                     navigator.sendBeacon(this.#resolveUrl(boundTarget), requestOptions.body)
                 } else { fetch(this.#resolveUrl(boundTarget), requestOptions) }
-            } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
+            } else { 
+                if (this.#targetEvents.length) {
+                    for (const eventName of this.#targetEvents) {
+                        for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
+                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, {detail: payload}))
+                        }
+                    }
+                } else {
+                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) 
+                }
+            }
         }
 
         async #parse(value) {
@@ -173,6 +184,7 @@
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let useValue = value ?? '|'
             const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(useValue[0])
+            this.#targetEvents = []
             if (useValue.includes('|') || startsWithFlag) {
                 let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
                 [use, refreshOn] = !useRefresh ? ['$', 'change']
@@ -221,34 +233,39 @@
                     observer = setBoundObserver(new MutationObserver(processRecords))
                     observer.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
                 }
-                if (refreshOn && (mode === 'resource')) {
+                if (refreshOn) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()
                     boundController = setBoundController(new AbortController())
                     const [refreshFrom, refreshStep=''] = refreshOn.split('{')
                     let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
-                    for (let eventName of eventNames) {
-                        for (const node of bindNodes) {
-                            if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
-                                eventName = 'click'
+                    if (mode === 'resource') {
+                        for (let eventName of eventNames) {
+                            for (const node of bindNodes) {
+                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
+                                    eventName = 'click'
+                                }
+                                node.addEventListener(eventName, event => {
+                                    let proceed = true, count = getCount()
+                                    if (refreshStep) proceed = (count >= start) && (!end || (count < end))
+                                    setCount(count + 1)
+                                    count = getCount()
+                                    if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                                    if (!proceed) return
+                                    if (use === '!') {
+                                        this.#refresh(event)
+                                    } else if (use === '$') {
+                                        this.#refresh(bound)
+                                    } else if (Array.isArray(bound)) {
+                                        this.#refresh(bound.map(node => this.e.getValue(node)))
+                                    } else { this.#refresh(this.e.getValue(node)) }
+                                }, {signal: boundController.signal})
                             }
-                            node.addEventListener(eventName, event => {
-                                let proceed = true, count = getCount()
-                                if (refreshStep) proceed = (count >= start) && (!end || (count < end))
-                                setCount(count + 1)
-                                count = getCount()
-                                if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
-                                if (!proceed) return
-                                if (use === '!') {
-                                    this.#refresh(event)
-                                } else if (use === '$') {
-                                    this.#refresh(bound)
-                                } else if (Array.isArray(bound)) {
-                                    this.#refresh(bound.map(node => this.e.getValue(node)))
-                                } else { this.#refresh(this.e.getValue(node)) }
-                            }, {signal: boundController.signal})
                         }
+                    } else { 
+                        const targetAttrVal = this.getAttribute('target')
+                        if (use === '!' && targetAttrVal && targetAttrVal.includes('!')) this.#targetEvents = eventNames
                     }
                 }
             } else {
