@@ -15,24 +15,28 @@
     <main>
         <fieldset>
             <meta is="e-data" resource="data">
-            <meta is="e-content" resource="||!error" target="|p" transform=$.detail>
-            <p>Error message here</p>
+            <meta is="e-data" resource="||!error" target="|" apply="auto"
+                transform='$merge($.detail {"$(small[data-schema-path=\"" & $.schemaPath & "\"]).innerHTML": $.message})'>
             <legend>Serialized as JSON</legend>
             <label>
                 <span>Product ID:</span>
                 <input name="productId" value="">
+                <small></small>
             </label>
             <label>
                 <span>Product Name:</span>
                 <input name="productName" value="">
+                <small></small>
             </label>
             <label>
                 <span>Price:</span>
                 <input name="price" value="">
+                <small></small>
             </label>
             <label>
                 <span>Tags:</span>
                 <input name="tags" value="">
+                <small data-schema-path="#/properties/tags/type"></small>
             </label>
         </fieldset>
     </main>

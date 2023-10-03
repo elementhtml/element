@@ -42,6 +42,11 @@ label:nth-of-type(3) span {
 	display: block;
 	width: calc(100% - 35px);
 }
+label small {
+	display: block;
+	font-style: italic;
+	font-weight: 100;
+}
 input {
 	width: 137px;
 	text-align: center;

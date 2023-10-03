@@ -43,11 +43,11 @@
                         this.#abortController.abort()
                         this.#abortController = new AbortController()
                         for (const t of target) {
-                            this.e.applySchema(t, this.#schema)
                             t.addEventListener('change', async event => {
                                 const valid = await this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
-                                console.log('line 48', valid, errors)
-                                if (!valid) t.dispatchEvent(new CustomEvent('error', {detail: errors}))
+                                if (!valid && errors.length) {
+                                    t.dispatchEvent(new CustomEvent('error', {detail: errors}))
+                                } else if (valid) { t.dispatchEvent(new CustomEvent('success', {detail: errors})) }
                             }, { signal: this.#abortController.signal })
                         }
                     }
