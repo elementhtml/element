@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <script type="module" src='../../../element.js?load&expose=E'></script>
+    <link rel="stylesheet" href="../../style.css">
+    <meta is="e-data" resource=":root|h1 > a" transform='{"title": $.innerHTML & " | Base37 Element"}'>
+    <meta is="e-theme" resource="theme">
+    <meta is="e-schema" resource="schema" target=":root|fieldset">
+</head>
+<body>
+    <header>
+        <h1><a href="">Data Validation</a></h1>
+    </header>
+    <main>
+        <fieldset>
+            <meta is="e-data" resource="data">
+            <meta is="e-content" resource="||!error" target="|p" transform=$.detail>
+            <p>Error message here</p>
+            <legend>Serialized as JSON</legend>
+            <label>
+                <span>Product ID:</span>
+                <input name="productId" value="">
+            </label>
+            <label>
+                <span>Product Name:</span>
+                <input name="productName" value="">
+            </label>
+            <label>
+                <span>Price:</span>
+                <input name="price" value="">
+            </label>
+            <label>
+                <span>Tags:</span>
+                <input name="tags" value="">
+            </label>
+        </fieldset>
+    </main>
+    <footer>
+        <meta is="e-content" resource="../../footer.html">
+    </footer>
+</body>
+</html>

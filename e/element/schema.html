@@ -5,19 +5,21 @@
 
         #canonicalUrl
         #validate = input => true
+        #abortController
+        #schema
 
         constructor() {
             super()
+            this.#abortController = new AbortController()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
                 _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}, 
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#canonicalUrl = result
-                        let apply = this.apply ?? this.getAttribute('apply')
+                        let apply = this.e.utils.parseObjectAttribute(this.apply ?? this.getAttribute('apply'))
                         if (!this.e.env.libraries.ajv) {
-                            let ajvOptions = {...this.e.env.options.ajv}
-                            if (this.as) ajvOptions = {...ajvOptions, ...Object.fromEntries((this.e.utils.parseObjectAttribute(apply) || {}).entries())}
+                            let ajvOptions = {...this.e.env.options.ajv, ...(apply ?? {})}
                             this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
                             const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
                             addFormats(this.e.env.libraries.ajv)
@@ -32,18 +34,21 @@
                             let schemaJson
                             try { schemaJson = JSON.parse(schemaText) } catch(e) {}
                             if (schemaJson instanceof Object) {
+                                this.#schema = JSON.parse(schemaText)
                                 delete schemaJson['$schema']
                                 this.e.env.libraries.ajv.addSchema(schemaJson, this.#canonicalUrl)
                                 this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
                             } else { this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: schemaFetch.status, message: schemaText}})) } 
                         }
+                        this.#abortController.abort()
+                        this.#abortController = new AbortController()
                         for (const t of target) {
-                            t.eSchema = this.#canonicalUrl
-                            const abortController = new AbortController(), signal = abortController.signal
-                            t.addEventListener('change', event => {
-                                const valid = this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
+                            this.e.applySchema(t, this.#schema)
+                            t.addEventListener('change', async event => {
+                                const valid = await this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
+                                console.log('line 48', valid, errors)
                                 if (!valid) t.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                            }, { signal })
+                            }, { signal: this.#abortController.signal })
                         }
                     }
                 }
@@ -58,6 +63,8 @@
             const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
             return [valid, errors]                
         }
+
+        get schema() { return this.schema }
 
         get canonicalUrl() { return this.#canonicalUrl }
 

@@ -1,0 +1,62 @@
+main {
+	text-align: center;
+}
+button {
+	display: block;
+	margin: 137px;
+	margin-left: auto;
+	margin-right: auto;
+	font-size: xx-large;
+	cursor: pointer;
+	background-color: wheat;
+	border: 3px dashed #37373773;
+	border-radius: 3px;
+	outline: none;
+}
+button:hover {
+	border-color: darkgreen;	
+}
+button:active {
+	border-color: red;	
+}
+fieldset {
+	margin: 17px;
+	margin-top: 37px;
+	margin-bottom: 37px;
+}
+legend {
+	cursor: default;
+}
+label {
+	display: inline-block;
+	margin: 17px;
+	white-space: nowrap;
+	width: 237px;
+}
+label:nth-of-type(3) {
+	display: block;
+	width: 100%;
+	text-align: center;
+}
+label:nth-of-type(3) span {
+	display: block;
+	width: calc(100% - 35px);
+}
+input {
+	width: 137px;
+	text-align: center;
+	cursor: default;
+}
+table {
+	border: 1px solid #37373773;
+	padding: 17px;	
+	border-collapse: no-collapse;
+	width: 400px;
+	margin: 37px;
+	margin-left: auto;
+	margin-right: auto;
+}
+thead {
+	font-weight: bold;
+	text-decoration: underline;
+}

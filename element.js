@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
         options: {enumerable: true, value: Object.defineProperties({}, {
             security: {enumerable: true, value: {allowTemplateUseScripts: false, allowTemplateUseCustom: []}}, 
             errors: {enumerable: true, value: 'hide'}, 
-            ajv: {enumerable: true, value: {allErrors: true, verbose: true, validateSchema: 'log', 
+            ajv: {enumerable: true, value: {allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true, 
                 strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true}}
         })}, 
         variables: {enumerable: true, value: {}}
@@ -701,6 +701,9 @@ const ElementHTML = Object.defineProperties({}, {
             return this.env.libraries.papaparse.unparse(input)
         }
         return JSON.stringify(input)
+    }},
+
+    applySchema: {enumerable: true, value: function(element, schemaObject) {
     }},
 
     stackTemplates: {enumerable: true, value: function(id) {
