@@ -4,7 +4,8 @@
     class extends `./abstract/pointer` {
 
         #module
-        #func = input => input
+        #map
+        #mapMap
 
         constructor() {
             super()
@@ -13,14 +14,14 @@
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result
-                        let apply = this.apply ?? this.getAttribute('apply')
-                        if (this.#module instanceof Object) {
-                            if (apply && typeof this.#module[apply] === 'function') {
-                                this.#func = this.#module[apply]
-                            } else if (typeof this.#module.default === 'function') {
-                                this.#func = this.#module.default
-                            } else if (typeof this.#module === 'function') {
-                                this.#func = this.#module
+                        for (const [s, m] of Object.entries(this.mapMap)) this[s] = this.#module[m]
+                        let applyMap = this.applyMap
+                        if (applyMap) {
+                            let applyEntries = Object.entries(this.applyMap ?? {})
+                            for (const t of target) {
+                                const elementMap = this.e.env.map.get(t) ?? {}
+                                for (const [role, mm] of applyEntries) elementMap[role] = mm
+                                this.e.env.map.set(t, elementMap)
                             }
                         }
                     }
@@ -31,11 +32,18 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
+        set map(value) {
+            this.#mapMap = this.e.utils.parseObjectAttribute(value)            
+            this.#map = value 
+        }
+        get map() { return this.#map }
+        get mapMap() {
+            const attrMap = this.getAttribute('map')
+            if (attrMap && attrMap!== this.#map) this.map = attrMap
+            return this.#mapMap 
+        }        
+
         get module() { return this.#module }
-
-        get func() { return this.#func }        
-
-        bind(thisArg, ...args) { return this.#func ? this.#func.bind(thisArg || this.e, ...args) : undefined } 
 
     }
 </script>

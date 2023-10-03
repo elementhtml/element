@@ -7,6 +7,7 @@
         #target
         #transform
         #apply
+        #applyMap
         #errors
         #rewrite
         #rewriteRules = []
@@ -37,8 +38,7 @@
             })
     	}
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors',
-            'options') }
+		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'options') }
 
         async connectedCallback() {}
 
@@ -166,11 +166,13 @@
         }
 
         async #parse(value) {
-            return (typeof this.eParser === 'function') ? (await this.eParser(value, this)) : (await this.e.parse(value, this))
+            const parser = (this.e.env.map.get(this) ?? {}).parser
+            return (typeof parser === 'function') ? (await parser(value, this)) : (await this.e.parse(value, this))
         }
 
         async #serialize(value, contentType) {
-            return (typeof this.eSerializer === 'function') ? (await this.eSerializer(value, this, contentType)) : (await this.e.serialize(value, this, contentType))
+            const serializer = (this.e.env.map.get(this) ?? {}).serializer
+            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.e.serialize(value, this, contentType))
         }
 
         #createBound(value, mode) {
@@ -321,8 +323,16 @@
         set transform(value) { this.#transform = value }
         get transform() { return this.#transform }
 
-        set apply(value) { this.#apply = value }
+        set apply(value) { 
+            this.#applyMap = this.e.utils.parseObjectAttribute(value)
+            this.#apply = value 
+        }
         get apply() { return this.#apply }
+        get applyMap() { 
+            const attrApply = this.getAttribute('apply')
+            if (attrApply && attrApply!== this.#apply) this.apply = attrApply
+            return this.#applyMap 
+        }
 
         set rewrite(value) {
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {

@@ -7,7 +7,8 @@ const ElementHTML = Object.defineProperties({}, {
             element: 'element/element.html', content: 'content/content.html', data: 'data/data.json', 
             theme: 'theme/theme.css', schema: 'schema/schema.schema.json', processor: 'processor/process.js'
         }},
-        loadingRegistry: {enumerable: true, value: {}},
+        loadingRegistry: {enumerable: false, value: {}},
+        map: {enumerable: false, value: new WeakMap()},
         proxies: {enumerable: true, value: {}},
         gateways: {enumerable: true, value: {
             ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
