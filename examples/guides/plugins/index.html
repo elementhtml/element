@@ -46,21 +46,3 @@
     </footer>
 </body>
 </html>
-
-<!--
-    getValue => pre-getValue(element) => element ; post-getValue(element, value) => value to be returned by getValue
-    setValue => pre-setValue(element, value) => value used for setting ; post-setValue(element) => element
-    sinkData => pre-sinkData(element, data ... ) => returns all arguments to override ; post-sinkData(element, data ... ) => element 
-    parser => use as parser on pointers
-    serializer => use as serializer on pointers
-    eDataset => eDataset-has/get/set/deleteProperty(element, property, value, receiver) => override the eDataset methods
-    valueOf => (element) => override the valueOf method for this element
-
-    !eventName|newEvent => captures the eventName event with (element, event) and the return is the detail of the dispatched newEvent
-
-    . =>  becomes this method/property of the element
-
-    gateway:... => becomes a protocol resolver
-
-    $... => stored as a variable in E.env.variables for use anywhere else
--->
