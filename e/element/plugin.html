@@ -36,7 +36,7 @@
                                 const elementMap = this.e.env.map.get(t) ?? {}
                                 for (const [role, mm] of applyEntries) {
                                     if (role.startsWith('!') || role.startsWith('_')) {
-                                        const flag = role[0], [eventName, newEvent] = role.slice(1).split('|')                                       
+                                        const flag = role[0], [eventName, newEvent] = role.slice(1).split('|')
                                         if (eventName) {
                                             t.addEventListener(eventName, async event => {
                                                 let result
@@ -48,8 +48,8 @@
                                                 const newEventFlag = newEvent ? newEvent[0] : '', newEventName = newEventFlag ? newEvent.slice(1) : newEvent
                                                 if (newEventFlag === '_') {
                                                     this.e.setValue(t, result)
-                                                } else if ((newEventFlag === '!') && (newEventName !== eventName)) {
-                                                    t.dispatchEvent(new CustomEvent(newEventName, {detail: result}))                                                    
+                                                } else if ((newEventFlag === '!') && newEventName && (newEventName !== eventName)) {
+                                                    t.dispatchEvent(new CustomEvent(newEventName, {detail: result}))
                                                 } else if ((newEventFlag === '.')) {
                                                     t[newEventName] = result
                                                 } else if ((newEventFlag === '@')) {

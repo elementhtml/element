@@ -228,7 +228,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},    
     getValue: {enumerable: true, value: function(element, useDataset='auto') {
-        if (!element) return
+        if (!(element instanceof Node)) return
         const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
         if (preGetValue) element = typeof preGetValue === 'function' ? preGetValue(element, useDataset) : preGetValue 
         const ret = (v) => {
@@ -277,7 +277,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        if (!element) return
+        if (!(element instanceof Node)) return
         const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
         if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(element, value, scopeNode) : preSetValue
         const close = () => {
@@ -338,7 +338,8 @@ const ElementHTML = Object.defineProperties({}, {
         return close()
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
-        if (!element) return
+        console.log('line 341', element, data, flag)
+        if (!(element instanceof Node)) return
         const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
         if (typeof preSinkData === 'function') ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
         if (preSinkData instanceof Object) ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = preSinkData)
