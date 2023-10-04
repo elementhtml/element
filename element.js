@@ -5,7 +5,7 @@ const ElementHTML = Object.defineProperties({}, {
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
             element: 'element/element.html', content: 'content/content.html', data: 'data/data.json', 
-            theme: 'theme/theme.css', schema: 'schema/schema.schema.json', processor: 'processor/process.js'
+            theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js'
         }},
         loadingRegistry: {enumerable: false, value: {}},
         map: {enumerable: false, value: new WeakMap()},
@@ -212,6 +212,13 @@ const ElementHTML = Object.defineProperties({}, {
     }},    
     getValue: {enumerable: true, value: function(element, useDataset='auto') {
         if (!element) return
+        const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
+        if (preGetValue) element = typeof preGetValue === 'function' ? preGetValue(element, useDataset) : preGetValue 
+        const ret = (v) => {
+            const postGetValue = (this.env.map.get(element) ?? {})['postGetValue']
+            if (postGetValue) v = typeof postGetValue === 'function' ? postGetValue(element, v, useDataset) : postGetValue
+            return v
+        }
         if (element.hasAttribute('itemscope')) {
             const value = {}, parseElementForValues = (el) => {
                 if (!el) return
@@ -237,24 +244,28 @@ const ElementHTML = Object.defineProperties({}, {
                 retval[unsafeProperty] = retval[k]
                 delete retval[k]
             }
-            return retval
+            return ret(retval)
         } else {
             if (useDataset === 'auto') useDataset = !!Object.keys(element.dataset).length
-            if (useDataset) return {...element.dataset}
+            if (useDataset) return ret({...element.dataset})
             const tag = element.tagName.toLowerCase()
-            if (tag === 'meta') return element.getAttribute('content')
-            if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return new URL(element.getAttribute('src'), element.getRootNode().baseURI).href
-            if (['a','area','link'].includes(tag)) return new URL(element.getAttribute('href'), element.getRootNode().baseURI).href
-            if (tag === 'object') return new URL(element.getAttribute('data'), element.getRootNode().baseURI).href
-            if (['data','meter','input','select','textarea'].includes(tag)) return element.value
-            if (tag === 'time') return element.getAttribute('datetime')
-            if (['form', 'fieldset'].includes(tag)) return Object.fromEntries(Array.from(element.querySelectorAll('[name]')).map(f => [f.getAttribute('name'), this.getValue(f)]))
-            return element.textContent
+            if (tag === 'meta') return ret(element.getAttribute('content'))
+            if (['audio','embed','iframe','img','source','track','video'].includes(tag)) return ret(new URL(element.getAttribute('src'), element.getRootNode().baseURI).href)
+            if (['a','area','link'].includes(tag)) return ret(new URL(element.getAttribute('href'), element.getRootNode().baseURI).href)
+            if (tag === 'object') return ret(new URL(element.getAttribute('data'), element.getRootNode().baseURI).href)
+            if (['data','meter','input','select','textarea'].includes(tag)) return ret(element.value)
+            if (tag === 'time') return ret(element.getAttribute('datetime'))
+            if (['form', 'fieldset'].includes(tag)) return ret(Object.fromEntries(Array.from(element.querySelectorAll('[name]')).map(f => [f.getAttribute('name'), this.getValue(f)])))
+            return ret(element.textContent)
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        if (!element) return element
+        if (!element) return
+        const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
+        if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(element, value, scopeNode) : preSetValue
         const close = () => {
+            const postSetValue = (this.env.map.get(element) ?? {})['postSetValue']
+            if (postSetValue) element = typeof postSetValue === 'function' ? postSetValue(element, value, scopeNode) : postSetValue
             element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))
             return element
         }
@@ -310,7 +321,17 @@ const ElementHTML = Object.defineProperties({}, {
         return close()
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
-        if (!element) return element
+        if (!element) return
+        const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
+        if (typeof preSinkData === 'function') ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
+        if (preSinkData instanceof Object) ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = preSinkData)
+        const close = async (element) => {
+            const postSinkData = (this.env.map.get(element) ?? {})['postSinkData']
+            if (typeof postSinkData === 'function') element = await postSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement)
+            if (postSinkData instanceof Object) element = postSinkData
+            element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
+            return element
+        }
         rootElement ||= element
         if (transform) {
             if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
@@ -344,17 +365,17 @@ const ElementHTML = Object.defineProperties({}, {
         if (!Object.keys(data).length) return element
         flag ||= sourceElement?.flag
         if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
-          const useNode = element === document.head ? element : document
-          for (const [k, v] of Object.entries(data)) {
-            if (k==='title' || k==='@title' || k==='.title') {
-              useNode.querySelector('title').textContent = v
-            } else {
-              const metaElements = useNode.children,
-                metaElement = (k.startsWith('@') || k.startsWith('.')) ? metaElements[k.slice(1)] : metaElements[k]
-              metaElement && metaElement.setAttribute('content', v)
+            const useNode = element === document.head ? element : document
+            for (const [k, v] of Object.entries(data)) {
+                if (k==='title' || k==='@title' || k==='.title') {
+                    useNode.querySelector('title').textContent = v
+                } else {
+                    const metaElements = useNode.children,
+                        metaElement = (k.startsWith('@') || k.startsWith('.')) ? metaElements[k.slice(1)] : metaElements[k]
+                    metaElement && metaElement.setAttribute('content', v)
+                }
             }
-          }
-          return element
+            return await close(element)
         }
         const tag = element.tagName.toLowerCase()
         if (flag === '@') {
@@ -580,10 +601,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
         }
-        element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
-        return element
+        return await close(element)
     }},
-
     parse: {enumerable: true, value: async function(input, sourceElement) {
         const typeCheck = (input instanceof Response) || (typeof input === 'text')
         if (!typeCheck && (input instanceof Object)) return input
@@ -703,10 +722,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return JSON.stringify(input)
     }},
-
-    applySchema: {enumerable: true, value: function(element, schemaObject) {
-    }},
-
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
         if (typeof this.templates[id] === 'string') {
@@ -800,12 +815,10 @@ const ElementHTML = Object.defineProperties({}, {
                     e: {enumerable: true, value: ElementHTML},
                     eContext: {enumerable: true, writable: true, value: {}},
                     eData: {enumerable: true, writable: true, value: {}},
-                    eParser: {enumerable: true, writable: true, value: null},
-                    eSerializer: {enumerable: true, writable: true, value: null},
-                    eProcessor: {enumerable: true, writable: true, value: null},
-                    eSchema: {enumerable: true, writable: true, value: null},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
+                            const override = (this.env.map.get(element) ?? {})['eDatasetHas']
+                            if (override) return typeof override === 'function' ? override(element, target, property) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.hasAttribute(property.slice(1))
@@ -816,6 +829,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         get(target, property, receiver) {
+                            const override = (this.env.map.get(element) ?? {})['eDatasetGet']
+                            if (override) return typeof override === 'function' ? override(element, target, property, receiver) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.getAttribute(property.slice(1))
@@ -826,6 +841,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         set(target, property, value, receiver) {
+                            const override = (this.env.map.get(element) ?? {})['eDatasetSet']
+                            if (override) return typeof override === 'function' ? override(element, target, property, value, receiver) : override
                             switch(property[0]) {
                             case '@':
                                 if (value === null || value === undefined) {
@@ -850,6 +867,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         deleteProperty(target, property) {
+                            const override = (this.env.map.get(element) ?? {})['eDatasetDeleteProperty']
+                            if (override) return typeof override === 'function' ? override(element, target, property) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.removeAttribute(property.slice(1))
@@ -890,6 +909,8 @@ const ElementHTML = Object.defineProperties({}, {
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() {
+                const override = (this.env.map.get(element) ?? {})['valueOf']
+                if (override) return typeof override === 'function' ? override(element) : override
                 return {...this.dataset, 
                     ...Object.fromEntries(this.getAttributeNames().map(a => ([`@${a}`, this.getAttribute(a)]))), 
                     ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, this[p]])))

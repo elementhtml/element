@@ -7,11 +7,11 @@
     <meta is="e-data" resource=":root|h1 > a" transform='{"title": $.innerHTML & " | Base37 Element"}'>
     <meta is="e-theme" resource="theme">
     <meta is="e-schema" resource="schema" target=":root|fieldset">
-    <meta is="e-processor" resource="currency" target=":root|fieldset input[name=price]">
+    <meta is="e-plugin" resource="currency" target=":root|fieldset input[name=price]" apply="!change=currency">
 </head>
 <body>
     <header>
-        <h1><a href="">Processors</a></h1>
+        <h1><a href="">Plugins</a></h1>
     </header>
     <main>
         <fieldset>
@@ -46,3 +46,21 @@
     </footer>
 </body>
 </html>
+
+<!--
+    getValue => pre-getValue(element) => element ; post-getValue(element, value) => value to be returned by getValue
+    setValue => pre-setValue(element, value) => value used for setting ; post-setValue(element) => element
+    sinkData => pre-sinkData(element, data ... ) => returns all arguments to override ; post-sinkData(element, data ... ) => element 
+    parser => use as parser on pointers
+    serializer => use as serializer on pointers
+    eDataset => eDataset-has/get/set/deleteProperty(element, property, value, receiver) => override the eDataset methods
+    valueOf => (element) => override the valueOf method for this element
+
+    !eventName|newEvent => captures the eventName event with (element, event) and the return is the detail of the dispatched newEvent
+
+    . =>  becomes this method/property of the element
+
+    gateway:... => becomes a protocol resolver
+
+    $... => stored as a variable in E.env.variables for use anywhere else
+-->

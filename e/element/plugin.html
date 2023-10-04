@@ -1,0 +1,90 @@
+<style></style>
+<template></template>
+<script>
+    class extends `./abstract/pointer` {
+
+        #module
+        #map
+        #mapMap
+        #abortController
+
+        constructor() {
+            super()
+            this.#abortController = new AbortController()            
+            Object.defineProperties(this, {
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'plugin'}, 
+                _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
+                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
+                        this.#module = result
+                        for (const [s, m] of Object.entries(this.mapMap || {})) this[s] = this.#module[m]
+                        let applyMap = this.applyMap
+                        if (applyMap) {
+                            let applyEntries = Object.entries(this.applyMap ?? {})
+                            for (const [role, mm] of applyEntries) {
+                                if ((typeof this.#module[mm] === 'function') && role.startsWith('gateway:')) {
+                                    const [, protocol] = role.split(':') 
+                                    if (protocol) this.e.env.gateways[protocol] = this.#module[mm]
+                                } else if (role.startsWith('$')) {
+                                    const variableName = role.slice(1)
+                                    if (variableName) this.e.env.variables[variableName] = this.#module[mm]
+                                } else { continue }
+                                delete applyEntries[role]
+                            }
+                            this.#abortController.abort()
+                            this.#abortController = new AbortController()
+                            for (const t of target) {
+                                const elementMap = this.e.env.map.get(t) ?? {}
+                                for (const [role, mm] of applyEntries) {
+                                    if (role.startsWith('!') || role.startsWith('_')) {
+                                        const flag = role[0], [eventName, newEvent] = role.slice(1).split('|')                                       
+                                        if (eventName) {
+                                            t.addEventListener(eventName, async event => {
+                                                let result
+                                                if (flag === '!') {
+                                                    result = (typeof this.#module[mm] === 'function') ? await this.#module[mm](event, t) : this.#module[mm]
+                                                } else if (flag ==='_') {
+                                                    result = (typeof this.#module[mm] === 'function') ? await this.#module[mm](this.e.getValue(t), t) : this.#module[mm]
+                                                }
+                                                const newEventFlag = newEvent ? newEvent[0] : '', newEventName = newEventFlag ? newEvent.slice(1) : newEvent
+                                                if (newEventFlag === '_') {
+                                                    this.e.setValue(t, result)
+                                                } else if ((newEventFlag === '!') && (newEventName !== eventName)) {
+                                                    t.dispatchEvent(new CustomEvent(newEventName, {detail: result}))                                                    
+                                                } else if ((newEventFlag === '.')) {
+                                                    t[newEventName] = result
+                                                } else if ((newEventFlag === '@')) {
+                                                    t.setAttribute(newEventName, result)
+                                                } else if (newEvent) {
+                                                    this.e.sinkData(t, result, ...this.e.splitOnce(newEvent, ','), this)
+                                                }
+                                            }, { signal: this.#abortController.signal })
+                                        }
+                                    } else if (role.startsWith('.')) {
+                                        t[role.slice(1)] = this.#module[mm]
+                                    } else { elementMap[role] = this.#module[mm] }
+                                } 
+                                this.e.env.map.set(t, elementMap)
+                            }
+                        }
+                    }
+                }
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
+
+        set map(value) {
+            this.#mapMap = this.e.utils.parseObjectAttribute(value)            
+            this.#map = value 
+        }
+        get map() { return this.#map }
+        get mapMap() {
+            const attrMap = this.getAttribute('map')
+            if (attrMap && attrMap!== this.#map) this.map = attrMap
+            return this.#mapMap 
+        }        
+
+        get module() { return this.#module }
+
+    }
+</script>
