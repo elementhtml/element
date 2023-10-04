@@ -413,6 +413,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
           }
+        } else if (flag && flag.startsWith('$')) {
+            const variableName = flag.slice(1)
+            if (variableName) this.env.variables[variableName] = data
         } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
           if (flag.startsWith('...')) {
             const sinkFunctionName = flag.slice(3)
