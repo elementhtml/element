@@ -135,10 +135,20 @@
                     this.e.env.libraries.jsonata = window.jsonata
                 }
                 await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)
+                if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
+                    const variableValue = this.e.getVariable(transform)
+                    if (typeof variableValue === 'string') transform = variableValue
+                }
                 try { 
                     const variables = []
                     if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.e.env, ['eDataset', 'modes', 'options', 'variables'])}`)
                     if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.valueOf())}`)
+
+                    for (const [vn, vv] of Object.entries(this.e.env.variables)) {
+                        if ((vn === 'env') || (vn === 'this')) continue
+                        if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
+                    }
+
                     if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
                     result = await this.e.env.libraries.jsonata(transform).evaluate(result) 
                 } catch(e) {

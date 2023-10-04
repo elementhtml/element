@@ -33,6 +33,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Object) {
                 retval = value
             } else if (typeof value === 'string') {
+                if (value[0] === '$') return ElementHTML.getVariable(value) ?? retval
                 if (value[0] === '?') value = decodeURIComponent(value).slice(1)
                 if ((value[0] === '{') && (value.slice(-1) === '}')) {
                     try { retval = JSON.parse(value) } catch(e) {}
@@ -127,6 +128,22 @@ const ElementHTML = Object.defineProperties({}, {
         mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
         this.env.options.errors = mode
     }},
+    getVariable: {enumerable: true, value: function(variableRef) {
+        if (!variableRef) return
+        const variableName = variableRef.slice(1)
+        if (!variableName) return
+        if (variableName.includes('.')) {
+            let variableNameSplit = variableName.split('.'), variableValue = this.e.env.variables(variableNameSplit.shift())
+            if (!(variableValue instanceof Object)) return variableValue            
+            for (const part of variableNameSplit) {
+                variableValue = variableValue[part]
+                if (!(variableValue instanceof Object)) break
+            }
+            return variableValue
+        } else {
+            return this.e.env.variables(variableName)
+        }
+    }},     
     getURL: {enumerable: true, value: function(value) {
         if (!value.includes('://')) return value
         if (!value.startsWith('http://') && !value.startsWith('https://')) {
@@ -342,12 +359,20 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.libraries.jsonata = window.jsonata
             }
             await this.utils.waitUntil(() => this.env.libraries.jsonata)
+            if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
+                const variableValue = this.getVariable(transform)
+                if (typeof variableValue === 'string') transform = variableValue
+            }            
             const variables = []
             if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options', 'variables'])}`)
             if (transform.includes('$sourceElement')) variables.push(`$sourceElement := ${JSON.stringify(sourceElement ? sourceElement.valueOf() : {})}`)
             if (transform.includes('$target')) variables.push(`$target := ${JSON.stringify(this.getValue(element))}`)
             if (transform.includes('$flag')) variables.push(`$flag := ${JSON.stringify(flag ?? '')}`)
             if (transform.includes('$context')) variables.push(`$context := ${JSON.stringify(context ?? '')}`)
+            for (const [vn, vv] of Object.entries(this.env.variables)) {
+                if ((vn === 'env') || (vn === 'sourceElement') || (vn === 'target') || (vn === 'flag') || (vn === 'context')) continue
+                if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
+            }
             if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
             data = await this.env.libraries.jsonata(transform).evaluate(data)
         }

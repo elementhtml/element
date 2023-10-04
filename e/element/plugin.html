@@ -74,7 +74,7 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
         set map(value) {
-            this.#mapMap = this.e.utils.parseObjectAttribute(value)            
+            this.#mapMap = this.e.utils.parseObjectAttribute(value)
             this.#map = value 
         }
         get map() { return this.#map }
