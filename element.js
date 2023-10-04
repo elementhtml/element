@@ -338,7 +338,6 @@ const ElementHTML = Object.defineProperties({}, {
         return close()
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
-        console.log('line 341', element, data, flag)
         if (!(element instanceof Node)) return
         const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
         if (typeof preSinkData === 'function') ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
