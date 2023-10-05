@@ -76,6 +76,9 @@
                                         if (this.#module[modulePartName] === undefined) continue
                                         modPart = this.#module[modulePartName]
                                         if (role[0] !== '!') result = await getResult(modPart, args, t)
+                                    } else if (mm === '$') {
+                                        if (this.#module === undefined) continue
+                                        result = this.#module
                                     } else { 
                                         if (this.#module[mm] === undefined) continue
                                         result = this.#module[mm]
@@ -111,7 +114,8 @@
             return this.#mapMap 
         }        
 
-        get module() { return this.#module }
+        set module(value) { this.#module = value }
+        get module() { return this.#module }        
 
     }
 </script>
