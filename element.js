@@ -276,16 +276,16 @@ const ElementHTML = Object.defineProperties({}, {
             return ret(element.textContent)
         }
     }},
-    setValue: {enumerable: true, value: function(element, value, scopeNode) {
+    setValue: {enumerable: true, value: function(element, value, scopeNode, silent=undefined) {
         if (!(element instanceof Node)) return
         const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
         if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(value, element, scopeNode) : preSetValue
         const close = () => {
             const postSetValue = (this.env.map.get(element) ?? {})['postSetValue']
             if (postSetValue) element = typeof postSetValue === 'function' ? postSetValue(element, value, scopeNode) : postSetValue
-            element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))
+            if (!silent) element.dispatchEvent(new CustomEvent('change', {detail: {value, scopeNode}}))
             return element
-        }
+        }, tag = element.tagName.toLowerCase()
         if (value instanceof Object) {
             if (element.hasAttribute('itemscope')) {
                 for (const [propName, propValue] of Object.entries(value)) {
@@ -325,7 +325,7 @@ const ElementHTML = Object.defineProperties({}, {
                 element.eDataset[element.eValueProxy] = value
                 if (value === undefined) delete element.eDataset[element.eValueProxy]
             } else {
-                const tag = element.tagName.toLowerCase(), attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
+                const attrMethod = value === undefined ? 'removeAttribute': 'setAttribute'
                 if (tag === 'meta') { element[attrMethod]('content', value); return close() }
                 if (['audio','embed','iframe','img','source','track','video'].includes(tag)) { element[attrMethod]('src', value); return close() }
                 if (['a','area','link'].includes(tag)) { element[attrMethod]('href', value); return close() }
@@ -337,7 +337,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return close()
     }},
-    sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined) {
+    sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined, silent=undefined) {
         if (!(element instanceof Node)) return
         const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
         if (typeof preSinkData === 'function') ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
@@ -346,7 +346,7 @@ const ElementHTML = Object.defineProperties({}, {
             const postSinkData = (this.env.map.get(element) ?? {})['postSinkData']
             if (typeof postSinkData === 'function') element = await postSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement)
             if (postSinkData instanceof Object) element = postSinkData
-            element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
+            if (!silent) element.dispatchEvent(new CustomEvent('sinkData', {detail: {data, flag, transform, sourceElement, context, layer, rootElement}}))
             return element
         }
         rootElement ||= element
@@ -631,11 +631,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return await close(element)
     }},
-    _: {enumerable: true, value: function(element, value) {
-        return (value === undefined) ? this.getValue(element) : this.setValue(element, value)
+    _: {enumerable: true, value: function(element, value, silent) {
+        return (value === undefined) ? this.getValue(element) : this.setValue(element, value, undefined, silent)
     }},
-    $: {enumerable: true, value: async function(element, data, flag, transform) {
-        return await this.sinkData(element, data, flag, transform)
+    $: {enumerable: true, value: async function(element, data, flag, transform, silent) {
+        return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
     }},    
     parse: {enumerable: true, value: async function(input, sourceElement) {
         const typeCheck = (input instanceof Response) || (typeof input === 'text')

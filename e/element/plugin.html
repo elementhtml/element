@@ -51,12 +51,12 @@
                                     result = await mod(...args.map(a => resolveMarkMergerToken(a, element)))
                                 }
                                 return result
-                            }, setResult = (result, role, element) => {
+                            }, setResult = (result, role, element, silent) => {
                                 if (role === '_') {
-                                    this.e.setValue(element, result)
-                                } else if (role.startsWith('*')) {
+                                    this.e._(element, result, silent)
+                                } else if (role.startsWith('$')) {
                                     let [fl, tr] = this.e.utils.splitOnce(role.slice(1), ',').map(s => s.trim())
-                                    this.e.sinkData(element, result, fl, tr, this)
+                                    this.e.$(element, result, fl, tr, this, silent)
                                 } else if (role.startsWith('.')) {
                                     element[role.slice(1)] = result
                                 } else if (role.startsWith('@')) {
@@ -83,9 +83,11 @@
                                     if (role.startsWith('!')) {
                                         let [eventName, pipeTo] = role.split('|').map(s => s.trim())
                                         eventName = eventName.slice(1)
+                                        if (!eventName) eventName = (t.eDataset || t.hasAttribute('itemscope') || ['input', 'select', 'textarea', 'fieldset', 'form'].includes(t.tagName.toLowerCase())) ? 'change' : 'click'
                                         t.addEventListener(eventName, async event => {
-                                            let r = (result === undefined) ? await getResult(modPart, args, t) : result
-                                            setResult(r, pipeTo, t)
+                                            let r = (result === undefined) ? await getResult(modPart, args, t) : result, 
+                                                silent = ((eventName === 'change') && (pipeTo === '_')) || ((eventName === 'sinkData') && (pipeTo === '$'))
+                                            setResult(r, pipeTo, t, silent)
                                         })
                                     } else { setResult(result, role, t) }
                                 }
