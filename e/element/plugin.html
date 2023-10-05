@@ -32,15 +32,26 @@
                             this.#abortController.abort()
                             this.#abortController = new AbortController()
                             const setResult = (result, role, element, silent) => {
+                                if (!role || !result || !element) return
+                                const role1 = role.slice(1)
                                 if (role === '_') {
-                                    this.e._(element, result, silent)
-                                } else if (role.startsWith('$')) {
-                                    let [fl, tr] = this.e.utils.splitOnce(role.slice(1), ',').map(s => s.trim())
-                                    this.e.$(element, result, fl, tr, this, silent)
-                                } else if (role.startsWith('.')) {
-                                    element[role.slice(1)] = result
-                                } else if (role.startsWith('@')) {
-                                    element.setAttribute(role.slice(1), result)
+                                    return this.e._(element, result, silent)
+                                } else if (role[0] === '$') {
+                                    if ((role === '$') || role.startsWith('$|')) {
+                                        let [fl, tr] = this.e.utils.splitOnce(role1.slice(1), ',').map(s => s.trim())
+                                        return this.e.$(element, result, fl, tr, this, silent)
+                                    } else {
+                                        if (!role1) return
+                                        this.e.env.variables[role1] = result
+                                    }
+                                } else if (role[0] === '.') {
+                                    if (!role1) return
+                                    element[role1] = result
+                                } else if (role[0] === '@') {
+                                    if (!role1) return
+                                    element.setAttribute(role1, result)
+                                } else if (role[0] === '+') {
+                                    this.importPackage(result, role1)
                                 } else {
                                     const elementMap = this.e.env.map.get(element) ?? {}
                                     elementMap[role] = result

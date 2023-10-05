@@ -148,6 +148,15 @@ const ElementHTML = Object.defineProperties({}, {
         mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
         this.env.options.errors = mode
     }},
+    importPackage: {enumerable: true, value: function(p, a) {
+        const areas = ['eDataset', 'modes', 'proxies', 'gateways', 'options', 'variables']
+        for (const a in areas) {
+            if (!area || (area === a)) {
+                const resultArea = area ? p : p[a]
+                if (resultArea instanceof Object) this.env[a] = {...this.e.env[a], ...resultArea}
+            }
+        }
+    }},
     getVariable: {enumerable: true, value: function(variableRef, element) {
         if (!variableRef) return
         let variableName = variableRef.slice(1)
@@ -983,7 +992,13 @@ const ElementHTML = Object.defineProperties({}, {
     }}
 })
 let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
-
+if (metaOptions.packages) {
+    for (const p of packages.split(',').map(s => s.trim())) {
+        if (!p) continue            
+        const packageUrl = p.includes('/') ? ElementHTML.getURL(p) : ElementHTML.getURL(`ipfs://${p}`)
+        ElementHTML.importPackage(await import(packageUrl))
+    }
+}
 if (!(metaOptions.expose && window[metaOptions.expose])) {
     if (metaOptions.expose) await ElementHTML.expose(metaOptions.expose) 
     for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'expose') && (typeof ElementHTML[func] == 'function')) if (args.startsWith('[') && args.endsWith(']')) { 
@@ -991,4 +1006,3 @@ if (!(metaOptions.expose && window[metaOptions.expose])) {
     } else { await ElementHTML[func](args) }
 }
 export { ElementHTML }
-
