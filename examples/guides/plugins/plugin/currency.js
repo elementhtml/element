@@ -1,7 +1,5 @@
-function currency(amount) {
-	console.log('line 2', amount)
+async function currency(amount) {
 	const numberFormat = new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 })
 	return numberFormat.format(parseFloat(amount) || 0)
 }
-
 export { currency }

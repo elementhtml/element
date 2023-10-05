@@ -16,7 +16,6 @@
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result
-                        //for (const [s, m] of Object.entries(this.mapMap || {})) this[s] = this.#module[m]
                         let applyMap = this.applyMap
                         if (applyMap) {
                             let applyEntries = Object.entries(this.applyMap ?? {})
@@ -39,57 +38,56 @@
                                 if (token[0] === '@') return element.getAttribute(token.slice(1))
                                 if (token === '_') return this.e.getValue(element)
                                 if ((token[0] === '`') && token.endsWith('`')) return token.slice(1,-1)
-                            }, getResult = (mod, args, element) => {
+                            }, getResult = async (mod, args, element) => {
                                 let result
-                                if (typeof this.#module[modulePartName] === 'string') {
-                                    result = this.#module[modulePartName]
+                                if (typeof mod === 'string') {
+                                    result = mod
                                     for (let [i,v] of args.entries()) {
                                         let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
-                                            .map(tk => resolveMarkMergerToken(tk, t))
+                                            .map(tk => resolveMarkMergerToken(tk, element))
                                         result = result.replace(new RegExp(marker, 'g'), merger)
                                     }
-                                } else if (typeof this.#module[modulePartName] === 'function') {
-                                    result = await this.#module[modulePartName](...args.map(a => resolveMarkMergerToken(a, t)))
+                                } else if (typeof mod === 'function') {
+                                    result = await mod(...args.map(a => resolveMarkMergerToken(a, element)))
                                 }
+                                return result
                             }, setResult = (result, role, element) => {
                                 if (role === '_') {
-                                    this.e.setValue(t, result)
+                                    this.e.setValue(element, result)
                                 } else if (role.startsWith('*')) {
                                     let [fl, tr] = this.e.utils.splitOnce(role.slice(1), ',').map(s => s.trim())
-                                    this.e.sinkData(t, result, fl, tr, this)
+                                    this.e.sinkData(element, result, fl, tr, this)
                                 } else if (role.startsWith('.')) {
-                                    t[role.slice(1)] = result
+                                    element[role.slice(1)] = result
                                 } else if (role.startsWith('@')) {
-                                    t.setAttribute(role.slice(1), result)
+                                    element.setAttribute(role.slice(1), result)
                                 } else {
-                                    const elementMap = this.e.env.map.get(t) ?? {}
+                                    const elementMap = this.e.env.map.get(element) ?? {}
                                     elementMap[role] = result
-                                    this.e.env.map.set(t, elementMap)
+                                    this.e.env.map.set(element, elementMap)
                                 }
                             }
-                            for (const t of target) {                                
+                            for (const t of target) {
                                 for (const [role, mm] of applyEntries) {
-                                    let result, modPart
+                                    let result, modPart, args
                                     if (mm.includes('(') && mm.endsWith(')')) {
-                                        let [modulePartName, ...args] = mm.split('(')
-                                        args = args.join('(').slice(0,-1).split(',').map(s => s.trim())
+                                        let [modulePartName, ...argsRest] = mm.split('(')
+                                        args = argsRest.join('(').slice(0,-1).split(',').map(s => s.trim())
                                         if (this.#module[modulePartName] === undefined) continue
                                         modPart = this.#module[modulePartName]
+                                        if (role[0] !== '!') result = await getResult(modPart, args, t)
                                     } else { 
                                         if (this.#module[mm] === undefined) continue
                                         result = this.#module[mm]
                                     }
-                                    if ((result === undefined) && !role.startsWith('!')) result = getResult(modPart, args, t)
                                     if (role.startsWith('!')) {
                                         let [eventName, pipeTo] = role.split('|').map(s => s.trim())
                                         eventName = eventName.slice(1)
-                                        t.addEventListener(eventName, event => {
-                                            setResult(getResult(modPart, arg, t), pipeTo, t)
+                                        t.addEventListener(eventName, async event => {
+                                            let r = (result === undefined) ? await getResult(modPart, args, t) : result
+                                            setResult(r, pipeTo, t)
                                         })
-                                    } else {
-                                        if (result === undefined) result = getResult(modPart, args, t)
-                                        setResult(result, role, t)
-                                    }
+                                    } else { setResult(result, role, t) }
                                 }
                             }
                         }

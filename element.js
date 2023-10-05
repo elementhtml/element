@@ -277,10 +277,8 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode) {
-        console.log('line 280', element, value)
         if (!(element instanceof Node)) return
         const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
-        console.log('line 283', this.env.map )
         if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(value, element, scopeNode) : preSetValue
         const close = () => {
             const postSetValue = (this.env.map.get(element) ?? {})['postSetValue']

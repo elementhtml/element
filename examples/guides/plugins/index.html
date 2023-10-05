@@ -7,8 +7,7 @@
     <meta is="e-data" resource=":root|h1 > a" transform='{"title": $.innerHTML & " | Base37 Element"}'>
     <meta is="e-theme" resource="theme">
     <meta is="e-schema" resource="schema" target=":root|fieldset">
-    <meta is="e-plugin" resource="currency" target=":root|fieldset input[name=price]" apply="_change|.value=currency&preSetValue=currency">
-    <!-- *=currency&!change|.value=currency(.value)&preSetValue=currency -->
+    <meta is="e-plugin" resource="currency" target=":root|fieldset input[name=price]" apply=".value=currency(.value)&!change|.value=currency(.value)&preSetValue=currency">
 </head>
 <body>
     <header>
