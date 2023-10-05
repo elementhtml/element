@@ -48,7 +48,7 @@
 		static get observedAttributes() { return (super.observedAttributes || []).concat('transition', 'transition-scope') }
 
         set transition(value) {
-            this.#transition = this.e.utils.parseObjectAttribute(value)
+            this.#transition = this.e.utils.parseObjectAttribute(value, this)
             this.#transitionString = value
         }
         get transition() { return this.#transitionString }

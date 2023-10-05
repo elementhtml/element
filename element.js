@@ -28,12 +28,12 @@ const ElementHTML = Object.defineProperties({}, {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                     || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
         }}, 
-        parseObjectAttribute: {enumerable: true, value: function(value) {
+        parseObjectAttribute: {enumerable: true, value: function(value, element) {
             let retval = null
             if (value instanceof Object) {
                 retval = value
             } else if (typeof value === 'string') {
-                if (value[0] === '$') return ElementHTML.getVariable(value) ?? retval
+                if (value[0] === '$') return ElementHTML.getVariable(value, element) ?? retval
                 if (value[0] === '?') value = decodeURIComponent(value).slice(1)
                 if ((value[0] === '{') && (value.slice(-1) === '}')) {
                     try { retval = JSON.parse(value) } catch(e) {}
@@ -47,6 +47,26 @@ const ElementHTML = Object.defineProperties({}, {
             let metaElement
             const rootNode = element.shadowRoot || element.getRootNode()
             return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`) 
+        }},
+        resolveMergeToken: {enumerable: true, value: function(token, element) {
+            if (!token) return '$0'
+            if (typeof token === 'number') return `$${token}`
+            if (token[0] === '.') return element[token.slice(1)]
+            if (token[0] === '@') return element.getAttribute(token.slice(1))
+            if (token === '_') return ElementHTML.getValue(element)
+            if ((token[0] === '`') && token.endsWith('`')) return token.slice(1,-1)
+        }},
+        getVariableResult: {enumerable: true, value: function(modVar, args, element) {
+            let result
+            if (typeof modVar === 'string') {
+                result = modVar
+                for (let [i,v] of args.entries()) {
+                    let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
+                        .map(tk => this.resolveMergeToken(tk, element))
+                    result = result.replace(new RegExp(marker, 'g'), merger)
+                }
+            } else if (typeof modVar === 'function') { result = modVar(...args.map(a => this.resolveMergeToken(a, element))) }
+            return result
         }},
         splitOnce: {enumerable: true, value: function(str, delimiter) {
             let r
@@ -128,21 +148,26 @@ const ElementHTML = Object.defineProperties({}, {
         mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
         this.env.options.errors = mode
     }},
-    getVariable: {enumerable: true, value: function(variableRef) {
+    getVariable: {enumerable: true, value: function(variableRef, element) {
         if (!variableRef) return
-        const variableName = variableRef.slice(1)
+        let variableName = variableRef.slice(1)
         if (!variableName) return
+        let variableValue
         if (variableName.includes('.')) {
-            let variableNameSplit = variableName.split('.'), variableValue = this.e.env.variables(variableNameSplit.shift())
+            let variableNameSplit = variableName.split('.')
+            variableValue = this.e.env.variables[variableNameSplit.shift()]
             if (!(variableValue instanceof Object)) return variableValue            
             for (const part of variableNameSplit) {
                 variableValue = variableValue[part]
                 if (!(variableValue instanceof Object)) break
             }
-            return variableValue
-        } else {
-            return this.e.env.variables(variableName)
+        } else { variableValue = this.e.env.variables[variableName] }
+        if (element && variableName.includes('(') && variableName.endsWith(')')) {
+            let [variablePartName, ...argsRest] = mm.split('(')
+            args = argsRest.join('(').slice(0,-1).split(',').map(s => s.trim())
+            variableValue = this.utils.getVariableResult(variableValue, args, element)
         }
+        return variableValue
     }},     
     getURL: {enumerable: true, value: function(value) {
         if (!value.includes('://')) return value
@@ -360,7 +385,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             await this.utils.waitUntil(() => this.env.libraries.jsonata)
             if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                const variableValue = this.getVariable(transform)
+                const variableValue = this.getVariable(transform, element)
                 if (typeof variableValue === 'string') transform = variableValue
             }            
             const variables = []
@@ -497,7 +522,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (use.startsWith('`') && use.endsWith('`')) {
                             const htmlFragment = document.createElement('div')
                             if (useTemplate.dataset.eMerge) {
-                                const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge) || {})
+                                const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {})
                                 for (const [k, v] of Object.entries(eMerge)) {
                                     if (k === '@') {
                                         use = use.replaceAll(eMerge[k] || k, `${key ?? ''}`)
@@ -668,7 +693,7 @@ const ElementHTML = Object.defineProperties({}, {
         if (contentType === 'text/md') {
             await this._installRemarkable()
             let mdOptions = {...this.env.options.remarkable}
-            if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md')) || {}).entries())}
+            if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries())}
             this.env.libraries.remarkable.set(mdOptions)
             const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]), 
                 htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
@@ -729,7 +754,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType === 'text/md') {
                 await this._installRemarkable()
                 let mdOptions = {...this.env.options.remarkable}
-                if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md')) || {}).entries())}
+                if (sourceElement.hasAttribute('md')) mdOptions = {...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries())}
                 this.env.libraries.remarkable.set(mdOptions)
                 text = this.env.libraries.remarkable.render(text)
             }

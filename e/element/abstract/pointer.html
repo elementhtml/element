@@ -334,7 +334,7 @@
         get transform() { return this.#transform }
 
         set apply(value) { 
-            this.#applyMap = this.e.utils.parseObjectAttribute(value)
+            this.#applyMap = this.e.utils.parseObjectAttribute(value, this)
             this.#apply = value 
         }
         get apply() { return this.#apply }
@@ -348,7 +348,7 @@
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
                 let value = this.getAttribute('rewrite')
                 this.#rewriteRules = []
-                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value) ?? {}, 
+                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {}, 
                 rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.variables[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
                 for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             }
@@ -362,7 +362,7 @@
         }
 
         set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value)
+            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
         get options() { return this.#options }

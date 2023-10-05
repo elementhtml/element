@@ -31,27 +31,7 @@
                             }
                             this.#abortController.abort()
                             this.#abortController = new AbortController()
-                            const resolveMarkMergerToken = (token, element) => {
-                                if (!token) return '$0'
-                                if (typeof token === 'number') return `$${token}`
-                                if (token[0] === '.') return element[token.slice(1)]
-                                if (token[0] === '@') return element.getAttribute(token.slice(1))
-                                if (token === '_') return this.e.getValue(element)
-                                if ((token[0] === '`') && token.endsWith('`')) return token.slice(1,-1)
-                            }, getResult = async (mod, args, element) => {
-                                let result
-                                if (typeof mod === 'string') {
-                                    result = mod
-                                    for (let [i,v] of args.entries()) {
-                                        let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
-                                            .map(tk => resolveMarkMergerToken(tk, element))
-                                        result = result.replace(new RegExp(marker, 'g'), merger)
-                                    }
-                                } else if (typeof mod === 'function') {
-                                    result = await mod(...args.map(a => resolveMarkMergerToken(a, element)))
-                                }
-                                return result
-                            }, setResult = (result, role, element, silent) => {
+                            const setResult = (result, role, element, silent) => {
                                 if (role === '_') {
                                     this.e._(element, result, silent)
                                 } else if (role.startsWith('$')) {
@@ -75,7 +55,7 @@
                                         args = argsRest.join('(').slice(0,-1).split(',').map(s => s.trim())
                                         if (this.#module[modulePartName] === undefined) continue
                                         modPart = this.#module[modulePartName]
-                                        if (role[0] !== '!') result = await getResult(modPart, args, t)
+                                        if (role[0] !== '!') result = await this.e.utils.getVariableResult(modPart, args, t)
                                     } else if (mm === '$') {
                                         if (this.#module === undefined) continue
                                         result = this.#module
@@ -88,7 +68,7 @@
                                         eventName = eventName.slice(1)
                                         if (!eventName) eventName = (t.eDataset || t.hasAttribute('itemscope') || ['input', 'select', 'textarea', 'fieldset', 'form'].includes(t.tagName.toLowerCase())) ? 'change' : 'click'
                                         t.addEventListener(eventName, async event => {
-                                            let r = (result === undefined) ? await getResult(modPart, args, t) : result, 
+                                            let r = (result === undefined) ? await this.e.utils.getVariableResult(modPart, args, t) : result, 
                                                 silent = ((eventName === 'change') && (pipeTo === '_')) || ((eventName === 'sinkData') && (pipeTo === '$'))
                                             setResult(r, pipeTo, t, silent)
                                         })
@@ -104,7 +84,7 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
         set map(value) {
-            this.#mapMap = this.e.utils.parseObjectAttribute(value)
+            this.#mapMap = this.e.utils.parseObjectAttribute(value, this)
             this.#map = value 
         }
         get map() { return this.#map }

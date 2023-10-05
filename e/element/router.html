@@ -55,7 +55,7 @@
         get name() { return this.#name }
 
         set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value)
+            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
         get options() { return this.#options }
