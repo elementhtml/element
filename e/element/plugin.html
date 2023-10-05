@@ -16,7 +16,7 @@
                 _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result
-                        for (const [s, m] of Object.entries(this.mapMap || {})) this[s] = this.#module[m]
+                        //for (const [s, m] of Object.entries(this.mapMap || {})) this[s] = this.#module[m]
                         let applyMap = this.applyMap
                         if (applyMap) {
                             let applyEntries = Object.entries(this.applyMap ?? {})
@@ -32,9 +32,59 @@
                             }
                             this.#abortController.abort()
                             this.#abortController = new AbortController()
-                            for (const t of target) {
-                                const elementMap = this.e.env.map.get(t) ?? {}
+
+                            const resolveMarkMergerToken = (token, element) => {
+                                if (!token) return '$0'
+                                if (typeof token === 'number') return `$${token}`
+                                if (token[0] === '.') return element[token.slice(1)]
+                                if (token[0] === '@') return element.getAttribute(token.slice(1))
+                                if (token === '_') return this.e.getValue(element)
+                                if ((token[0] === '`') && token.endsWith('`')) return token.slice(1,-1)
+                            }, getResult = (mod, args, element) => {
+                                let result
+                                if (typeof this.#module[modulePartName] === 'string') {
+                                    result = this.#module[modulePartName]
+                                    for (let [i,v] of args.entries()) {
+                                        let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
+                                            .map(tk => resolveMarkMergerToken(tk, t))
+                                        result = result.replace(new RegExp(marker, 'g'), merger)
+                                    }
+                                } else if (typeof this.#module[modulePartName] === 'function') {
+                                    result = await this.#module[modulePartName](...args.map(a => resolveMarkMergerToken(a, t)))
+                                }
+
+                            }
+
+                            for (const t of target) {                                
                                 for (const [role, mm] of applyEntries) {
+                                    let result
+                                    if (mm.includes('(') && mm.endsWith(')')) {
+                                        let [modulePartName, ...args] = mm.split('(')
+                                        args = args.join('(').slice(0,-1).split(',').map(s => s.trim())
+                                        if (this.#module[modulePartName] === undefined) continue
+                                    } else { 
+                                        if (this.#module[mm] === undefined) continue
+                                        result = this.#module[mm]
+                                    }
+                                    if ((result === undefined) && !role.startsWith('!')) result = result = getResult(this.#module[modulePartName], args, t)
+                                    if (role === '_') {
+                                        this.e.setValue(t, result)
+                                    } else if (role.startsWith('*')) {
+                                        this.e.sinkData(t, result, role.slice(1) ,this)
+                                    } else if (role.startsWith('.')) {
+                                        t[role.slice(1)] = result
+                                    } else if (role.startsWith('@')) {
+                                        t.setAttribute(role.slice(1), result)
+                                    } else if (role.startsWith('!')) {
+                                        
+
+                                    } else {
+                                        const elementMap = this.e.env.map.get(t) ?? {}
+                                        elementMap[role] = result
+                                        this.e.env.map.set(t, elementMap)
+                                    }
+
+
                                     if (role.startsWith('!') || role.startsWith('_')) {
                                         const flag = role[0], [eventName, newEvent] = role.slice(1).split('|')
                                         if (eventName) {
@@ -61,9 +111,14 @@
                                         }
                                     } else if (role.startsWith('.')) {
                                         t[role.slice(1)] = this.#module[mm]
+                                    } else if (role.startsWith('@')) {
+                                        t.setAttribute(role.slice(1), this.#module[mm])
                                     } else { elementMap[role] = this.#module[mm] }
                                 } 
                                 this.e.env.map.set(t, elementMap)
+
+
+
                             }
                         }
                     }
