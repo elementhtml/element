@@ -32,7 +32,6 @@
                             }
                             this.#abortController.abort()
                             this.#abortController = new AbortController()
-
                             const resolveMarkMergerToken = (token, element) => {
                                 if (!token) return '$0'
                                 if (typeof token === 'number') return `$${token}`
@@ -52,73 +51,46 @@
                                 } else if (typeof this.#module[modulePartName] === 'function') {
                                     result = await this.#module[modulePartName](...args.map(a => resolveMarkMergerToken(a, t)))
                                 }
-
+                            }, setResult = (result, role, element) => {
+                                if (role === '_') {
+                                    this.e.setValue(t, result)
+                                } else if (role.startsWith('*')) {
+                                    let [fl, tr] = this.e.utils.splitOnce(role.slice(1), ',').map(s => s.trim())
+                                    this.e.sinkData(t, result, fl, tr, this)
+                                } else if (role.startsWith('.')) {
+                                    t[role.slice(1)] = result
+                                } else if (role.startsWith('@')) {
+                                    t.setAttribute(role.slice(1), result)
+                                } else {
+                                    const elementMap = this.e.env.map.get(t) ?? {}
+                                    elementMap[role] = result
+                                    this.e.env.map.set(t, elementMap)
+                                }
                             }
-
                             for (const t of target) {                                
                                 for (const [role, mm] of applyEntries) {
-                                    let result
+                                    let result, modPart
                                     if (mm.includes('(') && mm.endsWith(')')) {
                                         let [modulePartName, ...args] = mm.split('(')
                                         args = args.join('(').slice(0,-1).split(',').map(s => s.trim())
                                         if (this.#module[modulePartName] === undefined) continue
+                                        modPart = this.#module[modulePartName]
                                     } else { 
                                         if (this.#module[mm] === undefined) continue
                                         result = this.#module[mm]
                                     }
-                                    if ((result === undefined) && !role.startsWith('!')) result = result = getResult(this.#module[modulePartName], args, t)
-                                    if (role === '_') {
-                                        this.e.setValue(t, result)
-                                    } else if (role.startsWith('*')) {
-                                        this.e.sinkData(t, result, role.slice(1) ,this)
-                                    } else if (role.startsWith('.')) {
-                                        t[role.slice(1)] = result
-                                    } else if (role.startsWith('@')) {
-                                        t.setAttribute(role.slice(1), result)
-                                    } else if (role.startsWith('!')) {
-                                        
-
+                                    if ((result === undefined) && !role.startsWith('!')) result = getResult(modPart, args, t)
+                                    if (role.startsWith('!')) {
+                                        let [eventName, pipeTo] = role.split('|').map(s => s.trim())
+                                        eventName = eventName.slice(1)
+                                        t.addEventListener(eventName, event => {
+                                            setResult(getResult(modPart, arg, t), pipeTo, t)
+                                        })
                                     } else {
-                                        const elementMap = this.e.env.map.get(t) ?? {}
-                                        elementMap[role] = result
-                                        this.e.env.map.set(t, elementMap)
+                                        if (result === undefined) result = getResult(modPart, args, t)
+                                        setResult(result, role, t)
                                     }
-
-
-                                    if (role.startsWith('!') || role.startsWith('_')) {
-                                        const flag = role[0], [eventName, newEvent] = role.slice(1).split('|')
-                                        if (eventName) {
-                                            t.addEventListener(eventName, async event => {
-                                                let result
-                                                if (flag === '!') {
-                                                    result = (typeof this.#module[mm] === 'function') ? await this.#module[mm](event, t) : this.#module[mm]
-                                                } else if (flag ==='_') {
-                                                    result = (typeof this.#module[mm] === 'function') ? await this.#module[mm](this.e.getValue(t), t) : this.#module[mm]
-                                                }
-                                                const newEventFlag = newEvent ? newEvent[0] : '', newEventName = newEventFlag ? newEvent.slice(1) : newEvent
-                                                if (newEventFlag === '_') {
-                                                    this.e.setValue(t, result)
-                                                } else if ((newEventFlag === '!') && newEventName && (newEventName !== eventName)) {
-                                                    t.dispatchEvent(new CustomEvent(newEventName, {detail: result}))
-                                                } else if ((newEventFlag === '.')) {
-                                                    t[newEventName] = result
-                                                } else if ((newEventFlag === '@')) {
-                                                    t.setAttribute(newEventName, result)
-                                                } else if (newEvent) {
-                                                    this.e.sinkData(t, result, ...this.e.splitOnce(newEvent, ','), this)
-                                                }
-                                            }, { signal: this.#abortController.signal })
-                                        }
-                                    } else if (role.startsWith('.')) {
-                                        t[role.slice(1)] = this.#module[mm]
-                                    } else if (role.startsWith('@')) {
-                                        t.setAttribute(role.slice(1), this.#module[mm])
-                                    } else { elementMap[role] = this.#module[mm] }
-                                } 
-                                this.e.env.map.set(t, elementMap)
-
-
-
+                                }
                             }
                         }
                     }
