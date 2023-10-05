@@ -445,8 +445,6 @@ const ElementHTML = Object.defineProperties({}, {
           for (const [k, v] of Object.entries(data)) element.dataset[k] = v
         } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
           Object.assign(element.eDataset, data)
-        } else if (flag === 'eData' && element.eData instanceof Object) {
-          Object.assign(element.eData, data)
         } else if (flag === 'eContext' && element.eContext instanceof Object) {
           Object.assign(element.eContext, data)
         } else if (flag && flag.startsWith('auto')) {
@@ -882,7 +880,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.defineProperties($this, {
                     e: {enumerable: true, value: ElementHTML},
                     eContext: {enumerable: true, writable: true, value: {}},
-                    eData: {enumerable: true, writable: true, value: {}},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
                             const override = (this.env.map.get(element) ?? {})['eDatasetHas']
