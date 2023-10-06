@@ -177,7 +177,30 @@ const ElementHTML = Object.defineProperties({}, {
             variableValue = this.utils.getVariableResult(variableValue, args, element)
         }
         return variableValue
-    }},     
+    }},
+    expandTransform: {enumerable: true, value: function(transform, element, variableMap={}) {
+        if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
+            const variableValue = this.getVariable(transform, element)
+            if (typeof variableValue === 'string') transform = variableValue
+        }
+        try { 
+            const variables = []
+            if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
+            if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
+            for (const [variableName, variableValue] of Object.entries(variableMap)) {
+                if (transform.includes(`$${variableName}`)) variables.push(`$this := ${JSON.stringify(variableValue)}`)
+            }
+            for (const [vn, vv] of Object.entries(this.env.variables)) {
+                if ((vn === 'env') || (vn === 'this')) continue
+                if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
+            }
+            if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
+        } catch(e) {
+            this.dispatchEvent(new CustomEvent('error', {detail: {type: 'expandTransform', message: e, input: variableMap}}))
+            if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { transform = transform }
+        }
+        return transform
+    }},
     getURL: {enumerable: true, value: function(value) {
         if (!value.includes('://')) return value
         if (!value.startsWith('http://') && !value.startsWith('https://')) {
@@ -186,7 +209,7 @@ const ElementHTML = Object.defineProperties({}, {
         } 
         for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
         return value
-    }},        
+    }},
     activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
         const id = await this.getTagId(tag, element);
@@ -204,7 +227,8 @@ const ElementHTML = Object.defineProperties({}, {
             routerName === 'e' ? import.meta.url : element.baseURI)).href
     }},
     loadTagAssetsFromId: {enumerable: true, value: async function(id, forceReload=false) {
-        if (!id || !id.includes('://') || (!forceReload && this.files[id])) return
+        if (!id || !id.includes('://')) return
+        if (!forceReload && this.files[id]) return true
         const fileFetch = await fetch(this.getURL(id))
         if (fileFetch.status >= 400) return
         this.files[id] = await fileFetch.text()
@@ -669,30 +693,32 @@ const ElementHTML = Object.defineProperties({}, {
     $: {enumerable: true, value: async function(element, data, flag, transform, silent) {
         return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
     }},    
-    parse: {enumerable: true, value: async function(input, sourceElement) {
+    parse: {enumerable: true, value: async function(input, sourceElement, contentType) {
         const typeCheck = (input instanceof Response) || (typeof input === 'text')
         if (!typeCheck && (input instanceof Object)) return input
         input = typeCheck ? input : `${input}`
-        let contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || undefined
-        if (!contentType && (input instanceof Response)) {
-            contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
-            contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
-            contentType ||= input.url.endsWith('.md') ? 'text/md' : undefined
-            contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
-            contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
-            contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
-            contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
-            contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
-            const serverContentType = input.headers.get('Content-Type')
-            if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
-        } else if (contentType && contentType.includes('json')) {
-            contentType = 'application/json'
-        } else if (contentType && contentType.includes('yaml')) {
-            contentType = 'application/x-yaml'
-        } else if (contentType && contentType.includes('csv')) {
-            contentType = 'text/csv'
+        if (!contentType) {
+            contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || undefined
+            if (!contentType && (input instanceof Response)) {
+                contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
+                contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
+                contentType ||= input.url.endsWith('.md') ? 'text/md' : undefined
+                contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
+                contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
+                contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
+                contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
+                contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
+                const serverContentType = input.headers.get('Content-Type')
+                if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
+            } else if (contentType && contentType.includes('json')) {
+                contentType = 'application/json'
+            } else if (contentType && contentType.includes('yaml')) {
+                contentType = 'application/x-yaml'
+            } else if (contentType && contentType.includes('csv')) {
+                contentType = 'text/csv'
+            }
+            contentType ||= 'application/json'
         }
-        contentType ||= 'application/json'
         if (!contentType.includes('/')) contentType = `application/${contentType}`
         if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
         if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
@@ -788,6 +814,16 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return JSON.stringify(input)
     }},
+    _installJsonata: {enumerable: true, value: async function() {
+        if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
+            const scriptTag = document.createElement('script')
+            scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+            document.head.append(scriptTag)
+            await this.e.utils.waitUntil(() => window.jsonata)
+            this.e.env.libraries.jsonata = window.jsonata
+        }
+        await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)        
+    }},
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
         if (typeof this.templates[id] === 'string') {
@@ -882,8 +918,8 @@ const ElementHTML = Object.defineProperties({}, {
                     eContext: {enumerable: true, writable: true, value: {}},
                     eDataset: {enumerable: true, value: new Proxy($this.dataset, {
                         has(target, property) {
-                            const override = (this.env.map.get(element) ?? {})['eDatasetHas']
-                            if (override) return typeof override === 'function' ? override(element, target, property) : override
+                            const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetHas']
+                            if (override) return typeof override === 'function' ? override($this, target, property) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.hasAttribute(property.slice(1))
@@ -894,8 +930,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         get(target, property, receiver) {
-                            const override = (this.env.map.get(element) ?? {})['eDatasetGet']
-                            if (override) return typeof override === 'function' ? override(element, target, property, receiver) : override
+                            const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetGet']
+                            if (override) return typeof override === 'function' ? override($this, target, property, receiver) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.getAttribute(property.slice(1))
@@ -906,8 +942,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         set(target, property, value, receiver) {
-                            const override = (this.env.map.get(element) ?? {})['eDatasetSet']
-                            if (override) return typeof override === 'function' ? override(element, target, property, value, receiver) : override
+                            const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetSet']
+                            if (override) return typeof override === 'function' ? override($this, target, property, value, receiver) : override
                             switch(property[0]) {
                             case '@':
                                 if (value === null || value === undefined) {
@@ -932,8 +968,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         },
                         deleteProperty(target, property) {
-                            const override = (this.env.map.get(element) ?? {})['eDatasetDeleteProperty']
-                            if (override) return typeof override === 'function' ? override(element, target, property) : override
+                            const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetDeleteProperty']
+                            if (override) return typeof override === 'function' ? override($this, target, property) : override
                             switch(property[0]) {
                             case '@':
                                 return $this.removeAttribute(property.slice(1))

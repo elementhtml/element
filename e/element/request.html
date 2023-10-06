@@ -18,17 +18,16 @@
         async _new(value) { return this.e.getURL(value) }
 
         async _send(payload) {
-            const options = this._options
-            options.body = ((payload instanceof Object) && (options.body instanceof Object)) ? {...options.body, payload} : payload
+            const options = this.optionsMap
+            payload = ((payload instanceof Object) && (options.body instanceof Object)) ? {...options.body, ...payload} : (payload ?? options.body)
             const response = await fetch(this._resource, options)
             this.dispatchEvent(new CustomEvent('receive', {detail: response}))
             const result = this.e.parse(response.body)
             this.dispatchEvent(new CustomEvent('data', {detail: result}))
         }
 
-        async set resource(value) {
-            this._resource = value ? await this._new(value) : undefined
-            this.#resource = value
+        set resource(value) {
+            this._resource = value ? this._new(value) : undefined
         }
 
     }

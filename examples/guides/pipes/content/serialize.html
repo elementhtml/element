@@ -1,0 +1,71 @@
+<h2>Serialize</h2>
+<p>View result at 
+	<a href="https://public.requestbin.com/r/en3gc8hjsto6p">https://public.requestbin.com/r/en3gc8hjsto6p</a>
+</p>
+<fieldset>
+    <meta is="e-data" resource="||_" target="https://en3gc8hjsto6p.x.pipedream.net" options="method=POST">
+    <legend>Serialized as JSON</legend>
+    <label>
+        <span>Name:</span>
+        <input name="name" value="Test JSON" readonly>
+    </label>
+    <label>
+        <span>Number:</span>
+        <input name="number" value="627" readonly>
+    </label>
+    <label>
+        <span>Details:</span>
+        <textarea name="details" rows="5" cols="50">Change the value of this field to trigger...</textarea>
+    </label>
+</fieldset>
+<fieldset>
+    <meta is="e-data" resource="||_" target="https://en3gc8hjsto6p.x.pipedream.net" options="method=POST" content-type="application/x-yaml">
+    <legend>Serialized as YAML</legend>
+    <label>
+        <span>Name:</span>
+        <input name="name" value="Test YAML" readonly>
+    </label>
+    <label>
+        <span>Number:</span>
+        <input name="number" value="628" readonly>
+    </label>
+    <label>
+        <span>Details:</span>
+        <textarea name="details" rows="5" cols="50">Change the value of this field to trigger...</textarea>
+    </label>
+</fieldset>
+<fieldset>
+    <meta is="e-data" resource="||_" target="https://en3gc8hjsto6p.x.pipedream.net" options="method=POST" content-type="application/hjson">
+    <legend>Serialized as HJSON</legend>
+    <label>
+        <span>Name:</span>
+        <input name="name" value="Test HJSON" readonly>
+    </label>
+    <label>
+        <span>Number:</span>
+        <input name="number" value="629" readonly>
+    </label>
+    <label>
+        <span>Details:</span>
+        <textarea name="details" rows="5" cols="50">Change the value of this field to trigger...</textarea>
+    </label>
+</fieldset>
+<fieldset>
+    <meta is="e-data" resource="||_" target="https://en3gc8hjsto6p.x.pipedream.net" options="method=POST" content-type="application/x-www-form-urlencoded">
+    <legend>Form Encoded</legend>
+    <label>
+        <span>Name:</span>
+        <input name="name" value="Test Form" readonly>
+    </label>
+    <label>
+        <span>Number:</span>
+        <input name="number" value="630" readonly>
+    </label>
+    <label>
+        <span>Details:</span>
+        <textarea name="details" rows="5" cols="50">Change the value of this field to trigger...</textarea>
+    </label>
+</fieldset>
+<meta is="e-data" resource="|button|!" target="|fieldset{}|!change">
+<button>Click Me to Send All...</button>
+

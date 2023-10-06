@@ -1,0 +1,103 @@
+<style></style>
+<template></template>
+<script>
+    class extends `meta` {
+
+        #via
+        #resource
+        #transform
+        #listen
+        #options
+        #optionsMap
+
+        constructor() {
+            super()
+            Object.defineProperties(this, {
+                _class: {configurable: true, enumerable: false, value: 'EventTarget'}, 
+                _receiveEventName: {configurable: true, enumerable: false, value: 'receive'}, 
+                _dataEventPayloadProperty: {configurable: true, enumerable: false, value: 'data'}, 
+                _sendMethodName: {configurable: true, enumerable: false, value: 'send'}
+            })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'options') }
+
+        async connectedCallback() {}
+
+        //async _new(value) {
+        //    if (typeof window[this._class] === 'function') return new window[this._class](value, this._options)
+        //}
+        //async _send(payload) {
+        //    if (this.#boundResource && (typeof this.#boundResource[this._sendMethodName] === 'function')) await this.#boundResource[this._sendMethodName](payload)
+        //}
+
+        // pipes have to emit a generic "change" event on all events received from their resource
+        // the value of the pipe (from .getValue) has to be the last received data from this resource
+        // send data via the pipe to it's resource by apply="send" - so they have a .send(payload) method
+        // content-type controls parsing and serialization
+        // options controls initialization of the resource
+
+        async _setResource(signature) {
+            if (!signature) {
+                this.#resource = new EventTarget()
+            }
+
+            let transform = this.transform || this.getAttribute('transform'), this.listen || this.getAttribute('listen')
+            if (transform) {
+                await this.e._installJsonata()
+                transform = this.e.expandTransform(transform, this)
+            }
+            if (!(this.#resource instanceof EventTarget)) return
+            const eventNames = listen.split(',').map(s => s.trim())
+            for (const eventName of eventNames) {
+                let [listenTo, dispatchAs, use] = eventName.split('|').map(s => s.trim())
+                if (!listenTo) continue
+                dispatchAs ||= listenTo
+                let payload = event[use || 'detail']
+                try {
+                    if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.e.parse(payload, this, contentType)
+                } catch(e) {
+                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: payload}}))
+                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { payload = {} }
+                }
+                try {
+                    if (transform) payload = await this.e.env.libraries.jsonata(transform).evaluate(payload)
+                } catch(e) {
+                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: payload}}))
+                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { payload = {} }
+                }
+                this.#resource.addEventListener(listenTo, event => {
+                    this.#resource.dispatchEvent(new CustomEvent(dispatchAs, {detail: payload}))
+                })
+            }
+        }
+
+        async _send(payload) {
+            if (this.#via && !this.#resource) await this.e.utils.waitUntil(() => this.#resource)
+
+        }
+
+        set via(value) {
+            this._setResource(value)
+            this.#via = value
+        }
+        get via(value) { return this.#via }
+
+        set listen(value) { this.#listen = value }
+        get listen() { return this.#listen }        
+
+        set transform(value) { this.#transform = value }
+        get transform() { return this.#transform }        
+
+        set options(value) {
+            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#options = value
+        }
+        get options() { return this.#options }
+        get optionsMap() { return this.#optionsMap }
+
+        async send(payload) { return await this._send(payload) }
+
+    }
+</script>
+
