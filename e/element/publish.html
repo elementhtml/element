@@ -6,19 +6,39 @@
         #manifest
         #abortController = new AbortController()
 
+        #manifestDefaults = {
+            "$": {
+                "trigger": { "altKey": false, "ctrlKey": false, "metaKey": true, "shiftKey": true, "key": "p" }, 
+                "credentials": {}, 
+                "variables": {},  
+                "page-defaults": {}, 
+                "replace": {}, 
+                "sinkData": {
+                    "meta[is^='e-'][resource$=':#']": "{\"@resource\": $replace($.`@resource`, \":#\", \":/\")}", 
+                    "meta[is^='e-'][resource$=':?']": "{\"@resource\": $replace($.`@resource`, \":?\", \":/\")}"
+                }
+            }            
+        }
+
         constructor() {
             super()
             Object.defineProperties(this, {
                 _mode: {configurable: false, enumerable: false, writable: false, value: 'publish'},
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
-                    if (result instanceof Object) this.#manifest = result
+                    if (result instanceof Object) {
+                        result.$ = result.$ instanceof Object ? {...this.#manifestDefaults.$, result.$} : this.#manifestDefaults.$
+                        result.pages = result.pages instanceof Object ? {...this.#manifestDefaults.pages, result.pages} : this.#manifestDefaults.pages
+                        for (const ent of Object.entries(this.#manifestDefaults.$)) {
+                            result.$[ent[0]] = result.$[ent[0]] instanceof Object 
+                                ? {...this.#manifestDefaults.$[ent[0]], result.$[ent[0]]} : this.#manifestDefaults.$[ent[0]]
+                        }
+                    }
+                    this.#manifest = result
                     if (!this.#manifest) return
                     document.addEventListener('keydown', event => {
                         const validTrigger = Object.entries(this.#manifest.$?.trigger || {}).every(ent =>  event[ent[0]] == ent[1])
                         if (validTrigger) this.publish()
                     })
-
-
                     /* 
 {
     "$": {
@@ -38,24 +58,20 @@
         "page-defaults": {
             ... this object will be used as the base over which each page object will be applied before processing
         }, 
-        "ignore": [ ... list of selectors which will be ignored ... ], 
+        "replace": { ... keys are selectors, values are HTML which will be used to replace the matched elements ... }, 
         "sinkData": {
             ... keys are selectors, values are objects which will be used as data to sink into the matched elements ...
         }
     }, 
-    "path-to-page": {
-        title: "", meta: {
-            "[content]": [... array of meta names to assign this content string to...]
+    "pages": {
+        "path-to-page": {
+            title: "", meta: {
+                "[content]": [... array of meta names to assign this content string to...]
+            }
         }
     }
 }
                     */
-
-
-
-                        let apply = this.apply ?? this.getAttribute('apply'), applyMap = this.applyMap ?? {}, {flag, transform} = applyMap
-                        if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
-                        for (const t of target) this.e.sinkData(t, result, flag, transform, this)
                     }
                 }
             })
@@ -63,7 +79,9 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
-        publish() {
+        async publish() {
+            if (!this.#manifest) return
+
 
         }
 
