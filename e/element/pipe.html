@@ -21,23 +21,14 @@
         _resourceNewArgs = ''
         _resourceReadyTest
         _defaultListen = 'message'
-        _defaultUse = 'data'
+        _defaultUse = 'detail'
         _eValueProxy = '.value'
         _contentType = 'application/json'
         _sendMethodName
+        _optionsTransform
 
         constructor() {
             super()
-            Object.defineProperties(this, {
-                _class: {configurable: true, enumerable: false, value: 'EventTarget'}, 
-                _classArgs: {configurable: true, enumerable: false, value: ''}, 
-                _optionsTransform: {configurable: true, enumerable: false, value: undefined}, 
-                _resourceReadyTest: {configurable: true, enumerable: false, value: undefined}, 
-                _defaultListen: {configurable: true, enumerable: false, value: 'message'}, 
-                _defaultUse: {configurable: true, enumerable: false, value: 'data'}, 
-
-                _sendMethodName: {configurable: true, enumerable: false, value: 'send'}
-            })
             this.addEventListener('_ready', event => {
                for (const q of this.#sendQueue) this.send(q)
             })
@@ -58,14 +49,13 @@
         }
 
         async _setResource(signature) {
-            let use = this._defaultUse, listen = this._defaultListen, contentType = this.contentType, 
+            let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType, 
                 transform = await this.e.expandTransform(this.transform, this), options = this.optionsMap
             if (!signature || (signature.endsWith(')') && signature.includes('('))) {
                 const [resourceClass, newArgs] = signature ? (signature.slice(0, -1).split('(')) : [(this._resourceClass ?? 'EventTarget'), (this._resourceNewArgs ?? '')], args = newArgs.split(',').map(a => this.e.utils.resolveMergeToken(a, this))
                 const optionsArgs = (this._optionsTransform) ? await this.e.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [] )
                 if (typeof window[resourceClass] !== 'function') return
                 this.#resource = new window[resourceClass](...args, ...optionsArgs)
-
                 if (typeof this._resourceReadyTest === 'function') {
                     this.e.utils.waitUntil(async () => { this._resourceReadyTest(this.#resource, this) })
                 } else { this.#resourceReady = true }
@@ -87,6 +77,7 @@
                         this._setResource(signature)
                     })
                     this.#resource.addEventListener('error', event => {})
+                    use = 'data'
                 } else {
                     if (!listen || listen.includes('$')) {
                         this._sender = async (payload) => {
@@ -109,6 +100,7 @@
                             this.#resourceReady = true
                         })
                         this.#resource.addEventListener('error', event => {})
+                        use = 'data'
                     }
                 }
             }
@@ -116,15 +108,15 @@
             let eventMaps = (listen || '').split(',').map(s => s.trim())
             for (const eventMap of eventMaps) {
                 if (eventMap === '$') continue
-                let [listenToUse=this._defaultListen, dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo
+                let [listenToUse=this._defaultListen, dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo, thisUse = use
                 if (listenToUse.includes('.')) {
                     let listenToUseSplit = listenToUse.split('.').map(s => s.trim())
-                    use = listenToUseSplit.pop() || use
+                    thisUse = listenToUseSplit.pop() || use
                     listenTo = listenToUseSplit.join('.')
                 } else { listenTo = listenToUse }
                 dispatchAs ||= listenTo
                 this.#resource.addEventListener(listenTo, async event => {
-                    let payload = event[use || 'detail']
+                    let payload = event[thisUse || 'detail']
                     if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.#parse(payload, contentType)
                     if (transform) payload = await this.e.env.libraries.jsonata(transform).evaluate(payload)
                     this.#value = payload
