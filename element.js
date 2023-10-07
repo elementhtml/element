@@ -212,6 +212,30 @@ const ElementHTML = Object.defineProperties({}, {
         for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
         return value
     }},
+    resolveUrl: {enumerable: true, value: function(value, element) {
+        if (value.includes(':') && !value.includes('://')) {
+            let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
+            if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
+                const map = {'/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1)}
+                if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
+                    routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
+                } else {
+                    if (routerPointer === routerPointer[0]) {
+                        routerPointer = map[routerPointer[0]]
+                    } else {
+                        try {
+                            routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
+                        } catch(e) { routerPointer = undefined }
+                    }
+                }
+            }
+            const rewriteRules = element.rewriteRules
+            if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.resolveUrl(p, element) 
+            return router ? router[element._mode](routerPointer) : this.getURL(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
+        } else if (value.includes('/')) {
+            return this.getURL(new URL(value, element.baseURI).href) 
+        } else { return this.getURL(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
+    }},
     activateTag: {enumerable: true, value: async function(tag, element, forceReload=false) {
         if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
         const id = await this.getTagId(tag, element);
@@ -313,7 +337,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
             } else { parseElementForValues(element) }
         } else if (element.eDataset) {
-            const eValueProxy = element.getAttribute('e-value-proxy')
+            const eValueProxy = element.eValueProxy || element._eValueProxy
             if (eValueProxy) return element.eDataset[eValueProxy]
             const retval = Object.assign({}, element.eDataset)
             for (const k of Object.keys(retval)) if (k.includes('__')) {
