@@ -17,10 +17,10 @@
         </p>
         <fieldset>
             <meta is="e-pointer" resource="|button|!" target="||!notaclick">
-            <meta is="e-pipe" via="" listen="test1|test2">
+            <meta id="pipe" is="e-pipe" via="" listen="test1|test2" content-type="json">
 
-            <meta is="e-pipe" name="socket" via="wss://example.com/" listen="message|data|data" content-type="json">
-            <meta is="e-data" resource="|[name=socket]" >
+            <!--<meta is="e-pipe" name="socket" via="wss://example.com/" listen="message|data|data" content-type="json">
+            <meta is="e-data" resource="|[name=socket]|_" >-->
 
             <!--<meta is="e-data" resource="||_notaclick" target="https://en3gc8hjsto6p.x.pipedream.net" options="method=POST">-->
             <!--<meta is="e-data" resource="||_notaclick" target=":|#pipe" apply="send">-->
@@ -44,6 +44,20 @@
     <footer>
         <meta is="e-content" resource="../../footer.html">
     </footer>
-    <script> document.querySelector('fieldset').addEventListener('notaclick', event => console.log(event)) </script>
+    <script> 
+        document.querySelector('fieldset').addEventListener('notaclick', event => console.log(event)) 
+        window.pipe = document.getElementById('pipe')
+
+        window.setInterval(() => {
+            pipe.resource.dispatchEvent(new CustomEvent('test1', {detail: `{"abc": ${Date.now()}}`}))
+        }, 3700)
+
+        //pipe.addEventListener('test2', event => console.log('line 55', event))
+
+        window.setInterval(() => {
+            console.log('line 58', pipe.value)
+        }, 5000)
+
+    </script>
 </body>
 </html>

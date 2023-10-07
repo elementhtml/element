@@ -7,8 +7,10 @@
         #resource
         #transform
         #listen
+        #contentType
         #options
         #optionsMap
+        #value
 
         constructor() {
             super()
@@ -20,54 +22,45 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'content-type', 'options') }
 
         async connectedCallback() {}
-
-        //async _new(value) {
-        //    if (typeof window[this._class] === 'function') return new window[this._class](value, this._options)
-        //}
-        //async _send(payload) {
-        //    if (this.#boundResource && (typeof this.#boundResource[this._sendMethodName] === 'function')) await this.#boundResource[this._sendMethodName](payload)
-        //}
 
         // pipes have to emit a generic "change" event on all events received from their resource
         // the value of the pipe (from .getValue) has to be the last received data from this resource
         // send data via the pipe to it's resource by apply="send" - so they have a .send(payload) method
         // content-type controls parsing and serialization
         // options controls initialization of the resource
+        // listen attribute can be null, $, ! or comma-seperated list of eventIn|eventOut mappings
+        // a https:// resolved URL becomes a fetch for .send, auto-fetched on load if listen includes $
+        //      - if listen includes ! then adds in an EventSource
+        // a wss:// resolved URL becomes a WebSocket
+        // via in the format token(args) becomes another supported pipe type
 
         async _setResource(signature) {
+            let use = 'detail'
             if (!signature) {
                 this.#resource = new EventTarget()
             }
 
-            let transform = this.transform || this.getAttribute('transform'), this.listen || this.getAttribute('listen')
-            if (transform) {
-                await this.e._installJsonata()
-                transform = this.e.expandTransform(transform, this)
-            }
+
             if (!(this.#resource instanceof EventTarget)) return
-            const eventNames = listen.split(',').map(s => s.trim())
-            for (const eventName of eventNames) {
-                let [listenTo, dispatchAs, use] = eventName.split('|').map(s => s.trim())
-                if (!listenTo) continue
+            let transform = await this.e.expandTransform(this.transform, this), 
+                eventMaps = (this.listen || '').split(',').map(s => s.trim()), contentType = this.contentType
+            for (const eventMap of eventMaps) {
+                let [listenToUse='message', dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo
+                if (listenToUse.includes('.')) {
+                    let listenToUseSplit = listenToUse.split('.').map(s => s.trim())
+                    use = listenToUseSplit.pop()
+                    listenTo = listenToUseSplit.join('.')
+                } else { listenTo = listenToUse }
                 dispatchAs ||= listenTo
-                let payload = event[use || 'detail']
-                try {
+                this.#resource.addEventListener(listenTo, async event => {
+                    let payload = event[use || 'detail']
                     if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.e.parse(payload, this, contentType)
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', message: e, input: payload}}))
-                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { payload = {} }
-                }
-                try {
                     if (transform) payload = await this.e.env.libraries.jsonata(transform).evaluate(payload)
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: payload}}))
-                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { payload = {} }
-                }
-                this.#resource.addEventListener(listenTo, event => {
-                    this.#resource.dispatchEvent(new CustomEvent(dispatchAs, {detail: payload}))
+                    this.#value = payload
+                    this.dispatchEvent(new CustomEvent(dispatchAs, {detail: payload}))
                 })
             }
         }
@@ -81,13 +74,27 @@
             this._setResource(value)
             this.#via = value
         }
-        get via(value) { return this.#via }
+        get via() { return this.#via }
+
+        set ['content-type'](value) { this.contentType = value }
+        get ['content-type']() { return this.contentType }
+        set contentType(value) { this.#contentType = value }
+        get contentType() { 
+            if (this.#contentType !== this.getAttribute('content-type')) this.contentType = this.getAttribute('content-type')
+            return this.#contentType 
+        }        
 
         set listen(value) { this.#listen = value }
-        get listen() { return this.#listen }        
+        get listen() { 
+            if (this.#listen !== this.getAttribute('listen')) this.listen = this.getAttribute('listen')
+            return this.#listen 
+        }
 
         set transform(value) { this.#transform = value }
-        get transform() { return this.#transform }        
+        get transform() {
+            if (this.#transform !== this.getAttribute('transform')) this.transform = this.getAttribute('transform')
+            return this.#transform
+        }
 
         set options(value) {
             this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
@@ -97,6 +104,10 @@
         get optionsMap() { return this.#optionsMap }
 
         async send(payload) { return await this._send(payload) }
+
+        get resource() { return this.#resource }
+
+        get value() { return this.#value }
 
     }
 </script>

@@ -178,7 +178,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
         return variableValue
     }},
-    expandTransform: {enumerable: true, value: function(transform, element, variableMap={}) {
+    expandTransform: {enumerable: true, value: async function(transform, element, variableMap={}) {
+        if (!transform) return
+        await this.e._installJsonata()
         if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
             const variableValue = this.getVariable(transform, element)
             if (typeof variableValue === 'string') transform = variableValue
@@ -815,14 +817,14 @@ const ElementHTML = Object.defineProperties({}, {
         return JSON.stringify(input)
     }},
     _installJsonata: {enumerable: true, value: async function() {
-        if (!this.e.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
+        if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
             const scriptTag = document.createElement('script')
             scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
             document.head.append(scriptTag)
-            await this.e.utils.waitUntil(() => window.jsonata)
-            this.e.env.libraries.jsonata = window.jsonata
+            await this.utils.waitUntil(() => window.jsonata)
+            this.env.libraries.jsonata = window.jsonata
         }
-        await this.e.utils.waitUntil(() => this.e.env.libraries.jsonata)        
+        await this.utils.waitUntil(() => this.env.libraries.jsonata)        
     }},
     stackTemplates: {enumerable: true, value: function(id) {
         if (typeof this._templates[id] === 'string') return this._templates[id]
