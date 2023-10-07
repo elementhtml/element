@@ -3,11 +3,56 @@
 <script>
     class extends `./pointer` {
 
+        #manifest
+        #abortController = new AbortController()
+
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'data'},
+                _mode: {configurable: false, enumerable: false, writable: false, value: 'publish'},
                 _apply: {configurable: false, enumerable: false, value: async (result, target) => {
+                    if (result instanceof Object) this.#manifest = result
+                    if (!this.#manifest) return
+                    document.addEventListener('keydown', event => {
+                        const validTrigger = Object.entries(this.#manifest.$?.trigger || {}).every(ent =>  event[ent[0]] == ent[1])
+                        if (validTrigger) this.publish()
+                    })
+
+
+                    /* 
+{
+    "$": {
+        "trigger": {
+            "altKey": false, 
+            "ctrlKey": false, 
+            "metaKey": true, 
+            "shiftKey": true, 
+            "key": "p"
+        }, 
+        "credentials": {
+            ... set a value to null to prompt each time
+        }, 
+        "variables": {
+            "marker": "value", ... set value null if you want to prompt each time 
+        },  
+        "page-defaults": {
+            ... this object will be used as the base over which each page object will be applied before processing
+        }, 
+        "ignore": [ ... list of selectors which will be ignored ... ], 
+        "sinkData": {
+            ... keys are selectors, values are objects which will be used as data to sink into the matched elements ...
+        }
+    }, 
+    "path-to-page": {
+        title: "", meta: {
+            "[content]": [... array of meta names to assign this content string to...]
+        }
+    }
+}
+                    */
+
+
+
                         let apply = this.apply ?? this.getAttribute('apply'), applyMap = this.applyMap ?? {}, {flag, transform} = applyMap
                         if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
                         for (const t of target) this.e.sinkData(t, result, flag, transform, this)
@@ -17,5 +62,10 @@
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+        publish() {
+
+        }
+
     }
 </script>
