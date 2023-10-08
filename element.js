@@ -5,7 +5,8 @@ const ElementHTML = Object.defineProperties({}, {
         globalLoadCalled: {configurable: true, enumerable: true, writable: true, value: false},
         modes: {configurable: true, enumerable: true, writable: true, value: {
             element: 'element/element.html', content: 'content/content.html', data: 'data/data.json', 
-            theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js'
+            theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js', 
+            publish: 'publish/manifest.json'
         }},
         loadingRegistry: {enumerable: false, value: {}},
         map: {enumerable: false, value: new WeakMap()},
