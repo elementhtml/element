@@ -4,7 +4,6 @@
         font-family: sans-serif;
         font-size: 17px;
         max-height: 800px;
-
     }
     dialog.e-publish legend {
         font-size: large;
@@ -33,12 +32,28 @@
         font-size: 15px;
         text-transform: capitalize;
     }
-
-
+    dialog.e-publish .progress {
+        display: block;
+        margin: 17px;
+    }
+    dialog.e-publish .progress progress, dialog.e-publish .progress small {
+        display: block;
+        width: 100%;
+    }
+    dialog.e-publish .progress small {
+        text-align: center;
+        font-style: italic;
+        font-size: smaller;
+        opacity: 0.87;
+    }
 </style>
 <template>
     <form method="dialog">
         <legend>Publish Configuration</legend>
+        <aside class="progress">
+            <progress value="0" max="1"></progress>
+            <small>Click <i>Publish</i> to start...</small>
+        </aside>
         <menu>
             <meta is="e-data" resource="|button[value='cancel']|!" target="dialog|" apply="close">
             <button value="cancel">Cancel</button>
@@ -58,7 +73,6 @@
             "$": {
                 "credentials": {}, 
                 "variables": {},  
-                "page-defaults": {}, 
                 "replace": {}, 
                 "sinkData": {
                     "meta[is^='e-'][resource$=':#']": "{\"@resource\": $replace($.`@resource`, \":#\", \":/\")}", 
@@ -91,7 +105,6 @@
                             this.publish()
                         } 
                     })
-
                     this.#dialogId = crypto.randomUUID()
                     this.#dialog = document.createElement('dialog')
                     this.#dialog.setAttribute('id', this.#dialogId)
@@ -125,10 +138,48 @@
                             })
                         }
                     }
-
-
+                    this.#dialog.querySelector('button[type="submit"]').addEventListener('click', async event => {
+                        event.preventDefault()
+                        await this.run()
+                    })
                     document.body.append(this.#dialog)
+                }}
+            })
+        }
 
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+        async publish() {
+            if (!this.#manifest) return
+            this.#dialog.showModal()
+        }
+
+        async run() {
+            const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'), 
+                progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'), 
+                publishPage = async pageSlug => {
+                
+                await this.e.utils.wait(Math.random() * 3700)
+
+            }, updateProgress = (value, label) => {
+                progressBar.value = value
+                progressLabel.innerHTML = label
+            }
+            let pageIndex = 0, pagesEntries = Object.entries(pages)
+            progressBar.setAttribute('max', pagesEntries.length)
+            for (let [pageSlug, pageUrl] of pagesEntries) {
+                if (!pageSlug) pageSlug = 'index.html' 
+                if (!pageUrl) pageUrl = 'index.html' 
+                updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i> from <i>${pageUrl}</i>`)
+                await publishPage(pageSlug)
+                updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
+                await this.e.utils.wait(Math.random() * 3700)
+                pageIndex = pageIndex + 1
+            }
+            updateProgress(pagesEntries.length, `Publishing complete!`)
+        }
+
+    }
 
                     /* 
 {
@@ -146,9 +197,6 @@
         "variables": {
             "marker": "value", ... set value null if you want to prompt each time 
         },  
-        "page-defaults": {
-            ... this object will be used as the base over which each page object will be applied before processing
-        }, 
         "replace": { ... keys are selectors, values are HTML which will be used to replace the matched elements ... }, 
         "sinkData": {
             ... keys are selectors, values are objects which will be used as data to sink into the matched elements ...
@@ -163,19 +211,5 @@
     }
 }
                     */
-                    }
-                }
-            })
-        }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat() }
-
-        async publish() {
-            if (!this.#manifest) return
-            this.#dialog.showModal()
-
-
-        }
-
-    }
 </script>

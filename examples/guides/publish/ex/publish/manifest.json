@@ -9,6 +9,8 @@
 		}
 	}, 
 	"pages": {
-
+		"": "index.html", 
+		"page1": "index.html#page1", 
+		"page2": "index.html#page2"
 	}
 }
