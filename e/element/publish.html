@@ -46,6 +46,68 @@
         font-size: smaller;
         opacity: 0.87;
     }
+    dialog.e-publish menu {
+        text-align: center;        
+    }
+    dialog.e-publish menu button {
+        font-size: 23px;
+        outline: none;
+        color: #37373773;
+        background-color: #dbdbdb;
+        margin: 17px;
+        border-radius: 3px;
+        border: none;
+        padding: 3px;
+        padding-left: 7px;
+        padding-right: 7px;
+        cursor: pointer;
+        opacity: 0.63;
+        font-size: smaller;
+    }
+    dialog.e-publish menu button:hover {
+        opacity: 0.83;
+    }
+    dialog.e-publish menu button:active {
+        opacity: 1;
+    }
+    dialog.e-publish menu button[value="publish"] {
+        font-weight: bold;
+        background-color: #37373773;
+        color: #dbdbdb;
+        font-size: larger;
+    }
+    dialog.e-publish a {
+        color: #37373773;
+        display: block;
+        text-align: center;
+        font-size: xx-small;
+        margin: 7px;
+        min-height: 13px;
+    }
+    dialog.e-publish .frame {
+        position: relative;
+    }    
+    dialog.e-publish iframe {
+        outline: none;
+        border: 3px dashed #37373773;
+        width: calc(100% - 6px);
+        aspect-ratio: 1;
+        opacity: 0.63;
+    }
+    dialog.e-publish .block {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 7px;
+        z-index: 999;
+        cursor: default;
+        background-image: 
+            linear-gradient(45deg, rgba(0, 0, 0, 0.1) 25%, transparent 25%), 
+            linear-gradient(-45deg, rgba(0, 0, 0, 0.1) 25%, transparent 25%);
+        background-size: 20px 20px;
+        background-position: 0 0, 10px 10px;        
+    }
 </style>
 <template>
     <form method="dialog">
@@ -58,7 +120,12 @@
             <meta is="e-data" resource="|button[value='cancel']|!" target="dialog|" apply="close">
             <button value="cancel">Cancel</button>
             <button type="submit" value="publish">Publish</button>
-        </menu>        
+        </menu>
+        <a href="about:blank" target="_blank"></a>
+        <div class="frame">
+            <iframe src="about:blank"></iframe> 
+            <div class="block"></div>            
+        </div>
     </form>
 </template>
 <script>
@@ -157,8 +224,10 @@
         async run() {
             const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'), 
                 progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'), 
-                publishPage = async pageSlug => {
-                
+                currentLink = this.#dialog.querySelector('a'), iframe = this.#dialog.querySelector('iframe'), 
+                publishPage = async (pageSlug, useUrl) => {
+                iframe.setAttribute('src', useUrl)
+
                 await this.e.utils.wait(Math.random() * 3700)
 
             }, updateProgress = (value, label) => {
@@ -170,8 +239,11 @@
             for (let [pageSlug, pageUrl] of pagesEntries) {
                 if (!pageSlug) pageSlug = 'index.html' 
                 if (!pageUrl) pageUrl = 'index.html' 
+                const useUrl = new URL(pageUrl, this.baseURI)
+                currentLink.setAttribute('href', useUrl)
+                currentLink.textContent = useUrl
                 updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i> from <i>${pageUrl}</i>`)
-                await publishPage(pageSlug)
+                await publishPage(pageSlug, useUrl)
                 updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
                 await this.e.utils.wait(Math.random() * 3700)
                 pageIndex = pageIndex + 1
