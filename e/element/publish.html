@@ -123,7 +123,7 @@
         </menu>
         <a href="about:blank" target="_blank"></a>
         <div class="frame">
-            <iframe src="about:blank"></iframe> 
+            <iframe></iframe> 
             <div class="block"></div>            
         </div>
     </form>
@@ -227,8 +227,14 @@
                 currentLink = this.#dialog.querySelector('a'), iframe = this.#dialog.querySelector('iframe'), 
                 publishPage = async (pageSlug, useUrl) => {
                 iframe.setAttribute('src', useUrl)
+                console.log('line 230', iframe?.contentDocument?.readyState)
+                await this.e.utils.waitUntil(() => iframe?.contentDocument?.readyState === 'loading')
+                await this.e.utils.waitUntil(() => iframe?.contentDocument?.readyState === 'complete')
+                const iframeDoc = iframe.contentDocument.documentElement
 
-                await this.e.utils.wait(Math.random() * 3700)
+
+                console.log('line 233', iframeDoc.innerHTML)
+
 
             }, updateProgress = (value, label) => {
                 progressBar.value = value
@@ -245,7 +251,7 @@
                 updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i> from <i>${pageUrl}</i>`)
                 await publishPage(pageSlug, useUrl)
                 updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
-                await this.e.utils.wait(Math.random() * 3700)
+                await this.e.utils.wait(Math.random() * 1700)
                 pageIndex = pageIndex + 1
             }
             updateProgress(pagesEntries.length, `Publishing complete!`)
