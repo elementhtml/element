@@ -2,6 +2,10 @@
 	"$": {
 		"credentials": {
 			"API Token": null
+		}, 
+		"variables": {
+			"static": "", 
+			"test": null
 		}
 	}, 
 	"pages": {
