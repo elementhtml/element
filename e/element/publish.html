@@ -123,7 +123,6 @@
         </menu>
         <a href="about:blank" target="_blank"></a>
         <div class="frame">
-            <iframe></iframe> 
             <div class="block"></div>            
         </div>
     </form>
@@ -216,6 +215,12 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
+        async connectedCallback() {
+            if (window.frameElement) {
+                window.frameElement.parentElement.dispatchEvent(new CustomEvent('loaded', {detail: document.documentElement.innerHTML}))
+            }
+        }        
+
         async publish() {
             if (!this.#manifest) return
             this.#dialog.showModal()
@@ -224,16 +229,12 @@
         async run() {
             const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'), 
                 progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'), 
-                currentLink = this.#dialog.querySelector('a'), iframe = this.#dialog.querySelector('iframe'), 
-                publishPage = async (pageSlug, useUrl) => {
-                iframe.setAttribute('src', useUrl)
-                console.log('line 230', iframe?.contentDocument?.readyState)
-                await this.e.utils.waitUntil(() => iframe?.contentDocument?.readyState === 'loading')
-                await this.e.utils.waitUntil(() => iframe?.contentDocument?.readyState === 'complete')
-                const iframeDoc = iframe.contentDocument.documentElement
+                currentLink = this.#dialog.querySelector('a'), frame = this.#dialog.querySelector('.frame'), 
+            publishPage = async (pageSlug, useUrl) => {
+                frame.innerHTML = `<iframe src="${useUrl}"></iframe><div class="block"></div>`
+                const frameHtml = await new Promise(resolve => frame.addEventListener('loaded', event => resolve(event.detail), {once: true}))
 
-
-                console.log('line 233', iframeDoc.innerHTML)
+                console.log('line 237', frameHtml, frame.querySelector('iframe').contentDocument.documentElement.baseURI)
 
 
             }, updateProgress = (value, label) => {
