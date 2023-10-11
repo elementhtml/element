@@ -237,13 +237,31 @@
 
                 console.log('line 238', pageConfig)
 
-                await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 1000)
+                await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
                 if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
                     console.log('line 240 loading error!')
+                }
+                for (const ePublishPointer of frameDoc.querySelectorAll('meta[is="e-publish"]')) ePublishPointer.remove()
+                for (const ePublishDialog of frameDoc.querySelectorAll('dialog[class="e-publish"]')) ePublishDialog.remove()
+                for (const [rx, rp] of Object.entries(pageConfig.replace)) {
+                    if (rx[0] === '/' && rx.endsWith('/')) {
+                        console.log('line 248', new RegExp(rx.slice(1, -1), 'g'))
+                        frameDoc.innerHTML = frameDoc.innerHTML.replace(new RegExp(rx.slice(1, -1), 'g'), rp)
+                    } else {
+                        const targets = frameDoc.querySelectorAll(rx)
+                        if (targets.length) {
+                            const template = document.createElement('template')
+                            template.innerHTML = rp
+                            for (const target of targets) target.replaceWith(...template.content.cloneNode(true).children)
+                        }
+                    }
                 }
 
 
 
+
+
+                //frameDoc.innerHTML = frameDoc.innerHTML.replace(/\t+|\r+|\n+/g, '').replace(/\s+/g, ' ')
 
                 console.log('line 248', frameDoc.innerHTML, frame.querySelector('iframe').contentDocument.documentElement.baseURI)
 

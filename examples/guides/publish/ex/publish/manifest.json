@@ -10,7 +10,11 @@
             	"main h2", 
             	"footer > a"
             ], 
-            "replace": {}, 
+            "replace": {
+            	"head > meta[resource='ex:#']": "", 
+            	"head > meta[is='e-data'][resource=':root|h1 > a']": "", 
+            	"/[\\n\\r\\t\\s]+[\\n\\r\\t]+[\\n\\r\\t\\s]+/": "\n"
+            }, 
             "sinkData": {
                 "meta[is^='e-'][resource$=':#']": "{\"@resource\": $replace($.`@resource`, \":#\", \":/\")}", 
                 "meta[is^='e-'][resource$=':?']": "{\"@resource\": $replace($.`@resource`, \":?\", \":/\")}"
