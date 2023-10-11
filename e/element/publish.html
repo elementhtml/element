@@ -244,6 +244,7 @@
                 for (const ePublishPointer of frameDoc.querySelectorAll('meta[is="e-publish"]')) ePublishPointer.remove()
                 for (const ePublishDialog of frameDoc.querySelectorAll('dialog[class="e-publish"]')) ePublishDialog.remove()
                 for (const [rx, rp] of Object.entries(pageConfig.replace)) {
+                    if (rp === null) continue
                     if (rx[0] === '/' && rx.endsWith('/')) {
                         console.log('line 248', new RegExp(rx.slice(1, -1), 'g'))
                         frameDoc.innerHTML = frameDoc.innerHTML.replace(new RegExp(rx.slice(1, -1), 'g'), rp)
@@ -256,6 +257,13 @@
                         }
                     }
                 }
+                for (const [qs, sd] of Object.entries(pageConfig.sinkData)) {
+                    const targets = frameDoc.querySelectorAll(qs)
+                    if (targets.length) {
+
+                    }
+                }
+
 
 
 
@@ -281,10 +289,9 @@
                 currentLink.setAttribute('href', pageConfig.url)
                 currentLink.textContent = pageConfig.url
                 updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i>...`)
-                pageConfig = {...(this.#manifest.$.pageDefaults ?? {}), ...pageConfig} 
-                pageConfig.waitFor ||= []
-                pageConfig.replace ||= {}
-                pageConfig.sinkData ||= {}
+                pageConfig.waitFor ||= this.#manifest.$.pageDefaults.waitFor ?? []
+                pageConfig.replace = {...(this.#manifest.$.pageDefaults.replace ?? {}), ...pageConfig.replace}
+                pageConfig.sinkData = {...(this.#manifest.$.pageDefaults.sinkData ?? {}), ...pageConfig.sinkData}
                 await publishPage(pageSlug, pageConfig)
                 updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
                 await this.e.utils.wait(Math.random() * 1700)

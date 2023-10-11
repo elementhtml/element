@@ -13,6 +13,7 @@
             "replace": {
             	"head > meta[resource='ex:#']": "", 
             	"head > meta[is='e-data'][resource=':root|h1 > a']": "", 
+            	"script[src$='jsonata.min.js']": "", 
             	"/[\\n\\r\\t\\s]+[\\n\\r\\t]+[\\n\\r\\t\\s]+/": "\n"
             }, 
             "sinkData": {
@@ -23,8 +24,13 @@
         "trigger": { "altKey": false, "ctrlKey": false, "metaKey": true, "shiftKey": true, "key": "P" }
     }, 
 	"pages": {
-		"": "index.html", 
-		"page1": "index.html#page1", 
+		"": "", 
+		"page1": {
+			"url": "index.html#page1", 
+			"replace": {
+				"script[src$='jsonata.min.js']": null
+			}
+		}, 
 		"page2": "index.html#page2"
 	}
 }
