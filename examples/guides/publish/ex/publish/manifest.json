@@ -1,13 +1,23 @@
 {
-	"$": {
-		"credentials": {
-			"API Token": null
-		}, 
-		"variables": {
-			"static": "", 
-			"test": null
-		}
-	}, 
+    "$": {
+        "publish": {
+
+        }, 
+        "variables": {},  
+        "pageDefaults": {
+            "waitFor": [
+            	"head > title:not(:empty)", 
+            	"main h2", 
+            	"footer > a"
+            ], 
+            "replace": {}, 
+            "sinkData": {
+                "meta[is^='e-'][resource$=':#']": "{\"@resource\": $replace($.`@resource`, \":#\", \":/\")}", 
+                "meta[is^='e-'][resource$=':?']": "{\"@resource\": $replace($.`@resource`, \":?\", \":/\")}"
+            }
+        }, 
+        "trigger": { "altKey": false, "ctrlKey": false, "metaKey": true, "shiftKey": true, "key": "P" }
+    }, 
 	"pages": {
 		"": "index.html", 
 		"page1": "index.html#page1", 

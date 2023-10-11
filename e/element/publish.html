@@ -139,11 +139,11 @@
             "$": {
                 "credentials": {}, 
                 "variables": {},  
-                "replace": {}, 
-                "sinkData": {
-                    "meta[is^='e-'][resource$=':#']": "{\"@resource\": $replace($.`@resource`, \":#\", \":/\")}", 
-                    "meta[is^='e-'][resource$=':?']": "{\"@resource\": $replace($.`@resource`, \":?\", \":/\")}"
-                }, 
+                "page-defaults": {
+                    "wait-for-all": [], 
+                    "replace": {}, 
+                    "sinkData": {}
+                },
                 "trigger": { "altKey": false, "ctrlKey": false, "metaKey": true, "shiftKey": true, "key": "P" }
             }, 
             "pages": {}          
@@ -217,7 +217,7 @@
 
         async connectedCallback() {
             if (window.frameElement) {
-                window.frameElement.parentElement.dispatchEvent(new CustomEvent('loaded', {detail: document.documentElement.innerHTML}))
+                window.frameElement.parentElement.dispatchEvent(new CustomEvent('publish-loaded'))
             }
         }        
 
@@ -230,11 +230,22 @@
             const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'), 
                 progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'), 
                 currentLink = this.#dialog.querySelector('a'), frame = this.#dialog.querySelector('.frame'), 
-            publishPage = async (pageSlug, useUrl) => {
-                frame.innerHTML = `<iframe src="${useUrl}"></iframe><div class="block"></div>`
-                const frameHtml = await new Promise(resolve => frame.addEventListener('loaded', event => resolve(event.detail), {once: true}))
+            publishPage = async (pageSlug, pageConfig) => {
+                frame.innerHTML = `<iframe src="${pageConfig.url}"></iframe><div class="block"></div>`
+                await new Promise(resolve => frame.addEventListener('publish-loaded', event => resolve(event.detail), {once: true}))
+                const frameDoc = frame.querySelector('iframe').contentDocument.documentElement
 
-                console.log('line 237', frameHtml, frame.querySelector('iframe').contentDocument.documentElement.baseURI)
+                console.log('line 238', pageConfig)
+
+                await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 1000)
+                if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
+                    console.log('line 240 loading error!')
+                }
+
+
+
+
+                console.log('line 248', frameDoc.innerHTML, frame.querySelector('iframe').contentDocument.documentElement.baseURI)
 
 
             }, updateProgress = (value, label) => {
@@ -243,14 +254,20 @@
             }
             let pageIndex = 0, pagesEntries = Object.entries(pages)
             progressBar.setAttribute('max', pagesEntries.length)
-            for (let [pageSlug, pageUrl] of pagesEntries) {
+            for (let [pageSlug, pageConfig] of pagesEntries) {
                 if (!pageSlug) pageSlug = 'index.html' 
-                if (!pageUrl) pageUrl = 'index.html' 
-                const useUrl = new URL(pageUrl, this.baseURI)
-                currentLink.setAttribute('href', useUrl)
-                currentLink.textContent = useUrl
-                updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i> from <i>${pageUrl}</i>`)
-                await publishPage(pageSlug, useUrl)
+                if (!pageConfig) pageConfig = {url: 'index.html'} 
+                if (typeof pageConfig === 'string') pageConfig = {url: pageConfig}
+                if (!pageConfig.url) pageConfig.url = 'index.html'
+                pageConfig.url = new URL(pageConfig.url, this.baseURI).href
+                currentLink.setAttribute('href', pageConfig.url)
+                currentLink.textContent = pageConfig.url
+                updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i>...`)
+                pageConfig = {...(this.#manifest.$.pageDefaults ?? {}), ...pageConfig} 
+                pageConfig.waitFor ||= []
+                pageConfig.replace ||= {}
+                pageConfig.sinkData ||= {}
+                await publishPage(pageSlug, pageConfig)
                 updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
                 await this.e.utils.wait(Math.random() * 1700)
                 pageIndex = pageIndex + 1
