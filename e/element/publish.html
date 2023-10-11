@@ -234,19 +234,15 @@
                 frame.innerHTML = `<iframe src="${pageConfig.url}"></iframe><div class="block"></div>`
                 await new Promise(resolve => frame.addEventListener('publish-loaded', event => resolve(event.detail), {once: true}))
                 const frameDoc = frame.querySelector('iframe').contentDocument.documentElement
-
-                console.log('line 238', pageConfig)
-
                 await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
                 if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
-                    console.log('line 240 loading error!')
+                    console.log('line 242 loading error!')
                 }
                 for (const ePublishPointer of frameDoc.querySelectorAll('meta[is="e-publish"]')) ePublishPointer.remove()
                 for (const ePublishDialog of frameDoc.querySelectorAll('dialog[class="e-publish"]')) ePublishDialog.remove()
                 for (const [rx, rp] of Object.entries(pageConfig.replace)) {
                     if (rp === null) continue
                     if (rx[0] === '/' && rx.endsWith('/')) {
-                        console.log('line 248', new RegExp(rx.slice(1, -1), 'g'))
                         frameDoc.innerHTML = frameDoc.innerHTML.replace(new RegExp(rx.slice(1, -1), 'g'), rp)
                     } else {
                         const targets = frameDoc.querySelectorAll(rx)
@@ -259,27 +255,36 @@
                 }
                 for (const [qs, sd] of Object.entries(pageConfig.sinkData)) {
                     const targets = frameDoc.querySelectorAll(qs)
-                    if (targets.length) {
-
+                    for (const target of targets) {
+                        let sinkDataArgs = []
+                        if (Array.isArray(sd)) {
+                            sinkDataArgs = [target, ...sd]
+                        } else if (sd instanceof Object) {
+                            sinkDataArgs = [target, sd, undefined, undefined, this]
+                        } else if (typeof sd === 'string') {
+                            sinkDataArgs = [target, target, undefined, sd, this]
+                        }
+                        if (sinkDataArgs.length) await this.e.sinkData(...sinkDataArgs)
                     }
                 }
-
-
-
-
-
-
-                //frameDoc.innerHTML = frameDoc.innerHTML.replace(/\t+|\r+|\n+/g, '').replace(/\s+/g, ' ')
-
-                console.log('line 248', frameDoc.innerHTML, frame.querySelector('iframe').contentDocument.documentElement.baseURI)
-
-
+                let pageFilePath = pageSlug 
+                if (pageFilePath[0] === '/') pageFilePath = pageFilePath.slice(1)
+                if (!pageFilePath) pageFilePath = 'index.html'
+                if (pageFilePath.endsWith('/')) pageFilePath = `${pageFilePath}index.html`
+                if (!pageFilePath.endsWith('.html')) pageFilePath = `${pageFilePath}.html`
+                return [pageFilePath, frameDoc.innerHTML]
             }, updateProgress = (value, label) => {
                 progressBar.value = value
                 progressLabel.innerHTML = label
             }
-            let pageIndex = 0, pagesEntries = Object.entries(pages)
-            progressBar.setAttribute('max', pagesEntries.length)
+            let pageIndex = 0, pagesEntries = Object.entries(pages), archive = this.#manifest?.$?.publish?.archive, 
+                downloadZip, renderedPages = []
+            progressBar.setAttribute('max', pagesEntries.length)            
+            if (archive.endsWith('.zip')) {
+                downloadZip = (await import('https://cdn.jsdelivr.net/npm/client-zip/index.js')).downloadZip
+            } else if (archive === 'car') {
+
+            } else { archive = undefined }
             for (let [pageSlug, pageConfig] of pagesEntries) {
                 if (!pageSlug) pageSlug = 'index.html' 
                 if (!pageConfig) pageConfig = {url: 'index.html'} 
@@ -292,45 +297,33 @@
                 pageConfig.waitFor ||= this.#manifest.$.pageDefaults.waitFor ?? []
                 pageConfig.replace = {...(this.#manifest.$.pageDefaults.replace ?? {}), ...pageConfig.replace}
                 pageConfig.sinkData = {...(this.#manifest.$.pageDefaults.sinkData ?? {}), ...pageConfig.sinkData}
-                await publishPage(pageSlug, pageConfig)
+                const [pageFilePath, compiledPageHtml] = await publishPage(pageSlug, pageConfig)
+                if (downloadZip) renderedPages.push({name: pageFilePath, lastModified: new Date(), input: compiledPageHtml})
+
                 updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
                 await this.e.utils.wait(Math.random() * 1700)
                 pageIndex = pageIndex + 1
+            }
+            for (let f of (this.#manifest.files ?? [])) {
+                let fileUrl = new URL(f, this.baseURI).href
+                renderedPages.push({name: f, lastModified: new Date(), input: await fetch(fileUrl)})
+            }
+            if (downloadZip) {
+                const blob = await downloadZip(renderedPages).blob()
+                if (this.#manifest.$.publish.endpoint) {
+                    const uploadOptions = this.#manifest.$.publish.endpoint.options
+                    uploadOptions.body = blob
+                    await fetch(this.#manifest.$.publish.endpoint.url, this.#manifest.$.publish.endpoint.options)
+                } else {
+                    const link = document.createElement("a")
+                    link.href = URL.createObjectURL(blob)
+                    link.download = archive
+                    link.click()
+                    link.remove()                    
+                }
             }
             updateProgress(pagesEntries.length, `Publishing complete!`)
         }
 
     }
-
-                    /* 
-{
-    "$": {
-        "trigger": {
-            "altKey": false, 
-            "ctrlKey": false, 
-            "metaKey": true, 
-            "shiftKey": true, 
-            "key": "p"
-        }, 
-        "credentials": {
-            ... set a value to null to prompt each time
-        }, 
-        "variables": {
-            "marker": "value", ... set value null if you want to prompt each time 
-        },  
-        "replace": { ... keys are selectors, values are HTML which will be used to replace the matched elements ... }, 
-        "sinkData": {
-            ... keys are selectors, values are objects which will be used as data to sink into the matched elements ...
-        }
-    }, 
-    "pages": {
-        "path-to-page": {
-            title: "", meta: {
-                "[content]": [... array of meta names to assign this content string to...]
-            }
-        }
-    }
-}
-                    */
-
 </script>

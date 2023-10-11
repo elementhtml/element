@@ -191,7 +191,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
             if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
             for (const [variableName, variableValue] of Object.entries(variableMap)) {
-                if (transform.includes(`$${variableName}`)) variables.push(`$this := ${JSON.stringify(variableValue)}`)
+                if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
             }
             for (const [vn, vv] of Object.entries(this.env.variables)) {
                 if ((vn === 'env') || (vn === 'this')) continue
@@ -312,14 +312,22 @@ const ElementHTML = Object.defineProperties({}, {
             return resolved
         }
     }},    
-    getValue: {enumerable: true, value: function(element, useDataset='auto') {
-        if (!(element instanceof Node)) return
+    getValue: {enumerable: true, value: function(element, useDataset='auto') {        
+        if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
         const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
         if (preGetValue) element = typeof preGetValue === 'function' ? preGetValue(element, useDataset) : preGetValue 
         const ret = (v) => {
             const postGetValue = (this.env.map.get(element) ?? {})['postGetValue']
             if (postGetValue) v = typeof postGetValue === 'function' ? postGetValue(v, element, useDataset) : postGetValue
             return v
+        }
+        if (useDataset === 'eValueOf') {
+            const override = (this.env.map.get(element) ?? {})['eValueOf']
+            if (override) return typeof override === 'function' ? override(element) : override
+            return {...element.dataset, [`#tagName`]: element.tagName.toLowerCase(), 
+                ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))), 
+                ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, element[p]])))
+            }
         }
         if (element.hasAttribute('itemscope')) {
             const value = {}, parseElementForValues = (el) => {
@@ -362,7 +370,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }},
     setValue: {enumerable: true, value: function(element, value, scopeNode, silent=undefined) {
-        if (!(element instanceof Node)) return
+        if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
         const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
         if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(value, element, scopeNode) : preSetValue
         const close = () => {
@@ -423,7 +431,7 @@ const ElementHTML = Object.defineProperties({}, {
         return close()
     }},
     sinkData: {enumerable: true, value: async function(element, data, flag, transform, sourceElement, context={}, layer=0, rootElement=undefined, silent=undefined) {
-        if (!(element instanceof Node)) return
+        if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
         const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
         if (typeof preSinkData === 'function') ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
         if (preSinkData instanceof Object) ({element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement} = preSinkData)
@@ -452,6 +460,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options', 'variables'])}`)
             if (transform.includes('$sourceElement')) variables.push(`$sourceElement := ${JSON.stringify(sourceElement ? sourceElement.valueOf() : {})}`)
             if (transform.includes('$target')) variables.push(`$target := ${JSON.stringify(this.getValue(element))}`)
+            if (transform.includes('$targetValueOf')) variables.push(`$targetValueOf := ${JSON.stringify(this.getValue(element, 'eValueOf'))}`)
             if (transform.includes('$flag')) variables.push(`$flag := ${JSON.stringify(flag ?? '')}`)
             if (transform.includes('$context')) variables.push(`$context := ${JSON.stringify(context ?? '')}`)
             for (const [vn, vv] of Object.entries(this.env.variables)) {
@@ -461,7 +470,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
             data = await this.env.libraries.jsonata(transform).evaluate(data)
         }
-        if (data instanceof Node) {
+        if ((data.nodeType === Node.ELEMENT_NODE) || (data.nodeType === Node.DOCUMENT_NODE)) {
             if (data.eDataset) {
                 data = data.valueOf()
             } else {
@@ -517,7 +526,9 @@ const ElementHTML = Object.defineProperties({}, {
                 } else if (key.startsWith('.')) {
                     (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
                 } else if (flag === 'auto-data') {
-                    target.dataset[key] = v
+                    if (v === null) {
+                        delete target.dataset[key]
+                    } else { target.dataset[key] = v }
                 }
             }
           }
@@ -708,7 +719,11 @@ const ElementHTML = Object.defineProperties({}, {
                         (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
                     } else if (key.startsWith('.')) {
                         (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
-                    } else { target.dataset[key] = v }
+                    } else { 
+                        if (v === null) {
+                            delete target.dataset[key]
+                        } else { target.dataset[key] = v }
+                    }
                 }
             }
         }
@@ -1037,9 +1052,9 @@ const ElementHTML = Object.defineProperties({}, {
             async readyCallback() {}
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() {
-                const override = (this.env.map.get(element) ?? {})['valueOf']
+                const override = (this.env.map.get(element) ?? {})['eValueOf']
                 if (override) return typeof override === 'function' ? override(element) : override
-                return {...this.dataset, 
+                return {...this.dataset, [`#tagName`]: this.tagName.toLowerCase(), 
                     ...Object.fromEntries(this.getAttributeNames().map(a => ([`@${a}`, this.getAttribute(a)]))), 
                     ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, this[p]])))
                 }
