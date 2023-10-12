@@ -7,6 +7,8 @@
         #module
         #types = {}
         #sets = []
+        #ledger = {}
+        #schedule = {}
         #peer
         #peers = []
         #abortController
@@ -27,6 +29,12 @@
 
         constructor() {
             super()
+            window.setTimeout(() => {
+                window.setInterval(() => {
+                    this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
+                }, 1000)
+            }, (Date.now()/1000%1)*1000) 
+            this.addEventListener('clock', event => this.send(this.#schedule[event.detail]))
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
@@ -36,6 +44,30 @@
             let thisSet
             for (const s of this.#sets) if (s.includes(query)) { thisSet = s; break }
             if (!thisSet) thisSet = this.#sets[this.#sets.push([null, (await this.#hash(query)), query])-1]
+        }
+
+        receive(records) {
+            if (!records || !Array.isArray(records)) return
+            let recordsToSave = []
+            for (const record of records) {
+                if (!(record instanceof Object)) continue
+                const recordHash = await this.#hash(record), receiveCount = parseInt(this.#ledger[recordHash] ?? 0) || 0
+                if (receiveCount) {
+                    const sendAt = `clock-${Math.ceil((Date.now()/1000)+receiveCount)}`
+                    this.#schedule[sendAt] ||= []
+                    this.#schedule[sendAt].push(record)
+                } else { recordsToSave.push(record) }
+                this.#ledger[recordHash] = receiveCount + 1
+            }
+            //validate each record, discard invalid
+            //assign each record to set(s), discard
+            //save each record
+            this.send(recordsToSave)
+        }
+
+        send(records) {
+            if (!records || !Array.isArray(records) || !records.length) return
+            for (const peer of this.#peers) peer.send(records)
         }
 
         set manifest(value) {
