@@ -6,8 +6,10 @@
         #manifest
         #module
         #types = {}
+        #sets = []
         #peer
         #peers = []
+        #abortController
         #_hash = async value => {
             this.e.env.libraries.multiformats ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/+esm')
             this.e.env.libraries.multiformatsCodecsJson ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/src/codecs/json.min.js')
@@ -25,15 +27,16 @@
 
         constructor() {
             super()
-            if (!this.e.env.libraries.ajv) {
-                let ajvOptions = {...this.e.env.options.ajv, ...applyMap}
-                this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
-                const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
-                addFormats(this.e.env.libraries.ajv)
-            }
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
+
+        set(query) {
+            if (!query) return
+            let thisSet
+            for (const s of this.#sets) if (s.includes(query)) { thisSet = s; break }
+            if (!thisSet) thisSet = this.#sets[this.#sets.push([null, (await this.#hash(query)), query])-1]
+        }
 
         set manifest(value) {
             this.#manifest = value
@@ -44,9 +47,11 @@
                 const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
                 addFormats(this.e.env.libraries.ajv)
             }
-            for (const [typeName, schemaUrl] of this.#module.types) {
-                this.#types[typeName] = { schemaUrl, validate: this.e.env.libraries.ajv.getSchema(typeSchemaUrl) }
-            }
+            for (const [type, url] of this.#module.types) this.#types[type] = { url, validate: this.e.env.libraries.ajv.getSchema(typeSchemaUrl) }
+            if (this.##abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            this.#sets = {}
+            for (const [label, query] of Object.entries(this.#module.sets ?? {})) this.#sets[label] = [(await this.#hash(query.trim())), query]
             this.#peers = []
             for (const uri of (this.#module.peers ?? [])) {
                 let [protocol, id] = uri.includes('://') ? uri.split('://') : ['peer', uri]
@@ -72,6 +77,7 @@
 
                 }
             }
+
 
 
         }
