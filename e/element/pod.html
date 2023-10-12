@@ -1,0 +1,83 @@
+<style></style>
+<template></template>
+<script>
+    class extends `meta` {
+
+        #manifest
+        #module
+        #types = {}
+        #peer
+        #peers = []
+        #_hash = async value => {
+            this.e.env.libraries.multiformats ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/+esm')
+            this.e.env.libraries.multiformatsCodecsJson ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/src/codecs/json.min.js')
+            this.e.env.libraries.multiformatsHashesSha2 ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/src/hashes/sha2-browser.js')
+            this.e.env.libraries.multiformats.CID()
+            const bytes = this.e.env.libraries.multiformatsCodecsJson.encode(value), 
+                hash = await this.e.env.libraries.multiformatsHashesSha2.sha256.digest(bytes), 
+                cid = this.e.env.libraries.multiformats.CID.create(1, this.e.env.libraries.multiformatsCodecsJson.code, hash)
+            return cid.toString()
+        }
+        #hash = async value => {
+            const hasher = (this.e.env.map.get(this) ?? {}).hasher ?? this.#module.hasher ?? this.#_hash
+            return await hasher(value)
+        }
+
+        constructor() {
+            super()
+            if (!this.e.env.libraries.ajv) {
+                let ajvOptions = {...this.e.env.options.ajv, ...applyMap}
+                this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
+                const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
+                addFormats(this.e.env.libraries.ajv)
+            }
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
+
+        set manifest(value) {
+            this.#manifest = value
+            this.#module = await import(this.e.resolveUrl(value))
+            if (!this.e.env.libraries.ajv) {
+                let ajvOptions = {...this.e.env.options.ajv, ...((this.#module.options?.ajvOptions) ?? {})}
+                this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
+                const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
+                addFormats(this.e.env.libraries.ajv)
+            }
+            for (const [typeName, schemaUrl] of this.#module.types) {
+                this.#types[typeName] = { schemaUrl, validate: this.e.env.libraries.ajv.getSchema(typeSchemaUrl) }
+            }
+            this.#peers = []
+            for (const uri of (this.#module.peers ?? [])) {
+                let [protocol, id] = uri.includes('://') ? uri.split('://') : ['peer', uri]
+                const peerObj = {uri, protocol, id}
+                if (protocol === 'https' || protocol === 'http') {
+                    peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
+                        {method: 'POST', body: this.e.serialize(value, this)}), this)
+                    
+                } else if (protocol === 'sse') {
+                    peerObj.eventSource = new EventSource(`https://${id}`)
+                    peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
+                        {method: 'POST', body: (await this.e.serialize(value, this))}), this)
+
+                } else if (protocol === 'wss') {
+                    peerObj.webSocket = new WebSocket(`wss://${id}`)
+                    peerObj.send = async (value) => peerObj.webSocket.send(await this.e.serialize(value, this))
+
+                } else {
+                    this.e.env.libraries.peerjs ||= await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.1/+esm')
+                    this.#peer ||= new this.e.env.libraries.peerjs.Peer()
+                    peerObj.connection = this.#peer.connect(id)
+                    peerObj.send = async (value) => peerObj.connection.send(await this.e.serialize(value, this))
+
+                }
+            }
+
+
+        }
+        get manifest() { return this.#manifest }
+
+        get module() { return this.#module }
+
+    }
+</script>
