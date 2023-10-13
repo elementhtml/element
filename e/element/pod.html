@@ -29,6 +29,12 @@
 
         constructor() {
             super()
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
+
+        async connectedCallback() {
+            await this.utils.waitUntil(() => this.env.libraries.libp2p)        
             window.setTimeout(() => {
                 window.setInterval(() => {
                     const r = () => this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
@@ -39,9 +45,8 @@
                 const r = () => this.send(this.#schedule[event.detail])
                 window.requestIdleCallback ? window.requestIdleCallback(r) : r()                
             })
-        }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
+        }        
 
         set(query) {
             if (!query) return
@@ -50,23 +55,37 @@
             if (!thisSet) thisSet = this.#sets[this.#sets.push([null, (await this.#hash(query)), query])-1]
         }
 
-        receive(packet) {
-            if (!packet || !Array.isArray(packet) || !packet.every(item => (Array.isArray(item) && item.length ===2))) return
-            let itemsToSave = []
-            for (const record of records) {
-                if (!(record instanceof Object)) continue
-                const recordHash = await this.#hash(record), receiveCount = parseInt(this.#ledger[recordHash] ?? 0) || 0
+        async receive(packet) {
+            if (!packet || !Array.isArray(packet) || !packet.every(item => (Array.isArray(item) && item.length ===3))) return
+            let itemsToSave = [], itemsToSend = []
+            for (const item of packet) {
+                const [metadata, record, attachments]
+                if (!item.every(i => (i instanceof Object))) continue
+                if (!metadata.type || !this.#types[metadata.type] || !Object.keys(record).length) continue
+                if (!(await this.#types[metadata.type].validate(record))) continue
+                metadata.hash = await this.#hash(record), receiveCount = parseInt(this.#ledger[metadata.hash] ?? 0) || 0
                 if (receiveCount) {
                     const sendAt = `clock-${Math.ceil((Date.now()/1000)+receiveCount)}`
                     this.#schedule[sendAt] ||= []
-                    this.#schedule[sendAt].push(record)
-                } else { recordsToSave.push(record) }
-                this.#ledger[recordHash] = receiveCount + 1
+                    this.#schedule[sendAt].push(item)
+                } else { itemsToSend.push(item) }
+                this.#ledger[metadata.hash] = receiveCount + 1
             }
-            //validate each record, discard invalid
-            //assign each record to set(s), discard
-            //save each record
-            this.send(recordsToSave)
+            this.send(itemsToSend)
+            for (const set of this.#sets) { 
+                for (const item of itemsToSend) {
+                    const t = `$boolean(${this.e.expandTransform(set[2], this)})`, belongs = await this.env.libraries.jsonata(t).evaluate(record)
+                    if (belongs) {
+                        metadata.sets ||= []
+                        metadata.sets.push(set[1])
+                    }
+                }
+                if (metadata.sets.length) itemsToSave.push(item)                
+            }
+            if (const item of itemsToSave) {
+                
+
+            }
         }
 
         send(record) {
