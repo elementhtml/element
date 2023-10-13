@@ -31,10 +31,15 @@
             super()
             window.setTimeout(() => {
                 window.setInterval(() => {
-                    this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
+                    const r = () => this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
+                    window.requestIdleCallback ? window.requestIdleCallback(r) : r()
                 }, 1000)
-            }, (Date.now()/1000%1)*1000) 
-            this.addEventListener('clock', event => this.send(this.#schedule[event.detail]))
+            }, (Date.now()/1000%1)*1000)
+
+            this.addEventListener('clock', event => {
+                const r = () => this.send(this.#schedule[event.detail])
+                window.requestIdleCallback ? window.requestIdleCallback(r) : r()                
+            })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
