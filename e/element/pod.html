@@ -35,7 +35,6 @@
                     window.requestIdleCallback ? window.requestIdleCallback(r) : r()
                 }, 1000)
             }, (Date.now()/1000%1)*1000)
-
             this.addEventListener('clock', event => {
                 const r = () => this.send(this.#schedule[event.detail])
                 window.requestIdleCallback ? window.requestIdleCallback(r) : r()                
@@ -51,9 +50,9 @@
             if (!thisSet) thisSet = this.#sets[this.#sets.push([null, (await this.#hash(query)), query])-1]
         }
 
-        receive(records) {
-            if (!records || !Array.isArray(records)) return
-            let recordsToSave = []
+        receive(packet) {
+            if (!packet || !Array.isArray(packet) || !packet.every(item => (Array.isArray(item) && item.length ===2))) return
+            let itemsToSave = []
             for (const record of records) {
                 if (!(record instanceof Object)) continue
                 const recordHash = await this.#hash(record), receiveCount = parseInt(this.#ledger[recordHash] ?? 0) || 0
@@ -70,7 +69,7 @@
             this.send(recordsToSave)
         }
 
-        send(records) {
+        send(record) {
             if (!records || !Array.isArray(records) || !records.length) return
             for (const peer of this.#peers) peer.send(records)
         }
