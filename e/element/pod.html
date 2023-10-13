@@ -12,6 +12,7 @@
         #peer
         #peers = []
         #abortController
+
         #_hash = async value => {
             this.e.env.libraries.multiformats ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/+esm')
             this.e.env.libraries.multiformatsCodecsJson ||= await import('https://cdn.jsdelivr.net/npm/multiformats@12.1.2/src/codecs/json.min.js')
@@ -22,6 +23,76 @@
                 cid = this.e.env.libraries.multiformats.CID.create(1, this.e.env.libraries.multiformatsCodecsJson.code, hash)
             return cid.toString()
         }
+
+        #_r2p(req) {
+            return new Promise((resolve, reject) => {
+                req.onabort = req.onerror = () => reject(req.error)
+                req.oncomplete = req.onsuccess = () => resolve(req.result)
+            })
+        }
+        #_gs() { 
+            const req = indexedDB.open('ePod')
+            req.onupgradeneeded = () => req.result.createObjectStore(this.name)
+            const dbp = this.#_r2p(req)
+            return (mode, cb) => dbp.then(db => cb(db.transaction(this.name, mode).objectStore(this.name)))
+        }
+        #_get(key) { 
+            return Array.isArray(key) ? this.#_gs('readonly', store => Promise.all(key.map((k) => this.#_r2p(store.get(k)))))
+                : this.#_gs('readonly', store => this.#_r2p(store.get(key)))
+        }
+        #_set(map, value) {
+            if (map instanceof Object) {
+                return this.#_gs('readwrite', store => {
+                    for (const ent of Object.entries(map)) store.put(ent[1], ent[0])
+                    return this.#_r2p(store.transaction)
+                })
+            } else if (typeof map === 'string') {
+                return this.#_gs('readwrite', store => {
+                    store.put(value, map)
+                    return this.#_r2p(store.transaction)
+                })
+            }
+        }
+        #_update(key, updater) {
+            return this.#_gs('readwrite', store => 
+            new Promise((resolve, reject) => {
+                store.get(key).onsuccess = () => {
+                    try {
+                        store.put(updater(this.result), key)
+                        resolve(this.#_r2p(store.transaction))
+                    } catch (e) { reject(e) }
+                }
+            }))
+        }
+        #_del(key) {
+            if (Array.isArray(key)) {
+                return this.#_gs('readwrite', store => {
+                    for (const k of key) store.delete(k)
+                    return this.#_r2p(store.transaction)
+                })
+            } else {
+                return this.#_gs('readwrite', store => {
+                    store.delete(key)
+                    return this.#_r2p(store.transaction)
+                })
+            }
+        }
+        #_clear() {
+            return this.#_gs('readwrite', store => {
+                store.clear()
+                return this.#_r2p(store.transaction)
+            })
+        }
+        #_keys() { return this.#_gs('readonly', store => this.#_r2p(store.getAllKeys())) }
+        #_values() { return this.#_gs('readonly', store => this.#_r2p(store.getAll())) }
+        #_entries() {
+            return this.#_gs('readonly', store => Promise.all([
+                    this.#_r2p(store.getAll()),
+                    this.#_r2p(store.getAllKeys()),
+                ]).then(([keys, values]) => keys.map((key, i) => [key, values[i]]))
+            )
+        }
+
         #hash = async value => {
             const hasher = (this.e.env.map.get(this) ?? {}).hasher ?? this.#module.hasher ?? this.#_hash
             return await hasher(value)
@@ -139,6 +210,23 @@
         get manifest() { return this.#manifest }
 
         get module() { return this.#module }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     }
 </script>
