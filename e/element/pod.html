@@ -3,8 +3,16 @@
 <script>
     class extends `meta` {
 
-        #manifest
+        static {
+            #peers = {}
+        }
+
+        #db
+        #dbName
         #module
+        #query
+        #storeName
+
         #types = {}
         #sets = []
         #ledger = {}
@@ -24,71 +32,71 @@
             return cid.toString()
         }
 
-        #_r2p(req) {
+        #_db_r2p(req) {
             return new Promise((resolve, reject) => {
                 req.onabort = req.onerror = () => reject(req.error)
                 req.oncomplete = req.onsuccess = () => resolve(req.result)
             })
         }
-        #_gs() { 
-            const req = indexedDB.open('ePod')
-            req.onupgradeneeded = () => req.result.createObjectStore(this.name)
-            const dbp = this.#_r2p(req)
-            return (mode, cb) => dbp.then(db => cb(db.transaction(this.name, mode).objectStore(this.name)))
+        #_db_gs() {
+            const req = indexedDB.open(this.dbName)
+            req.onupgradeneeded = () => req.result.createObjectStore(this.storeName)
+            const dbp = this.#_db_r2p(req)
+            return (mode, cb) => dbp.then(db => cb(db.transaction(this.storeName, mode).objectStore(this.storeName)))
         }
-        #_get(key) { 
-            return Array.isArray(key) ? this.#_gs('readonly', store => Promise.all(key.map((k) => this.#_r2p(store.get(k)))))
-                : this.#_gs('readonly', store => this.#_r2p(store.get(key)))
+        #_db_get(key) {
+            return Array.isArray(key) ? this.#_db_gs('readonly', store => Promise.all(key.map((k) => this.#_db_r2p(store.get(k)))))
+                : this.#_db_gs('readonly', store => this.#_db_r2p(store.get(key)))
         }
-        #_set(map, value) {
+        #_db_set(map, value) {
             if (map instanceof Object) {
-                return this.#_gs('readwrite', store => {
+                return this.#_db_gs('readwrite', store => {
                     for (const ent of Object.entries(map)) store.put(ent[1], ent[0])
-                    return this.#_r2p(store.transaction)
+                    return this.#_db_r2p(store.transaction)
                 })
             } else if (typeof map === 'string') {
-                return this.#_gs('readwrite', store => {
+                return this.#_db_gs('readwrite', store => {
                     store.put(value, map)
-                    return this.#_r2p(store.transaction)
+                    return this.#_db_r2p(store.transaction)
                 })
             }
         }
-        #_update(key, updater) {
-            return this.#_gs('readwrite', store => 
+        #_db_update(key, updater) {
+            return this.#_db_gs('readwrite', store => 
             new Promise((resolve, reject) => {
                 store.get(key).onsuccess = () => {
                     try {
                         store.put(updater(this.result), key)
-                        resolve(this.#_r2p(store.transaction))
+                        resolve(this.#_db_r2p(store.transaction))
                     } catch (e) { reject(e) }
                 }
             }))
         }
-        #_del(key) {
+        #_db_del(key) {
             if (Array.isArray(key)) {
-                return this.#_gs('readwrite', store => {
+                return this.#_db_gs('readwrite', store => {
                     for (const k of key) store.delete(k)
-                    return this.#_r2p(store.transaction)
+                    return this.#_db_r2p(store.transaction)
                 })
             } else {
-                return this.#_gs('readwrite', store => {
+                return this.#_db_gs('readwrite', store => {
                     store.delete(key)
-                    return this.#_r2p(store.transaction)
+                    return this.#_db_r2p(store.transaction)
                 })
             }
         }
-        #_clear() {
-            return this.#_gs('readwrite', store => {
+        #_db_clear() {
+            return this.#_db_gs('readwrite', store => {
                 store.clear()
-                return this.#_r2p(store.transaction)
+                return this.#_db_r2p(store.transaction)
             })
         }
-        #_keys() { return this.#_gs('readonly', store => this.#_r2p(store.getAllKeys())) }
-        #_values() { return this.#_gs('readonly', store => this.#_r2p(store.getAll())) }
-        #_entries() {
-            return this.#_gs('readonly', store => Promise.all([
-                    this.#_r2p(store.getAll()),
-                    this.#_r2p(store.getAllKeys()),
+        #_db_keys() { return this.#_db_gs('readonly', store => this.#_db_r2p(store.getAllKeys())) }
+        #_db_values() { return this.#_db_gs('readonly', store => this.#_db_r2p(store.getAll())) }
+        #_db_entries() {
+            return this.#_db_gs('readonly', store => Promise.all([
+                    this.#_db_r2p(store.getAll()),
+                    this.#_db_r2p(store.getAllKeys()),
                 ]).then(([keys, values]) => keys.map((key, i) => [key, values[i]]))
             )
         }
@@ -102,10 +110,9 @@
             super()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('manifest', 'content-type') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('db', 'query', 'content-type') }
 
         async connectedCallback() {
-            await this.utils.waitUntil(() => this.env.libraries.libp2p)        
             window.setTimeout(() => {
                 window.setInterval(() => {
                     const r = () => this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
@@ -118,13 +125,6 @@
             })
 
         }        
-
-        set(query) {
-            if (!query) return
-            let thisSet
-            for (const s of this.#sets) if (s.includes(query)) { thisSet = s; break }
-            if (!thisSet) thisSet = this.#sets[this.#sets.push([null, (await this.#hash(query)), query])-1]
-        }
 
         async receive(packet) {
             if (!packet || !Array.isArray(packet) || !packet.every(item => (Array.isArray(item) && item.length ===3))) return
@@ -153,75 +153,111 @@
                 }
                 if (metadata.sets.length) itemsToSave.push(item)                
             }
-            if (const item of itemsToSave) {
-                
-
+            if (itemsToSave.length) {
+                const toSave = Object.fromEntries(itemsToSave.map(t => [t[0].hash, t[1]]))
+                this.#_db_set(toSave)
+                this.dispatchEvent(new CustomEvent('change', {detail: itemsToSave.map(t => t[1])}))                
             }
         }
 
-        send(record) {
-            if (!records || !Array.isArray(records) || !records.length) return
-            for (const peer of this.#peers) peer.send(records)
+        send(packet) {
+            if (!packet || !Array.isArray(packet) || !packet.length) return
+            for (const peer of this.constructor.#peers[this.#dbName]) peer.send(packet)
         }
 
-        set manifest(value) {
-            this.#manifest = value
-            this.#module = await import(this.e.resolveUrl(value))
-            if (!this.e.env.libraries.ajv) {
-                let ajvOptions = {...this.e.env.options.ajv, ...((this.#module.options?.ajvOptions) ?? {})}
-                this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
-                const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
-                addFormats(this.e.env.libraries.ajv)
-            }
-            for (const [type, url] of this.#module.types) this.#types[type] = { url, validate: this.e.env.libraries.ajv.getSchema(typeSchemaUrl) }
+        save(record) {
+            if (!record || !(record instanceof Object) || Array.isArray(record) || !Object.keys(record).length) return
+            const toSave = {[(await this.#hash(record))]: record}
+            this.#_db_set(toSave)
+            this.dispatchEvent(new CustomEvent('change', {detail: [record]}))
+        }
+
+        set db(value) {
+            this.#db = value
+            const dbUrl = this.e.resolveUrl(value)
+            this.#dbName = await this.#hash(dbUrl)
+            this.#module = await import(manifestUrl)
             if (this.##abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
-            this.#sets = {}
-            for (const [label, query] of Object.entries(this.#module.sets ?? {})) this.#sets[label] = [(await this.#hash(query.trim())), query]
-            this.#peers = []
-            for (const uri of (this.#module.peers ?? [])) {
-                let [protocol, id] = uri.includes('://') ? uri.split('://') : ['peer', uri]
-                const peerObj = {uri, protocol, id}
-                if (protocol === 'https' || protocol === 'http') {
-                    peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
-                        {method: 'POST', body: this.e.serialize(value, this)}), this)
-                    
-                } else if (protocol === 'sse') {
-                    peerObj.eventSource = new EventSource(`https://${id}`)
-                    peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
-                        {method: 'POST', body: (await this.e.serialize(value, this))}), this)
+            this.constructor.#peers[this.#dbName] ||= []
+            if (!this.constructor.#peers[this.#dbName].length) {
+                for (const uri of (this.#module.peers ?? [])) {
+                    let [protocol, id] = uri.includes('://') ? uri.split('://') : ['peer', uri]
+                    const peerObj = {uri, protocol, id}
+                    if (protocol === 'https' || protocol === 'http') {
+                        peerObj.send = async (value) => peerObj.receive(await fetch(`${protocol}://${id}`, 
+                            {method: 'POST', body: this.e.serialize(value, this)}))
+                    } else if (protocol === 'sse') {
+                        peerObj.events = ['message']
+                        if (id.includes('!')) {
+                            const idSplit = id.split('!').map(s => s.trim())
+                            id = idSplit[0]
+                            peerObj.events = idSplit[1].split(',').map(s => s.trim())
+                        }
+                        peerObj.eventSource = new EventSource(`https://${id}`)
+                        peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
+                            {method: 'POST', body: (await this.e.serialize(value, this))}), this)
+                    } else if (protocol === 'wss') {
+                        peerObj.webSocket = new WebSocket(`wss://${id}`)
+                        peerObj.send = async (value) => peerObj.webSocket.send(await this.e.serialize(value, this))
 
-                } else if (protocol === 'wss') {
-                    peerObj.webSocket = new WebSocket(`wss://${id}`)
-                    peerObj.send = async (value) => peerObj.webSocket.send(await this.e.serialize(value, this))
+                    } else {
+                        this.e.env.libraries.peerjs ||= await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.1/+esm')
+                        peerObj.peer ||= new this.e.env.libraries.peerjs.Peer()
+                        peerObj.connection = peerObj.connect(id)
+                        peerObj.send = async value => peerObj.connection.send(await this.e.serialize(value, this))
 
-                } else {
-                    this.e.env.libraries.peerjs ||= await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.1/+esm')
-                    this.#peer ||= new this.e.env.libraries.peerjs.Peer()
-                    peerObj.connection = this.#peer.connect(id)
-                    peerObj.send = async (value) => peerObj.connection.send(await this.e.serialize(value, this))
-
+                    }
+                    this.constructor.#peers[this.#dbName].push(peerObj)
                 }
             }
-
-
-
+            for (const peerObj of this.constructor.#peers[this.#dbName]) {
+                if (peerObj.protocol === 'https' || peerObj.protocol === 'http') {
+                    peerObj.receive = response => this.receive(await this.e.parse(response, this))
+                } else if (peerObj.protocol === 'sse') {
+                    for (eventName of peerObj.events) {
+                        peerObj.eventSource.addEventListener(eventName, event => {
+                            this.receive(await this.e.parse(event.data, this))
+                        })
+                    }
+                } else if (peerObj.protocol === 'wss') {
+                    peerObj.webSocket.addEventListener('message', event => {
+                        this.receive(await this.e.parse(event.data, this))
+                    })
+                } else {
+                    peerObj.connection.on('data', async data => this.receive(await this.e.parse(data, this)))
+                }
+            }
         }
-        get manifest() { return this.#manifest }
+        get db() { 
+            const attrDb = this.getAttribute('db')
+            if (this.#db !== attrDb) this.db = attrDb
+            return this.#db
+        }
+        get dbName() {
+            const attrDb = this.getAttribute('db')
+            if (this.#db !== attrDb) this.db = attrDb
+            return this.#dbName            
+        }
 
         get module() { return this.#module }
 
+        set query(value) {
+            this.#query = value
+            this.#storeName = await this.#hash(value)
+        }
+        get query() { 
+            const attrQuery = this.getAttribute('query')
+            if (this.#query !== attrQuery) this.query = attrQuery
+            return this.#query 
+        }
+        get storeName() {
+            const attrQuery = this.getAttribute('query')
+            if (this.#query !== attrQuery) this.query = attrQuery
+            return this.#storeName
+        }
 
-
-
-
-
-
-
-
-
-
-
+        get value() { return this.#_db_values() }
 
 
 
