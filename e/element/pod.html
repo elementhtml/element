@@ -3,9 +3,7 @@
 <script>
     class extends `meta` {
 
-        static {
-            #peers = {}
-        }
+        static #peers = {}
 
         #db
         #dbName
@@ -17,8 +15,6 @@
         #sets = []
         #ledger = {}
         #schedule = {}
-        #peer
-        #peers = []
         #abortController
 
         #_hash = async value => {
@@ -173,12 +169,22 @@
         }
 
         set db(value) {
+            if (value === this.#db) return
+            const oldDb = this.#db ? this.#db : null
             this.#db = value
             const dbUrl = this.e.resolveUrl(value)
             this.#dbName = await this.#hash(dbUrl)
             this.#module = await import(manifestUrl)
-            if (this.##abortController) this.#abortController.abort()
-            this.#abortController = new AbortController()
+
+            this.constructor.#pods[this.#dbName] ||= []
+            this.constructor.#pods[this.#dbName].push(this)
+            if (oldDb) {
+                if (this.#abortController) this.#abortController.abort()
+                this.#abortController = new AbortController()
+                const oldDbUrl = this.e.resolveUrl(oldDb), oldDbName = await this.#hash(oldDbUrl), 
+                    index = (this.constructor.#pods[oldDbName] ?? []).indexOf(this)
+                if (index > -1) (this.constructor.#pods[oldDbName] ?? []).splice(index, 1)
+            }
             this.constructor.#peers[this.#dbName] ||= []
             if (!this.constructor.#peers[this.#dbName].length) {
                 for (const uri of (this.#module.peers ?? [])) {
@@ -195,18 +201,16 @@
                             peerObj.events = idSplit[1].split(',').map(s => s.trim())
                         }
                         peerObj.eventSource = new EventSource(`https://${id}`)
-                        peerObj.send = async (value) => await this.e.parse(await fetch(`${protocol}://${id}`, 
-                            {method: 'POST', body: (await this.e.serialize(value, this))}), this)
+                        peerObj.send = async (value) => await fetch(`${protocol}://${id}`, 
+                            {method: 'POST', body: this.e.serialize(value, this)})
                     } else if (protocol === 'wss') {
                         peerObj.webSocket = new WebSocket(`wss://${id}`)
                         peerObj.send = async (value) => peerObj.webSocket.send(await this.e.serialize(value, this))
-
                     } else {
                         this.e.env.libraries.peerjs ||= await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.1/+esm')
                         peerObj.peer ||= new this.e.env.libraries.peerjs.Peer()
                         peerObj.connection = peerObj.connect(id)
                         peerObj.send = async value => peerObj.connection.send(await this.e.serialize(value, this))
-
                     }
                     this.constructor.#peers[this.#dbName].push(peerObj)
                 }
