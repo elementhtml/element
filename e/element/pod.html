@@ -14,10 +14,6 @@
         #module
         #query
         #storeName
-
-        #types = {}
-        #sets = []
-        #schedule = {}
         #abortController
 
         #_hash = async value => {
@@ -113,8 +109,8 @@
                     window.setInterval(() => {
                         const r = () => {
                             const clockIndex = `clock-${Math.floor(Date.now()/1000)}`
-                            for (const dbName in this.#sendQueue) {
-                                if (this.#sendQueue[dbName][clockIndex]) this.send(this.#sendQueue[dbName][clockIndex], dbName)
+                            for (const dbName in this.constructor.#sendQueue) {
+                                if (this.constructor.#sendQueue[dbName][clockIndex]) this.send(this.constructor.#sendQueue[dbName][clockIndex], dbName)
                             }
                         }
                         window.requestIdleCallback ? window.requestIdleCallback(r) : r()
@@ -148,7 +144,7 @@
                         this.#sendQueue[dbName][sendAt].push(record)
                     } else { recordsToSend.push(record) }
                     this.constructor#ledger[dbName][hash] = receiveCount + 1
-                    for (const [storeName, query] of Object.entries(this.constructor.#queryMap[this.#dbName])) {
+                    for (const [storeName, query] of Object.entries(this.#queryMap[dbName])) {
                         const t = `$boolean(${this.e.expandTransform(query, this)})`, belongs = await this.env.libraries.jsonata(t).evaluate(record)
                         if (belongs) itemsToSave.push([hash, record])
                     }
