@@ -4,6 +4,10 @@
     class extends `meta` {
 
         static #peers = {}
+        static #ledger = {}
+        static #receiveQueue = {}
+        static #sendQueue = {}
+        static #queryMap = {}
 
         #db
         #dbName
@@ -13,7 +17,6 @@
 
         #types = {}
         #sets = []
-        #ledger = {}
         #schedule = {}
         #abortController
 
@@ -104,68 +107,64 @@
 
         constructor() {
             super()
+            if (!this.constructor.sendQueueProcessor) {
+                this.constructor.sendQueueProcessor = true
+                window.setTimeout(() => {
+                    window.setInterval(() => {
+                        const r = () => {
+                            const clockIndex = `clock-${Math.floor(Date.now()/1000)}`
+                            for (const dbName in this.#sendQueue) {
+                                if (this.#sendQueue[dbName][clockIndex]) this.send(this.#sendQueue[dbName][clockIndex], dbName)
+                            }
+                        }
+                        window.requestIdleCallback ? window.requestIdleCallback(r) : r()
+                    }, 1000)
+                }, (Date.now()/1000%1)*1000)
+            }
+            if (!this.constructor.receiveQueueProcessor) {
+                this.constructor.receiveQueueProcessor = true
+                const requestIdleCallback = window.requestIdleCallback ?? (cb, options) => window.setTimeout(cb, options.timeout ?? 1000), 
+                    runReceive = async () => { await this.receive(); requestIdleCallback(async () => await runReceive() , {timeout: 1000}) }
+                requestIdleCallback(async () => await runReceive() , {timeout: 1000})
+            }
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('db', 'query', 'content-type') }
 
-        async connectedCallback() {
-            window.setTimeout(() => {
-                window.setInterval(() => {
-                    const r = () => this.dispatchEvent(new CustomEvent('clock', {detail: `clock-${Math.floor(Date.now()/1000)}`}))
-                    window.requestIdleCallback ? window.requestIdleCallback(r) : r()
-                }, 1000)
-            }, (Date.now()/1000%1)*1000)
-            this.addEventListener('clock', event => {
-                const r = () => this.send(this.#schedule[event.detail])
-                window.requestIdleCallback ? window.requestIdleCallback(r) : r()                
-            })
+        async connectedCallback() {}
 
-        }        
-
-        async receive(packet) {
-            if (!packet || !Array.isArray(packet) || !packet.every(item => (Array.isArray(item) && item.length ===3))) return
-            let itemsToSave = [], itemsToSend = []
-            for (const item of packet) {
-                const [metadata, record, attachments]
-                if (!item.every(i => (i instanceof Object))) continue
-                if (!metadata.type || !this.#types[metadata.type] || !Object.keys(record).length) continue
-                if (!(await this.#types[metadata.type].validate(record))) continue
-                metadata.hash = await this.#hash(record), receiveCount = parseInt(this.#ledger[metadata.hash] ?? 0) || 0
-                if (receiveCount) {
-                    const sendAt = `clock-${Math.ceil((Date.now()/1000)+receiveCount)}`
-                    this.#schedule[sendAt] ||= []
-                    this.#schedule[sendAt].push(item)
-                } else { itemsToSend.push(item) }
-                this.#ledger[metadata.hash] = receiveCount + 1
-            }
-            this.send(itemsToSend)
-            for (const set of this.#sets) { 
-                for (const item of itemsToSend) {
-                    const t = `$boolean(${this.e.expandTransform(set[2], this)})`, belongs = await this.env.libraries.jsonata(t).evaluate(record)
-                    if (belongs) {
-                        metadata.sets ||= []
-                        metadata.sets.push(set[1])
+        static async receive() {
+            for (const dbName of this.#receiveQueue) {
+                let itemsToSave = [], recordsToSend = []
+                for (const item of this.#receiveQueue[dbName]) {
+                    const [hasher, record] = item
+                    if (!hasher || (typeof hasher !== 'function')) continue
+                    if (!record || !(record instanceof Object) || Array.isArray(record) || !Object.keys(record).length) continue
+                    this.constructor#ledger[dbName] ||= {}
+                    const hash = await hasher(record), receiveCount = parseInt(this.constructor#ledger[dbName][hash] ?? 0) || 0
+                    if (receiveCount) {
+                        const sendAt = `clock-${Math.ceil((Date.now()/1000)+receiveCount)}`
+                        this.#sendQueue[dbName][sendAt] ||= []
+                        this.#sendQueue[dbName][sendAt].push(record)
+                    } else { recordsToSend.push(record) }
+                    this.constructor#ledger[dbName][hash] = receiveCount + 1
+                    for (const [storeName, query] of Object.entries(this.constructor.#queryMap[this.#dbName])) {
+                        const t = `$boolean(${this.e.expandTransform(query, this)})`, belongs = await this.env.libraries.jsonata(t).evaluate(record)
+                        if (belongs) itemsToSave.push([hash, record])
                     }
                 }
-                if (metadata.sets.length) itemsToSave.push(item)                
-            }
-            if (itemsToSave.length) {
-                const toSave = Object.fromEntries(itemsToSave.map(t => [t[0].hash, t[1]]))
-                this.#_db_set(toSave)
-                this.dispatchEvent(new CustomEvent('change', {detail: itemsToSave.map(t => t[1])}))                
+                if (recordsToSend.length) this.send(records, dbName)
+                if (itemsToSave.length) {
+                    const toSave = Object.fromEntries(itemsToSave)
+                    this.#_db_set(toSave), detail = itemsToSave.map(i => i[1])
+                    for (const pod of this.#pods[dbName]) pod.dispatchEvent(new CustomEvent('change', {detail}))
+                }
             }
         }
 
-        send(packet) {
+        static send(packet, dbName) {
             if (!packet || !Array.isArray(packet) || !packet.length) return
-            for (const peer of this.constructor.#peers[this.#dbName]) peer.send(packet)
-        }
-
-        save(record) {
-            if (!record || !(record instanceof Object) || Array.isArray(record) || !Object.keys(record).length) return
-            const toSave = {[(await this.#hash(record))]: record}
-            this.#_db_set(toSave)
-            this.dispatchEvent(new CustomEvent('change', {detail: [record]}))
+            for (const peer of this.#peers[dbName]) peer.send(packet)
         }
 
         set db(value) {
@@ -175,24 +174,44 @@
             const dbUrl = this.e.resolveUrl(value)
             this.#dbName = await this.#hash(dbUrl)
             this.#module = await import(manifestUrl)
-
             this.constructor.#pods[this.#dbName] ||= []
             this.constructor.#pods[this.#dbName].push(this)
+            this.constructor#ledger[this.#dbName] ||= {}
+            this.constructor#sendQueue[this.#dbName] ||= {}
+            this.constructor#queryMap[this.#dbName] ||= {}
             if (oldDb) {
                 if (this.#abortController) this.#abortController.abort()
                 this.#abortController = new AbortController()
                 const oldDbUrl = this.e.resolveUrl(oldDb), oldDbName = await this.#hash(oldDbUrl), 
                     index = (this.constructor.#pods[oldDbName] ?? []).indexOf(this)
-                if (index > -1) (this.constructor.#pods[oldDbName] ?? []).splice(index, 1)
+                if (index > -1) {
+                    this.constructor.#pods[oldDbName].splice(index, 1)
+                    if (!this.constructor.#pods[oldDbName].length) {
+                        if (this.constructor.#pods[oldDbName]) delete this.constructor.#pods[oldDbName]
+                        delete this.constructor#ledger[this.#dbName]
+                        delete this.constructor#sendQueue[this.#dbName]
+                        delete this.constructor#queryMap[this.#dbName]
+                    }
+                } 
             }
+            const storeName = this.storeName 
+            this.constructor.#queryMap[this.#dbName][storeName] = this.query
             this.constructor.#peers[this.#dbName] ||= []
+            const getPacket = async response => {
+                const packet = await this.e.parse(response, this)
+                if (packet && Array.isArray(packet) && packet.every(i => ((i instanceof Object) && !Array.isArray(i)))) {
+                    this.constructor.#receiveQueue[this.dbName] ||= []
+                    this.constructor.#receiveQueue[this.dbName].push(...packet.map(r => ([this.#hash, r])))
+                }
+            }
             if (!this.constructor.#peers[this.#dbName].length) {
                 for (const uri of (this.#module.peers ?? [])) {
                     let [protocol, id] = uri.includes('://') ? uri.split('://') : ['peer', uri]
                     const peerObj = {uri, protocol, id}
                     if (protocol === 'https' || protocol === 'http') {
-                        peerObj.send = async (value) => peerObj.receive(await fetch(`${protocol}://${id}`, 
-                            {method: 'POST', body: this.e.serialize(value, this)}))
+                        peerObj.send = async (value) => {
+                            getPacket(await fetch(`${protocol}://${id}`, {method: 'POST', body: this.e.serialize(value, this)}))
+                        } 
                     } else if (protocol === 'sse') {
                         peerObj.events = ['message']
                         if (id.includes('!')) {
@@ -201,35 +220,20 @@
                             peerObj.events = idSplit[1].split(',').map(s => s.trim())
                         }
                         peerObj.eventSource = new EventSource(`https://${id}`)
-                        peerObj.send = async (value) => await fetch(`${protocol}://${id}`, 
-                            {method: 'POST', body: this.e.serialize(value, this)})
+                        peerObj.send = async (value) => await fetch(`${protocol}://${id}`, {method: 'POST', body: this.e.serialize(value, this)})
+                        for (eventName of peerObj.events) peerObj.eventSource.addEventListener(eventName, event => getPacket(event.data))
                     } else if (protocol === 'wss') {
                         peerObj.webSocket = new WebSocket(`wss://${id}`)
                         peerObj.send = async (value) => peerObj.webSocket.send(await this.e.serialize(value, this))
+                        peerObj.webSocket.addEventListener('message', event => getPacket(event.data))
                     } else {
                         this.e.env.libraries.peerjs ||= await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.1/+esm')
                         peerObj.peer ||= new this.e.env.libraries.peerjs.Peer()
                         peerObj.connection = peerObj.connect(id)
                         peerObj.send = async value => peerObj.connection.send(await this.e.serialize(value, this))
+                        peerObj.connection.on('data', async data => getPacket(data))
                     }
                     this.constructor.#peers[this.#dbName].push(peerObj)
-                }
-            }
-            for (const peerObj of this.constructor.#peers[this.#dbName]) {
-                if (peerObj.protocol === 'https' || peerObj.protocol === 'http') {
-                    peerObj.receive = response => this.receive(await this.e.parse(response, this))
-                } else if (peerObj.protocol === 'sse') {
-                    for (eventName of peerObj.events) {
-                        peerObj.eventSource.addEventListener(eventName, event => {
-                            this.receive(await this.e.parse(event.data, this))
-                        })
-                    }
-                } else if (peerObj.protocol === 'wss') {
-                    peerObj.webSocket.addEventListener('message', event => {
-                        this.receive(await this.e.parse(event.data, this))
-                    })
-                } else {
-                    peerObj.connection.on('data', async data => this.receive(await this.e.parse(data, this)))
                 }
             }
         }
