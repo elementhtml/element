@@ -170,7 +170,7 @@
                     scope = this.parentElement
                 } else if (useValue.startsWith(':|') || useValue.startsWith(':root|')) {
                     scope = this.getRootNode()
-                } else if (useValue.startsWith(':host|')) {
+                } else if (useValue.startsWith(':host|')) {k
                     scope = this.getRootNode()
                     if (scope instanceof ShadowRoot) scope = scope.host
                 } else if (useValue.startsWith(':document|')) {
@@ -192,7 +192,7 @@
                             let [selectorStem, sig] = selector.split('{')
                             setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
                         } else { setBound(scope.querySelector(selector)) }
-                        //this.#refresh()
+                        if (mode === 'resource') this.#refresh()
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
