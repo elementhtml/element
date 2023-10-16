@@ -99,7 +99,6 @@
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
                 await this.e._installJsonata()
-
                 if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
                     const variableValue = this.e.getVariable(transform, this)
                     if (typeof variableValue === 'string') transform = variableValue
@@ -187,20 +186,13 @@
                 } else { setBound(scope.querySelector(selector)) }
                 if (selector) {
                     const processRecords = records => {
-                        let [selectorStem,] = selector.split('{')
-                        const nodesToRemove = [], updatedNodes = [], addedNodes = [], newBind = []
-                        for (const record of records) {
-                            nodesToRemove.push(...(record?.removedNodes || []))
-                            if (record?.target && record.target.matches(selectorStem)) updatedNodes.push(record.target)
-                            for (const addedNode of (record?.addedNodes || [])) if (addedNode?.matches && addedNode.matches(selectorStem)) addedNodes.push(addedNode)
-                        }
-                        let alreadyBound = getBound()
-                        if (!Array.isArray(alreadyBound)) alreadyBound = [alreadyBound]
-                        for (const node of alreadyBound) if (node.isConnected && node?.matches && node.matches(selectorStem) && !nodesToRemove.includes(node)) newBind.push(node)
-                        for (const node of updatedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
-                        for (const node of addedNodes) if (node.isConnected && node?.matches && node.matches(selectorStem) && !newBind.includes(node) && !nodesToRemove.includes(node)) newBind.push(node)
-                        newBind.sort((a, b) => ((a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1) )
-                        setBound((selector.includes('{') && selector.endsWith('}')) ? this.#sliceAndStep(selector.split('{').pop().slice(0, -1), newBind) : newBind)
+                        if (!selector) {
+                            setBound(scope)
+                        } else if (selector.includes('{') && selector.endsWith('}')) {
+                            let [selectorStem, sig] = selector.split('{')
+                            setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
+                        } else { setBound(scope.querySelector(selector)) }
+                        //this.#refresh()
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
@@ -218,6 +210,7 @@
                     if (mode === 'resource') {
                         for (let eventName of eventNames) {
                             for (const node of bindNodes) {
+                                if (!node) continue
                                 if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
                                     eventName = 'click'
                                 }
