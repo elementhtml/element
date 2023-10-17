@@ -27,7 +27,6 @@
                                 if (t.getAttribute(attrName) == result) return
                                 t.setAttribute(attrName, result)
                             } else {
-                                console.log('line 30', t[apply].length, result.length)
                                 if (t[apply] == result) return
                                 if (!document.startViewTransition || !this.#transition || apply === 'value') { t[apply] = result; continue } 
                                 const transition = document.startViewTransition(() => { t[apply] = result })
