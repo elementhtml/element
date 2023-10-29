@@ -5,50 +5,64 @@
         font-size: 17px;
         max-height: 800px;
     }
+
     dialog.e-publish legend {
         font-size: large;
         font-weight: bold;
         text-transform: capitalize;
     }
-    dialog.e-publish fieldset label, dialog.e-publish label small, dialog.e-publish label input {
+
+    dialog.e-publish fieldset label,
+    dialog.e-publish label small,
+    dialog.e-publish label input {
         display: block;
         width: 100%;
     }
+
     dialog.e-publish fieldset {
         margin-top: 37px;
         margin-bottom: 37px;
     }
+
     dialog.e-publish fieldset label {
         margin-top: 17px;
         margin-bottom: 17px;
         font-size: 19px;
     }
+
     dialog.e-publish fieldset label input {
         display: inline-block;
         width: calc(100% - 8px);
     }
+
     dialog.e-publish fieldset label small {
         font-weight: bold;
         font-size: 15px;
         text-transform: capitalize;
     }
+
     dialog.e-publish .progress {
         display: block;
         margin: 17px;
     }
-    dialog.e-publish .progress progress, dialog.e-publish .progress small {
+
+    dialog.e-publish .progress progress,
+    dialog.e-publish .progress small {
         display: block;
         width: 100%;
     }
+
     dialog.e-publish .progress small {
         text-align: center;
         font-style: italic;
         font-size: smaller;
         opacity: 0.87;
     }
+
     dialog.e-publish menu {
-        text-align: center;        
+        text-align: center;
     }
+
     dialog.e-publish menu button {
         font-size: 23px;
         outline: none;
@@ -64,18 +78,22 @@
         opacity: 0.63;
         font-size: smaller;
     }
+
     dialog.e-publish menu button:hover {
         opacity: 0.83;
     }
+
     dialog.e-publish menu button:active {
         opacity: 1;
     }
+
     dialog.e-publish menu button[value="publish"] {
         font-weight: bold;
         background-color: #37373773;
         color: #dbdbdb;
         font-size: larger;
     }
+
     dialog.e-publish a {
         color: #37373773;
         display: block;
@@ -84,9 +102,11 @@
         margin: 7px;
         min-height: 13px;
     }
+
     dialog.e-publish .frame {
         position: relative;
-    }    
+    }
+
     dialog.e-publish iframe {
         outline: none;
         border: 3px dashed #37373773;
@@ -94,6 +114,7 @@
         aspect-ratio: 1;
         opacity: 0.63;
     }
+
     dialog.e-publish .block {
         position: absolute;
         top: 0;
@@ -102,11 +123,11 @@
         bottom: 7px;
         z-index: 999;
         cursor: default;
-        background-image: 
-            linear-gradient(45deg, rgba(0, 0, 0, 0.1) 25%, transparent 25%), 
+        background-image:
+            linear-gradient(45deg, rgba(0, 0, 0, 0.1) 25%, transparent 25%),
             linear-gradient(-45deg, rgba(0, 0, 0, 0.1) 25%, transparent 25%);
         background-size: 20px 20px;
-        background-position: 0 0, 10px 10px;        
+        background-position: 0 0, 10px 10px;
     }
 </style>
 <template>
@@ -123,12 +144,12 @@
         </menu>
         <a href="about:blank" target="_blank"></a>
         <div class="frame">
-            <div class="block"></div>            
+            <div class="block"></div>
         </div>
     </form>
 </template>
-<script>
-    class extends `./pointer` {
+<script type="module">
+    export default class extends `./pointer` {
 
         #manifest
         #abortController = new AbortController()
@@ -137,79 +158,81 @@
 
         #manifestDefaults = {
             "$": {
-                "credentials": {}, 
-                "variables": {},  
+                "credentials": {},
+                "variables": {},
                 "page-defaults": {
-                    "wait-for-all": [], 
-                    "replace": {}, 
+                    "wait-for-all": [],
+                    "replace": {},
                     "sinkData": {}
                 },
                 "trigger": { "altKey": false, "ctrlKey": false, "metaKey": true, "shiftKey": true, "key": "P" }
-            }, 
-            "pages": {}          
+            },
+            "pages": {}
         }
 
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'publish'},
-                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
-                    if (result instanceof Object) {
-                        result.$ = result.$ instanceof Object ? {...this.#manifestDefaults.$, ...result.$} : this.#manifestDefaults.$
-                        result.pages = result.pages instanceof Object ? {...this.#manifestDefaults.pages, ...result.pages} : this.#manifestDefaults.pages
-                        for (const ent of Object.entries(this.#manifestDefaults.$)) {
-                            result.$[ent[0]] = result.$[ent[0]] instanceof Object 
-                                ? {...this.#manifestDefaults.$[ent[0]], ...result.$[ent[0]]} : this.#manifestDefaults.$[ent[0]]
-                        }
-                    }
-                    this.#manifest = result
-                    if (!this.#manifest) return
-                    document.addEventListener('keydown', event => {
-                        const validTrigger = Object.entries(this.#manifest.$?.trigger || {}).every(ent =>  event[ent[0]] == ent[1])
-                        if (validTrigger) {
-                            event.preventDefault()
-                            this.publish()
-                        } 
-                    })
-                    this.#dialogId = crypto.randomUUID()
-                    this.#dialog = document.createElement('dialog')
-                    this.#dialog.setAttribute('id', this.#dialogId)
-                    this.#dialog.classList.add('e-publish')
-                    this.#dialog.innerHTML = `<style>${this.e.styles[this.constructor.id]}</style>${this.e.templates[this.constructor.id]}`
-                    const dialogMenu = this.#dialog.querySelector('menu')
-                    for (const fieldsetName of Object.keys(this.#manifest.$)) {
-                        if (!(this.#manifest.$[fieldsetName] instanceof Object)) continue
-                        const fieldEntries = Object.entries(this.#manifest.$[fieldsetName]).filter(ent => ent[1] === null)
-                        if (!fieldEntries.length) continue
-                        const fieldset = document.createElement('fieldset')
-                        fieldset.setAttribute('name', fieldsetName)                        
-                        const fieldInputs = fieldEntries.map(ent => `<label><small>${ent[0]}</small><input type="text" name="${ent[0]}"></label>`).join('')
-                        fieldset.innerHTML = `<legend>${fieldsetName.replaceAll('-', ' ')}</legend>${fieldInputs}`
-                        dialogMenu.before(fieldset)
-                        const getStored = fieldsetName => {
-                            let storedFieldset = window.sessionStorage.getItem(`publish:${fieldsetName}`)
-                            if (storedFieldset) {
-                                try { storedFieldset = JSON.parse(storedFieldset) } catch(e) { storedFieldset = null }
-                                if (!(storedFieldset instanceof Object)) storedFieldset = null
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'publish' },
+                _apply: {
+                    configurable: false, enumerable: false, value: async (result, target) => {
+                        if (result instanceof Object) {
+                            result.$ = result.$ instanceof Object ? { ...this.#manifestDefaults.$, ...result.$ } : this.#manifestDefaults.$
+                            result.pages = result.pages instanceof Object ? { ...this.#manifestDefaults.pages, ...result.pages } : this.#manifestDefaults.pages
+                            for (const ent of Object.entries(this.#manifestDefaults.$)) {
+                                result.$[ent[0]] = result.$[ent[0]] instanceof Object
+                                    ? { ...this.#manifestDefaults.$[ent[0]], ...result.$[ent[0]] } : this.#manifestDefaults.$[ent[0]]
                             }
-                            return storedFieldset
                         }
-                        for (const fieldInput of fieldset.querySelectorAll('input')) {
-                            const fieldInputName = fieldInput.getAttribute('name'), storedRead = getStored(fieldsetName) ?? {}
-                            if (storedRead[fieldInputName]) fieldInput.value = storedRead[fieldInputName]
-                            fieldInput.addEventListener('change', event => {
-                                const storedWrite = getStored(fieldsetName) ?? {}
-                                storedWrite[fieldInputName] = fieldInput.value
-                                window.sessionStorage.setItem(`publish:${fieldsetName}`, JSON.stringify(storedWrite))
-                            })
+                        this.#manifest = result
+                        if (!this.#manifest) return
+                        document.addEventListener('keydown', event => {
+                            const validTrigger = Object.entries(this.#manifest.$?.trigger || {}).every(ent => event[ent[0]] == ent[1])
+                            if (validTrigger) {
+                                event.preventDefault()
+                                this.publish()
+                            }
+                        })
+                        this.#dialogId = crypto.randomUUID()
+                        this.#dialog = document.createElement('dialog')
+                        this.#dialog.setAttribute('id', this.#dialogId)
+                        this.#dialog.classList.add('e-publish')
+                        this.#dialog.innerHTML = `<style>${this.e.styles[this.constructor.id]}</style>${this.e.templates[this.constructor.id]}`
+                        const dialogMenu = this.#dialog.querySelector('menu')
+                        for (const fieldsetName of Object.keys(this.#manifest.$)) {
+                            if (!(this.#manifest.$[fieldsetName] instanceof Object)) continue
+                            const fieldEntries = Object.entries(this.#manifest.$[fieldsetName]).filter(ent => ent[1] === null)
+                            if (!fieldEntries.length) continue
+                            const fieldset = document.createElement('fieldset')
+                            fieldset.setAttribute('name', fieldsetName)
+                            const fieldInputs = fieldEntries.map(ent => `<label><small>${ent[0]}</small><input type="text" name="${ent[0]}"></label>`).join('')
+                            fieldset.innerHTML = `<legend>${fieldsetName.replaceAll('-', ' ')}</legend>${fieldInputs}`
+                            dialogMenu.before(fieldset)
+                            const getStored = fieldsetName => {
+                                let storedFieldset = window.sessionStorage.getItem(`publish:${fieldsetName}`)
+                                if (storedFieldset) {
+                                    try { storedFieldset = JSON.parse(storedFieldset) } catch (e) { storedFieldset = null }
+                                    if (!(storedFieldset instanceof Object)) storedFieldset = null
+                                }
+                                return storedFieldset
+                            }
+                            for (const fieldInput of fieldset.querySelectorAll('input')) {
+                                const fieldInputName = fieldInput.getAttribute('name'), storedRead = getStored(fieldsetName) ?? {}
+                                if (storedRead[fieldInputName]) fieldInput.value = storedRead[fieldInputName]
+                                fieldInput.addEventListener('change', event => {
+                                    const storedWrite = getStored(fieldsetName) ?? {}
+                                    storedWrite[fieldInputName] = fieldInput.value
+                                    window.sessionStorage.setItem(`publish:${fieldsetName}`, JSON.stringify(storedWrite))
+                                })
+                            }
                         }
+                        this.#dialog.querySelector('button[type="submit"]').addEventListener('click', async event => {
+                            event.preventDefault()
+                            await this.run()
+                        })
+                        document.body.append(this.#dialog)
                     }
-                    this.#dialog.querySelector('button[type="submit"]').addEventListener('click', async event => {
-                        event.preventDefault()
-                        await this.run()
-                    })
-                    document.body.append(this.#dialog)
-                }}
+                }
             })
         }
 
@@ -219,7 +242,7 @@
             if (window.frameElement) {
                 window.frameElement.parentElement.dispatchEvent(new CustomEvent('publish-loaded'))
             }
-        }        
+        }
 
         async publish() {
             if (!this.#manifest) return
@@ -227,86 +250,86 @@
         }
 
         async run() {
-            const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'), 
-                progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'), 
-                currentLink = this.#dialog.querySelector('a'), frame = this.#dialog.querySelector('.frame'), 
-            publishPage = async (pageSlug, pageConfig) => {
-                frame.innerHTML = `<iframe src="${pageConfig.url}"></iframe><div class="block"></div>`
-                await new Promise(resolve => frame.addEventListener('publish-loaded', event => resolve(event.detail), {once: true}))
-                const frameDoc = frame.querySelector('iframe').contentDocument.documentElement
-                await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
-                if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
-                    console.log('line 242 loading error!')
-                }
-                for (const ePublishPointer of frameDoc.querySelectorAll('meta[is="e-publish"]')) ePublishPointer.remove()
-                for (const ePublishDialog of frameDoc.querySelectorAll('dialog[class="e-publish"]')) ePublishDialog.remove()
-                for (const [rx, rp] of Object.entries(pageConfig.replace)) {
-                    if (rp === null) continue
-                    if (rx[0] === '/' && rx.endsWith('/')) {
-                        frameDoc.innerHTML = frameDoc.innerHTML.replace(new RegExp(rx.slice(1, -1), 'g'), rp)
-                    } else {
-                        const targets = frameDoc.querySelectorAll(rx)
-                        if (targets.length) {
-                            const template = document.createElement('template')
-                            template.innerHTML = rp
-                            for (const target of targets) target.replaceWith(...template.content.cloneNode(true).children)
+            const pages = this.#manifest.pages ?? {}, progressAside = this.#dialog.querySelector('.progress'),
+                progressBar = progressAside.querySelector('progress'), progressLabel = progressAside.querySelector('small'),
+                currentLink = this.#dialog.querySelector('a'), frame = this.#dialog.querySelector('.frame'),
+                publishPage = async (pageSlug, pageConfig) => {
+                    frame.innerHTML = `<iframe src="${pageConfig.url}"></iframe><div class="block"></div>`
+                    await new Promise(resolve => frame.addEventListener('publish-loaded', event => resolve(event.detail), { once: true }))
+                    const frameDoc = frame.querySelector('iframe').contentDocument.documentElement
+                    await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
+                    if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
+                        console.log('line 242 loading error!')
+                    }
+                    for (const ePublishPointer of frameDoc.querySelectorAll('meta[is="e-publish"]')) ePublishPointer.remove()
+                    for (const ePublishDialog of frameDoc.querySelectorAll('dialog[class="e-publish"]')) ePublishDialog.remove()
+                    for (const [rx, rp] of Object.entries(pageConfig.replace)) {
+                        if (rp === null) continue
+                        if (rx[0] === '/' && rx.endsWith('/')) {
+                            frameDoc.innerHTML = frameDoc.innerHTML.replace(new RegExp(rx.slice(1, -1), 'g'), rp)
+                        } else {
+                            const targets = frameDoc.querySelectorAll(rx)
+                            if (targets.length) {
+                                const template = document.createElement('template')
+                                template.innerHTML = rp
+                                for (const target of targets) target.replaceWith(...template.content.cloneNode(true).children)
+                            }
                         }
                     }
-                }
-                for (const [qs, sd] of Object.entries(pageConfig.sinkData)) {
-                    const targets = frameDoc.querySelectorAll(qs)
-                    for (const target of targets) {
-                        let sinkDataArgs = []
-                        if (Array.isArray(sd)) {
-                            sinkDataArgs = [target, ...sd]
-                        } else if (sd instanceof Object) {
-                            sinkDataArgs = [target, sd, undefined, undefined, this]
-                        } else if (typeof sd === 'string') {
-                            sinkDataArgs = [target, target, undefined, sd, this]
+                    for (const [qs, sd] of Object.entries(pageConfig.sinkData)) {
+                        const targets = frameDoc.querySelectorAll(qs)
+                        for (const target of targets) {
+                            let sinkDataArgs = []
+                            if (Array.isArray(sd)) {
+                                sinkDataArgs = [target, ...sd]
+                            } else if (sd instanceof Object) {
+                                sinkDataArgs = [target, sd, undefined, undefined, this]
+                            } else if (typeof sd === 'string') {
+                                sinkDataArgs = [target, target, undefined, sd, this]
+                            }
+                            if (sinkDataArgs.length) await this.e.sinkData(...sinkDataArgs)
                         }
-                        if (sinkDataArgs.length) await this.e.sinkData(...sinkDataArgs)
                     }
+                    let pageFilePath = pageSlug
+                    if (pageFilePath[0] === '/') pageFilePath = pageFilePath.slice(1)
+                    if (!pageFilePath) pageFilePath = 'index.html'
+                    if (pageFilePath.endsWith('/')) pageFilePath = `${pageFilePath}index.html`
+                    if (!pageFilePath.endsWith('.html')) pageFilePath = `${pageFilePath}.html`
+                    return [pageFilePath, frameDoc.innerHTML]
+                }, updateProgress = (value, label) => {
+                    progressBar.value = value
+                    progressLabel.innerHTML = label
                 }
-                let pageFilePath = pageSlug 
-                if (pageFilePath[0] === '/') pageFilePath = pageFilePath.slice(1)
-                if (!pageFilePath) pageFilePath = 'index.html'
-                if (pageFilePath.endsWith('/')) pageFilePath = `${pageFilePath}index.html`
-                if (!pageFilePath.endsWith('.html')) pageFilePath = `${pageFilePath}.html`
-                return [pageFilePath, frameDoc.innerHTML]
-            }, updateProgress = (value, label) => {
-                progressBar.value = value
-                progressLabel.innerHTML = label
-            }
-            let pageIndex = 0, pagesEntries = Object.entries(pages), archive = this.#manifest?.$?.publish?.archive, 
+            let pageIndex = 0, pagesEntries = Object.entries(pages), archive = this.#manifest?.$?.publish?.archive,
                 downloadZip, renderedPages = []
-            progressBar.setAttribute('max', pagesEntries.length)            
+            progressBar.setAttribute('max', pagesEntries.length)
             if (archive.endsWith('.zip')) {
                 downloadZip = (await import('https://cdn.jsdelivr.net/npm/client-zip/index.js')).downloadZip
             } else if (archive === 'car') {
 
             } else { archive = undefined }
             for (let [pageSlug, pageConfig] of pagesEntries) {
-                if (!pageSlug) pageSlug = 'index.html' 
-                if (!pageConfig) pageConfig = {url: 'index.html'} 
-                if (typeof pageConfig === 'string') pageConfig = {url: pageConfig}
+                if (!pageSlug) pageSlug = 'index.html'
+                if (!pageConfig) pageConfig = { url: 'index.html' }
+                if (typeof pageConfig === 'string') pageConfig = { url: pageConfig }
                 if (!pageConfig.url) pageConfig.url = 'index.html'
                 pageConfig.url = new URL(pageConfig.url, this.baseURI).href
                 currentLink.setAttribute('href', pageConfig.url)
                 currentLink.textContent = pageConfig.url
-                updateProgress(pageIndex+0.34, `Publishing <i>${pageSlug}</i>...`)
+                updateProgress(pageIndex + 0.34, `Publishing <i>${pageSlug}</i>...`)
                 pageConfig.waitFor ||= this.#manifest.$.pageDefaults.waitFor ?? []
-                pageConfig.replace = {...(this.#manifest.$.pageDefaults.replace ?? {}), ...pageConfig.replace}
-                pageConfig.sinkData = {...(this.#manifest.$.pageDefaults.sinkData ?? {}), ...pageConfig.sinkData}
+                pageConfig.replace = { ...(this.#manifest.$.pageDefaults.replace ?? {}), ...pageConfig.replace }
+                pageConfig.sinkData = { ...(this.#manifest.$.pageDefaults.sinkData ?? {}), ...pageConfig.sinkData }
                 const [pageFilePath, compiledPageHtml] = await publishPage(pageSlug, pageConfig)
-                if (downloadZip) renderedPages.push({name: pageFilePath, lastModified: new Date(), input: compiledPageHtml})
+                if (downloadZip) renderedPages.push({ name: pageFilePath, lastModified: new Date(), input: compiledPageHtml })
 
-                updateProgress(pageIndex+0.87, `<i>${pageSlug}</i> published!`)
+                updateProgress(pageIndex + 0.87, `<i>${pageSlug}</i> published!`)
                 await this.e.utils.wait(Math.random() * 1700)
                 pageIndex = pageIndex + 1
             }
             for (let f of (this.#manifest.files ?? [])) {
                 let fileUrl = new URL(f, this.baseURI).href
-                renderedPages.push({name: f, lastModified: new Date(), input: await fetch(fileUrl)})
+                renderedPages.push({ name: f, lastModified: new Date(), input: await fetch(fileUrl) })
             }
             if (downloadZip) {
                 const blob = await downloadZip(renderedPages).blob()
@@ -319,7 +342,7 @@
                     link.href = URL.createObjectURL(blob)
                     link.download = archive
                     link.click()
-                    link.remove()                    
+                    link.remove()
                 }
             }
             updateProgress(pagesEntries.length, `Publishing complete!`)

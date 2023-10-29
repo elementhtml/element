@@ -1,14 +1,15 @@
 <style></style>
 <template></template>
 <script>
-    class extends `./pointer` {
+    export default class extends `./pointer` {
 
-    	constructor() {
-    		super()
+        constructor() {
+            super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'theme'}, 
-                _contentType: {configurable: false, enumerable: false, writable: false, value: 'text/css'}, 
-                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'theme' },
+                _contentType: { configurable: false, enumerable: false, writable: false, value: 'text/css' },
+                _apply: {
+                    configurable: false, enumerable: false, value: async (result, target) => {
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
                         if (this.dataset.stylesheetId) for (const ss of this.getRootNode().querySelectorAll(`style[data-stylesheet-id="${this.dataset.stylesheetId}"]`)) ss.remove()
                         this.dataset.stylesheetId = crypto.randomUUID()
@@ -27,9 +28,9 @@
                 }
 
             })
-    	}
+        }
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat() }
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
     }
 </script>

@@ -1,7 +1,7 @@
 <style></style>
 <template></template>
 <script>
-    class extends `meta` {
+    export default class extends `meta` {
 
         #base
         #name
@@ -9,22 +9,22 @@
         #optionsMap
         _modes = {}
 
-        _processor = function(router, mode, path=undefined, suffix=undefined, pointer=undefined, get=false) {
+        _processor = function (router, mode, path = undefined, suffix = undefined, pointer = undefined, get = false) {
             path ||= router._modes[mode]?.path ?? mode
             pointer ||= router._modes[mode]?.pointer ?? mode
             suffix ||= router._modes[mode]?.suffix ?? ''
-            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix?'.'+suffix:''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
+            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix ? '.' + suffix : ''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
             return get ? fetch(router.e.getURL(url), this.optionsMap) : url
         }
 
         static {
-            Object.defineProperty(this, '_modes', {value: this.e.env.modes})
+            Object.defineProperty(this, '_modes', { value: this.e.env.modes })
         }
 
-    	constructor() {
-    		super()
+        constructor() {
+            super()
             for (const mode in this.constructor._modes) {
-                this._modes[mode] ||= {...this.constructor._modes[mode]}
+                this._modes[mode] ||= { ...this.constructor._modes[mode] }
                 let modeSignature = this.getAttribute(mode)
                 if (modeSignature) {
                     let [path, pointer, ...suffix] = modeSignature.split('/').map(s => s.split('.')).flat()
@@ -38,15 +38,15 @@
                 this._modes[mode].suffix ||= this.constructor._modes[mode].suffix
                 const f = this._processor.bind(this.e, this, mode, this._modes[mode].path, this._modes[mode].suffix)
                 f.toString = this._processor.bind(this.e, this, mode, this._modes[mode].path, this._modes[mode].suffix, false, this._modes[mode].pointer)
-                Object.defineProperty(this, mode, {configurable: true, enumerable: true, get: () => f})
-            } 
-    	}
+                Object.defineProperty(this, mode, { configurable: true, enumerable: true, get: () => f })
+            }
+        }
 
         toString() { return this.#name }
 
-        connectedCallback() {}
+        connectedCallback() { }
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
 
         set base(value) { this.#base = value }
         get base() { return this.#base }
@@ -59,10 +59,10 @@
             this.#options = value
         }
         get options() { return this.#options }
-        get optionsMap() { 
+        get optionsMap() {
             const attrOptions = this.getAttribute('options')
-            if (attrOptions && attrOptions!== this.#options) this.options = attrOptions
-            return this.#optionsMap 
+            if (attrOptions && attrOptions !== this.#options) this.options = attrOptions
+            return this.#optionsMap
         }
 
     }

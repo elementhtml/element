@@ -1,14 +1,15 @@
 <style></style>
 <template></template>
 <script>
-    class extends `./pointer` {
+    export default class extends `./pointer` {
 
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'data'},
-                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
-                        let apply = this.apply ?? this.getAttribute('apply'), applyMap = this.applyMap ?? {}, {flag, transform} = applyMap
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'data' },
+                _apply: {
+                    configurable: false, enumerable: false, value: async (result, target) => {
+                        let apply = this.apply ?? this.getAttribute('apply'), applyMap = this.applyMap ?? {}, { flag, transform } = applyMap
                         if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
                         for (const t of target) this.e.sinkData(t, result, flag, transform, this)
                     }

@@ -1,21 +1,22 @@
 <style></style>
 <template></template>
 <script>
-    class extends `./pointer` {
+    export default class extends `./pointer` {
 
         #transition
         #transitionString
         #transitionScope
 
-    	constructor() {
-    		super()
+        constructor() {
+            super()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'content'}, 
-                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'content' },
+                _apply: {
+                    configurable: false, enumerable: false, value: async (result, target) => {
                         if (typeof result !== 'string') {
                             if (!Array.isArray(result)) result = [result]
                             for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent
-                            result = result.join('')                
+                            result = result.join('')
                         }
                         const validContentScopes = ['innerHTML', 'innerText', 'textContent', 'value']
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
@@ -28,7 +29,7 @@
                                 t.setAttribute(attrName, result)
                             } else {
                                 if (t[apply] == result) return
-                                if (!document.startViewTransition || !this.#transition || apply === 'value') { t[apply] = result; continue } 
+                                if (!document.startViewTransition || !this.#transition || apply === 'value') { t[apply] = result; continue }
                                 const transition = document.startViewTransition(() => { t[apply] = result })
                                 transition.ready.then(() => {
                                     this.dispatchEvent(new CustomEvent('transition-ready'))
@@ -36,19 +37,19 @@
                                     scope.animate(this.#transition)
                                 })
                                 transition.finished.then(() => {
-                                    this.dispatchEvent(new CustomEvent('transition-finished'))    
+                                    this.dispatchEvent(new CustomEvent('transition-finished'))
                                 })
                                 transition.updateCallbackDone.then(() => {
-                                    this.dispatchEvent(new CustomEvent('transition-updateCallbackDone'))    
+                                    this.dispatchEvent(new CustomEvent('transition-updateCallbackDone'))
                                 })
                             }
                         }
                     }
-                }                
+                }
             })
-    	}
+        }
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('transition', 'transition-scope') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('transition', 'transition-scope') }
 
         set transition(value) {
             this.#transition = this.e.utils.parseObjectAttribute(value, this)

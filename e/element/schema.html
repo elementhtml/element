@@ -1,7 +1,7 @@
 <style></style>
 <template></template>
 <script>
-    class extends `./pointer` {
+    export default class extends `./pointer` {
 
         #canonicalUrl
         #validate = input => true
@@ -12,14 +12,15 @@
             super()
             this.#abortController = new AbortController()
             Object.defineProperties(this, {
-                _mode: {configurable: false, enumerable: false, writable: false, value: 'schema'}, 
-                _contentType: {configurable: false, enumerable: false, writable: false, value: 'application/schema+json'}, 
-                _isReference: {configurable: false, enumerable: false, writable: false, value: true}, 
-                _apply: {configurable: false, enumerable: false, value: async (result, target) => {
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'schema' },
+                _contentType: { configurable: false, enumerable: false, writable: false, value: 'application/schema+json' },
+                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
+                _apply: {
+                    configurable: false, enumerable: false, value: async (result, target) => {
                         this.#canonicalUrl = result
                         let applyMap = this.applyMap ?? {}
                         if (!this.e.env.libraries.ajv) {
-                            let ajvOptions = {...this.e.env.options.ajv, ...applyMap}
+                            let ajvOptions = { ...this.e.env.options.ajv, ...applyMap }
                             this.e.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
                             const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
                             addFormats(this.e.env.libraries.ajv)
@@ -28,17 +29,17 @@
                         if (!this.#validate) {
                             let schemaFetch = await fetch(this.#canonicalUrl), schemaText = await schemaFetch.text()
                             if (schemaFetch.status >= 400) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'load', status: schemaFetch.status, message: schemaText}}))
+                                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'load', status: schemaFetch.status, message: schemaText } }))
                                 if (this.errors === 'throw') { throw new Error(schemaText); return } else if (this.errors === 'hide') { schemaText = '{}' }
                             }
                             let schemaJson
-                            try { schemaJson = JSON.parse(schemaText) } catch(e) {}
+                            try { schemaJson = JSON.parse(schemaText) } catch (e) { }
                             if (schemaJson instanceof Object) {
                                 this.#schema = JSON.parse(schemaText)
                                 delete schemaJson['$schema']
                                 this.e.env.libraries.ajv.addSchema(schemaJson, this.#canonicalUrl)
                                 this.#validate = this.e.env.libraries.ajv.getSchema(this.#canonicalUrl)
-                            } else { this.dispatchEvent(new CustomEvent('error', {detail: {type: 'parse', status: schemaFetch.status, message: schemaText}})) } 
+                            } else { this.dispatchEvent(new CustomEvent('error', { detail: { type: 'parse', status: schemaFetch.status, message: schemaText } })) }
                         }
                         this.#abortController.abort()
                         this.#abortController = new AbortController()
@@ -46,8 +47,8 @@
                             t.addEventListener('change', async event => {
                                 const valid = await this.#validate(this.e.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
                                 if (!valid && errors.length) {
-                                    t.dispatchEvent(new CustomEvent('error', {detail: errors}))
-                                } else if (valid) { t.dispatchEvent(new CustomEvent('success', {detail: errors})) }
+                                    t.dispatchEvent(new CustomEvent('error', { detail: errors }))
+                                } else if (valid) { t.dispatchEvent(new CustomEvent('success', { detail: errors })) }
                             }, { signal: this.#abortController.signal })
                         }
                     }
@@ -61,7 +62,7 @@
         validate(data) {
             if (data instanceof HTMLElement) data = this.e.getValue(data)
             const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
-            return [valid, errors]                
+            return [valid, errors]
         }
 
         get schema() { return this.schema }

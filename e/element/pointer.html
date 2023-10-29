@@ -1,7 +1,7 @@
 <style></style>
 <template></template>
 <script>
-    class extends `meta` {
+    export default class extends `meta` {
 
         #resource
         #target
@@ -23,58 +23,54 @@
         #options = ''
         #optionsMap = {}
         #use
+        #cycle = []
+        #cycleTracker
 
-    	constructor() {
-    		super()
+        constructor() {
+            super()
             Object.defineProperties(this, {
-                _mode: {configurable: true, enumerable: false, value: 'pointer'}, 
-                _contentType: {configurable: true, enumerable: false, value: undefined}, 
-                _isReference: {configurable: true, enumerable: false, value: false}, 
-                _apply: {configurable: true, enumerable: false, value: async (result, target) => {}}
+                _mode: { configurable: true, enumerable: false, value: 'pointer' },
+                _contentType: { configurable: true, enumerable: false, value: undefined },
+                _isReference: { configurable: true, enumerable: false, value: false },
+                _apply: { configurable: true, enumerable: false, value: async (result, target) => { } }
             })
-    	}
+        }
 
-		static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'options') }
 
-        async connectedCallback() {}
+        async connectedCallback() { }
 
         toString() { return this.resource ?? '' }
 
-        #sliceAndStep(sig, list) {
-            let [start=0, end=list.length, step=0] = sig.split(':').map(s => (parseInt(s) || 0))
-            if (end === 0) end = list.length
-            list = list.slice(start, end)
-            if (!step) return list
-            return (step === 1) ? list.filter((v, i) => (i+1) % 2) : list.filter((v, i) => (i+1) % step === 0)            
+        async #compileRequestOptions(v, defaultContentType = 'application/json') {
+            let optionsMap = this.optionsMap, requestOptions = { ...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap }, headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
+            contentType ||= this.getAttribute('content-type') || this._contentType
+            if (!contentType && v) contentType ||= defaultContentType
+            if (contentType) {
+                requestOptions.headers = headers
+                requestOptions.headers['Content-Type'] = contentType
+            }
+            if (v instanceof Object) {
+                requestOptions.body = await this.#serialize(v, contentType)
+            } else if (v) {
+                requestOptions.method ||= 'POST'
+                requestOptions.body = `${v}`
+            }
+            return requestOptions
         }
 
         async #refresh(payload) {
-            const boundResource = this.boundResource, compileRequestOptions = async v => {
-                let optionsMap = this.optionsMap, requestOptions = {...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap},  headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
-                contentType ||= this.getAttribute('content-type') || this._contentType
-                if (!contentType && v) contentType ||= 'application/json'
-                if (contentType) {
-                    requestOptions.headers = headers
-                    requestOptions.headers['Content-Type'] = contentType
-                }
-                if (v instanceof Object) {
-                    requestOptions.body = await this.#serialize(v, contentType)
-                } else if (v) {
-                    requestOptions.method ||= 'POST'
-                    requestOptions.body = `${v}`
-                }
-                return requestOptions
-            }
+            const boundResource = this.boundResource
             if (!boundResource) return
             let result
             if (!payload && (typeof boundResource === 'string')) {
                 let contentType = this.getAttribute('content-type') || this._contentType || undefined
                 if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {
                     result = await import(boundResource)
-                } else if (contentType === 'application/schema+json') { 
+                } else if (contentType === 'application/schema+json') {
                     result = boundResource
                 } else {
-                    const requestOptions = await compileRequestOptions(payload), req = fetch(boundResource, requestOptions)
+                    const requestOptions = await this.#compileRequestOptions(payload), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
                             result = await WebAssembly.instantiateStreaming(req)
@@ -83,12 +79,12 @@
                         let response = await req
                         if (response.status >= 400) {
                             const rewriteRules = this.rewriteRules
-                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { 
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) {
                                 response = await fetch(this.e.resolveUrl(p, this), requestOptions)
-                                break 
-                            } 
+                                break
+                            }
                             if (response.status >= 400) {
-                                this.dispatchEvent(new CustomEvent('error', {detail: {type: 'refresh', status: response.status, input: response.url, requestOptions}}))
+                                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'refresh', status: response.status, input: response.url, requestOptions } }))
                                 if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
                             }
                         }
@@ -103,7 +99,7 @@
                     const variableValue = this.e.getVariable(transform, this)
                     if (typeof variableValue === 'string') transform = variableValue
                 }
-                try { 
+                try {
                     const variables = []
                     if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.e.env, ['eDataset', 'modes', 'options', 'variables'])}`)
                     if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.valueOf())}`)
@@ -112,27 +108,27 @@
                         if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
                     }
                     if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
-                    result = await this.e.env.libraries.jsonata(transform).evaluate(result) 
-                } catch(e) {
-                    this.dispatchEvent(new CustomEvent('error', {detail: {type: 'transform', message: e, input: result}}))
+                    result = await this.e.env.libraries.jsonata(transform).evaluate(result)
+                } catch (e) {
+                    this.dispatchEvent(new CustomEvent('error', { detail: { type: 'transform', message: e, input: result } }))
                     if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             if (typeof boundTarget === 'string') {
-                const requestOptions = await compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
+                const requestOptions = await this.#compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
                     navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
                 } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
-            } else { 
+            } else {
                 if (this.#targetEvents.length) {
                     for (const eventName of this.#targetEvents) {
                         for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
-                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, {detail: payload}))
+                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: payload }))
                         }
                     }
                 } else {
-                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) 
+                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
                 }
             }
         }
@@ -149,31 +145,33 @@
 
         #createBound(value, mode) {
             const setBound = v => mode === 'resource' ? (this.#boundResource = v) : (this.#boundTarget = v),
-                getBound = () => mode === 'resource' ? this.#boundResource : this.#boundTarget,  
-                setBoundController = v => mode === 'resource' ? (this.#boundResourceController = v) : (this.#boundTargetController = v), 
+                getBound = () => mode === 'resource' ? this.#boundResource : this.#boundTarget,
+                setBoundController = v => mode === 'resource' ? (this.#boundResourceController = v) : (this.#boundTargetController = v),
                 getBoundController = () => mode === 'resource' ? this.#boundResourceController : this.#boundTargetController,
-                setBoundObserver = v => mode === 'resource' ? (this.#boundResourceObserver = v) : (this.#boundTargetObserver = v), 
-                getBoundObserver = () => mode === 'resource' ? this.#boundResourceObserver : this.#boundTargetObserver, 
-                setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v), 
+                setBoundObserver = v => mode === 'resource' ? (this.#boundResourceObserver = v) : (this.#boundTargetObserver = v),
+                getBoundObserver = () => mode === 'resource' ? this.#boundResourceObserver : this.#boundTargetObserver,
+                setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v),
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
-            let useValue = value ?? '|'
-            const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(useValue[0])
+            let bindStatement = value ?? '|'
+            const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(bindStatement[0])
             this.#targetEvents = []
-            if (useValue.includes('|') || startsWithFlag) {
-                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', useValue] : useValue.split('|').map(s => decodeURIComponent(s).trim()), 
-                [use, refreshOn] = !useRefresh ? ['$', 'change']
-                    : (useFlags.includes(useRefresh[0]) ? [ useRefresh[0] , useRefresh.slice(1).trim() || 'change']: ['!' , useRefresh]) 
+            if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
+            if (bindStatement.includes('|') || startsWithFlag) {
+                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatement.split('|').map(s => decodeURIComponent(s).trim()),
+                    [use, refreshOn] = !useRefresh ? ['$', 'change']
+                        : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
                 let scope
                 if (startsWithFlag) {
                     scope = this
-                } else if (useValue.startsWith('|')) {
+                } else if (bindStatement.startsWith('|')) {
                     scope = this.parentElement
-                } else if (useValue.startsWith(':|') || useValue.startsWith(':root|')) {
+                } else if (bindStatement.startsWith(':|') || bindStatement.startsWith(':root|')) {
                     scope = this.getRootNode()
-                } else if (useValue.startsWith(':host|')) {k
+                } else if (bindStatement.startsWith(':host|')) {
+                    k
                     scope = this.getRootNode()
                     if (scope instanceof ShadowRoot) scope = scope.host
-                } else if (useValue.startsWith(':document|')) {
+                } else if (bindStatement.startsWith(':document|')) {
                     scope = document
                 } else { scope = this.closest(closest) }
                 if (!scope) return
@@ -182,7 +180,7 @@
                     setBound(scope)
                 } else if (selector.includes('{') && selector.endsWith('}')) {
                     let [selectorStem, sig] = selector.split('{')
-                    setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
+                    setBound(this.e.utils.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
                 } else { setBound(scope.querySelector(selector)) }
                 if (selector) {
                     const processRecords = records => {
@@ -190,7 +188,7 @@
                             setBound(scope)
                         } else if (selector.includes('{') && selector.endsWith('}')) {
                             let [selectorStem, sig] = selector.split('{')
-                            setBound(this.#sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
+                            setBound(this.e.utils.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
                         } else { setBound(scope.querySelector(selector)) }
                         if (mode === 'resource') this.#refresh()
                     }
@@ -198,20 +196,20 @@
                     if (observer) processRecords(observer.takeRecords())
                     observer && (observer.disconnect())
                     observer = setBoundObserver(new MutationObserver(processRecords))
-                    observer.observe(scope, {subtree: true, childList: true, attributes: true, attributeOldValue: true})
+                    observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
                 }
                 if (refreshOn) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()
                     boundController = setBoundController(new AbortController())
-                    const [refreshFrom, refreshStep=''] = refreshOn.split('{')
-                    let [start=0, end=0, step=0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
+                    const [refreshFrom, refreshStep = ''] = refreshOn.split('{')
+                    let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
                     if (mode === 'resource') {
                         for (let eventName of eventNames) {
                             for (const node of bindNodes) {
                                 if (!node) continue
-                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName==='change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
+                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
                                     eventName = 'click'
                                 }
                                 node.addEventListener(eventName, event => {
@@ -228,25 +226,87 @@
                                     } else if (Array.isArray(bound)) {
                                         this.#refresh(bound.map(node => this.e.getValue(node)))
                                     } else { this.#refresh(this.e.getValue(node)) }
-                                }, {signal: boundController.signal})
+                                }, { signal: boundController.signal })
                             }
                         }
-                    } else { 
+                    } else {
                         const targetAttrVal = this.getAttribute('target')
                         if (use === '!' && targetAttrVal && targetAttrVal.includes('!')) this.#targetEvents = eventNames
                     }
                 }
+            } else if (bindStatement.includes(';')) {
+                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(),
+                    contentType = this.getAttribute('content-type') || this.optionsMap['Content-Type'] || this._contentType || undefined, moduleImport
+                if (!contentType) {
+                    contentType ||= src.endsWith('.js') ? 'application/javascript' : undefined
+                    contentType ||= src.endsWith('.mjs') ? 'application/javascript' : undefined
+                    contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
+                    contentType ||= 'application/javascript'
+                }
+                if (!contentType.includes('/')) contentType = `application/${contentType}`
+                url = this.e.resolveUrl(url, this).split('(')
+                let [functionName = 'default', args = ''] = functionInvoker.split('(')
+                args = args.slice(0, -1)
+                new Promise((resolve, reject) => {
+                    if (contentType === 'application/wasm') {
+                        this.#compileRequestOptions(this.optionsMap, contentType).then(requestOptions => fetch(url, requestOptions)).then(req => WebAssembly.instantiateStreaming(req)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
+                    } else {
+                        import(url).then(moduleImport => resolve(moduleImport[functionName]))
+                    }
+                }).then(baseFunc => {
+                    if (boundController) boundController.abort()
+                    setBound(baseFunc)
+                    if (mode === 'resource') {
+                        this.#cycle = cycleStatement.split(':')
+                        let [period = '0', recur = 'once', mode = 'lazy'] = this.#cycle
+                        let periodMs
+                        if (period.endsWith('s')) {
+                            periodMs = parseFloat(period) * 1000
+                        } else if (period.endsWith('m')) {
+                            periodMs = parseFloat(period) * 1000 * 60
+                        } else if (period.endsWith('h')) {
+                            periodMs = parseFloat(period) * 1000 * 60 * 60
+                        } else if (period.endsWith('d')) {
+                            periodMs = parseFloat(period) * 1000 * 60 * 60 * 24
+                        } else {
+                            periodMs = parseFloat(period)
+                        }
+                        periodMs = Math.round(periodMs)
+                        const requestIdleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 0)), run = () => {
+                            const runResult = baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.e.getVariable(arg, this))))
+                            if (recur === 'every' && mode === 'lazy' && (runResult instanceof Promise)) {
+                                runResult.then(() => {
+                                    window.setTimeout(() => {
+                                        window.requestIdleCallback(() => {
+                                            run()
+                                        })
+                                    }, periodMs)
+                                })
+                            }
+                        }
+                        const recurFunction = recur === 'every' ? window.setInterval : window.setTimeout
+                        this.#cycleTracker = recurFunction(() => {
+                            if (mode === 'force') {
+                                run()
+                            } else {
+                                window.requestIdleCallback(() => {
+                                    run()
+                                })
+                            }
+                        }, periodMs)
+                    }
+                })
             } else {
-                let url = this.e.resolveUrl(useValue, this), boundController = getBoundController()
+                let url = this.e.resolveUrl(bindStatement, this), boundController = getBoundController()
                 if (boundController) boundController.abort()
                 setBound(url)
-                if (useValue.includes(':#')) {
+                if ((mode === 'resource') && bindStatement.includes(':#')) {
                     boundController = setBoundController(new AbortController())
                     window.addEventListener('hashchange', event => {
                         const resource = this.#resource
                         this.#resource = undefined
                         this.resource = resource
-                    }, {signal: boundController.signal})
+                    }, { signal: boundController.signal })
                 }
             }
         }
@@ -265,22 +325,25 @@
             }
         }
         get resource() { return this.#resource }
-        get boundResource() { 
+        get boundResource() {
             const resourceAttrVal = this.getAttribute('resource')
             if (resourceAttrVal && !this.#resource) {
                 this.#createBound(resourceAttrVal, 'resource')
                 this.#resource = resourceAttrVal
             }
-            return this.#boundResource 
+            return this.#boundResource
+        }
+        get cycle() {
+            return this.#cycle
         }
 
-        set target(value) { 
+        set target(value) {
             if (this.#target === value) return
             this.#createBound(value, 'target')
             this.#target = value
         }
         get target() { return this.#target }
-        get boundTarget() { 
+        get boundTarget() {
             const targetAttrVal = this.getAttribute('target')
             if (targetAttrVal !== !this.#target) this.target = targetAttrVal
             return this.#boundTarget
@@ -289,31 +352,31 @@
         set transform(value) { this.#transform = value }
         get transform() { return this.#transform }
 
-        set apply(value) { 
+        set apply(value) {
             this.#applyMap = this.e.utils.parseObjectAttribute(value, this)
-            this.#apply = value 
+            this.#apply = value
         }
         get apply() { return this.#apply }
-        get applyMap() { 
+        get applyMap() {
             const attrApply = this.getAttribute('apply')
-            if (attrApply && attrApply!== this.#apply) this.apply = attrApply
-            return this.#applyMap 
+            if (attrApply && attrApply !== this.#apply) this.apply = attrApply
+            return this.#applyMap
         }
 
         set rewrite(value) {
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
                 let value = this.getAttribute('rewrite')
                 this.#rewriteRules = []
-                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {}, 
-                rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({...this.e.env.variables[rewriteRulesThis.eEnv] || {}}, rewriteRulesThis) : rewriteRulesThis
+                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {},
+                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.e.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
                 for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             }
             this.#rewrite = value
         }
         get rewrite() { return this.#rewrite }
-        get rewriteRules() { 
+        get rewriteRules() {
             const attrRewrite = this.getAttribute('rewrite')
-            if (attrRewrite && attrRewrite!== this.#rewrite) this.rewrite = attrRewrite
+            if (attrRewrite && attrRewrite !== this.#rewrite) this.rewrite = attrRewrite
             return this.#rewriteRules
         }
 
@@ -322,10 +385,10 @@
             this.#options = value
         }
         get options() { return this.#options }
-        get optionsMap() { 
+        get optionsMap() {
             const attrOptions = this.getAttribute('options')
-            if (attrOptions && attrOptions!== this.#options) this.options = attrOptions
-            return this.#optionsMap 
+            if (attrOptions && attrOptions !== this.#options) this.options = attrOptions
+            return this.#optionsMap
         }
 
         set errors(value) { this.#errors = value }

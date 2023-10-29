@@ -1,7 +1,7 @@
 <style></style>
 <template></template>
 <script>
-    class extends `meta` {
+    export default class extends `meta` {
 
         #via
         #resource
@@ -30,13 +30,13 @@
         constructor() {
             super()
             this.addEventListener('_ready', event => {
-               for (const q of this.#sendQueue) this.send(q)
+                for (const q of this.#sendQueue) this.send(q)
             })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'content-type', 'options') }
 
-        async connectedCallback() {}
+        async connectedCallback() { }
 
         async #parse(value, contentType) {
             const parser = (this.e.env.map.get(this) ?? {}).parser
@@ -49,11 +49,11 @@
         }
 
         async _setResource(signature) {
-            let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType, 
+            let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType,
                 transform = await this.e.expandTransform(this.transform, this), options = this.optionsMap
             if (!signature || (signature.endsWith(')') && signature.includes('('))) {
                 const [resourceClass, newArgs] = signature ? (signature.slice(0, -1).split('(')) : [(this._resourceClass ?? 'EventTarget'), (this._resourceNewArgs ?? '')], args = newArgs.split(',').map(a => this.e.utils.resolveMergeToken(a, this))
-                const optionsArgs = (this._optionsTransform) ? await this.e.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [] )
+                const optionsArgs = (this._optionsTransform) ? await this.e.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [])
                 if (typeof window[resourceClass] !== 'function') return
                 this.#resource = new window[resourceClass](...args, ...optionsArgs)
                 if (typeof this._resourceReadyTest === 'function') {
@@ -76,7 +76,7 @@
                         this.#abortController = new AbortController()
                         this._setResource(signature)
                     })
-                    this.#resource.addEventListener('error', event => {})
+                    this.#resource.addEventListener('error', event => { })
                     use = 'data'
                 } else {
                     if (!listen || listen.includes('$')) {
@@ -87,19 +87,19 @@
                             const result = await this.#parse((await fetch(url, requestOptions)), contentType)
                             if (transform) result = await this.e.env.libraries.jsonata(transform).evaluate(result)
                             this.#value = result
-                            this.dispatchEvent(new CustomEvent('change', {detail: result}))
+                            this.dispatchEvent(new CustomEvent('change', { detail: result }))
                         }
                         if (listen.includes('$')) {
                             await this._sender()
-                            if (listen === '$') this.#resourceReady = true  
-                        } 
+                            if (listen === '$') this.#resourceReady = true
+                        }
                     }
                     if (listen && (listen !== '$')) {
                         this.#resource = new EventSource(url, options)
                         this.#resource.addEventListener('open', event => {
                             this.#resourceReady = true
                         })
-                        this.#resource.addEventListener('error', event => {})
+                        this.#resource.addEventListener('error', event => { })
                         use = 'data'
                     }
                 }
@@ -108,7 +108,7 @@
             let eventMaps = (listen || '').split(',').map(s => s.trim())
             for (const eventMap of eventMaps) {
                 if (eventMap === '$') continue
-                let [listenToUse=this._defaultListen, dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo, thisUse = use
+                let [listenToUse = this._defaultListen, dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo, thisUse = use
                 if (listenToUse.includes('.')) {
                     let listenToUseSplit = listenToUse.split('.').map(s => s.trim())
                     thisUse = listenToUseSplit.pop() || use
@@ -120,9 +120,9 @@
                     if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.#parse(payload, contentType)
                     if (transform) payload = await this.e.env.libraries.jsonata(transform).evaluate(payload)
                     this.#value = payload
-                    if (dispatchAs !== 'change') this.dispatchEvent(new CustomEvent('change', {detail: payload}))
-                    this.dispatchEvent(new CustomEvent(dispatchAs, {detail: payload}))
-                }, {signal: this.#abortController.signal})
+                    if (dispatchAs !== 'change') this.dispatchEvent(new CustomEvent('change', { detail: payload }))
+                    this.dispatchEvent(new CustomEvent(dispatchAs, { detail: payload }))
+                }, { signal: this.#abortController.signal })
             }
         }
 
@@ -135,15 +135,15 @@
         set ['content-type'](value) { this.contentType = value }
         get ['content-type']() { return this.contentType }
         set contentType(value) { this.#contentType = value }
-        get contentType() { 
+        get contentType() {
             if (this.#contentType !== this.getAttribute('content-type')) this.contentType = this.getAttribute('content-type')
-            return this.#contentType 
-        }        
+            return this.#contentType
+        }
 
         set listen(value) { this.#listen = value }
-        get listen() { 
+        get listen() {
             if (this.#listen !== this.getAttribute('listen')) this.listen = this.getAttribute('listen')
-            return this.#listen 
+            return this.#listen
         }
 
         set transform(value) { this.#transform = value }
@@ -157,10 +157,10 @@
             this.#options = value
         }
         get options() { return this.#options }
-        get optionsMap() { 
+        get optionsMap() {
             const optionsAttr = this.getAttribute('options')
             if (this.#options !== optionsAttr) this.#optionsMap = this.e.utils.parseObjectAttribute(optionsAttr, this)
-            return this.#optionsMap 
+            return this.#optionsMap
         }
 
         get resource() { return this.#resource }
@@ -184,4 +184,3 @@
 
     }
 </script>
-
