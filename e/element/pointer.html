@@ -120,6 +120,16 @@
                 if (requestOptions.body && !requestOptions.method) {
                     navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
                 } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
+            } else if (typeof boundTarget === 'function') {
+                const targetArgs = [...(this.applyMap ?? [])]
+                if (payload) {
+                    if (Array.isArray(result)) {
+                        targetArgs.push(...result)
+                    } else {
+                        targetArgs.push(result)
+                    }
+                }
+                boundTarget(...targetArgs)
             } else {
                 if (this.#targetEvents.length) {
                     for (const eventName of this.#targetEvents) {
