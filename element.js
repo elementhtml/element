@@ -22,19 +22,19 @@ const ElementHTML = Object.defineProperties({}, {
             },
             options: {
                 enumerable: true, value: Object.defineProperties({}, {
-                    security: { enumerable: true, value: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] } },
-                    errors: { enumerable: true, value: 'hide' },
                     ajv: {
                         enumerable: true, value: {
                             allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
                             strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                         }
                     },
+                    errors: { enumerable: true, value: 'hide' },
                     remarkable: {
                         enumerable: true, value: {
                             html: true
                         }
-                    }
+                    },
+                    security: { enumerable: true, value: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] } }
                 })
             },
             proxies: { enumerable: true, value: {} },
@@ -1297,10 +1297,15 @@ if (metaOptions.packages) {
         ElementHTML.ImportPackage(await import(packageUrl))
     }
 }
-let expose = metaOptions.Expose || metaOptions.expose
-if ((typeof expose === 'string') && !(expose && window[expose])) await ElementHTML.Expose(expose)
-for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'Expose') && (typeof ElementHTML[func] == 'function')) if (args.startsWith('[') && args.endsWith(']')) {
-    try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
-} else { await ElementHTML[func](args) }
+let expose = metaOptions.Expose || metaOptions.expose, load = metaOptions.Load || metaOptions.load
+if (typeof load === 'string') {
+    if (!(typeof expose == 'string' && !expose && window.E) && !(expose && window[expose])) {
+        for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'load') && (func !== 'Expose') && (typeof ElementHTML[func] === 'function')) if (args.startsWith('[') && args.endsWith(']')) {
+            try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
+        } else { await ElementHTML[func](args) }
+        if (typeof expose === 'string') await ElementHTML.Expose(expose)
+        await ElementHTML.load()
+    }
+}
 
 export { ElementHTML }
