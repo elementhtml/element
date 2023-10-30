@@ -3,18 +3,15 @@
 <script>
     export default class extends `./pointer` {
 
-        #canonicalUrl
-        #validate = input => true
         #abortController
+        #canonicalUrl
         #schema
+        #validate = input => true
 
         constructor() {
             super()
             this.#abortController = new AbortController()
             Object.defineProperties(this, {
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'schema' },
-                _contentType: { configurable: false, enumerable: false, writable: false, value: 'application/schema+json' },
-                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
                         this.#canonicalUrl = result
@@ -52,8 +49,10 @@
                             }, { signal: this.#abortController.signal })
                         }
                     }
-                }
-
+                },
+                _contentType: { configurable: false, enumerable: false, writable: false, value: 'application/schema+json' },
+                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'schema' }
             })
         }
 

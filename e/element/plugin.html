@@ -3,17 +3,15 @@
 <script>
     export default class extends `./pointer` {
 
-        #module
+        #abortController
         #map
         #mapMap
-        #abortController
+        #module
 
         constructor() {
             super()
             this.#abortController = new AbortController()
             Object.defineProperties(this, {
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'plugin' },
-                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
                         this.#module = result
@@ -89,25 +87,28 @@
                             }
                         }
                     }
-                }
+                },
+                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'plugin' }
             })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
 
+        get map() { return this.#map }
         set map(value) {
             this.#mapMap = this.e.utils.parseObjectAttribute(value, this)
             this.#map = value
         }
-        get map() { return this.#map }
+
         get mapMap() {
             const attrMap = this.getAttribute('map')
             if (attrMap && attrMap !== this.#map) this.map = attrMap
             return this.#mapMap
         }
 
-        set module(value) { this.#module = value }
         get module() { return this.#module }
+        set module(value) { this.#module = value }
 
     }
 </script>

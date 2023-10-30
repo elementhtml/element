@@ -6,8 +6,6 @@
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'theme' },
-                _contentType: { configurable: false, enumerable: false, writable: false, value: 'text/css' },
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
@@ -25,8 +23,9 @@
                             }
                         }
                     }
-                }
-
+                },
+                _contentType: { configurable: false, enumerable: false, writable: false, value: 'text/css' },
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'theme' }
             })
         }
 

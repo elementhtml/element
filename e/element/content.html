@@ -4,13 +4,12 @@
     export default class extends `./pointer` {
 
         #transition
-        #transitionString
         #transitionScope
+        #transitionString
 
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'content' },
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
                         if (typeof result !== 'string') {
@@ -45,22 +44,24 @@
                             }
                         }
                     }
-                }
+                },
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'content' }
             })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('transition', 'transition-scope') }
 
+        get transition() { return this.#transitionString }
         set transition(value) {
             this.#transition = this.e.utils.parseObjectAttribute(value, this)
             this.#transitionString = value
         }
-        get transition() { return this.#transitionString }
 
-        set transitionScope(value) { this.#transitionScope = value }
         get transitionScope() { return this.#transitionScope }
-        set ['transition-scope'](value) { this.transitionScope = value }
+        set transitionScope(value) { this.#transitionScope = value }
+
         get ['transition-scope']() { return this.transitionScope }
+        set ['transition-scope'](value) { this.transitionScope = value }
 
     }
 </script>

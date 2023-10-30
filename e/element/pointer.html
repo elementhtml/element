@@ -3,115 +3,145 @@
 <script>
     export default class extends `meta` {
 
-        #resource
-        #target
-        #transform
         #apply
         #applyMap
-        #errors
-        #rewrite
-        #rewriteRules = []
         #boundResource
         #boundResourceController
+        #boundResourceObserver
+        #boundResourceRefreshCount = 0
         #boundTarget
         #boundTargetController
-        #boundResourceObserver
         #boundTargetObserver
-        #boundResourceRefreshCount = 0
         #boundTargetRefreshCount = 0
-        #targetEvents = []
-        #options = ''
-        #optionsMap = {}
-        #use
         #cycle = []
         #cycleTracker
+        #errors
+        #options = ''
+        #optionsMap = {}
+        #resource
+        #rewrite
+        #rewriteRules = []
+        #target
+        #transform
+        #targetEvents = []
+        #use
 
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: { configurable: true, enumerable: false, value: 'pointer' },
+                _apply: { configurable: true, enumerable: false, value: async (result, target) => { } },
                 _contentType: { configurable: true, enumerable: false, value: undefined },
                 _isReference: { configurable: true, enumerable: false, value: false },
-                _apply: { configurable: true, enumerable: false, value: async (result, target) => { } }
+                _mode: { configurable: true, enumerable: false, value: 'pointer' }
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('resource', 'target', 'apply', 'transform', 'rewrite', 'errors', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'transform') }
 
         async connectedCallback() { }
 
         toString() { return this.resource ?? '' }
 
-        async #refresh(payload) {
-            const boundResource = this.boundResource
-            if (!boundResource) return
-            let result
-            if (!payload && (typeof boundResource === 'string')) {
-                let contentType = this.e.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
-                if (this._isReference && (contentType === 'application/javascript')) {
-                    result = await import(boundResource)
-                } else if (contentType === 'application/schema+json') {
-                    result = boundResource
-                } else {
-                    const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
-                    if (this._isReference) {
-                        if (contentType === 'application/wasm') {
-                            result = this.e.utils.getWasm(req)
-                        } else { result = req.then(r => r.body) }
-                    } else {
-                        let response = await req
-                        if (response.status >= 400) {
-                            const rewriteRules = this.rewriteRules
-                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
-                            if (response.status >= 400) this.e.processError('refresh', response.text(), this, { status: response.status, input: response.url, requestOptions }, response)
-                        }
-                        result = await this.parse(response)
-                    }
-                }
-            } else { result = payload ?? boundResource }
-            let transform = this.transform || this.getAttribute('transform')
-            if (transform) {
-                await this.e.installLibraryFromSrc('jsonata')
-                if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                    const variableValue = this.e.getVariable(transform, this)
-                    if (typeof variableValue === 'string') transform = variableValue
-                }
-                try {
-                    const variables = []
-                    transform = this.e.expandTransform(transform, this)
-                    result = await this.e.env.libraries.jsonata(transform).evaluate(result)
-                } catch (e) {
-                    this.e.processError('transform', e, this, { input: result }, e)
-                }
+        async parse(value) { return await this.parser(value, this) }
+
+        async serialize(value, contentType) { return await this.serializer(value, this, contentType) }
+
+        get apply() { return this.#apply }
+        set apply(value) {
+            this.#applyMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#apply = value
+        }
+
+        get applyMap() {
+            const attrApply = this.getAttribute('apply')
+            if (attrApply && attrApply !== this.#apply) this.apply = attrApply
+            return this.#applyMap
+        }
+
+        get boundResource() {
+            const resourceAttrVal = this.getAttribute('resource')
+            if (resourceAttrVal && !this.#resource) {
+                this.#createBound(resourceAttrVal, 'resource')
+                this.#resource = resourceAttrVal
             }
-            const boundTarget = this.boundTarget ?? this.parentElement
-            if (typeof boundTarget === 'string') {
-                const requestOptions = await this.e.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
-                if (requestOptions.body && !requestOptions.method) {
-                    navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
-                } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
-            } else if (typeof boundTarget === 'function') {
-                const targetArgs = [...(this.applyMap ?? [])]
-                if (payload) {
-                    if (Array.isArray(result)) {
-                        targetArgs.push(...result)
-                    } else {
-                        targetArgs.push(result)
-                    }
-                }
-                boundTarget(...targetArgs)
-            } else {
-                if (this.#targetEvents.length) {
-                    for (const eventName of this.#targetEvents) {
-                        for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
-                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: payload }))
-                        }
-                    }
-                } else {
-                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
-                }
+            return this.#boundResource
+        }
+
+        get boundTarget() {
+            const targetAttrVal = this.getAttribute('target')
+            if (targetAttrVal !== !this.#target) this.target = targetAttrVal
+            return this.#boundTarget
+        }
+
+        get cycle() { return this.#cycle }
+
+        get errors() { return this.#errors ?? this.e.env.options.errors }
+        set errors(value) { this.#errors = value }
+
+        get options() { return this.#options }
+        set options(value) {
+            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#options = value
+        }
+
+        get optionsMap() {
+            const attrOptions = this.getAttribute('options')
+            if (attrOptions && attrOptions !== this.#options) this.options = attrOptions
+            return this.#optionsMap
+        }
+
+        get parser() {
+            const parser = (this.e.env.map.get(this) ?? {}).parser
+            return (typeof parser === 'function') ? parser : this.e.parse.bind(this.e)
+        }
+
+        get resource() { return this.#resource }
+        set resource(value) {
+            if (this.#resource === value) return
+            this.#createBound(value, 'resource')
+            this.#resource = value
+            if (!this.#use) { this.#refresh(); return }
+            const boundTarget = this.boundTarget
+            if (!boundTarget || (typeof boundTarget === 'string')) return
+            if (this.#use === '$') {
+                this.#refresh(this.#boundResource)
+            } else if (this.#use === '_') {
+                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))
             }
         }
+
+        get rewrite() { return this.#rewrite }
+        set rewrite(value) {
+            if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
+                let value = this.getAttribute('rewrite')
+                this.#rewriteRules = []
+                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {},
+                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.e.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
+                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
+            }
+            this.#rewrite = value
+        }
+
+        get rewriteRules() {
+            const attrRewrite = this.getAttribute('rewrite')
+            if (attrRewrite && attrRewrite !== this.#rewrite) this.rewrite = attrRewrite
+            return this.#rewriteRules
+        }
+
+        get serializer() {
+            const serializer = (this.e.env.map.get(this) ?? {}).serializer
+            return (typeof serializer === 'function') ? serializer : this.e.serialize.bind(this.e)
+        }
+
+        get target() { return this.#target }
+        set target(value) {
+            if (this.#target === value) return
+            this.#createBound(value, 'target')
+            this.#target = value
+        }
+
+        get transform() { return this.#transform }
+        set transform(value) { this.#transform = value }
 
         #createBound(value, mode) {
             const setBound = v => mode === 'resource' ? (this.#boundResource = v) : (this.#boundTarget = v),
@@ -127,8 +157,7 @@
             this.#targetEvents = []
             if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
             if (bindStatement.includes('|')) {
-                let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim())
-                let [, , useRefresh] = useFlags.includes(bindStatement[0]) ? ['', '', bindStatement] : bindStatementSplit,
+                let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
                 let scope = this.e.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
@@ -211,24 +240,14 @@
                         periodMs = Math.round(periodMs)
                         const requestIdleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 0)), run = () => {
                             const runResult = baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.e.getVariable(arg, this))))
-                            if (recur === 'every' && mode === 'lazy' && (runResult instanceof Promise)) {
-                                runResult.then(() => {
-                                    window.setTimeout(() => {
-                                        window.requestIdleCallback(() => {
-                                            run()
-                                        })
-                                    }, periodMs)
-                                })
-                            }
+                            if (recur === 'every' && mode === 'lazy' && (runResult instanceof Promise)) runResult.then(() => window.setTimeout(() => window.requestIdleCallback(() => run()), periodMs))
                         }
                         const recurFunction = recur === 'every' ? window.setInterval : window.setTimeout
                         this.#cycleTracker = recurFunction(() => {
                             if (mode === 'force') {
                                 run()
                             } else {
-                                window.requestIdleCallback(() => {
-                                    run()
-                                })
+                                window.requestIdleCallback(() => run())
                             }
                         }, periodMs)
                     }
@@ -248,105 +267,76 @@
             }
         }
 
-        set resource(value) {
-            if (this.#resource === value) return
-            this.#createBound(value, 'resource')
-            this.#resource = value
-            if (!this.#use) { this.#refresh(); return }
-            const boundTarget = this.boundTarget
-            if (!boundTarget || (typeof boundTarget === 'string')) return
-            if (this.#use === '$') {
-                this.#refresh(this.#boundResource)
-            } else if (this.#use === '_') {
-                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))
+        async #refresh(payload) {
+            const boundResource = this.boundResource
+            if (!boundResource) return
+            let result
+            if (!payload && (typeof boundResource === 'string')) {
+                let contentType = this.e.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
+                if (this._isReference && (contentType === 'application/javascript')) {
+                    result = await import(boundResource)
+                } else if (contentType === 'application/schema+json') {
+                    result = boundResource
+                } else {
+                    const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
+                    if (this._isReference) {
+                        if (contentType === 'application/wasm') {
+                            result = this.e.utils.getWasm(req)
+                        } else { result = req.then(r => r.body) }
+                    } else {
+                        let response = await req
+                        if (response.status >= 400) {
+                            const rewriteRules = this.rewriteRules
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
+                            if (response.status >= 400) this.e.processError('refresh', response.text(), this, response)
+                        }
+                        result = await this.parse(response)
+                    }
+                }
+            } else { result = payload ?? boundResource }
+            let transform = this.transform || this.getAttribute('transform')
+            if (transform) {
+                await this.e.installLibraryFromSrc('jsonata')
+                if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
+                    const variableValue = this.e.getVariable(transform, this)
+                    if (typeof variableValue === 'string') transform = variableValue
+                }
+                try {
+                    const variables = []
+                    transform = this.e.expandTransform(transform, this)
+                    result = await this.e.env.libraries.jsonata(transform).evaluate(result)
+                } catch (e) {
+                    this.e.processError('transform', e, this, e)
+                }
+            }
+            const boundTarget = this.boundTarget ?? this.parentElement
+            if (typeof boundTarget === 'string') {
+                const requestOptions = await this.e.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
+                if (requestOptions.body && !requestOptions.method) {
+                    navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
+                } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
+            } else if (typeof boundTarget === 'function') {
+                const targetArgs = [...(this.applyMap ?? [])]
+                if (payload) {
+                    if (Array.isArray(result)) {
+                        targetArgs.push(...result)
+                    } else {
+                        targetArgs.push(result)
+                    }
+                }
+                boundTarget(...targetArgs)
+            } else {
+                if (this.#targetEvents.length) {
+                    for (const eventName of this.#targetEvents) {
+                        for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
+                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: payload }))
+                        }
+                    }
+                } else {
+                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
+                }
             }
         }
-        get resource() { return this.#resource }
-        get boundResource() {
-            const resourceAttrVal = this.getAttribute('resource')
-            if (resourceAttrVal && !this.#resource) {
-                this.#createBound(resourceAttrVal, 'resource')
-                this.#resource = resourceAttrVal
-            }
-            return this.#boundResource
-        }
-        get cycle() {
-            return this.#cycle
-        }
-        get parser() {
-            const parser = (this.e.env.map.get(this) ?? {}).parser
-            return (typeof parser === 'function') ? parser : this.e.parse.bind(this.e)
-        }
-        get serializer() {
-            const serializer = (this.e.env.map.get(this) ?? {}).serializer
-            return (typeof serializer === 'function') ? serializer : this.e.serialize.bind(this.e)
-        }
-
-        async parse(value) {
-            return await this.parser(value, this)
-        }
-
-        async serialize(value, contentType) {
-            return await this.serializer(value, this, contentType)
-        }
-
-
-        set target(value) {
-            if (this.#target === value) return
-            this.#createBound(value, 'target')
-            this.#target = value
-        }
-        get target() { return this.#target }
-        get boundTarget() {
-            const targetAttrVal = this.getAttribute('target')
-            if (targetAttrVal !== !this.#target) this.target = targetAttrVal
-            return this.#boundTarget
-        }
-
-        set transform(value) { this.#transform = value }
-        get transform() { return this.#transform }
-
-        set apply(value) {
-            this.#applyMap = this.e.utils.parseObjectAttribute(value, this)
-            this.#apply = value
-        }
-        get apply() { return this.#apply }
-        get applyMap() {
-            const attrApply = this.getAttribute('apply')
-            if (attrApply && attrApply !== this.#apply) this.apply = attrApply
-            return this.#applyMap
-        }
-
-        set rewrite(value) {
-            if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
-                let value = this.getAttribute('rewrite')
-                this.#rewriteRules = []
-                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {},
-                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.e.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
-                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
-            }
-            this.#rewrite = value
-        }
-        get rewrite() { return this.#rewrite }
-        get rewriteRules() {
-            const attrRewrite = this.getAttribute('rewrite')
-            if (attrRewrite && attrRewrite !== this.#rewrite) this.rewrite = attrRewrite
-            return this.#rewriteRules
-        }
-
-        set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
-            this.#options = value
-        }
-        get options() { return this.#options }
-        get optionsMap() {
-            const attrOptions = this.getAttribute('options')
-            if (attrOptions && attrOptions !== this.#options) this.options = attrOptions
-            return this.#optionsMap
-        }
-
-        set errors(value) { this.#errors = value }
-        get errors() { return this.#errors ?? this.e.env.options.errors }
 
     }
 </script>

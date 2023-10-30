@@ -266,8 +266,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     processError: {
-        enumerable: true, value: function (name, message, element, cause, detail) {
-            detail ||= {}
+        enumerable: true, value: function (name, message, element, cause, detail = {}) {
             detail = { ...detail, ...{ name, message, element, cause } }
             if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
             let errors = element?.errors ?? this.env.options.errors

@@ -148,14 +148,13 @@
         </div>
     </form>
 </template>
-<script type="module">
+<script>
     export default class extends `./pointer` {
 
-        #manifest
         #abortController = new AbortController()
-        #dialogId
         #dialog
-
+        #dialogId
+        #manifest
         #manifestDefaults = {
             "$": {
                 "credentials": {},
@@ -173,7 +172,6 @@
         constructor() {
             super()
             Object.defineProperties(this, {
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'publish' },
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
                         if (result instanceof Object) {
@@ -232,7 +230,9 @@
                         })
                         document.body.append(this.#dialog)
                     }
-                }
+                },
+                _mode: { configurable: false, enumerable: false, writable: false, value: 'publish' }
+
             })
         }
 
@@ -347,5 +347,6 @@
             }
             updateProgress(pagesEntries.length, `Publishing complete!`)
         }
+
     }
 </script>
