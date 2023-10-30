@@ -13,7 +13,6 @@ const ElementHTML = Object.defineProperties({}, {
             },
             globalLoadCalled: { configurable: true, enumerable: true, writable: true, value: false },
             libraries: { enumerable: true, value: {} },
-            loadingRegistry: { value: {} },
             map: { value: new WeakMap() },
             modes: {
                 configurable: true, enumerable: true, writable: true, value: {
@@ -897,17 +896,6 @@ const ElementHTML = Object.defineProperties({}, {
             return inheritance
         }
     },
-    getURL: {
-        enumerable: true, value: function (value) {
-            if (!value.includes('://')) return value
-            if (!value.startsWith('http://') && !value.startsWith('https://')) {
-                const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-                value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
-            }
-            for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
-            return value
-        }
-    },
     getVariable: {
         enumerable: true, value: function (variableRef, element) {
             if (!variableRef) return
@@ -979,7 +967,15 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveUrl: {
         enumerable: true, value: function (value, element) {
-            if (value.includes(':') && !value.includes('://')) {
+            if (!element) {
+                if (!value.includes('://')) return value
+                if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                    const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+                    value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+                }
+                for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
+                return value
+            } else if (value.includes(':') && !value.includes('://')) {
                 let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
                 if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
                     const map = { '/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1) }
@@ -997,10 +993,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 const rewriteRules = element.rewriteRules
                 if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.resolveUrl(p, element)
-                return router ? router[element._mode](routerPointer) : this.getURL(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
+                return router ? router[element._mode](routerPointer) : this.resolveUrl(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
             } else if (value.includes('/')) {
-                return this.getURL(new URL(value, element.baseURI).href)
-            } else { return this.getURL(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
+                return this.resolveUrl(new URL(value, element.baseURI).href)
+            } else { return this.resolveUrl(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
         }
     },
     sortByInheritance: {
@@ -1077,7 +1073,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (id, forceReload = false) {
             if (!id || !id.includes('://')) return
             if (!forceReload && this.files[id]) return true
-            const fileFetch = await fetch(this.getURL(id))
+            const fileFetch = await fetch(this.resolveUrl(id))
             if (fileFetch.status >= 400) return
             this.files[id] = await fileFetch.text()
             this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
@@ -1171,7 +1167,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
                         const { src, importObject } = $this.constructor.eWasm[moduleName]
                         $this.constructor.eWasm[moduleName] = true
-                        WebAssembly.instantiateStreaming(fetch(ElementHTML.getURL(src)), importObject).then(importResult =>
+                        WebAssembly.instantiateStreaming(fetch(ElementHTML.resolveUrl(src)), importObject).then(importResult =>
                             $this.constructor.eWasm[moduleName] = importResult
                         ).catch(e => $this.constructor.eWasm[moduleName] = false)
                     }
@@ -1295,7 +1291,7 @@ let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseOb
 if (metaOptions.packages) {
     for (const p of packages.split(',').map(s => s.trim())) {
         if (!p) continue
-        const packageUrl = p.includes('/') ? ElementHTML.getURL(p) : ElementHTML.getURL(`ipfs://${p}`)
+        const packageUrl = p.includes('/') ? ElementHTML.resolveUrl(p) : ElementHTML.resolveUrl(`ipfs://${p}`)
         ElementHTML.importPackage(await import(packageUrl))
     }
 }

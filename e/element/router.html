@@ -46,7 +46,7 @@
             pointer ||= router.modes[mode]?.pointer ?? mode
             suffix ||= router.modes[mode]?.suffix ?? ''
             const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix ? '.' + suffix : ''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-            return get ? fetch(router.e.getURL(url), this.optionsMap) : url
+            return get ? fetch(router.e.resolveUrl(url), this.optionsMap) : url
         }
 
         get base() { return this.#base }
