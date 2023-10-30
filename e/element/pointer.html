@@ -141,28 +141,17 @@
             if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
             if (bindStatement.includes('|') || startsWithFlag) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim())
-                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatementSplit,
+                let [, , useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatementSplit,
                     [use, refreshOn] = !useRefresh ? ['$', 'change']
                         : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
 
                 let scope = this.e.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
 
-
-                if (!selector) {
-                    setBound(scope)
-                } else if (selector.includes('{') && selector.endsWith('}')) {
-                    let [selectorStem, sig] = selector.split('{')
-                    setBound(this.e.utils.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
-                } else { setBound(scope.querySelector(selector)) }
-                if (selector) {
+                setBound(this.e.utils.resolveSelector(scope, bindStatementSplit[1]))
+                if (bindStatementSplit[1]) {
                     const processRecords = records => {
-                        if (!selector) {
-                            setBound(scope)
-                        } else if (selector.includes('{') && selector.endsWith('}')) {
-                            let [selectorStem, sig] = selector.split('{')
-                            setBound(this.e.utils.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem))))
-                        } else { setBound(scope.querySelector(selector)) }
+                        setBound(this.e.utils.resolveSelector(scope, bindStatementSplit[1]))
                         if (mode === 'resource') this.#refresh()
                     }
                     let observer = getBoundObserver()
@@ -171,7 +160,6 @@
                     observer = setBoundObserver(new MutationObserver(processRecords))
                     observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
                 }
-
 
                 if (mode === 'resource') this.#use = use
 

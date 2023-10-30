@@ -95,6 +95,18 @@ const ElementHTML = Object.defineProperties({}, {
                     return scope
                 }
             },
+            resolveSelector: {
+                enumerable: true, value: function (scope, selector) {
+                    let selected
+                    if (!selector) {
+                        selected = scope
+                    } else if (selector.includes('{') && selector.endsWith('}')) {
+                        let [selectorStem, sig] = selector.split('{')
+                        selected = this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
+                    } else { selected = scope.querySelector(selector) }
+                    return selected
+                }
+            },
             getVariableResult: {
                 enumerable: true, value: function (modVar, args, element) {
                     let result
