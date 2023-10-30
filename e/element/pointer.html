@@ -140,25 +140,15 @@
             this.#targetEvents = []
             if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
             if (bindStatement.includes('|') || startsWithFlag) {
-                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatement.split('|').map(s => decodeURIComponent(s).trim()),
+                let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim())
+                let [closest, selector, useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatementSplit,
                     [use, refreshOn] = !useRefresh ? ['$', 'change']
                         : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
-                let scope
-                if (startsWithFlag) {
-                    scope = this
-                } else if (bindStatement.startsWith('|')) {
-                    scope = this.parentElement
-                } else if (bindStatement.startsWith(':|') || bindStatement.startsWith(':root|')) {
-                    scope = this.getRootNode()
-                } else if (bindStatement.startsWith(':host|')) {
-                    k
-                    scope = this.getRootNode()
-                    if (scope instanceof ShadowRoot) scope = scope.host
-                } else if (bindStatement.startsWith(':document|')) {
-                    scope = document
-                } else { scope = this.closest(closest) }
+
+                let scope = this.e.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
-                if (mode === 'resource') this.#use = use
+
+
                 if (!selector) {
                     setBound(scope)
                 } else if (selector.includes('{') && selector.endsWith('}')) {
@@ -181,6 +171,10 @@
                     observer = setBoundObserver(new MutationObserver(processRecords))
                     observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
                 }
+
+
+                if (mode === 'resource') this.#use = use
+
                 if (refreshOn) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()

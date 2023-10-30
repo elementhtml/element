@@ -78,6 +78,23 @@ const ElementHTML = Object.defineProperties({}, {
                     if ((token[0] === '`') && token.endsWith('`')) return token.slice(1, -1)
                 }
             },
+            resolveScope: {
+                enumerable: true, value: function (scopeStatement, element, flags = []) {
+                    if (!scopeStatement) return element.parentElement
+                    let scope
+                    if (flags.includes(scopeStatement[0])) {
+                        scope = element
+                    } else if ((scopeStatement === ':') || scopeStatement === ':root') {
+                        scope = element.getRootNode()
+                    } else if (scopeStatement === ':host') {
+                        scope = element.getRootNode()
+                        if (scope instanceof ShadowRoot) scope = scope.host
+                    } else if (scopeStatement === ':document') {
+                        scope = document
+                    } else { scope = element.closest(scopeStatement) }
+                    return scope
+                }
+            },
             getVariableResult: {
                 enumerable: true, value: function (modVar, args, element) {
                     let result
