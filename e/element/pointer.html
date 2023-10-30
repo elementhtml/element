@@ -63,10 +63,7 @@
                         if (response.status >= 400) {
                             const rewriteRules = this.rewriteRules
                             if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
-                            if (response.status >= 400) {
-                                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'refresh', status: response.status, input: response.url, requestOptions } }))
-                                if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
-                            }
+                            if (response.status >= 400) this.e.processError('refresh', response.text(), this, { status: response.status, input: response.url, requestOptions }, response)
                         }
                         result = await this.parse(response)
                     }
@@ -81,17 +78,10 @@
                 }
                 try {
                     const variables = []
-                    if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.e.env, ['eDataset', 'modes', 'options', 'variables'])}`)
-                    if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.valueOf())}`)
-                    for (const [vn, vv] of Object.entries(this.e.env.variables)) {
-                        if ((vn === 'env') || (vn === 'this')) continue
-                        if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
-                    }
-                    if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
+                    transform = this.e.expandTransform(transform, this)
                     result = await this.e.env.libraries.jsonata(transform).evaluate(result)
                 } catch (e) {
-                    this.dispatchEvent(new CustomEvent('error', { detail: { type: 'transform', message: e, input: result } }))
-                    if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { result = {} }
+                    this.e.processError('transform', e, this, { input: result }, e)
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement

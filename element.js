@@ -265,6 +265,15 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    processError: {
+        enumerable: true, value: function (name, message, element, cause, detail) {
+            detail ||= {}
+            detail = { ...detail, ...{ name, message, element, cause } }
+            if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
+            let errors = element?.errors ?? this.env.options.errors
+            if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
+        }
+    },
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
             let requestOptions = optionsMap ?? element?.optionsMap ?? {}
