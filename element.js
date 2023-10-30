@@ -1,9 +1,20 @@
 const ElementHTML = Object.defineProperties({}, {
+
     version: { enumerable: true, value: '0.9.0' },
+
     env: {
         enumerable: true, value: Object.defineProperties({}, {
             eDataset: { enumerable: true, value: new EventTarget() },
+            gateways: {
+                enumerable: true, value: {
+                    ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
+                    ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
+                }
+            },
             globalLoadCalled: { configurable: true, enumerable: true, writable: true, value: false },
+            libraries: { enumerable: true, value: {} },
+            loadingRegistry: { value: {} },
+            map: { value: new WeakMap() },
             modes: {
                 configurable: true, enumerable: true, writable: true, value: {
                     element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
@@ -11,16 +22,6 @@ const ElementHTML = Object.defineProperties({}, {
                     publish: 'publish/manifest.json', pod: 'pod/db.js'
                 }
             },
-            loadingRegistry: { enumerable: false, value: {} },
-            map: { enumerable: false, value: new WeakMap() },
-            proxies: { enumerable: true, value: {} },
-            gateways: {
-                enumerable: true, value: {
-                    ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
-                    ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
-                }
-            },
-            libraries: { enumerable: true, value: {} },
             options: {
                 enumerable: true, value: Object.defineProperties({}, {
                     security: { enumerable: true, value: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] } },
@@ -38,6 +39,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 })
             },
+            proxies: { enumerable: true, value: {} },
             sources: {
                 enumerable: true, value: {
                     jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
@@ -47,14 +49,9 @@ const ElementHTML = Object.defineProperties({}, {
             variables: { enumerable: true, value: {} }
         })
     },
+
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
-            getCustomTag: {
-                enumerable: true, value: function (element) {
-                    return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
-                        || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-                }
-            },
             getContentType: {
                 enumerable: true, value: function (element, src) {
                     let contentType = (this.optionsMap ?? {})['Content-Type'] || (this.optionsMap ?? {})['content-type'] || element.getAttribute('content-type') || element._contentType || undefined
@@ -66,6 +63,26 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (!contentType.includes('/')) contentType = `application/${contentType}`
                     return contentType
+                }
+            },
+            getCustomTag: {
+                enumerable: true, value: function (element) {
+                    return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
+                        || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+                }
+            },
+            getVariableResult: {
+                enumerable: true, value: function (modVar, args, element) {
+                    let result
+                    if (typeof modVar === 'string') {
+                        result = modVar
+                        for (let [i, v] of args.entries()) {
+                            let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
+                                .map(tk => this.resolveMergeToken(tk, element))
+                            result = result.replace(new RegExp(marker, 'g'), merger)
+                        }
+                    } else if (typeof modVar === 'function') { result = modVar(...args.map(a => this.resolveMergeToken(a, element))) }
+                    return result
                 }
             },
             getWasm: {
@@ -91,11 +108,35 @@ const ElementHTML = Object.defineProperties({}, {
                     return retval
                 }
             },
-            resolveMeta: {
-                enumerable: true, value: function (element, is, name) {
-                    let metaElement
+            processError: {
+                enumerable: true, value: function (name, message, element, cause, detail = {}) {
+                    detail = { ...detail, ...{ name, message, element, cause } }
+                    if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
+                    let errors = element?.errors ?? this.env.options.errors
+                    if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
+                }
+            },
+            resolveForElement: {
+                enumerable: true, value: function (element, tagName, conditions = {}, searchBody = false, equals = {}, startsWith = {}, includes = {}) {
+                    let resolved
+                    const testNode = (node, useConditions = false) => {
+                        if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
+                        for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
+                        for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
+                        for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
+                        if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
+                    }, query = Object.keys(conditions).length ? `${tagName}[${Object.entries(conditions).map(e => e[0] + '="' + e[1] + '"').join('][')}]` : tagName
+                    for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
+                    if (resolved) return resolved
                     const rootNode = element.shadowRoot || element.getRootNode()
-                    return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`)
+                    if (rootNode instanceof ShadowRoot) {
+                        for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
+                        return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
+                    } else {
+                        for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
+                        if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
+                        return resolved
+                    }
                 }
             },
             resolveMergeToken: {
@@ -106,6 +147,13 @@ const ElementHTML = Object.defineProperties({}, {
                     if (token[0] === '@') return element.getAttribute(token.slice(1))
                     if (token === '_') return ElementHTML.getValue(element)
                     if ((token[0] === '`') && token.endsWith('`')) return token.slice(1, -1)
+                }
+            },
+            resolveMeta: {
+                enumerable: true, value: function (element, is, name) {
+                    let metaElement
+                    const rootNode = element.shadowRoot || element.getRootNode()
+                    return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`)
                 }
             },
             resolveScope: {
@@ -137,20 +185,6 @@ const ElementHTML = Object.defineProperties({}, {
                     return selected
                 }
             },
-            getVariableResult: {
-                enumerable: true, value: function (modVar, args, element) {
-                    let result
-                    if (typeof modVar === 'string') {
-                        result = modVar
-                        for (let [i, v] of args.entries()) {
-                            let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
-                                .map(tk => this.resolveMergeToken(tk, element))
-                            result = result.replace(new RegExp(marker, 'g'), merger)
-                        }
-                    } else if (typeof modVar === 'function') { result = modVar(...args.map(a => this.resolveMergeToken(a, element))) }
-                    return result
-                }
-            },
             sliceAndStep: {
                 enumerable: true, value: function (sig, list) {
                     let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
@@ -180,17 +214,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         })
     },
-    ids: { enumerable: true, value: {} },
-    tags: { enumerable: true, value: {} },
-    extends: { enumerable: true, value: {} },
-    files: { enumerable: true, value: {} },
-    styles: { enumerable: true, value: {} },
-    _styles: { enumerable: false, value: {} },
-    templates: { enumerable: true, value: {} },
-    _templates: { enumerable: false, value: {} },
-    scripts: { enumerable: true, value: {} },
-    classes: { enumerable: true, value: {} },
-    constructors: { enumerable: true, value: {} },
+
     load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
@@ -243,15 +267,16 @@ const ElementHTML = Object.defineProperties({}, {
             if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
         }
     },
-    expose: {
-        enumerable: true, value: function (globalName = 'ElementHTML') {
-            if (globalName && !window[globalName]) window[globalName] = this
-        }
-    },
+
     errors: {
         enumerable: true, value: function (mode = 'hide') {
             mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
             this.env.options.errors = mode
+        }
+    },
+    expose: {
+        enumerable: true, value: function (globalName = 'ElementHTML') {
+            if (globalName && !window[globalName]) window[globalName] = this
         }
     },
     importPackage: {
@@ -260,19 +285,14 @@ const ElementHTML = Object.defineProperties({}, {
             for (const a in areas) {
                 if (!area || (area === a)) {
                     const resultArea = area ? p : p[a]
-                    if (resultArea instanceof Object) this.env[a] = { ...this.e.env[a], ...resultArea }
+                    if (resultArea instanceof Object) this.env[a] = { ...this.env[a], ...resultArea }
                 }
             }
         }
     },
-    processError: {
-        enumerable: true, value: function (name, message, element, cause, detail = {}) {
-            detail = { ...detail, ...{ name, message, element, cause } }
-            if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
-            let errors = element?.errors ?? this.env.options.errors
-            if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
-        }
-    },
+
+
+
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
             let requestOptions = optionsMap ?? element?.optionsMap ?? {}
@@ -308,13 +328,13 @@ const ElementHTML = Object.defineProperties({}, {
             let variableValue
             if (variableName.includes('.')) {
                 let variableNameSplit = variableName.split('.')
-                variableValue = this.e.env.variables[variableNameSplit.shift()]
+                variableValue = this.env.variables[variableNameSplit.shift()]
                 if (!(variableValue instanceof Object)) return variableValue
                 for (const part of variableNameSplit) {
                     variableValue = variableValue[part]
                     if (!(variableValue instanceof Object)) break
                 }
-            } else { variableValue = this.e.env.variables[variableName] }
+            } else { variableValue = this.env.variables[variableName] }
             if (element && variableName.includes('(') && variableName.endsWith(')')) {
                 let [variablePartName, ...argsRest] = mm.split('(')
                 args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
@@ -387,56 +407,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else { return this.getURL(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
         }
     },
-    activateTag: {
-        enumerable: true, value: async function (tag, element, forceReload = false) {
-            if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
-            const id = await this.getTagId(tag, element);
-            [this.ids[tag], this.tags[id]] = [id, tag]
-            const loadResult = await this.loadTagAssetsFromId(id, forceReload)
-            if (!loadResult) return
-            const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
-            globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
-        }
-    },
-    getTagId: {
-        enumerable: true, value: async function (tag, element) {
-            if (this.ids[tag]) return this.ids[tag]
-            const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
-            let tagRouter = this.utils.resolveMeta(element, 'e-router', routerName)
-            return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
-                routerName === 'e' ? import.meta.url : element.baseURI)).href
-        }
-    },
-    loadTagAssetsFromId: {
-        enumerable: true, value: async function (id, forceReload = false) {
-            if (!id || !id.includes('://')) return
-            if (!forceReload && this.files[id]) return true
-            const fileFetch = await fetch(this.getURL(id))
-            if (fileFetch.status >= 400) return
-            this.files[id] = await fileFetch.text()
-            this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
-            this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>') + 10, this.files[id].indexOf('</template>')).trim()
-            this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>') + 8, this.files[id].indexOf('</script>')).trim()
-            const extendsRegExp = /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
-            let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends || 'HTMLElement'
-            if (extendsId) {
-                if (extendsId.startsWith('e-')) {
-                    extendsId = await this.getTagId(extendsId)
-                } else if (extendsId.includes('/')) {
-                    if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
-                    if (!extendsId.endsWith('.html')) extendsId += '.html'
-                }
-                this.extends[id] = extendsId
-                this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
-                if (!this.files[extendsId] && extendsId.includes('/')) return
-            }
-            let sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`)
-            this.classes[id] = Function('ElementHTML', 'return ' + sanitizedScript)(this)
-            this.classes[id].id = id
-            this.constructors[id] = class extends this.classes[id] { constructor() { super() } }
-            return true
-        }
-    },
     getInheritance: {
         enumerable: true, value: function (id = 'HTMLElement') {
             const inheritance = [id]
@@ -445,33 +415,10 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     sortByInheritance: {
-        configurable: false, enumerable: true, writable: false, value: function (idList) {
+        enumerable: true, writable: false, value: function (idList) {
             return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
                 ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
                 .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
-        }
-    },
-    resolveForElement: {
-        enumerable: true, value: function (element, tagName, conditions = {}, searchBody = false, equals = {}, startsWith = {}, includes = {}) {
-            let resolved
-            const testNode = (node, useConditions = false) => {
-                if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
-                for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
-                for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
-                for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
-                if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
-            }, query = Object.keys(conditions).length ? `${tagName}[${Object.entries(conditions).map(e => e[0] + '="' + e[1] + '"').join('][')}]` : tagName
-            for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
-            if (resolved) return resolved
-            const rootNode = element.shadowRoot || element.getRootNode()
-            if (rootNode instanceof ShadowRoot) {
-                for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
-                return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
-            } else {
-                for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
-                if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
-                return resolved
-            }
         }
     },
     getValue: {
@@ -779,7 +726,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                                 fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                             } else {
-                                const fragmentToUse = this.resolveForElement(rootElement, 'template', { 'data-e-fragment': use }, true)
+                                const fragmentToUse = this.utils.resolveForElement(rootElement, 'template', { 'data-e-fragment': use }, true)
                                 if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)))
                             }
                         }
@@ -1062,8 +1009,72 @@ const ElementHTML = Object.defineProperties({}, {
             return JSON.stringify(input)
         }
     },
+
+
+    ids: { value: {} },
+    tags: { value: {} },
+    extends: { value: {} },
+    files: { value: {} },
+    styles: { value: {} },
+    _styles: { value: {} },
+    templates: { value: {} },
+    _templates: { value: {} },
+    scripts: { value: {} },
+    classes: { value: {} },
+    constructors: { value: {} },
+
+    activateTag: {
+        value: async function (tag, element, forceReload = false) {
+            if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
+            const id = await this.getTagId(tag, element);
+            [this.ids[tag], this.tags[id]] = [id, tag]
+            const loadResult = await this.loadTagAssetsFromId(id, forceReload)
+            if (!loadResult) return
+            const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
+            globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+        }
+    },
+    getTagId: {
+        value: async function (tag, element) {
+            if (this.ids[tag]) return this.ids[tag]
+            const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
+            let tagRouter = this.utils.resolveMeta(element, 'e-router', routerName)
+            return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
+                routerName === 'e' ? import.meta.url : element.baseURI)).href
+        }
+    },
+    loadTagAssetsFromId: {
+        value: async function (id, forceReload = false) {
+            if (!id || !id.includes('://')) return
+            if (!forceReload && this.files[id]) return true
+            const fileFetch = await fetch(this.getURL(id))
+            if (fileFetch.status >= 400) return
+            this.files[id] = await fileFetch.text()
+            this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
+            this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>') + 10, this.files[id].indexOf('</template>')).trim()
+            this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>') + 8, this.files[id].indexOf('</script>')).trim()
+            const extendsRegExp = /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
+            let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends || 'HTMLElement'
+            if (extendsId) {
+                if (extendsId.startsWith('e-')) {
+                    extendsId = await this.getTagId(extendsId)
+                } else if (extendsId.includes('/')) {
+                    if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
+                    if (!extendsId.endsWith('.html')) extendsId += '.html'
+                }
+                this.extends[id] = extendsId
+                this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
+                if (!this.files[extendsId] && extendsId.includes('/')) return
+            }
+            let sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`)
+            this.classes[id] = Function('ElementHTML', 'return ' + sanitizedScript)(this)
+            this.classes[id].id = id
+            this.constructors[id] = class extends this.classes[id] { constructor() { super() } }
+            return true
+        }
+    },
     stackTemplates: {
-        enumerable: true, value: function (id) {
+        value: function (id) {
             if (typeof this._templates[id] === 'string') return this._templates[id]
             if (typeof this.templates[id] === 'string') {
                 if (this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
@@ -1095,7 +1106,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     stackStyles: {
-        enumerable: true, value: function (id) {
+        value: function (id) {
             if (typeof this._styles[id] === 'string') return this._styles[id]
             this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
             return this._styles[id]
@@ -1277,6 +1288,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }
 })
+
 let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
 if (metaOptions.packages) {
     for (const p of packages.split(',').map(s => s.trim())) {
@@ -1291,4 +1303,5 @@ if (!(metaOptions.expose && window[metaOptions.expose])) {
         try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
     } else { await ElementHTML[func](args) }
 }
+
 export { ElementHTML }

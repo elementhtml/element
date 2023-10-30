@@ -288,7 +288,7 @@
                         if (response.status >= 400) {
                             const rewriteRules = this.rewriteRules
                             if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
-                            if (response.status >= 400) this.e.processError('refresh', response.text(), this, response)
+                            if (response.status >= 400) this.e.utils.processError('refresh', response.text(), this, response)
                         }
                         result = await this.parse(response)
                     }
@@ -306,7 +306,7 @@
                     transform = this.e.expandTransform(transform, this)
                     result = await this.e.env.libraries.jsonata(transform).evaluate(result)
                 } catch (e) {
-                    this.e.processError('transform', e, this, e)
+                    this.e.utils.processError('transform', e, this, e)
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
