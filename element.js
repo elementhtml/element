@@ -337,8 +337,8 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
                 } else { parseElementForValues(element) }
             } else if (element.eDataset) {
-                const eValueProxy = element.eValueProxy || element._eValueProxy
-                if (eValueProxy) return element.eDataset[eValueProxy]
+                const valueProxy = element._ || element.__
+                if (valueProxy) return element.eDataset[valueProxy]
                 const retval = Object.assign({}, element.eDataset)
                 for (const k of Object.keys(retval)) if (k.includes('__')) {
                     const unsafeProperty = k.replaceAll('__', '-')
@@ -407,9 +407,9 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.assign((element.eDataset || element.dataset), value)
                 }
             } else {
-                if (element.eDataset instanceof Object && element.eValueProxy) {
-                    element.eDataset[element.eValueProxy] = value
-                    if (value === undefined) delete element.eDataset[element.eValueProxy]
+                if (element.eDataset instanceof Object && element._) {
+                    element.eDataset[element._] = value
+                    if (value === undefined) delete element.eDataset[element._]
                 } else {
                     const attrMethod = value === undefined ? 'removeAttribute' : 'setAttribute'
                     if (tag === 'meta') { element[attrMethod]('content', value); return close() }
@@ -1149,7 +1149,7 @@ const ElementHTML = Object.defineProperties({}, {
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
             return class extends baseClass {
-                #eValueProxy
+                #_
                 constructor() {
                     super()
                     const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
@@ -1264,7 +1264,7 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     } catch (e) { }
                 }
-                static get observedAttributes() { return ['e-value-proxy'] }
+                static get observedAttributes() { return ['_'] }
                 static e = ElementHTML
                 async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
                 async readyCallback() { }
@@ -1278,10 +1278,8 @@ const ElementHTML = Object.defineProperties({}, {
                         ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, this[p]])))
                     }
                 }
-                set ['e-value-proxy'](value) { this.#eValueProxy = value }
-                get ['e-value-proxy']() { return this.#eValueProxy }
-                set eValueProxy(value) { this.#eValueProxy = value }
-                get eValueProxy() { return this.#eValueProxy }
+                set _(value) { this.#_ = value }
+                get _() { return this.#_ }
             }
         }
     }
