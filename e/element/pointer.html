@@ -47,15 +47,15 @@
             if (!boundResource) return
             let result
             if (!payload && (typeof boundResource === 'string')) {
-                let contentType = this.getAttribute('content-type') || this._contentType || undefined
-                if (this._isReference && ((contentType === 'application/javascript') || boundResource.endsWith('.mjs') || boundResource.endsWith('.js'))) {
+                let contentType = this.e.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
+                if (this._isReference && (contentType === 'application/javascript')) {
                     result = await import(boundResource)
                 } else if (contentType === 'application/schema+json') {
                     result = boundResource
                 } else {
                     const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
-                        if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
+                        if (contentType === 'application/wasm') {
                             result = await WebAssembly.instantiateStreaming(req)
                         } else { result = req.then(r => r.body) }
                     } else {
@@ -193,15 +193,7 @@
                     }
                 }
             } else if (bindStatement.includes(';')) {
-                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(),
-                    contentType = this.getAttribute('content-type') || this.optionsMap['Content-Type'] || this._contentType || undefined, moduleImport
-                if (!contentType) {
-                    contentType ||= src.endsWith('.js') ? 'application/javascript' : undefined
-                    contentType ||= src.endsWith('.mjs') ? 'application/javascript' : undefined
-                    contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
-                    contentType ||= 'application/javascript'
-                }
-                if (!contentType.includes('/')) contentType = `application/${contentType}`
+                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(), contentType = this.e.utils.getContentType(this, src)
                 url = this.e.resolveUrl(url, this).split('(')
                 let [functionName = 'default', args = ''] = functionInvoker.split('(')
                 args = args.slice(0, -1)

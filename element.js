@@ -45,19 +45,16 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             getContentType: {
-                enumerable: true, value: function (element) {
-
-                    let contentType = this.getAttribute('content-type') || this._contentType || undefined
-                    contentType = this.getAttribute('content-type') || this.optionsMap['Content-Type'] || this._contentType || undefined
-                    if (!contentType) {
+                enumerable: true, value: function (element, src) {
+                    let contentType = (this.optionsMap ?? {})['Content-Type'] || (this.optionsMap ?? {})['content-type'] || element.getAttribute('content-type') || element._contentType || undefined
+                    if (src) {
                         contentType ||= src.endsWith('.js') ? 'application/javascript' : undefined
                         contentType ||= src.endsWith('.mjs') ? 'application/javascript' : undefined
                         contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
                         contentType ||= 'application/javascript'
                     }
                     if (!contentType.includes('/')) contentType = `application/${contentType}`
-
-
+                    return contentType
                 }
             },
             parseObjectAttribute: {
