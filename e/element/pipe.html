@@ -38,7 +38,7 @@
 
         async send(payload) {
             if (this.#resourceReady) {
-                const sender = (this.e.env.map.get(this) ?? {}).sender, sendMethodName = this.getAttribute('send')
+                const sender = (this.E.env.map.get(this) ?? {}).sender, sendMethodName = this.getAttribute('send')
                 if (typeof sender === 'function') {
                     await sender(payload, this)
                 } else if (sendMethodName && (typeof this.#resource[sendMethodName] === 'function')) {
@@ -53,17 +53,17 @@
 
         async _setResource(signature) {
             let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType,
-                transform = await this.e.expandTransform(this.transform, this), options = this.optionsMap
+                transform = await this.E.expandTransform(this.transform, this), options = this.optionsMap
             if (!signature || (signature.endsWith(')') && signature.includes('('))) {
-                const [resourceClass, newArgs] = signature ? (signature.slice(0, -1).split('(')) : [(this._resourceClass ?? 'EventTarget'), (this._resourceNewArgs ?? '')], args = newArgs.split(',').map(a => this.e.utils.resolveMergeToken(a, this))
-                const optionsArgs = (this._optionsTransform) ? await this.e.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [])
+                const [resourceClass, newArgs] = signature ? (signature.slice(0, -1).split('(')) : [(this._resourceClass ?? 'EventTarget'), (this._resourceNewArgs ?? '')], args = newArgs.split(',').map(a => this.E.utils.resolveMergeToken(a, this))
+                const optionsArgs = (this._optionsTransform) ? await this.E.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [])
                 if (typeof window[resourceClass] !== 'function') return
                 this.#resource = new window[resourceClass](...args, ...optionsArgs)
                 if (typeof this._resourceReadyTest === 'function') {
-                    this.e.utils.waitUntil(async () => { this._resourceReadyTest(this.#resource, this) })
+                    this.E.utils.waitUntil(async () => { this._resourceReadyTest(this.#resource, this) })
                 } else { this.#resourceReady = true }
             } else {
-                const url = this.e.resolveUrl(signature)
+                const url = this.E.resolveUrl(signature)
                 if (url.startsWith('wss://')) {
                     let binaryType = (options ?? {}).binaryType
                     if (binaryType) delete options.binaryType
@@ -88,7 +88,7 @@
                             if (payload) requestOptions.body = payload
                             if (payload && (typeof payload !== 'string')) payload = await this.#serialize(payload, contentType ?? this._contentType)
                             const result = await this.#parse((await fetch(url, requestOptions)), contentType)
-                            if (transform) result = await this.e.env.libraries.jsonata(transform).evaluate(result)
+                            if (transform) result = await this.E.env.libraries.jsonata(transform).evaluate(result)
                             this.#value = result
                             this.dispatchEvent(new CustomEvent('change', { detail: result }))
                         }
@@ -121,7 +121,7 @@
                 this.#resource.addEventListener(listenTo, async event => {
                     let payload = event[thisUse || 'detail']
                     if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.#parse(payload, contentType)
-                    if (transform) payload = await this.e.env.libraries.jsonata(transform).evaluate(payload)
+                    if (transform) payload = await this.E.env.libraries.jsonata(transform).evaluate(payload)
                     this.#value = payload
                     if (dispatchAs !== 'change') this.dispatchEvent(new CustomEvent('change', { detail: payload }))
                     this.dispatchEvent(new CustomEvent(dispatchAs, { detail: payload }))
@@ -146,13 +146,13 @@
 
         get options() { return this.#options }
         set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
 
         get optionsMap() {
             const optionsAttr = this.getAttribute('options')
-            if (this.#options !== optionsAttr) this.#optionsMap = this.e.utils.parseObjectAttribute(optionsAttr, this)
+            if (this.#options !== optionsAttr) this.#optionsMap = this.E.utils.parseObjectAttribute(optionsAttr, this)
             return this.#optionsMap
         }
 
@@ -173,13 +173,13 @@
         }
 
         async #parse(value, contentType) {
-            const parser = (this.e.env.map.get(this) ?? {}).parser
-            return (typeof parser === 'function') ? (await parser(value, this, contentType)) : (await this.e.parse(value, this, contentType))
+            const parser = (this.E.env.map.get(this) ?? {}).parser
+            return (typeof parser === 'function') ? (await parser(value, this, contentType)) : (await this.E.parse(value, this, contentType))
         }
 
         async #serialize(value, contentType) {
-            const serializer = (this.e.env.map.get(this) ?? {}).serializer
-            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.e.serialize(value, this, contentType))
+            const serializer = (this.E.env.map.get(this) ?? {}).serializer
+            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.E.serialize(value, this, contentType))
         }
 
     }

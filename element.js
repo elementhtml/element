@@ -11,7 +11,6 @@ const ElementHTML = Object.defineProperties({}, {
                     ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
                 }
             },
-            globalLoadCalled: { configurable: true, enumerable: true, writable: true, value: false },
             libraries: { enumerable: true, value: {} },
             map: { value: new WeakMap() },
             modes: {
@@ -217,8 +216,8 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
-                if (this.env.globalLoadCalled) return
-                Object.defineProperty(this.env, 'globalLoadCalled', { enumerable: true, value: true })
+                if (this._globalLoadCalled) return
+                Object.defineProperty(this, '_globalLoadCalled', { enumerable: false, value: true })
                 Object.defineProperty(this.env, 'ElementHTML', { enumerable: true, value: this })
                 Object.freeze(this.env.options.security)
                 Object.freeze(this.env.proxies)
@@ -267,18 +266,19 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    errors: {
+    Errors: {
         enumerable: true, value: function (mode = 'hide') {
             mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
             this.env.options.errors = mode
         }
     },
-    expose: {
-        enumerable: true, value: function (globalName = 'ElementHTML') {
+    Expose: {
+        enumerable: true, value: function (globalName = 'E') {
+            if (!globalName) globalName = 'E'
             if (globalName && !window[globalName]) window[globalName] = this
         }
     },
-    importPackage: {
+    ImportPackage: {
         enumerable: true, value: function (p, a) {
             const areas = ['eDataset', 'modes', 'proxies', 'gateways', 'options', 'variables']
             for (const a in areas) {
@@ -1152,27 +1152,31 @@ const ElementHTML = Object.defineProperties({}, {
                 #_
                 constructor() {
                     super()
-                    const $this = this, addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
-                        if (document.querySelector(querySelectorTemplate.replace(/\$E/g, src))) return
-                        const tag = appendTo.appendChild(document.createElement(tagName))
-                        tag.setAttribute(srcAttrName, src)
-                        for (const a of otherAttrs) tag.setAttribute(...a)
+                    const $this = this
+                    if ($this.constructor.eJs || $this.constructor.eMjs || $this.constructor.eCss) {
+                        const addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
+                            if (document.querySelector(querySelectorTemplate.replace(/\$E/g, src))) return
+                            const tag = appendTo.appendChild(document.createElement(tagName))
+                            tag.setAttribute(srcAttrName, src)
+                            for (const a of otherAttrs) tag.setAttribute(...a)
+                        }
+                        if ($this.constructor.eJs) for (const src of ($this.constructor.eJs)) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
+                        if ($this.constructor.eMjs) for (const src of ($this.constructor.eMjs)) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body, [['type', 'module']])
+                        if ($this.constructor.eCss) for (const src of ($this.constructor.eCss)) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
                     }
-                    for (const src of ($this.constructor.eJs || [])) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
-                    for (const src of ($this.constructor.eMjs || [])) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body, [['type', 'module']])
-                    for (const src of ($this.constructor.eCss || [])) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
-                    $this.constructor.eWasm ||= {}
-                    for (const moduleName in ($this.constructor.eWasm || {})) {
-                        if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
-                        if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
-                        const { src, importObject } = $this.constructor.eWasm[moduleName]
-                        $this.constructor.eWasm[moduleName] = true
-                        WebAssembly.instantiateStreaming(fetch(ElementHTML.resolveUrl(src)), importObject).then(importResult =>
-                            $this.constructor.eWasm[moduleName] = importResult
-                        ).catch(e => $this.constructor.eWasm[moduleName] = false)
+                    if ($this.constructor.eWasm) {
+                        for (const moduleName in ($this.constructor.eWasm || {})) {
+                            if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
+                            if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
+                            const { src, importObject } = $this.constructor.eWasm[moduleName]
+                            $this.constructor.eWasm[moduleName] = true
+                            WebAssembly.instantiateStreaming(fetch(ElementHTML.resolveUrl(src)), importObject).then(importResult =>
+                                $this.constructor.eWasm[moduleName] = importResult
+                            ).catch(e => $this.constructor.eWasm[moduleName] = false)
+                        }
                     }
                     Object.defineProperties($this, {
-                        e: { enumerable: true, value: ElementHTML },
+                        E: { enumerable: true, value: ElementHTML },
                         eContext: { enumerable: true, writable: true, value: {} },
                         eDataset: {
                             enumerable: true, value: new Proxy($this.dataset, {
@@ -1265,7 +1269,7 @@ const ElementHTML = Object.defineProperties({}, {
                     } catch (e) { }
                 }
                 static get observedAttributes() { return ['_'] }
-                static e = ElementHTML
+                static E = ElementHTML
                 async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
@@ -1290,14 +1294,13 @@ if (metaOptions.packages) {
     for (const p of packages.split(',').map(s => s.trim())) {
         if (!p) continue
         const packageUrl = p.includes('/') ? ElementHTML.resolveUrl(p) : ElementHTML.resolveUrl(`ipfs://${p}`)
-        ElementHTML.importPackage(await import(packageUrl))
+        ElementHTML.ImportPackage(await import(packageUrl))
     }
 }
-if (!(metaOptions.expose && window[metaOptions.expose])) {
-    if (metaOptions.expose) await ElementHTML.expose(metaOptions.expose)
-    for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'expose') && (typeof ElementHTML[func] == 'function')) if (args.startsWith('[') && args.endsWith(']')) {
-        try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
-    } else { await ElementHTML[func](args) }
-}
+let expose = metaOptions.Expose || metaOptions.expose
+if ((typeof expose === 'string') && !(expose && window[expose])) await ElementHTML.Expose(expose)
+for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'Expose') && (typeof ElementHTML[func] == 'function')) if (args.startsWith('[') && args.endsWith(']')) {
+    try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
+} else { await ElementHTML[func](args) }
 
 export { ElementHTML }

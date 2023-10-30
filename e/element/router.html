@@ -9,7 +9,7 @@
         #optionsMap
 
         static {
-            Object.defineProperty(this, 'modes', { value: this.e.env.modes })
+            Object.defineProperty(this, 'modes', { value: this.E.env.modes })
         }
 
         modes = {}
@@ -46,7 +46,7 @@
             pointer ||= router.modes[mode]?.pointer ?? mode
             suffix ||= router.modes[mode]?.suffix ?? ''
             const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix ? '.' + suffix : ''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-            return get ? fetch(router.e.resolveUrl(url), this.optionsMap) : url
+            return get ? fetch(router.E.resolveUrl(url), this.optionsMap) : url
         }
 
         get base() { return this.#base }
@@ -57,7 +57,7 @@
 
         get options() { return this.#options }
         set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
 

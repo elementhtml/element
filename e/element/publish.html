@@ -195,7 +195,7 @@
                         this.#dialog = document.createElement('dialog')
                         this.#dialog.setAttribute('id', this.#dialogId)
                         this.#dialog.classList.add('e-publish')
-                        this.#dialog.innerHTML = `<style>${this.e.styles[this.constructor.id]}</style>${this.e.templates[this.constructor.id]}`
+                        this.#dialog.innerHTML = `<style>${this.E.styles[this.constructor.id]}</style>${this.E.templates[this.constructor.id]}`
                         const dialogMenu = this.#dialog.querySelector('menu')
                         for (const fieldsetName of Object.keys(this.#manifest.$)) {
                             if (!(this.#manifest.$[fieldsetName] instanceof Object)) continue
@@ -257,7 +257,7 @@
                     frame.innerHTML = `<iframe src="${pageConfig.url}"></iframe><div class="block"></div>`
                     await new Promise(resolve => frame.addEventListener('publish-loaded', event => resolve(event.detail), { once: true }))
                     const frameDoc = frame.querySelector('iframe').contentDocument.documentElement
-                    await this.e.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
+                    await this.E.utils.waitUntil(() => pageConfig.waitFor.every(qs => frameDoc.querySelector(qs)), 1000, 10)
                     if (!pageConfig.waitFor.every(qs => frameDoc.querySelector(qs))) {
                         console.log('line 242 loading error!')
                     }
@@ -287,7 +287,7 @@
                             } else if (typeof sd === 'string') {
                                 sinkDataArgs = [target, target, undefined, sd, this]
                             }
-                            if (sinkDataArgs.length) await this.e.sinkData(...sinkDataArgs)
+                            if (sinkDataArgs.length) await this.E.sinkData(...sinkDataArgs)
                         }
                     }
                     let pageFilePath = pageSlug
@@ -324,7 +324,7 @@
                 if (downloadZip) renderedPages.push({ name: pageFilePath, lastModified: new Date(), input: compiledPageHtml })
 
                 updateProgress(pageIndex + 0.87, `<i>${pageSlug}</i> published!`)
-                await this.e.utils.wait(Math.random() * 1700)
+                await this.E.utils.wait(Math.random() * 1700)
                 pageIndex = pageIndex + 1
             }
             for (let f of (this.#manifest.files ?? [])) {

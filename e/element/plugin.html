@@ -21,10 +21,10 @@
                             for (const [role, mm] of applyEntries) {
                                 if ((typeof this.#module[mm] === 'function') && role.startsWith('gateway:')) {
                                     const [, protocol] = role.split(':')
-                                    if (protocol) this.e.env.gateways[protocol] = this.#module[mm]
+                                    if (protocol) this.E.env.gateways[protocol] = this.#module[mm]
                                 } else if (role.startsWith('$')) {
                                     const variableName = role.slice(1)
-                                    if (variableName) this.e.env.variables[variableName] = this.#module[mm]
+                                    if (variableName) this.E.env.variables[variableName] = this.#module[mm]
                                 } else { continue }
                                 delete applyEntries[role]
                             }
@@ -34,14 +34,14 @@
                                 if (!role || !result || !element) return
                                 const role1 = role.slice(1)
                                 if (role === '_') {
-                                    return this.e._(element, result, silent)
+                                    return this.E._(element, result, silent)
                                 } else if (role[0] === '$') {
                                     if ((role === '$') || role.startsWith('$|')) {
-                                        let [fl, tr] = this.e.utils.splitOnce(role1.slice(1), ',').map(s => s.trim())
-                                        return this.e.$(element, result, fl, tr, this, silent)
+                                        let [fl, tr] = this.E.utils.splitOnce(role1.slice(1), ',').map(s => s.trim())
+                                        return this.E.$(element, result, fl, tr, this, silent)
                                     } else {
                                         if (!role1) return
-                                        this.e.env.variables[role1] = result
+                                        this.E.env.variables[role1] = result
                                     }
                                 } else if (role[0] === '.') {
                                     if (!role1) return
@@ -52,9 +52,9 @@
                                 } else if (role[0] === '+') {
                                     this.importPackage(result, role1)
                                 } else {
-                                    const elementMap = this.e.env.map.get(element) ?? {}
+                                    const elementMap = this.E.env.map.get(element) ?? {}
                                     elementMap[role] = result
-                                    this.e.env.map.set(element, elementMap)
+                                    this.E.env.map.set(element, elementMap)
                                 }
                             }
                             for (const t of target) {
@@ -65,7 +65,7 @@
                                         args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
                                         if (this.#module[modulePartName] === undefined) continue
                                         modPart = this.#module[modulePartName]
-                                        if (role[0] !== '!') result = await this.e.utils.getVariableResult(modPart, args, t)
+                                        if (role[0] !== '!') result = await this.E.utils.getVariableResult(modPart, args, t)
                                     } else if (mm === '$') {
                                         if (this.#module === undefined) continue
                                         result = this.#module
@@ -78,7 +78,7 @@
                                         eventName = eventName.slice(1)
                                         if (!eventName) eventName = (t.eDataset || t.hasAttribute('itemscope') || ['input', 'select', 'textarea', 'fieldset', 'form'].includes(t.tagName.toLowerCase())) ? 'change' : 'click'
                                         t.addEventListener(eventName, async event => {
-                                            let r = (result === undefined) ? await this.e.utils.getVariableResult(modPart, args, t) : result,
+                                            let r = (result === undefined) ? await this.E.utils.getVariableResult(modPart, args, t) : result,
                                                 silent = ((eventName === 'change') && (pipeTo === '_')) || ((eventName === 'sinkData') && (pipeTo === '$'))
                                             setResult(r, pipeTo, t, silent)
                                         })
@@ -97,7 +97,7 @@
 
         get map() { return this.#map }
         set map(value) {
-            this.#mapMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#mapMap = this.E.utils.parseObjectAttribute(value, this)
             this.#map = value
         }
 

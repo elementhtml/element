@@ -48,7 +48,7 @@
 
         get apply() { return this.#apply }
         set apply(value) {
-            this.#applyMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#applyMap = this.E.utils.parseObjectAttribute(value, this)
             this.#apply = value
         }
 
@@ -75,12 +75,12 @@
 
         get cycle() { return this.#cycle }
 
-        get errors() { return this.#errors ?? this.e.env.options.errors }
+        get errors() { return this.#errors ?? this.E.env.options.errors }
         set errors(value) { this.#errors = value }
 
         get options() { return this.#options }
         set options(value) {
-            this.#optionsMap = this.e.utils.parseObjectAttribute(value, this)
+            this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
 
@@ -91,8 +91,8 @@
         }
 
         get parser() {
-            const parser = (this.e.env.map.get(this) ?? {}).parser
-            return (typeof parser === 'function') ? parser : this.e.parse.bind(this.e)
+            const parser = (this.E.env.map.get(this) ?? {}).parser
+            return (typeof parser === 'function') ? parser : this.E.parse.bind(this.E)
         }
 
         get resource() { return this.#resource }
@@ -106,7 +106,7 @@
             if (this.#use === '$') {
                 this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
-                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.e.getValue(n)) : this.e.getValue(this.#boundResource))
+                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
             }
         }
 
@@ -115,8 +115,8 @@
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
                 let value = this.getAttribute('rewrite')
                 this.#rewriteRules = []
-                let rewriteRulesThis = this.e.utils.parseObjectAttribute(value, this) ?? {},
-                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.e.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
+                let rewriteRulesThis = this.E.utils.parseObjectAttribute(value, this) ?? {},
+                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.E.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
                 for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             }
             this.#rewrite = value
@@ -129,8 +129,8 @@
         }
 
         get serializer() {
-            const serializer = (this.e.env.map.get(this) ?? {}).serializer
-            return (typeof serializer === 'function') ? serializer : this.e.serialize.bind(this.e)
+            const serializer = (this.E.env.map.get(this) ?? {}).serializer
+            return (typeof serializer === 'function') ? serializer : this.E.serialize.bind(this.E)
         }
 
         get target() { return this.#target }
@@ -159,12 +159,12 @@
             if (bindStatement.includes('|')) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
-                let scope = this.e.utils.resolveScope(bindStatementSplit[0], this, useFlags)
+                let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
-                setBound(this.e.utils.resolveSelector(scope, bindStatementSplit[1]))
+                setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]))
                 if (bindStatementSplit[1]) {
                     const processRecords = records => {
-                        setBound(this.e.utils.resolveSelector(scope, bindStatementSplit[1]))
+                        setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]))
                         if (mode === 'resource') this.#refresh()
                     }
                     let observer = getBoundObserver()
@@ -198,8 +198,8 @@
                                     } else if (use === '$') {
                                         this.#refresh(bound)
                                     } else if (Array.isArray(bound)) {
-                                        this.#refresh(bound.map(node => this.e.getValue(node)))
-                                    } else { this.#refresh(this.e.getValue(node)) }
+                                        this.#refresh(bound.map(node => this.E.getValue(node)))
+                                    } else { this.#refresh(this.E.getValue(node)) }
                                 }, { signal: boundController.signal })
                             }
                         }
@@ -209,13 +209,13 @@
                     }
                 }
             } else if (bindStatement.includes(';')) {
-                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(), contentType = this.e.utils.getContentType(this, src)
-                url = this.e.resolveUrl(url, this).split('(')
+                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(), contentType = this.E.utils.getContentType(this, src)
+                url = this.E.resolveUrl(url, this).split('(')
                 let [functionName = 'default', args = ''] = functionInvoker.split('(')
                 args = args.slice(0, -1)
                 new Promise((resolve, reject) => {
                     if (contentType === 'application/wasm') {
-                        this.e.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => this.e.utils.getWasm(url, requestOptions)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
+                        this.E.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => this.E.utils.getWasm(url, requestOptions)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
                     } else {
                         import(url).then(moduleImport => resolve(moduleImport[functionName]))
                     }
@@ -239,7 +239,7 @@
                         }
                         periodMs = Math.round(periodMs)
                         const requestIdleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 0)), run = () => {
-                            const runResult = baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.e.getVariable(arg, this))))
+                            const runResult = baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
                             if (recur === 'every' && mode === 'lazy' && (runResult instanceof Promise)) runResult.then(() => window.setTimeout(() => window.requestIdleCallback(() => run()), periodMs))
                         }
                         const recurFunction = recur === 'every' ? window.setInterval : window.setTimeout
@@ -253,7 +253,7 @@
                     }
                 })
             } else {
-                let url = this.e.resolveUrl(bindStatement, this), boundController = getBoundController()
+                let url = this.E.resolveUrl(bindStatement, this), boundController = getBoundController()
                 if (boundController) boundController.abort()
                 setBound(url)
                 if ((mode === 'resource') && bindStatement.includes(':#')) {
@@ -272,23 +272,23 @@
             if (!boundResource) return
             let result
             if (!payload && (typeof boundResource === 'string')) {
-                let contentType = this.e.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
+                let contentType = this.E.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
                 if (this._isReference && (contentType === 'application/javascript')) {
                     result = await import(boundResource)
                 } else if (contentType === 'application/schema+json') {
                     result = boundResource
                 } else {
-                    const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
+                    const requestOptions = await this.E.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if (contentType === 'application/wasm') {
-                            result = this.e.utils.getWasm(req)
+                            result = this.E.utils.getWasm(req)
                         } else { result = req.then(r => r.body) }
                     } else {
                         let response = await req
                         if (response.status >= 400) {
                             const rewriteRules = this.rewriteRules
-                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
-                            if (response.status >= 400) this.e.utils.processError('refresh', response.text(), this, response)
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.E.resolveUrl(p, this), requestOptions); break }
+                            if (response.status >= 400) this.E.utils.processError('refresh', response.text(), this, response)
                         }
                         result = await this.parse(response)
                     }
@@ -296,25 +296,25 @@
             } else { result = payload ?? boundResource }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
-                await this.e.installLibraryFromSrc('jsonata')
+                await this.E.installLibraryFromSrc('jsonata')
                 if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                    const variableValue = this.e.getVariable(transform, this)
+                    const variableValue = this.E.getVariable(transform, this)
                     if (typeof variableValue === 'string') transform = variableValue
                 }
                 try {
                     const variables = []
-                    transform = this.e.expandTransform(transform, this)
-                    result = await this.e.env.libraries.jsonata(transform).evaluate(result)
+                    transform = this.E.expandTransform(transform, this)
+                    result = await this.E.env.libraries.jsonata(transform).evaluate(result)
                 } catch (e) {
-                    this.e.utils.processError('transform', e, this, e)
+                    this.E.utils.processError('transform', e, this, e)
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             if (typeof boundTarget === 'string') {
-                const requestOptions = await this.e.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
+                const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
-                    navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
-                } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
+                    navigator.sendBeacon(this.E.resolveUrl(boundTarget, this), requestOptions.body)
+                } else { fetch(this.E.resolveUrl(boundTarget, this), requestOptions) }
             } else if (typeof boundTarget === 'function') {
                 const targetArgs = [...(this.applyMap ?? [])]
                 if (payload) {
