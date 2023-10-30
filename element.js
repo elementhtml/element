@@ -1,6 +1,6 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '0.9.0' },
+    version: { enumerable: true, value: '0.9.5' },
 
     env: {
         enumerable: true, value: Object.defineProperties({}, {
@@ -236,7 +236,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 Object.defineProperty(this.env, 'modes', { enumerable: true, value: newModes })
-                this._enscapulateNative()
+                this.enscapulateNative()
             }
             rootElement && await this.activateTag(this.utils.getCustomTag(rootElement), rootElement)
             if (rootElement && !rootElement.shadowRoot) return
@@ -730,7 +730,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
     parse: {
         enumerable: true, value: async function (input, sourceElement, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
@@ -837,8 +836,6 @@ const ElementHTML = Object.defineProperties({}, {
             return JSON.stringify(input)
         }
     },
-
-
 
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
@@ -1014,8 +1011,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
     classes: { value: {} },
     constructors: { value: {} },
     extends: { value: {} },
@@ -1040,7 +1035,7 @@ const ElementHTML = Object.defineProperties({}, {
             globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    _enscapulateNative: {
+    enscapulateNative: {
         value: function () {
             const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
                 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
@@ -1147,7 +1142,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
 
     _dispatchPropertyEvent: {
         value: function (element, eventNamePrefix, property, eventDetail) {
