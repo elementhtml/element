@@ -48,6 +48,14 @@ const ElementHTML = Object.defineProperties({}, {
                 enumerable: true, value: function (element) {
 
                     let contentType = this.getAttribute('content-type') || this._contentType || undefined
+                    contentType = this.getAttribute('content-type') || this.optionsMap['Content-Type'] || this._contentType || undefined
+                    if (!contentType) {
+                        contentType ||= src.endsWith('.js') ? 'application/javascript' : undefined
+                        contentType ||= src.endsWith('.mjs') ? 'application/javascript' : undefined
+                        contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
+                        contentType ||= 'application/javascript'
+                    }
+                    if (!contentType.includes('/')) contentType = `application/${contentType}`
 
 
                 }
