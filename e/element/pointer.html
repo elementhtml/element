@@ -145,7 +145,7 @@
                     [use, refreshOn] = !useRefresh ? ['$', 'change']
                         : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
 
-                let scope = this.e.resolveScope(bindStatementSplit[0], this, useFlags)
+                let scope = this.e.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
 
 
