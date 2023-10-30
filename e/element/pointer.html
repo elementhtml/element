@@ -42,23 +42,6 @@
 
         toString() { return this.resource ?? '' }
 
-        async #compileRequestOptions(v, defaultContentType = 'application/json') {
-            let optionsMap = this.optionsMap, requestOptions = { ...(this.e.env.variables[optionsMap.eEnv] || {}), ...optionsMap }, headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
-            contentType ||= this.getAttribute('content-type') || this._contentType
-            if (!contentType && v) contentType ||= defaultContentType
-            if (contentType) {
-                requestOptions.headers = headers
-                requestOptions.headers['Content-Type'] = contentType
-            }
-            if (v instanceof Object) {
-                requestOptions.body = await this.#serialize(v, contentType)
-            } else if (v) {
-                requestOptions.method ||= 'POST'
-                requestOptions.body = `${v}`
-            }
-            return requestOptions
-        }
-
         async #refresh(payload) {
             const boundResource = this.boundResource
             if (!boundResource) return
@@ -70,7 +53,7 @@
                 } else if (contentType === 'application/schema+json') {
                     result = boundResource
                 } else {
-                    const requestOptions = await this.#compileRequestOptions(payload), req = fetch(boundResource, requestOptions)
+                    const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if ((contentType === 'application/wasm') || boundResource.endsWith('.wasm')) {
                             result = await WebAssembly.instantiateStreaming(req)
@@ -88,7 +71,7 @@
                                 if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
                             }
                         }
-                        result = await this.#parse(response)
+                        result = await this.parse(response)
                     }
                 }
             } else { result = payload ?? boundResource }
@@ -116,7 +99,7 @@
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             if (typeof boundTarget === 'string') {
-                const requestOptions = await this.#compileRequestOptions(result), optionsKeys = Object.keys(requestOptions)
+                const requestOptions = await this.e.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
                     navigator.sendBeacon(this.e.resolveUrl(boundTarget, this), requestOptions.body)
                 } else { fetch(this.e.resolveUrl(boundTarget, this), requestOptions) }
@@ -141,16 +124,6 @@
                     this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
                 }
             }
-        }
-
-        async #parse(value) {
-            const parser = (this.e.env.map.get(this) ?? {}).parser
-            return (typeof parser === 'function') ? (await parser(value, this)) : (await this.e.parse(value, this))
-        }
-
-        async #serialize(value, contentType) {
-            const serializer = (this.e.env.map.get(this) ?? {}).serializer
-            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.e.serialize(value, this, contentType))
         }
 
         #createBound(value, mode) {
@@ -259,7 +232,7 @@
                 args = args.slice(0, -1)
                 new Promise((resolve, reject) => {
                     if (contentType === 'application/wasm') {
-                        this.#compileRequestOptions(this.optionsMap, contentType).then(requestOptions => fetch(url, requestOptions)).then(req => WebAssembly.instantiateStreaming(req)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
+                        this.e.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => fetch(url, requestOptions)).then(req => WebAssembly.instantiateStreaming(req)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
                     } else {
                         import(url).then(moduleImport => resolve(moduleImport[functionName]))
                     }
@@ -346,6 +319,23 @@
         get cycle() {
             return this.#cycle
         }
+        get parser() {
+            const parser = (this.e.env.map.get(this) ?? {}).parser
+            return (typeof parser === 'function') ? parser : this.e.parse.bind(this.e)
+        }
+        get serializer() {
+            const serializer = (this.e.env.map.get(this) ?? {}).serializer
+            return (typeof serializer === 'function') ? serializer : this.e.serialize.bind(this.e)
+        }
+
+        async parse(value) {
+            return await this.parser(value, this)
+        }
+
+        async serialize(value, contentType) {
+            return await this.serializer(value, this, contentType)
+        }
+
 
         set target(value) {
             if (this.#target === value) return

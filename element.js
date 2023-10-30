@@ -206,6 +206,32 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    compileRequestOptions: {
+        enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
+            let requestOptions = optionsMap ?? element?.optionsMap ?? {}
+            if (requestOptions.$ && typeof requestOptions.$ === 'string') {
+                let variableValue = this.getVariable(requestOptions.$, element)
+                if (variableValue && (variableValue instanceof Object)) requestOptions = { ...variableValue, ...requestOptions }
+            }
+            let headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
+            contentType ||= element.getAttribute('content-type') || element._contentType
+            if (!contentType && body) contentType ||= defaultContentType
+            if (contentType) {
+                requestOptions.headers = headers
+                requestOptions.headers['Content-Type'] = contentType
+                delete requestOptions.headers['content-type']
+                delete requestOptions.headers.contentType
+            }
+            if (body instanceof Object) {
+                serializer ||= element?.serializer ?? this.serialize
+                requestOptions.body = await serializer(body, contentType)
+            } else if (body) {
+                requestOptions.method ||= 'POST'
+                requestOptions.body = `${body}`
+            }
+            return requestOptions
+        }
+    },
     getVariable: {
         enumerable: true, value: function (variableRef, element) {
             if (!variableRef) return
