@@ -291,136 +291,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    _: {
+        enumerable: true, value: function (element, value, silent) {
+            return (value === undefined) ? this.getValue(element) : this.setValue(element, value, undefined, silent)
+        }
+    },
+    $: {
+        enumerable: true, value: async function (element, data, flag, transform, silent) {
+            return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
+        }
+    },
 
-
-    compileRequestOptions: {
-        enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
-            let requestOptions = optionsMap ?? element?.optionsMap ?? {}
-            if (requestOptions.$ && typeof requestOptions.$ === 'string') {
-                let variableValue = this.getVariable(requestOptions.$, element)
-                if (variableValue && (variableValue instanceof Object)) requestOptions = { ...variableValue, ...requestOptions }
-            }
-            let headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
-            contentType ||= element.getAttribute('content-type') || element._contentType
-            if (!contentType && body) contentType ||= defaultContentType
-            if (contentType) {
-                requestOptions.headers = headers
-                requestOptions.headers['Content-Type'] = contentType
-                delete requestOptions.headers['content-type']
-                delete requestOptions.headers.contentType
-            }
-            if (body instanceof Object) {
-                serializer ||= element?.serializer ?? this.serialize
-                requestOptions.body = await serializer(body, contentType)
-            } else if (body) {
-                requestOptions.method ||= 'POST'
-                requestOptions.body = `${body}`
-            }
-            return requestOptions
-        }
-    },
-    getVariable: {
-        enumerable: true, value: function (variableRef, element) {
-            if (!variableRef) return
-            if (variableRef[0] !== '$') return variableRef
-            let variableName = variableRef.slice(1)
-            if (!variableName) return
-            let variableValue
-            if (variableName.includes('.')) {
-                let variableNameSplit = variableName.split('.')
-                variableValue = this.env.variables[variableNameSplit.shift()]
-                if (!(variableValue instanceof Object)) return variableValue
-                for (const part of variableNameSplit) {
-                    variableValue = variableValue[part]
-                    if (!(variableValue instanceof Object)) break
-                }
-            } else { variableValue = this.env.variables[variableName] }
-            if (element && variableName.includes('(') && variableName.endsWith(')')) {
-                let [variablePartName, ...argsRest] = mm.split('(')
-                args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
-                variableValue = this.utils.getVariableResult(variableValue, args, element)
-            }
-            return variableValue
-        }
-    },
-    expandTransform: {
-        enumerable: true, value: async function (transform, element, variableMap = {}) {
-            if (!transform) return
-            await this.installLibraryFromSrc('jsonata')
-            if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                const variableValue = this.getVariable(transform, element)
-                if (typeof variableValue === 'string') transform = variableValue
-            }
-            try {
-                const variables = []
-                if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
-                if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
-                for (const [variableName, variableValue] of Object.entries(variableMap)) {
-                    if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
-                }
-                for (const [vn, vv] of Object.entries(this.env.variables)) {
-                    if ((vn === 'env') || (vn === 'this')) continue
-                    if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
-                }
-                if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
-            } catch (e) {
-                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
-                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { transform = transform }
-            }
-            return transform
-        }
-    },
-    getURL: {
-        enumerable: true, value: function (value) {
-            if (!value.includes('://')) return value
-            if (!value.startsWith('http://') && !value.startsWith('https://')) {
-                const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-                value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
-            }
-            for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
-            return value
-        }
-    },
-    resolveUrl: {
-        enumerable: true, value: function (value, element) {
-            if (value.includes(':') && !value.includes('://')) {
-                let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
-                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
-                    const map = { '/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1) }
-                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
-                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
-                    } else {
-                        if (routerPointer === routerPointer[0]) {
-                            routerPointer = map[routerPointer[0]]
-                        } else {
-                            try {
-                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
-                            } catch (e) { routerPointer = undefined }
-                        }
-                    }
-                }
-                const rewriteRules = element.rewriteRules
-                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.resolveUrl(p, element)
-                return router ? router[element._mode](routerPointer) : this.getURL(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
-            } else if (value.includes('/')) {
-                return this.getURL(new URL(value, element.baseURI).href)
-            } else { return this.getURL(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
-        }
-    },
-    getInheritance: {
-        enumerable: true, value: function (id = 'HTMLElement') {
-            const inheritance = [id]
-            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
-            return inheritance
-        }
-    },
-    sortByInheritance: {
-        enumerable: true, writable: false, value: function (idList) {
-            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
-                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
-                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
-        }
-    },
     getValue: {
         enumerable: true, value: function (element, useDataset = 'auto') {
             if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
@@ -848,16 +729,8 @@ const ElementHTML = Object.defineProperties({}, {
             return await close(element)
         }
     },
-    _: {
-        enumerable: true, value: function (element, value, silent) {
-            return (value === undefined) ? this.getValue(element) : this.setValue(element, value, undefined, silent)
-        }
-    },
-    $: {
-        enumerable: true, value: async function (element, data, flag, transform, silent) {
-            return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
-        }
-    },
+
+
     parse: {
         enumerable: true, value: async function (input, sourceElement, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
@@ -924,6 +797,144 @@ const ElementHTML = Object.defineProperties({}, {
             return text
         }
     },
+    serialize: {
+        enumerable: true, value: async function (input, sourceElement, contentType) {
+            if (typeof input === 'string') return input
+            contentType ||= sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
+            if (!contentType.includes('/')) contentType = `application/${contentType}`
+            if (contentType === 'application/json') return JSON.stringify(input)
+            if (contentType === 'text/html' || contentType === 'text/md') {
+                if (!(input instanceof Node)) return
+                let text = input?.outerHTML ?? input.textContent
+                if (contentType === 'text/md') {
+                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
+                    let mdOptions = { ...this.env.options.remarkable }
+                    if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
+                    this.env.libraries.remarkable.set(mdOptions)
+                    text = this.env.libraries.remarkable.render(text)
+                }
+                return text
+            }
+            if (contentType && contentType.includes('form')) {
+                return (new URLSearchParams(input)).toString()
+            }
+            if (contentType === 'text/css') {
+                if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
+                if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
+            }
+            if (contentType === 'application/hjson') {
+                this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
+                return this.env.libraries.hjson.stringify(input)
+            }
+            if (contentType && contentType.includes('yaml')) {
+                this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
+                return this.env.libraries.yaml.stringify(input)
+            }
+            if (contentType === 'text/csv' || contentType === 'text/tsv') {
+                this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
+                return this.env.libraries.papaparse.unparse(input)
+            }
+            return JSON.stringify(input)
+        }
+    },
+
+
+
+    compileRequestOptions: {
+        enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
+            let requestOptions = optionsMap ?? element?.optionsMap ?? {}
+            if (requestOptions.$ && typeof requestOptions.$ === 'string') {
+                let variableValue = this.getVariable(requestOptions.$, element)
+                if (variableValue && (variableValue instanceof Object)) requestOptions = { ...variableValue, ...requestOptions }
+            }
+            let headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
+            contentType ||= element.getAttribute('content-type') || element._contentType
+            if (!contentType && body) contentType ||= defaultContentType
+            if (contentType) {
+                requestOptions.headers = headers
+                requestOptions.headers['Content-Type'] = contentType
+                delete requestOptions.headers['content-type']
+                delete requestOptions.headers.contentType
+            }
+            if (body instanceof Object) {
+                serializer ||= element?.serializer ?? this.serialize
+                requestOptions.body = await serializer(body, contentType)
+            } else if (body) {
+                requestOptions.method ||= 'POST'
+                requestOptions.body = `${body}`
+            }
+            return requestOptions
+        }
+    },
+    expandTransform: {
+        enumerable: true, value: async function (transform, element, variableMap = {}) {
+            if (!transform) return
+            await this.installLibraryFromSrc('jsonata')
+            if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
+                const variableValue = this.getVariable(transform, element)
+                if (typeof variableValue === 'string') transform = variableValue
+            }
+            try {
+                const variables = []
+                if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
+                if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
+                for (const [variableName, variableValue] of Object.entries(variableMap)) {
+                    if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
+                }
+                for (const [vn, vv] of Object.entries(this.env.variables)) {
+                    if ((vn === 'env') || (vn === 'this')) continue
+                    if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
+                }
+                if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
+            } catch (e) {
+                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
+                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { transform = transform }
+            }
+            return transform
+        }
+    },
+    getInheritance: {
+        enumerable: true, value: function (id = 'HTMLElement') {
+            const inheritance = [id]
+            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
+            return inheritance
+        }
+    },
+    getURL: {
+        enumerable: true, value: function (value) {
+            if (!value.includes('://')) return value
+            if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+                value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+            }
+            for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
+            return value
+        }
+    },
+    getVariable: {
+        enumerable: true, value: function (variableRef, element) {
+            if (!variableRef) return
+            if (variableRef[0] !== '$') return variableRef
+            let variableName = variableRef.slice(1)
+            if (!variableName) return
+            let variableValue
+            if (variableName.includes('.')) {
+                let variableNameSplit = variableName.split('.')
+                variableValue = this.env.variables[variableNameSplit.shift()]
+                if (!(variableValue instanceof Object)) return variableValue
+                for (const part of variableNameSplit) {
+                    variableValue = variableValue[part]
+                    if (!(variableValue instanceof Object)) break
+                }
+            } else { variableValue = this.env.variables[variableName] }
+            if (element && variableName.includes('(') && variableName.endsWith(')')) {
+                let [variablePartName, ...argsRest] = mm.split('(')
+                args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
+                variableValue = this.utils.getVariableResult(variableValue, args, element)
+            }
+            return variableValue
+        }
+    },
     installLibraryFromSrc: {
         enumerable: true, value: async function (label, src, global) {
             if (!src && label && this.env.sources[label]) src = this.env.sources[label]
@@ -969,59 +980,54 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    serialize: {
-        enumerable: true, value: async function (input, sourceElement, contentType) {
-            if (typeof input === 'string') return input
-            contentType ||= sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
-            if (contentType === 'application/json') return JSON.stringify(input)
-            if (contentType === 'text/html' || contentType === 'text/md') {
-                if (!(input instanceof Node)) return
-                let text = input?.outerHTML ?? input.textContent
-                if (contentType === 'text/md') {
-                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
-                    let mdOptions = { ...this.env.options.remarkable }
-                    if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
-                    this.env.libraries.remarkable.set(mdOptions)
-                    text = this.env.libraries.remarkable.render(text)
+    resolveUrl: {
+        enumerable: true, value: function (value, element) {
+            if (value.includes(':') && !value.includes('://')) {
+                let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
+                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
+                    const map = { '/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1) }
+                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
+                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
+                    } else {
+                        if (routerPointer === routerPointer[0]) {
+                            routerPointer = map[routerPointer[0]]
+                        } else {
+                            try {
+                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
+                            } catch (e) { routerPointer = undefined }
+                        }
+                    }
                 }
-                return text
-            }
-            if (contentType && contentType.includes('form')) {
-                return (new URLSearchParams(input)).toString()
-            }
-            if (contentType === 'text/css') {
-                if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
-                if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
-            }
-            if (contentType === 'application/hjson') {
-                this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.env.libraries.hjson.stringify(input)
-            }
-            if (contentType && contentType.includes('yaml')) {
-                this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.env.libraries.yaml.stringify(input)
-            }
-            if (contentType === 'text/csv' || contentType === 'text/tsv') {
-                this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
-                return this.env.libraries.papaparse.unparse(input)
-            }
-            return JSON.stringify(input)
+                const rewriteRules = element.rewriteRules
+                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.resolveUrl(p, element)
+                return router ? router[element._mode](routerPointer) : this.getURL(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
+            } else if (value.includes('/')) {
+                return this.getURL(new URL(value, element.baseURI).href)
+            } else { return this.getURL(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
+        }
+    },
+    sortByInheritance: {
+        enumerable: true, writable: false, value: function (idList) {
+            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
+                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
+                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
         }
     },
 
 
-    ids: { value: {} },
-    tags: { value: {} },
+
+    classes: { value: {} },
+    constructors: { value: {} },
     extends: { value: {} },
     files: { value: {} },
+    ids: { value: {} },
+    _observer: { enumerable: false, writable: true, value: undefined },
+    tags: { value: {} },
+    scripts: { value: {} },
     styles: { value: {} },
     _styles: { value: {} },
     templates: { value: {} },
     _templates: { value: {} },
-    scripts: { value: {} },
-    classes: { value: {} },
-    constructors: { value: {} },
 
     activateTag: {
         value: async function (tag, element, forceReload = false) {
@@ -1032,6 +1038,35 @@ const ElementHTML = Object.defineProperties({}, {
             if (!loadResult) return
             const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
             globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+        }
+    },
+    _enscapulateNative: {
+        value: function () {
+            const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
+                'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
+            for (const tag of HTMLElements) this.ids[tag] = 'HTMLElement'
+            Object.assign(this.ids, {
+                a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement', col: 'HTMLTableColElement',
+                colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement', fieldset: 'HTMLFieldSetElement',
+                h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement', h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement', h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement',
+                iframe: 'HTMLIFrameElement', img: 'HTMLImageElement', ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement',
+                p: 'HTMLParagraphElement', q: 'HTMLQuoteElement', tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement',
+                tfoot: 'HTMLTableSectionElement', th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
+            })
+            for (const [tag, id] in Object.entries(this.ids)) {
+                if (tag.includes('-')) continue
+                if (!this.tags[id]) { this.tags[id] = tag; continue }
+                if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
+                this.tags[id].push(tag)
+            }
+            const classNames = Object.values(this.ids)
+            for (const nc of Reflect.ownKeys(globalThis)) if (nc.startsWith('HTML') && nc.endsWith('Element')) this.ids[nc.replace('HTML', '').replace('Element', '').toLowerCase()] ||= nc
+            delete this.ids.image;
+            [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
+            for (const id in this.ids) {
+                this.classes[id] = globalThis[this.ids[id]]
+                this.constructors[id] = this._base(this.classes[id])
+            }
         }
     },
     getTagId: {
@@ -1073,6 +1108,13 @@ const ElementHTML = Object.defineProperties({}, {
             return true
         }
     },
+    stackStyles: {
+        value: function (id) {
+            if (typeof this._styles[id] === 'string') return this._styles[id]
+            this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
+            return this._styles[id]
+        }
+    },
     stackTemplates: {
         value: function (id) {
             if (typeof this._templates[id] === 'string') return this._templates[id]
@@ -1105,42 +1147,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    stackStyles: {
-        value: function (id) {
-            if (typeof this._styles[id] === 'string') return this._styles[id]
-            this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
-            return this._styles[id]
-        }
-    },
-    _enscapulateNative: {
-        value: function () {
-            const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
-                'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
-            for (const tag of HTMLElements) this.ids[tag] = 'HTMLElement'
-            Object.assign(this.ids, {
-                a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement', col: 'HTMLTableColElement',
-                colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement', fieldset: 'HTMLFieldSetElement',
-                h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement', h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement', h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement',
-                iframe: 'HTMLIFrameElement', img: 'HTMLImageElement', ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement',
-                p: 'HTMLParagraphElement', q: 'HTMLQuoteElement', tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement',
-                tfoot: 'HTMLTableSectionElement', th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
-            })
-            for (const [tag, id] in Object.entries(this.ids)) {
-                if (tag.includes('-')) continue
-                if (!this.tags[id]) { this.tags[id] = tag; continue }
-                if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
-                this.tags[id].push(tag)
-            }
-            const classNames = Object.values(this.ids)
-            for (const nc of Reflect.ownKeys(globalThis)) if (nc.startsWith('HTML') && nc.endsWith('Element')) this.ids[nc.replace('HTML', '').replace('Element', '').toLowerCase()] ||= nc
-            delete this.ids.image;
-            [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
-            for (const id in this.ids) {
-                this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this._base(this.classes[id])
-            }
-        }
-    },
+
+
     _dispatchPropertyEvent: {
         value: function (element, eventNamePrefix, property, eventDetail) {
             eventDetail = { detail: { property: property, ...eventDetail } }
