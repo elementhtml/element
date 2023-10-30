@@ -30,8 +30,19 @@ const ElementHTML = Object.defineProperties({}, {
                             allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
                             strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                         }
+                    },
+                    remarkable: {
+                        enumerable: true, value: {
+                            html: true
+                        }
                     }
                 })
+            },
+            sources: {
+                enumerable: true, value: {
+                    jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
+                    remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
+                }
             },
             variables: { enumerable: true, value: {} }
         })
@@ -307,7 +318,7 @@ const ElementHTML = Object.defineProperties({}, {
     expandTransform: {
         enumerable: true, value: async function (transform, element, variableMap = {}) {
             if (!transform) return
-            await this.e._installJsonata()
+            await this.installLibraryFromSrc('jsonata')
             if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
                 const variableValue = this.getVariable(transform, element)
                 if (typeof variableValue === 'string') transform = variableValue
@@ -924,7 +935,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
             let text = ((input instanceof Response) ? await input.text() : response).trim()
             if (contentType === 'text/md') {
-                await this._installRemarkable()
+                await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                 let mdOptions = { ...this.env.options.remarkable }
                 if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                 this.env.libraries.remarkable.set(mdOptions)
@@ -958,24 +969,48 @@ const ElementHTML = Object.defineProperties({}, {
             return text
         }
     },
-    _installRemarkable: {
-        enumerable: true, value: async function () {
-            if (!this.env.libraries.remarkable) {
-                this.env.libraries.remarkable = new ((await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable)()
-                const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }), parser = (md, options) => {
-                    return (state) => {
-                        let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
-                        while (++i < tokens.length) {
-                            const token = tokens[i]
-                            for (const child of (token.children ?? [])) {
-                                if (child.type !== 'text') return
-                                if (exp.test(child.content)) child.type = 'htmltag'
+    installLibraryFromSrc: {
+        enumerable: true, value: async function (label, src, global) {
+            if (!src && label && this.env.sources[label]) src = this.env.sources[label]
+            label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
+            global ||= label
+            if (!this.env.libraries[label] && !document.querySelector(`script[src="${src}"]`)) {
+                const scriptTag = document.createElement('script')
+                scriptTag.setAttribute('src', src)
+                document.head.append(scriptTag)
+                await this.utils.waitUntil(() => window[global])
+                this.env.libraries[label] = window[global]
+            }
+            await this.utils.waitUntil(() => this.env.libraries[label])
+        }
+    },
+    installLibraryFromImport: {
+        enumerable: true, value: async function (label, importName, doNew, src, cb, cbOptions = []) {
+            if (!src && label && this.env.sources[label]) src = this.env.sources[label]
+            label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
+            importName ||= label
+            if (!this.env.libraries[label]) {
+                let moduleImport = await import(src), importToInstall
+                if (importName in moduleImport) importToInstall = moduleImport[importName]
+                if (!importToInstall) return
+                this.env.libraries[label] = doNew ? new importToInstall() : importToInstall
+                if (typeof cb === 'function') {
+                    await cb(...cbOptions)
+                } else if (label === 'remarkable') {
+                    const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }), parser = (md, options) => {
+                        return (state) => {
+                            let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
+                            while (++i < tokens.length) {
+                                const token = tokens[i]
+                                for (const child of (token.children ?? [])) {
+                                    if (child.type !== 'text') return
+                                    if (exp.test(child.content)) child.type = 'htmltag'
+                                }
                             }
                         }
                     }
+                    this.env.libraries.remarkable.use(plugin)
                 }
-                this.env.libraries.remarkable.use(plugin)
-                this.env.options.remarkable = { html: true }
             }
         }
     },
@@ -989,7 +1024,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!(input instanceof Node)) return
                 let text = input?.outerHTML ?? input.textContent
                 if (contentType === 'text/md') {
-                    await this._installRemarkable()
+                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                     let mdOptions = { ...this.env.options.remarkable }
                     if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                     this.env.libraries.remarkable.set(mdOptions)
@@ -1017,18 +1052,6 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.env.libraries.papaparse.unparse(input)
             }
             return JSON.stringify(input)
-        }
-    },
-    _installJsonata: {
-        enumerable: true, value: async function () {
-            if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
-                const scriptTag = document.createElement('script')
-                scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                document.head.append(scriptTag)
-                await this.utils.waitUntil(() => window.jsonata)
-                this.env.libraries.jsonata = window.jsonata
-            }
-            await this.utils.waitUntil(() => this.env.libraries.jsonata)
         }
     },
     stackTemplates: {

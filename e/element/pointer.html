@@ -62,10 +62,7 @@
                         let response = await req
                         if (response.status >= 400) {
                             const rewriteRules = this.rewriteRules
-                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) {
-                                response = await fetch(this.e.resolveUrl(p, this), requestOptions)
-                                break
-                            }
+                            if (rewriteRules.length) for (const [rx, p] of rewriteRules) if (rx == response.status) { response = await fetch(this.e.resolveUrl(p, this), requestOptions); break }
                             if (response.status >= 400) {
                                 this.dispatchEvent(new CustomEvent('error', { detail: { type: 'refresh', status: response.status, input: response.url, requestOptions } }))
                                 if (this.errors === 'throw') { throw new Error(response.text()); return } else if (this.errors === 'hide') { return }
@@ -77,7 +74,7 @@
             } else { result = payload ?? boundResource }
             let transform = this.transform || this.getAttribute('transform')
             if (transform) {
-                await this.e._installJsonata()
+                await this.e.installLibraryFromSrc('jsonata')
                 if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
                     const variableValue = this.e.getVariable(transform, this)
                     if (typeof variableValue === 'string') transform = variableValue
