@@ -136,18 +136,15 @@
                 setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v),
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let bindStatement = value ?? '|'
-            const useFlags = ['!', '$', '_'], startsWithFlag = useFlags.includes(bindStatement[0])
+            const useFlags = ['!', '$', '_']
             this.#targetEvents = []
             if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
-            if (bindStatement.includes('|') || startsWithFlag) {
+            if (bindStatement.includes('|')) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim())
-                let [, , useRefresh] = startsWithFlag ? ['', '', bindStatement] : bindStatementSplit,
-                    [use, refreshOn] = !useRefresh ? ['$', 'change']
-                        : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
-
+                let [, , useRefresh] = useFlags.includes(bindStatement[0]) ? ['', '', bindStatement] : bindStatementSplit,
+                    [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
                 let scope = this.e.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 if (!scope) return
-
                 setBound(this.e.utils.resolveSelector(scope, bindStatementSplit[1]))
                 if (bindStatementSplit[1]) {
                     const processRecords = records => {
@@ -160,9 +157,7 @@
                     observer = setBoundObserver(new MutationObserver(processRecords))
                     observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
                 }
-
                 if (mode === 'resource') this.#use = use
-
                 if (refreshOn) {
                     let boundController = getBoundController()
                     if (boundController) boundController.abort()
@@ -174,9 +169,7 @@
                         for (let eventName of eventNames) {
                             for (const node of bindNodes) {
                                 if (!node) continue
-                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) {
-                                    eventName = 'click'
-                                }
+                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
                                 node.addEventListener(eventName, event => {
                                     let proceed = true, count = getCount()
                                     if (refreshStep) proceed = (count >= start) && (!end || (count < end))
