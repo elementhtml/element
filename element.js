@@ -57,6 +57,12 @@ const ElementHTML = Object.defineProperties({}, {
                     return contentType
                 }
             },
+            getWasm: {
+                enumerable: true, value: async function (req, options) {
+                    if (typeof req === 'string') req = fetch(req, options)
+                    return await WebAssembly.instantiateStreaming(req)
+                }
+            },
             parseObjectAttribute: {
                 enumerable: true, value: function (value, element) {
                     let retval = null

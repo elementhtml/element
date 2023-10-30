@@ -56,7 +56,7 @@
                     const requestOptions = await this.e.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if (contentType === 'application/wasm') {
-                            result = await WebAssembly.instantiateStreaming(req)
+                            result = this.e.utils.getWasm(req)
                         } else { result = req.then(r => r.body) }
                     } else {
                         let response = await req
@@ -199,7 +199,7 @@
                 args = args.slice(0, -1)
                 new Promise((resolve, reject) => {
                     if (contentType === 'application/wasm') {
-                        this.e.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => fetch(url, requestOptions)).then(req => WebAssembly.instantiateStreaming(req)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
+                        this.e.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => this.e.utils.getWasm(url, requestOptions)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
                     } else {
                         import(url).then(moduleImport => resolve(moduleImport[functionName]))
                     }
