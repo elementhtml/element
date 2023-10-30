@@ -44,6 +44,14 @@ const ElementHTML = Object.defineProperties({}, {
                         || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
                 }
             },
+            getContentType: {
+                enumerable: true, value: function (element) {
+
+                    let contentType = this.getAttribute('content-type') || this._contentType || undefined
+
+
+                }
+            },
             parseObjectAttribute: {
                 enumerable: true, value: function (value, element) {
                     let retval = null
