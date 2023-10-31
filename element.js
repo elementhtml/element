@@ -234,7 +234,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 Object.defineProperty(this.env, 'modes', { enumerable: true, value: newModes })
-                this.enscapulateNative()
+                this.encapsulateNative()
             }
             rootElement && await this.activateTag(this.utils.getCustomTag(rootElement), rootElement)
             if (rootElement && !rootElement.shadowRoot) return
@@ -1013,10 +1013,10 @@ const ElementHTML = Object.defineProperties({}, {
     files: { value: {} },
     ids: { value: {} },
     _observer: { enumerable: false, writable: true, value: undefined },
-    tags: { value: {} },
     scripts: { value: {} },
     styles: { value: {} },
     _styles: { value: {} },
+    tags: { value: {} },
     templates: { value: {} },
     _templates: { value: {} },
 
@@ -1031,7 +1031,7 @@ const ElementHTML = Object.defineProperties({}, {
             globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    enscapulateNative: {
+    encapsulateNative: {
         value: function () {
             const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
                 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
@@ -1146,6 +1146,7 @@ const ElementHTML = Object.defineProperties({}, {
             element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
         }
     },
+
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
             return class extends baseClass {
@@ -1153,19 +1154,32 @@ const ElementHTML = Object.defineProperties({}, {
                 constructor() {
                     super()
                     const $this = this
-                    if ($this.constructor.eJs || $this.constructor.eMjs || $this.constructor.eCss) {
+                    if ($this.constructor.eJs || $this.constructor.eCss) {
                         const addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
                             if (document.querySelector(querySelectorTemplate.replace(/\$E/g, src))) return
                             const tag = appendTo.appendChild(document.createElement(tagName))
                             tag.setAttribute(srcAttrName, src)
                             for (const a of otherAttrs) tag.setAttribute(...a)
                         }
-                        if ($this.constructor.eJs) for (const src of ($this.constructor.eJs)) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
-                        if ($this.constructor.eMjs) for (const src of ($this.constructor.eMjs)) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body, [['type', 'module']])
-                        if ($this.constructor.eCss) for (const src of ($this.constructor.eCss)) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
+                        if ($this.constructor.eCss && Array.isArray($this.constructor.eCss)) for (const src of $this.constructor.eCss) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
+                        if ($this.constructor.eJs && Array.isArray($this.constructor.eJs)) for (const src of $this.constructor.eJs) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
                     }
-                    if ($this.constructor.eWasm) {
-                        for (const moduleName in ($this.constructor.eWasm || {})) {
+                    if ($this.constructor.eMjs && ($this.constructor.eMjs instanceof Object)) {
+                        for (const moduleName in $this.constructor.eMjs) {
+                            if ($this.constructor.eMjs[moduleName].module) continue
+                            if (!$this.constructor.eMjs[moduleName].src) { $this.constructor.eMjs[moduleName] = false; continue }
+                            const { src, importObject } = $this.constructor.eMjs[moduleName]
+                            $this.constructor.eMjs[moduleName].module = true
+                            import(src).then(importResult => {
+                                if (importObject) {
+                                    $this.constructor.eMjs[moduleName].module = {}
+                                    for (const importName in importObject) $this.constructor.eMjs[moduleName].module[importName] = importResult[importName]
+                                } else { $this.constructor.eMjs[moduleName].module = importResult }
+                            }).catch(e => $this.constructor.eMjs[moduleName].module = false)
+                        }
+                    }
+                    if ($this.constructor.eWasm && ($this.constructor.eWasm instanceof Object)) {
+                        for (const moduleName in $this.constructor.eWasm) {
                             if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
                             if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
                             const { src, importObject } = $this.constructor.eWasm[moduleName]
@@ -1177,7 +1191,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     Object.defineProperties($this, {
                         E: { enumerable: true, value: ElementHTML },
-                        eContext: { enumerable: true, writable: true, value: {} },
+                        eContext: { enumerable: true, value: {} },
                         eDataset: {
                             enumerable: true, value: new Proxy($this.dataset, {
                                 has(target, property) {
