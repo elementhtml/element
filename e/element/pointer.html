@@ -46,8 +46,9 @@
 
         async serialize(value, contentType) { return await this.serializer(value, this, contentType) }
 
-        get apply() { return this.#apply }
+        get apply() { return this.E.utils.safeGet(this, this.#apply, 'apply') }
         set apply(value) {
+            if (this.#apply === value) return
             this.#applyMap = this.E.utils.parseObjectAttribute(value, this)
             this.#apply = value
         }
@@ -75,11 +76,12 @@
 
         get cycle() { return this.#cycle }
 
-        get errors() { return this.#errors ?? this.E.env.options.errors }
+        get errors() { return this.E.utils.safeGet(this, this.#errors, 'errors') ?? this.E.env.options.errors }
         set errors(value) { this.#errors = value }
 
-        get options() { return this.#options }
+        get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
         set options(value) {
+            if (this.#options === value) return
             this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
@@ -95,7 +97,7 @@
             return (typeof parser === 'function') ? parser : this.E.parse.bind(this.E)
         }
 
-        get resource() { return this.#resource }
+        get resource() { return this.E.utils.safeGet(this, this.#resource, 'resource') }
         set resource(value) {
             if (this.#resource === value) return
             this.#createBound(value, 'resource')
@@ -110,7 +112,7 @@
             }
         }
 
-        get rewrite() { return this.#rewrite }
+        get rewrite() { return this.E.utils.safeGet(this, this.#rewrite, 'rewrite') }
         set rewrite(value) {
             if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
                 let value = this.getAttribute('rewrite')
@@ -133,14 +135,14 @@
             return (typeof serializer === 'function') ? serializer : this.E.serialize.bind(this.E)
         }
 
-        get target() { return this.#target }
+        get target() { return this.E.utils.safeGet(this, this.#target, 'target') }
         set target(value) {
             if (this.#target === value) return
             this.#createBound(value, 'target')
             this.#target = value
         }
 
-        get transform() { return this.#transform }
+        get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) { this.#transform = value }
 
         #createBound(value, mode) {
@@ -294,7 +296,7 @@
                     }
                 }
             } else { result = payload ?? boundResource }
-            let transform = this.transform || this.getAttribute('transform')
+            let transform = this.transform
             if (transform) {
                 await this.E.installLibraryFromSrc('jsonata')
                 if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
@@ -303,7 +305,7 @@
                 }
                 try {
                     const variables = []
-                    transform = this.E.expandTransform(transform, this)
+                    transform = await this.E.expandTransform(transform, this)
                     result = await this.E.env.libraries.jsonata(transform).evaluate(result)
                 } catch (e) {
                     this.E.utils.processError('transform', e, this, e)
