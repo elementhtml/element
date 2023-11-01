@@ -13,6 +13,7 @@
         #boundTargetController
         #boundTargetObserver
         #boundTargetRefreshCount = 0
+        #boundTargetUpdated = true
         #cycle = []
         #cycleTracker
         #errors
@@ -25,6 +26,7 @@
         #transform
         #targetEvents = []
         #use
+        #value
 
         constructor() {
             super()
@@ -114,13 +116,11 @@
 
         get rewrite() { return this.E.utils.safeGet(this, this.#rewrite, 'rewrite') }
         set rewrite(value) {
-            if ((this.getAttribute('rewrite') ?? '') !== (this.#rewrite ?? '')) {
-                let value = this.getAttribute('rewrite')
-                this.#rewriteRules = []
-                let rewriteRulesThis = this.E.utils.parseObjectAttribute(value, this) ?? {},
-                    rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.E.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
-                for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
-            }
+            if (this.#rewrite === value) return
+            this.#rewriteRules = []
+            let rewriteRulesThis = this.E.utils.parseObjectAttribute(value, this) ?? {},
+                rewriteRulesObject = (rewriteRulesThis.eEnv) ? Object.assign({ ...this.E.env.variables[rewriteRulesThis.eEnv] || {} }, rewriteRulesThis) : rewriteRulesThis
+            for (const [re, p] of Object.entries(rewriteRulesObject)) this.#rewriteRules.push([Number.isInteger(Number(re)) ? re : new RegExp(re), p])
             this.#rewrite = value
         }
 
@@ -142,8 +142,15 @@
             this.#target = value
         }
 
-        get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
-        set transform(value) { this.#transform = value }
+        get transform() {
+            return this.E.utils.safeGet(this, this.#transform, 'transform')
+        }
+        set transform(value) {
+            if (this.#transform === value) return
+            this.#transform = value
+        }
+
+        get value() { return this.#value }
 
         #createBound(value, mode) {
             const setBound = v => mode === 'resource' ? (this.#boundResource = v) : (this.#boundTarget = v),
@@ -166,8 +173,13 @@
                 setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]))
                 if (bindStatementSplit[1]) {
                     const processRecords = records => {
-                        setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]))
-                        if (mode === 'resource') this.#refresh()
+                        let oldBound = getBound(), newBound = this.E.utils.resolveSelector(scope, bindStatementSplit[1])
+                        setBound(newBound)
+                        oldBound = Array.isArray(oldBound) ? oldBound : [oldBound]
+                        newBound = Array.isArray(newBound) ? newBound : [newBound]
+                        let oldBoundSet = new Set(oldBound), newBoundSet = new Set(newBound)
+                        if (mode === 'target' && (oldBound.some(b => !newBoundSet.has(b)) || newBound.some(b => !oldBoundSet.has(b)))) this.#boundTargetUpdated = true
+                        this.#refresh()
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
@@ -312,6 +324,11 @@
                 }
             }
             const boundTarget = this.boundTarget ?? this.parentElement
+            let valueUpdated = true
+            try { valueUpdated = (JSON.stringify(this.#value ?? null) !== JSON.stringify(result ?? null)) } catch (e) { }
+            if (!this.#boundTargetUpdated && !valueUpdated) return
+            this.#boundTargetUpdated = false
+            this.#value = result
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
@@ -329,10 +346,8 @@
                 boundTarget(...targetArgs)
             } else {
                 if (this.#targetEvents.length) {
-                    for (const eventName of this.#targetEvents) {
-                        for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
-                            if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: payload }))
-                        }
+                    for (const eventName of this.#targetEvents) for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
+                        if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: result }))
                     }
                 } else {
                     this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])

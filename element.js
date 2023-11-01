@@ -50,14 +50,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
-            safeGet: {
-                enumerable: true, value: function (element, privateValue, attrName, propName) {
-                    propName ||= attrName
-                    const attr = element.getAttribute(attrName)
-                    if (privateValue !== attr) element[propName] = attr
-                    return privateValue
-                }
-            },
             getContentType: {
                 enumerable: true, value: function (element, src) {
                     let contentType = (this.optionsMap ?? {})['Content-Type'] || (this.optionsMap ?? {})['content-type'] || element.getAttribute('content-type') || element._contentType || undefined
@@ -189,6 +181,16 @@ const ElementHTML = Object.defineProperties({}, {
                         selected = this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
                     } else { selected = scope.querySelector(selector) }
                     return selected
+                }
+            },
+            safeGet: {
+                enumerable: true, value: function (element, privateValue, attrName, propName) {
+                    propName ||= attrName
+                    const attr = element.getAttribute(attrName)
+                    if (privateValue !== attr) {
+                        element[propName] = attr
+                        return attr
+                    } else { return privateValue }
                 }
             },
             sliceAndStep: {
