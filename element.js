@@ -518,10 +518,9 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.assign(element.eDataset, data)
                 } else {
                     for (const [k, v] of Object.entries(data)) {
-                        let key = k, target = element
-                        if (key.startsWith('$')) {
-                            let [qs, kk] = this.utils.splitOnce(k, ')')
-                            qs = qs.slice(2).trim()
+                        let key = k.trim(), target = element
+                        if (key.startsWith('`')) {
+                            let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
                             key = kk
                             if (!qs) continue
                             target = target.querySelector(qs)
@@ -535,7 +534,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (v === null) {
                                 delete target.dataset[key]
                             } else { target.dataset[key] = v }
-                        }
+                        } else { this.setValue(target, v) }
                     }
                 }
             } else if (flag && flag.startsWith('$')) {
@@ -714,10 +713,9 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.assign(element.eDataset, data)
                 } else {
                     for (const [k, v] of Object.entries(data)) {
-                        let key = k, target = element
-                        if (key.startsWith('$')) {
-                            let [qs, kk] = this.utils.splitOnce(k, ')')
-                            qs = qs.slice(2).trim()
+                        let key = k.trim(), target = element
+                        if (key.startsWith('`')) {
+                            let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
                             key = kk
                             if (!qs) continue
                             target = target.querySelector(qs)
@@ -727,11 +725,11 @@ const ElementHTML = Object.defineProperties({}, {
                             (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
                         } else if (key.startsWith('.')) {
                             (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
-                        } else {
+                        } else if (key) {
                             if (v === null) {
                                 delete target.dataset[key]
                             } else { target.dataset[key] = v }
-                        }
+                        } else { this.setValue(target, v) }
                     }
                 }
             }
