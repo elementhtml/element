@@ -145,6 +145,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (token[0] === '@') return element.getAttribute(token.slice(1))
                     if (token === '_') return ElementHTML.getValue(element)
                     if ((token[0] === '`') && token.endsWith('`')) return token.slice(1, -1)
+                    return token
                 }
             },
             resolveMeta: {
@@ -513,17 +514,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(element.eDataset, data)
             } else if (flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
-            } else if (flag && (flag.startsWith('storage.'))) {
-                let [, storageType = 'local', storageKey] = flag.split('.').map(s => s.trim())
-                if (!storageType) storageType = 'local'
-                const storage = window[`${storageType}Storage`]
-                if (data === null || (storageKey && (data === undefined))) {
-                    data === null ? storage.clear() : storage.removeItem(storageKey)
-                } else if (storageKey) {
-                    storage.setItem(storageKey, JSON.stringify(data))
-                } else if (data instanceof Object) {
-                    for (const [k, v] of Object.entries(data)) (v === undefined) ? storage.removeItem(k) : storage.setItem(k, JSON.stringify(v))
-                }
             } else if (flag && flag.startsWith('auto')) {
                 if (element.eDataset instanceof Object) {
                     Object.assign(element.eDataset, data)
@@ -548,9 +538,6 @@ const ElementHTML = Object.defineProperties({}, {
                         } else { this.setValue(target, v) }
                     }
                 }
-            } else if (flag && flag.startsWith('$')) {
-                const variableName = flag.slice(1)
-                if (variableName) this.env.variables[variableName] = data
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
                 if (flag.startsWith('...')) {
                     const sinkFunctionName = flag.slice(3)
@@ -873,7 +860,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (body instanceof Object) {
                 serializer ||= element?.serializer ?? this.serialize
-                requestOptions.body = await serializer(body, contentType)
+                requestOptions.body = await serializer(body, element, contentType)
             } else if (body) {
                 requestOptions.method ||= 'POST'
                 requestOptions.body = `${body}`

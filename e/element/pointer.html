@@ -222,12 +222,35 @@
                         if (use === '!' && targetAttrVal && targetAttrVal.includes('!')) this.#targetEvents = eventNames
                     }
                 }
+            } else if ((bindStatement[0] === '`') && bindStatement.endsWith('`')) {
+                bindStatement = bindStatement.slice(1, -1)
+                let [globalObjectName, objectMethodInvoker = ''] = bindStatement.split('.').map(s => s.trim()),
+                    [objectMethodName, args] = objectMethodInvoker.split('(').map(s => s.trim())
+                args = args.slice(0, -1)
+                let bindFunc = () => {
+                    if (window[globalObjectName]) {
+                        if () {
+
+                        } else if (objectMethodName && typeof window[globalObjectName] === 'object' && window[globalObjectName][objectMethodName]) {
+
+                        }
+
+                    }
+
+                    baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
+
+                }
+
+
+
+
             } else if (bindStatement.includes(';')) {
-                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController(), contentType = this.E.utils.getContentType(this, src)
-                url = this.E.resolveUrl(url, this).split('(')
+                let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController()
                 let [functionName = 'default', args = ''] = functionInvoker.split('(')
                 args = args.slice(0, -1)
                 new Promise((resolve, reject) => {
+                    url = this.E.resolveUrl(url, this)
+                    let contentType = this.E.utils.getContentType(this, url)
                     if (contentType === 'application/wasm') {
                         this.E.compileRequestOptions(null, this, null, null, contentType).then(requestOptions => this.E.utils.getWasm(url, requestOptions)).then(moduleImport => resolve(moduleImport.instance.exports[functionName]))
                     } else {
@@ -343,6 +366,7 @@
                         targetArgs.push(result)
                     }
                 }
+                console.log('line 353', boundTarget, targetArgs)
                 boundTarget(...targetArgs)
             } else {
                 if (this.#targetEvents.length) {
