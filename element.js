@@ -591,7 +591,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return
                 }, build = (template, key, value) => {
-                    console.log('line 594', key, value)
                     const newTemplate = document.createElement('template')
                     newTemplate.content.replaceChildren(...template.content.cloneNode(true).children)
                     const runMerge = (eMerge, use) => {
@@ -664,7 +663,7 @@ const ElementHTML = Object.defineProperties({}, {
                             this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
                             valueTemplate.replaceWith(...valueNode.children)
                         }
-                        //if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
+                        if ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false'))) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
                         if (entryTemplate.getAttribute('data-e-property')) {
                             entryTemplate.after(...entryNode.children)
                         } else {
