@@ -59,7 +59,7 @@ const ElementHTML = Object.defineProperties({}, {
                         contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
                         contentType ||= 'application/javascript'
                     }
-                    if (!contentType.includes('/')) contentType = `application/${contentType}`
+                    if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
                     return contentType
                 }
             },
@@ -882,7 +882,18 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
-                        entries = Object.entries(window[storageType]).map(ent => ent[1] = JSON.parse(ent[1]))
+                        entries = Object.entries(window[storageType]).map(ent => {
+                            if (ent[1] && ent[1].startsWith('{') && ent[1].endsWith('}')) {
+                                try { ent[1] = JSON.parse(ent[1]) } catch (e) { }
+                            } else if (Number(ent[1])) {
+                                ent[1] = Number(ent[1])
+                            } else if (ent[1] === '0') {
+                                ent[1] = 0
+                            } else if ((ent[1] === 'null') || (ent[1] === 'undefined')) {
+                                ent[1] = null
+                            }
+                            return ent
+                        })
                     variables.push(`$${storageType} := ${JSON.stringify(Object.fromEntries(entries))}`)
                 }
                 for (const [variableName, variableValue] of Object.entries(variableMap)) {
@@ -894,8 +905,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
             } catch (e) {
-                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
-                if (this.errors === 'throw') { throw new Error(e); return } else if (this.errors === 'hide') { transform = transform }
+                element.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
+                if (element.errors === 'throw') { throw new Error(e); return } else if (element.errors === 'hide') { transform = transform }
             }
             return transform
         }
