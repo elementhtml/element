@@ -145,7 +145,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (token[0] === '@') return element.getAttribute(token.slice(1))
                     if (token === '_') return ElementHTML.getValue(element)
                     if ((token[0] === '`') && token.endsWith('`')) return token.slice(1, -1)
-                    return token
+                    return element ? element.dataset[token] : token
                 }
             },
             resolveMeta: {

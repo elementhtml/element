@@ -224,6 +224,7 @@
                 }
             } else if ((bindStatement[0] === '`') && bindStatement.endsWith('`')) {
                 bindStatement = bindStatement.slice(1, -1)
+                let boundController = getBoundController()
                 if (bindStatement.includes('(') && bindStatement.endsWith(')')) {
                     let [globalName, args] = bindStatement.split('(').map(s => s.trim())
                     args = args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))
@@ -349,15 +350,14 @@
                     navigator.sendBeacon(this.E.resolveUrl(boundTarget, this), requestOptions.body)
                 } else { fetch(this.E.resolveUrl(boundTarget, this), requestOptions) }
             } else if (typeof boundTarget === 'function') {
-                const targetArgs = [...(this.applyMap ?? [])]
+                const targetArgs = (this.apply || '').split(',').map(s => this.E.utils.resolveMergeToken(s.trim(), this))
                 if (payload) {
-                    if (Array.isArray(result)) {
-                        targetArgs.push(...result)
+                    if (Array.isArray(result) && result.length === targetArgs.length) {
+                        for (const i of targetArgs.entries()) targetArgs[i] = result[i] ?? targetArgs[i]
                     } else {
                         targetArgs.push(result)
                     }
                 }
-                console.log('line 384', boundTarget, targetArgs)
                 boundTarget(...targetArgs)
             } else {
                 if (this.#targetEvents.length) {
