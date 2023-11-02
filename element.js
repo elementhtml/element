@@ -437,6 +437,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
+            // console.log('line 440', element, data, flag, transform)
             if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
             if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
@@ -476,7 +477,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
                 data = await this.env.libraries.jsonata(transform).evaluate(data)
             }
-            if ((data.nodeType === Node.ELEMENT_NODE) || (data.nodeType === Node.DOCUMENT_NODE)) {
+            if ((data?.nodeType === Node.ELEMENT_NODE) || (data?.nodeType === Node.DOCUMENT_NODE)) {
                 if (data.eDataset) {
                     data = data.valueOf()
                 } else {
@@ -590,20 +591,27 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return
                 }, build = (template, key, value) => {
-                    for (const useTemplate of template.content.querySelectorAll('template[data-e-use]')) {
+                    console.log('line 594', key, value)
+                    const newTemplate = document.createElement('template')
+                    newTemplate.content.replaceChildren(...template.content.cloneNode(true).children)
+                    const runMerge = (eMerge, use) => {
+                        for (const [k, v] of Object.entries(eMerge)) {
+                            if (v === '.') {
+                                use = use.replaceAll(k, `${key ?? ''}`)
+                            } else if (v === '$') {
+                                use = use.replaceAll(k, `${value ?? ''}`)
+                            } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
+                        }
+                        return use
+                    }
+                    for (const useTemplate of newTemplate.content.querySelectorAll('template[data-e-use]')) {
                         const fragmentsToUse = []
                         for (let use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
                             if (use.startsWith('`') && use.endsWith('`')) {
                                 const htmlFragment = document.createElement('div')
                                 if (useTemplate.dataset.eMerge) {
                                     const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {})
-                                    for (const [k, v] of Object.entries(eMerge)) {
-                                        if (k === '@') {
-                                            use = use.replaceAll(eMerge[k] || k, `${key ?? ''}`)
-                                        } else if (k === '$') {
-                                            use = use.replaceAll(eMerge[k] || k, `${value ?? ''}`)
-                                        } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
-                                    }
+                                    use = runMerge(eMerge, use)
                                 }
                                 typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
                                 for (const element of htmlFragment.querySelectorAll('*')) {
@@ -614,12 +622,17 @@ const ElementHTML = Object.defineProperties({}, {
                                 fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                             } else {
                                 const fragmentToUse = this.utils.resolveForElement(rootElement, 'template', { 'data-e-fragment': use }, true)
-                                if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)))
+                                if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)).map(n => {
+                                    let eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {}), use = n.innerHTML
+                                    use = runMerge(eMerge, use)
+                                    typeof n.setHTML === 'function' ? n.setHTML(use.slice(1, -1)) : (n.innerHTML = use.slice(1, -1))
+                                    return n
+                                }))
                             }
                         }
                         useTemplate.replaceWith(...fragmentsToUse.map(n => n.cloneNode(true)))
                     }
-                    return template
+                    return newTemplate
                 }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
                 const entries = Array.isArray(data) ? data.entries() : Object.entries(data)
                 for (const [key, value] of entries) {
@@ -651,7 +664,7 @@ const ElementHTML = Object.defineProperties({}, {
                             this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
                             valueTemplate.replaceWith(...valueNode.children)
                         }
-                        if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
+                        //if (!keyTemplate && !valueTemplates.length) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
                         if (entryTemplate.getAttribute('data-e-property')) {
                             entryTemplate.after(...entryNode.children)
                         } else {
@@ -705,6 +718,24 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
                         tbody.append(tr)
                     }
+                }
+            } else if (['ul', 'ol'].includes(tag)) {
+                if (!Array.isArray(data)) data = [data]
+                element.replaceChildren()
+                for (const item of data) {
+                    const li = document.createElement('li')
+                    li.innerHTML = item
+                    element.append(li)
+                }
+            } else if ((tag === 'dl') && (data instanceof Object)) {
+                element.replaceChildren()
+                for (const [t, d] of Object.entries(data)) {
+                    const dt = document.createElement('dt')
+                    dt.innerHTML = t
+                    element.append(dt)
+                    const dd = document.createElement('dd')
+                    dd.innerHTML = d
+                    element.append(dd)
                 }
             } else {
                 if (element.eDataset instanceof Object) {

@@ -388,6 +388,7 @@
                     this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
                 }
             }
+            this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
         }
 
     }
