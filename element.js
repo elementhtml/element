@@ -513,6 +513,17 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(element.eDataset, data)
             } else if (flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
+            } else if (flag && (flag.startsWith('storage.'))) {
+                let [, storageType = 'local', storageKey] = flag.split('.').map(s => s.trim())
+                if (!storageType) storageType = 'local'
+                const storage = window[`${storageType}Storage`]
+                if (data === null || (storageKey && (data === undefined))) {
+                    data === null ? storage.clear() : storage.removeItem(storageKey)
+                } else if (storageKey) {
+                    storage.setItem(storageKey, JSON.stringify(data))
+                } else if (data instanceof Object) {
+                    for (const [k, v] of Object.entries(data)) (v === undefined) ? storage.removeItem(k) : storage.setItem(k, JSON.stringify(v))
+                }
             } else if (flag && flag.startsWith('auto')) {
                 if (element.eDataset instanceof Object) {
                     Object.assign(element.eDataset, data)
@@ -882,6 +893,11 @@ const ElementHTML = Object.defineProperties({}, {
                 const variables = []
                 if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
+                if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
+                    const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
+                        entries = Object.entries(window[storageType]).map(ent => ent[1] = JSON.parse(ent[1]))
+                    variables.push(`$${storageType} := ${JSON.stringify(Object.fromEntries(entries))}`)
+                }
                 for (const [variableName, variableValue] of Object.entries(variableMap)) {
                     if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
                 }
