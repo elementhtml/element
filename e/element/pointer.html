@@ -255,19 +255,10 @@
                             }
                         }
                     }
-
-                    if (globalObjectName && window[globalObjectName]) {
-
-
-                    }
-
-                    baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
-
+                    this.#newBind = bindThing
                 }
-
-
-
-
+                if (boundController) boundController.abort()
+                setBound(bindFunc)
             } else if (bindStatement.includes(';')) {
                 let [url, functionInvoker = 'default()', cycleStatement = '0:once:idle'] = bindStatement.split(';'), boundController = getBoundController()
                 let [functionName = 'default', args = ''] = functionInvoker.split('(')
