@@ -885,6 +885,8 @@ const ElementHTML = Object.defineProperties({}, {
                         entries = Object.entries(window[storageType]).map(ent => {
                             if (ent[1] && ent[1].startsWith('{') && ent[1].endsWith('}')) {
                                 try { ent[1] = JSON.parse(ent[1]) } catch (e) { }
+                            } else if (ent[1] && ent[1].startsWith('"') && ent[1].endsWith('"')) {
+                                ent[1] = ent[1].slice(1, -1)
                             } else if (Number(ent[1])) {
                                 ent[1] = Number(ent[1])
                             } else if (ent[1] === '0') {
