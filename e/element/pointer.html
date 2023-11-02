@@ -17,6 +17,9 @@
         #cycle = []
         #cycleTracker
         #errors
+
+        #newBind //maybe not?
+
         #options = ''
         #optionsMap = {}
         #resource
@@ -224,16 +227,37 @@
                 }
             } else if ((bindStatement[0] === '`') && bindStatement.endsWith('`')) {
                 bindStatement = bindStatement.slice(1, -1)
-                let [globalObjectName, objectMethodInvoker = ''] = bindStatement.split('.').map(s => s.trim()),
-                    [objectMethodName, args] = objectMethodInvoker.split('(').map(s => s.trim())
+                let [globalInvoker, subInvoker] = bindStatement.split('.').map(s => s.trim())
                 args = args.slice(0, -1)
                 let bindFunc = () => {
-                    if (window[globalObjectName]) {
-                        if () {
-
-                        } else if (objectMethodName && typeof window[globalObjectName] === 'object' && window[globalObjectName][objectMethodName]) {
-
+                    let bindThing
+                    if (globalInvoker.includes('(') && globalInvoker.endsWith(')')) {
+                        let [globalName, args] = globalInvoker.split('(').map(s => s.trim())
+                        if (window[globalName] && (typeof window[globalName] === 'function'))
+                            bindThing = this.#newBind ?? new window[globalName](...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
+                    } else if (window[globalInvoker] && window[globalInvoker] instanceof Object) {
+                        if (subInvoker && subInvoker.includes('(') && subInvoker.endsWith(')')) {
+                            let [subName, args] = subInvoker.split('(').map(s => s.trim())
+                            if (window[globalInvoker][subName] && (typeof window[globalInvoker][subName] === 'function'))
+                                bindThing = this.#newBind ?? new window[globalInvoker][subName](...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
+                        } else {
+                            bindThing = () => {
+                                const useArgs = args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))
+                                if (subInvoker && (typeof window[globalInvoker][subInvoker] === 'function')) {
+                                    window[globalInvoker][subInvoker](...useArgs)
+                                } else if (subInvoker && (typeof window[globalInvoker][subInvoker] === 'object')) {
+                                    Object.assign(window[globalInvoker][subInvoker], ...useArgs.filter(a => a instanceof Object))
+                                } else if (globalInvoker && (typeof window[globalInvoker] === 'function')) {
+                                    window[globalInvoker](...useArgs)
+                                } else if (globalInvoker && (typeof window[globalInvoker] === 'object')) {
+                                    Object.assign(window[globalInvoker], ...useArgs.filter(a => a instanceof Object))
+                                }
+                            }
                         }
+                    }
+
+                    if (globalObjectName && window[globalObjectName]) {
+
 
                     }
 
