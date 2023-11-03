@@ -437,7 +437,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
-            // console.log('line 440', element, data, flag, transform)
             if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
             if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
@@ -488,7 +487,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            if (!(data instanceof Object)) return this.setValue(element, data)
+            if (!(data instanceof Object)) return this.setValue(element, data, undefined, silent)
             if (!Object.keys(data).length) return element
             flag ||= sourceElement?.flag
             if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
@@ -536,7 +535,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (v === null) {
                                 delete target.dataset[key]
                             } else { target.dataset[key] = v }
-                        } else { this.setValue(target, v) }
+                        } else { this.setValue(target, v, undefined, silent) }
                     }
                 }
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
@@ -645,7 +644,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
                             entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
                         let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
-                        if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key))
+                        if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key, undefined, silent))
                         if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
                         if (valueTemplates.length) {
                             let valueTemplate = valueTemplates[valueTemplates.length - 1]
@@ -678,12 +677,11 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 element.querySelector('meta[after]')?.remove()
-            } else if (['input', 'select', 'datalist'].includes(tag)) {
+            } else if (['input', 'select', 'datalist'].includes(tag) && Array.isArray(data)) {
                 const optionElements = []
-                for (const k in data) {
+                for (const d of data) {
                     const optionElement = document.createElement('option')
-                    optionElement.setAttribute('value', Array.isArray(data) ? data[k] : k)
-                    optionElement.textContent = data[k]
+                    this.setValue(optionElement, d, element, true)
                     optionElements.push(optionElement)
                 }
                 if (tag === 'select' || tag === 'datalist') {
@@ -761,7 +759,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (v === null) {
                                 delete target.dataset[key]
                             } else { target.dataset[key] = v }
-                        } else { this.setValue(target, v) }
+                        } else { this.setValue(target, v, undefined, silent) }
                     }
                 }
             }

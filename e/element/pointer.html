@@ -7,6 +7,7 @@
         #applyMap
         #boundResource
         #boundResourceController
+        #boundResourceEventNames = []
         #boundResourceObserver
         #boundResourceRefreshCount = 0
         #boundTarget
@@ -69,6 +70,8 @@
             }
             return this.#boundResource
         }
+
+        get boundResourceEventNames() { return this.#boundResourceEventNames }
 
         get boundTarget() {
             const targetAttrVal = this.getAttribute('target')
@@ -165,8 +168,11 @@
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
             let bindStatement = value ?? '|'
             const useFlags = ['!', '$', '_']
-            this.#targetEvents = []
-            if (mode === 'resource' && this.#cycleTracker) window.clearInterval(this.#cycleTracker)
+            if (mode === 'target') this.#targetEvents = []
+            if (mode === 'resource') {
+                this.#boundResourceEventNames = []
+                if (this.#cycleTracker) window.clearInterval(this.#cycleTracker)
+            }
             if (bindStatement.includes('|')) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
@@ -198,6 +204,7 @@
                     let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                     const bindNodes = Array.isArray(bound) ? bound : [bound], eventNames = refreshFrom.split(',').map(s => s.trim())
                     if (mode === 'resource') {
+                        this.#boundResourceEventNames = eventNames
                         for (let eventName of eventNames) {
                             for (const node of bindNodes) {
                                 if (!node) continue
