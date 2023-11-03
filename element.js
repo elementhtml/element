@@ -173,10 +173,12 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             resolveSelector: {
-                enumerable: true, value: function (scope, selector) {
+                enumerable: true, value: function (scope, selector, element) {
                     let selected
                     if (!selector) {
                         selected = scope
+                        //} else if (selector === '$') {
+                        //  selected = element
                     } else if (selector.includes('{') && selector.endsWith('}')) {
                         let [selectorStem, sig] = selector.split('{')
                         selected = this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
