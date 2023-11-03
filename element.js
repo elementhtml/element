@@ -620,13 +620,17 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                                 fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
                             } else {
-                                const fragmentToUse = this.utils.resolveForElement(rootElement, 'template', { 'data-e-fragment': use }, true)
-                                if (fragmentToUse) fragmentsToUse.push(...Array.from(fragmentToUse.content.children).map(c => c.cloneNode(true)).map(n => {
-                                    let eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {}), use = n.innerHTML
-                                    use = runMerge(eMerge, use)
-                                    typeof n.setHTML === 'function' ? n.setHTML(use.slice(1, -1)) : (n.innerHTML = use.slice(1, -1))
-                                    return n
-                                }))
+                                const [scopeStatement, selector = "template[data-e-fragment]"] = this.utils.splitOnce(use, '|').map(s => s.trim()),
+                                    fragmentToUse = (this.utils.resolveScope(scopeStatement, element) || element).querySelector(selector)
+                                if (fragmentToUse) {
+                                    const fragmentChildren = fragmentToUse.tagName.toLowerCase() === 'template' ? fragmentToUse.content.children : fragmentToUse.children
+                                    fragmentsToUse.push(...Array.from(fragmentChildren).map(c => c.cloneNode(true)).map(n => {
+                                        let eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {}), use = n.innerHTML
+                                        use = runMerge(eMerge, use)
+                                        typeof n.setHTML === 'function' ? n.setHTML(use.slice(1, -1)) : (n.innerHTML = use.slice(1, -1))
+                                        return n
+                                    }))
+                                }
                             }
                         }
                         useTemplate.replaceWith(...fragmentsToUse.map(n => n.cloneNode(true)))
