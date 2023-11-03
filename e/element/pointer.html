@@ -173,6 +173,7 @@
                 this.#boundResourceEventNames = []
                 if (this.#cycleTracker) window.clearInterval(this.#cycleTracker)
             }
+            if (bindStatement.startsWith('#')) bindStatement = `:|${bindStatement}`
             if (bindStatement.includes('|')) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
@@ -206,6 +207,7 @@
                     if (mode === 'resource') {
                         this.#boundResourceEventNames = eventNames
                         for (let eventName of eventNames) {
+                            if (this === document.getElementById("test")) console.log('line 210', eventName, bindNodes)
                             for (const node of bindNodes) {
                                 if (!node) continue
                                 if ((useRefresh === '!') && (eventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
@@ -353,6 +355,7 @@
             if (!this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
+            if (this === document.getElementById("test")) console.log('line 357', result)
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
@@ -370,7 +373,7 @@
                     } else { targetArgs = [result] }
                     boundTarget(...targetArgs)
                 }
-            } else if (boundTarget instanceof Object && !(boundTarget instanceof HTMLElement)) {
+            } else if (boundTarget instanceof Object && !(boundTarget instanceof HTMLElement) && !Array.isArray(boundTarget)) {
                 let apply = this.apply || '', [subName, args] = apply.split('(').map(s => s.trim())
                 if (args && subName && (typeof boundTarget[subName] == 'function')) {
                     if (payload) {

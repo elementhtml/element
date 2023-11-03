@@ -739,6 +739,7 @@ const ElementHTML = Object.defineProperties({}, {
                             } else {
                                 this.sinkData(target, v, undefined, undefined, sourceElement, context, layer, element, silent)
                             }
+                            return
                         }
                         if (key.startsWith('@')) {
                             (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
