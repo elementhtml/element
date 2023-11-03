@@ -179,6 +179,26 @@
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
                 let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags)
+                const attachEventListener = (node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController) => {
+                    if (!node) return
+                    if ((useRefresh === '!') && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
+                    node.addEventListener(eventName, event => {
+                        let proceed = true, count = getCount()
+                        if (refreshStep) proceed = (count >= start) && (!end || (count < end))
+                        setCount(count + 1)
+                        count = getCount()
+                        if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
+                        if (!proceed) return
+                        if (use === '!') {
+                            this.#refresh(event)
+                        } else if (use === '$') {
+                            this.#refresh(bound)
+                        } else if (Array.isArray(bound)) {
+                            this.#refresh(bound.map(node => this.E.getValue(node)))
+                        } else { this.#refresh(this.E.getValue(node)) }
+                    }, { signal: boundController.signal })
+
+                }
                 if (!scope) return
                 setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]), this)
                 if (bindStatementSplit[1]) {
@@ -189,6 +209,15 @@
                         newBound = Array.isArray(newBound) ? newBound : [newBound]
                         let oldBoundSet = new Set(oldBound), newBoundSet = new Set(newBound)
                         if (mode === 'target' && (oldBound.some(b => !newBoundSet.has(b)) || newBound.some(b => !oldBoundSet.has(b)))) this.#boundTargetUpdated = true
+                        if (mode === 'resource') {
+                            if (refreshOn) {
+                                const boundController = getBoundController(), [refreshFrom, refreshStep = ''] = refreshOn.split('{')
+                                let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
+                                for (let eventName of this.#boundResourceEventNames) {
+                                    for (const node of newBound) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
+                                }
+                            }
+                        }
                         this.#refresh()
                     }
                     let observer = getBoundObserver()
@@ -208,26 +237,7 @@
                     if (mode === 'resource') {
                         this.#boundResourceEventNames = eventNames
                         for (let eventName of eventNames) {
-                            if (this === document.getElementById("test")) console.log('line 210', eventName, bindNodes)
-                            for (const node of bindNodes) {
-                                if (!node) continue
-                                if ((useRefresh === '!') && (eventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
-                                node.addEventListener(eventName, event => {
-                                    let proceed = true, count = getCount()
-                                    if (refreshStep) proceed = (count >= start) && (!end || (count < end))
-                                    setCount(count + 1)
-                                    count = getCount()
-                                    if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
-                                    if (!proceed) return
-                                    if (use === '!') {
-                                        this.#refresh(event)
-                                    } else if (use === '$') {
-                                        this.#refresh(bound)
-                                    } else if (Array.isArray(bound)) {
-                                        this.#refresh(bound.map(node => this.E.getValue(node)))
-                                    } else { this.#refresh(this.E.getValue(node)) }
-                                }, { signal: boundController.signal })
-                            }
+                            for (const node of bindNodes) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
                         }
                     } else {
                         const targetAttrVal = this.getAttribute('target')
@@ -356,7 +366,6 @@
             if (!this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
-            if (this === document.getElementById("test")) console.log('line 357', result)
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
