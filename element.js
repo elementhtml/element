@@ -514,30 +514,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(element.eDataset, data)
             } else if (flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
-            } else if (flag && flag.startsWith('auto')) {
-                if (element.eDataset instanceof Object) {
-                    Object.assign(element.eDataset, data)
-                } else {
-                    for (const [k, v] of Object.entries(data)) {
-                        let key = k.trim(), target = element
-                        if (key.startsWith('`')) {
-                            let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
-                            key = kk
-                            if (!qs) continue
-                            target = target.querySelector(qs)
-                            if (!target) continue
-                        }
-                        if (key.startsWith('@')) {
-                            (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                        } else if (key.startsWith('.')) {
-                            (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
-                        } else if (flag === 'auto-data') {
-                            if (v === null) {
-                                delete target.dataset[key]
-                            } else { target.dataset[key] = v }
-                        } else { this.setValue(target, v, undefined, silent) }
-                    }
-                }
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
                 if (flag.startsWith('...')) {
                     const sinkFunctionName = flag.slice(3)
@@ -742,14 +718,27 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element.eDataset instanceof Object) {
                     Object.assign(element.eDataset, data)
                 } else {
-                    for (const [k, v] of Object.entries(data)) {
+                    const sinkDataAuto = (k, v, flag, element, sourceElement, context, layer, silent) => {
                         let key = k.trim(), target = element
                         if (key.startsWith('`')) {
                             let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
                             key = kk
-                            if (!qs) continue
+                            if (!qs) return
                             target = target.querySelector(qs)
-                            if (!target) continue
+                            if (!target) return
+                            if (key && key.startsWith('@')) {
+                                (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
+                            } else if (key && key.startsWith('.')) {
+                                (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
+                            } else if (key) {
+                                if (v === null) {
+                                    delete target.dataset[key]
+                                } else { target.dataset[key] = v }
+                            } else if (target === element) {
+                                this.setValue(target, v, undefined, silent)
+                            } else {
+                                this.sinkData(target, v, undefined, undefined, sourceElement, context, layer, element, silent)
+                            }
                         }
                         if (key.startsWith('@')) {
                             (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
@@ -761,6 +750,7 @@ const ElementHTML = Object.defineProperties({}, {
                             } else { target.dataset[key] = v }
                         } else { this.setValue(target, v, undefined, silent) }
                     }
+                    for (const [k, v] of Object.entries(data)) sinkDataAuto(k, v, flag, element, sourceElement, context, layer, silent)
                 }
             }
             return await close(element)
