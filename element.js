@@ -578,7 +578,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 use = use.replaceAll(k, `${value ?? ''}`)
                             } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
                         }
-                        return use
+                        return use.trim()
                     }
                     for (const useTemplate of newTemplate.content.querySelectorAll('template[data-e-use]')) {
                         const fragmentsToUse = []
@@ -587,9 +587,11 @@ const ElementHTML = Object.defineProperties({}, {
                                 const htmlFragment = document.createElement('div')
                                 if (useTemplate.dataset.eMerge) {
                                     const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {})
-                                    use = runMerge(eMerge, use)
+                                    use = runMerge(eMerge, use.slice(1, -1))
                                 }
-                                typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use.slice(1, -1)) : (htmlFragment.innerHTML = use.slice(1, -1))
+                                /* need to support setHTML, using white-listed custom elements and attribute etc */
+                                // typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use) : (htmlFragment.innerHTML = use)
+                                htmlFragment.innerHTML = use
                                 for (const element of htmlFragment.querySelectorAll('*')) {
                                     const tag = element.tagName.toLowerCase()
                                     if (tag === 'script' && !this.env.options.security.allowTemplateUseScripts) element.remove()
@@ -604,7 +606,8 @@ const ElementHTML = Object.defineProperties({}, {
                                     fragmentsToUse.push(...Array.from(fragmentChildren).map(c => c.cloneNode(true)).map(n => {
                                         let eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {}), use = n.innerHTML
                                         use = runMerge(eMerge, use)
-                                        typeof n.setHTML === 'function' ? n.setHTML(use.slice(1, -1)) : (n.innerHTML = use.slice(1, -1))
+                                        // typeof n.setHTML === 'function' ? n.setHTML(use) : (n.innerHTML = use)
+                                        n.innerHTML = use
                                         return n
                                     }))
                                 }
