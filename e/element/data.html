@@ -12,10 +12,14 @@
                         if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
                         const boundResource = this.boundResource, boundTarget = this.boundTarget
                         let silent = (boundResource === boundTarget) && this.boundResourceEventNames.includes('change')
-                        let resourceAncestors = [], targetDescendents = [], nextAncestor = boundResource, nextDescendent = boundTarget
-                        while ((nextAncestor instanceof HTMLElement) && ((nextAncestor.boundResourceEventNames ?? []).includes('change') || (nextAncestor.boundResourceEventNames ?? []).includes('sinkData'))) { resourceAncestors.push(nextAncestor); nextAncestor = nextAncestor.boundResource }
-                        while ((nextDescendent instanceof HTMLElement) && ((nextDescendent.boundResourceEventNames ?? []).includes('change') || (nextDescendent.boundResourceEventNames ?? []).includes('sinkData'))) { targetDescendents.push(nextDescendent); nextDescendent = nextDescendent.boundTarget }
-                        silent = !!resourceAncestors.length || !!targetDescendents.length
+                        if (this.hasAttribute('silent')) {
+                            silent = true
+                        } else {
+                            let resourceAncestors = [], targetDescendents = [], nextAncestor = boundResource, nextDescendent = boundTarget
+                            while ((nextAncestor instanceof HTMLElement) && ((nextAncestor.boundResourceEventNames ?? []).includes('change') || (nextAncestor.boundResourceEventNames ?? []).includes('sinkData'))) { resourceAncestors.push(nextAncestor); nextAncestor = nextAncestor.boundResource }
+                            while ((nextDescendent instanceof HTMLElement) && ((nextDescendent.boundResourceEventNames ?? []).includes('change') || (nextDescendent.boundResourceEventNames ?? []).includes('sinkData'))) { targetDescendents.push(nextDescendent); nextDescendent = nextDescendent.boundTarget }
+                            silent = !!resourceAncestors.length || !!targetDescendents.length
+                        }
                         for (const t of target) this.E.sinkData(t, result, flag, transform, this, {}, 0, undefined, silent)
                     }
                 },

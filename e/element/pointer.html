@@ -109,13 +109,14 @@
             if (this.#resource === value) return
             this.#createBound(value, 'resource')
             this.#resource = value
-            if (!this.#use) { this.#refresh(); return }
+            const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
+            if (autoRefresh) { this.#refresh(); return }
             const boundTarget = this.boundTarget
             if (!boundTarget || (typeof boundTarget === 'string')) return
             if (this.#use === '$') {
-                this.#refresh(this.#boundResource)
+                if (autoRefresh) this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
-                this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
+                if (autoRefresh) this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
             }
         }
 
@@ -217,7 +218,9 @@
                                 }
                             }
                         }
-                        this.#refresh()
+                        if (this.#resource.includes('dblclick')) console.log('line 220', this.#use)
+                        const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
+                        if (autoRefresh) this.#refresh()
                     }
                     let observer = getBoundObserver()
                     if (observer) processRecords(observer.takeRecords())
