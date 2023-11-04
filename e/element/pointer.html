@@ -181,7 +181,7 @@
                 let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 const attachEventListener = (node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController) => {
                     if (!node) return
-                    if ((useRefresh === '!') && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
+                    if ((useFlags.includes(useRefresh)) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
                     node.addEventListener(eventName, event => {
                         let proceed = true, count = getCount()
                         if (refreshStep) proceed = (count >= start) && (!end || (count < end))
@@ -193,11 +193,10 @@
                             this.#refresh(event)
                         } else if (use === '$') {
                             this.#refresh(bound)
-                        } else if (Array.isArray(bound)) {
-                            this.#refresh(bound.map(node => this.E.getValue(node)))
+                        } else if (use === '_') {
+                            this.#refresh(Array.isArray(bound) ? bound.map(n => this.E.getValue(n)) : this.E.getValue(node))
                         } else { this.#refresh(this.E.getValue(node)) }
                     }, { signal: boundController.signal })
-
                 }
                 if (!scope) return
                 setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]), this)
@@ -363,7 +362,7 @@
             const boundTarget = this.boundTarget ?? this.parentElement
             let valueUpdated = true
             try { valueUpdated = (JSON.stringify(this.#value ?? null) !== JSON.stringify(result ?? null)) } catch (e) { }
-            if (!this.#boundTargetUpdated && !valueUpdated) return
+            if (!this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
             if (typeof boundTarget === 'string') {
