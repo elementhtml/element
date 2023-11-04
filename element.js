@@ -950,6 +950,24 @@ const ElementHTML = Object.defineProperties({}, {
             return inheritance
         }
     },
+    getValueOf: {
+        enumerable: true, value: function (element) {
+            const override = (this.env.map.get(element) ?? {})['eValueOf']
+            if (override) return typeof override === 'function' ? override(element) : override
+            return {
+                ...Object.fromEntries(Object.entries(element)),
+                ...Object.fromEntries(Object.entries(element.dataset).map(ent => ([`dataset.${ent[0]}`, ent[1]]))),
+                ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
+                ...Object.fromEntries(['baseURI', 'checked', 'childElementCount', 'className',
+                    'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
+                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'namespaceURI',
+                    'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
+                    'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
+                    'selected', 'slot', 'style', 'tagName', 'textContent', 'title', 'value'].map(p => ([`${p}`, element[p]]))),
+                [`.tag`]: element.tagName.toLowerCase()
+            }
+        }
+    },
     getVariable: {
         enumerable: true, value: function (variableRef, element) {
             if (!variableRef) return
@@ -1341,15 +1359,7 @@ const ElementHTML = Object.defineProperties({}, {
                 async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-                valueOf() {
-                    const override = (this.env.map.get(element) ?? {})['eValueOf']
-                    if (override) return typeof override === 'function' ? override(element) : override
-                    return {
-                        ...this.dataset, [`#tagName`]: this.tagName.toLowerCase(),
-                        ...Object.fromEntries(this.getAttributeNames().map(a => ([`@${a}`, this.getAttribute(a)]))),
-                        ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, this[p]])))
-                    }
-                }
+                valueOf() { return this.E.getValueOf(this) }
                 set _(value) { this.#_ = value }
                 get _() { return this.#_ }
             }

@@ -352,8 +352,22 @@
                     if (typeof variableValue === 'string') transform = variableValue
                 }
                 try {
-                    const variables = []
+                    const variables = [], hasDirectNodeReference = transform.includes('.`$&`')
+                    let directNodeReference
                     transform = await this.E.expandTransform(transform, this)
+                    if (this.#use === '$') {
+                        if (result instanceof HTMLElement) {
+                            if (hasDirectNodeReference) directNodeReference = result
+                            result = this.E.getValueOf(result)
+                            if (directNodeReference) result['$&'] = directNodeReference
+                        } else if (Array.isArray(result) && result.every(n => n instanceof HTMLElement)) {
+                            result = result.map(n => {
+                                const vv = this.E.getValueOf(n)
+                                if (hasDirectNodeReference) vv['$&'] = n
+                                return vv
+                            })
+                        }
+                    }
                     result = await this.E.env.libraries.jsonata(transform).evaluate(result)
                 } catch (e) {
                     this.E.utils.processError('transform', e, this, e)
