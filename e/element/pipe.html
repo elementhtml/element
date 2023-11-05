@@ -25,6 +25,16 @@
         _resourceReadyTest
         _sendMethodName
 
+        #hub
+        #hubAvailable = false
+        #via
+        #send
+        #sendArgs = []
+        #options
+        #optionsMap = {}
+        #queue = []
+        #receive
+
         constructor() {
             super()
             this.addEventListener('_ready', event => {
@@ -32,7 +42,7 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'content-type', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('hub', 'via', 'transform', 'content-type', 'options') }
 
         async connectedCallback() { }
 
@@ -50,6 +60,63 @@
                 }
             } else { this.#sendQueue.push(payload) }
         }
+
+        #createHub() {
+            this.#hubAvailable = false
+            this.#queue = []
+            if (!this.#via) {
+                this.#hub = new EventTarget()
+                this.#hubAvailable = true
+            } else if (this.#via[0] === '`') {
+                const [hubStatement, sendStatement] = this.#via.slice(1).split('`', 2).map(s => s.trim())
+                this.#hub = this.E.utils.resolveGlobal(hubStatement, this)
+                if (!this.#hub) return
+                const [sendName, sendArgs] = sendStatement.split('(').map(s => s.trim())
+                this.#send = sendName || undefined
+                this.#sendArgs = (sendArgs ?? '').slice(0, -1).split(',').map(s => s.trim())
+                this.#hubAvailable = true
+            } else if (this.#via.startsWith('wss://')) {
+                this.#send = 'send'
+                this.#sendArgs = []
+                const makeSocket = () => {
+                    const optionsMap = this.optionsMap ?? {}
+                    this.#hub = new WebSocket(this.#via, optionsMap.protocols ?? [])
+                    if (optionsMap.binaryType) this.#hub.binaryType = optionsMap.binaryType
+                    this.#hub.addEventListener('open', event => this.#hubAvailable = true, { once: true })
+                    this.#hub.addEventListener('error', event => this.#hubAvailable = false)
+                    this.#hub.addEventListener('close', event => {
+                        this.#hubAvailable = false
+                        makeSocket()
+                    }, { once: true })
+                    this.#hub.addEventListener('message', event => this.#receive(event))
+                }
+                makeSocket()
+            } else if (this.#via.startsWith('https://') || this.#via.startsWith('http://')) {
+                this.#hub = this.#via
+                this.#hubAvailable = true
+            } else if (this.#via.startsWith('sse://')) {
+                const [url, events = ['message']] = this.#via.split('!', 2)
+                this.#hub = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
+                this.#hub.addEventListener('open', event => this.#hubAvailable = true)
+                for (const eventName of events) this.#hub.addEventListener(eventName, event => this.#receive(event))
+            } else if (this.#via.startsWith('wt://')) {
+                const makeTransport = () => {
+                    this.#hub = new WebTransport(this.#via.replace('wt://', 'https://'), this.optionsMap)
+                    this.#hub.ready.then(() => {
+                        this.#hubAvailable = true
+                    })
+                    this.#hub.closed.then(() => {
+                        this.#hubAvailable = false
+                        makeTransport()
+                    })
+                }
+                makeTransport()
+
+
+
+            }
+        }
+
 
         async _setResource(signature) {
             let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType,
