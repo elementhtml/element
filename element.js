@@ -137,6 +137,17 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             },
+            resolveGlobal: {
+                enumerable: true, value: async function (bindStatement, element) {
+                    const statement = bindStatement.trim().match(/([A-Za-z]+)?(\(([^)]*)\))?/).slice(1, 3).map(v => v ||= '').map(v => v.slice(v[0] === '(' ? 1 : 0, v.endsWith(')') ? -1 : v.length).split(',').map(ss => ss.trim()).filter(sss => sss))
+                    if (!(statement[0] ?? []).length || !window[statement[0][0]]) return
+                    statement[1] ||= []
+                    if (statement[1].length && (typeof window[statement[0][0]] !== 'function')) return
+                    statement[1].map(a => element.E.getVariable(a, element))
+                    const globalObject = (typeof window[statement[0][0]] === 'function' && window[statement[0][0]].prototype) ? (new window[statement[0][0]](...statement[1])) : window[statement[0][0]]
+                    return globalObject
+                }
+            },
             resolveMergeToken: {
                 enumerable: true, value: function (token, element) {
                     if (!token) return '$0'

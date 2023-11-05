@@ -129,23 +129,18 @@
             }
         }
 
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'contentType') }
+        set contentType(value) { this.#contentType = value }
+
         get ['content-type']() { return this.contentType }
         set ['content-type'](value) { this.contentType = value }
 
-        get contentType() {
-            if (this.#contentType !== this.getAttribute('content-type')) this.contentType = this.getAttribute('content-type')
-            return this.#contentType
-        }
-        set contentType(value) { this.#contentType = value }
-
-        get listen() {
-            if (this.#listen !== this.getAttribute('listen')) this.listen = this.getAttribute('listen')
-            return this.#listen
-        }
+        get listen() { return this.E.utils.safeGet(this, this.#listen, 'listen') }
         set listen(value) { this.#listen = value }
 
-        get options() { return this.#options }
+        get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
         set options(value) {
+            if (this.#options === value) return
             this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
             this.#options = value
         }
@@ -158,16 +153,14 @@
 
         get resource() { return this.#resource }
 
-        get transform() {
-            if (this.#transform !== this.getAttribute('transform')) this.transform = this.getAttribute('transform')
-            return this.#transform
-        }
+        get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) { this.#transform = value }
 
         get value() { return this.#value }
 
-        get via() { return this.#via }
+        get via() { return this.E.utils.safeGet(this, this.#via, 'via') }
         set via(value) {
+            if (this.#via === value) return
             this._setResource(value)
             this.#via = value
         }
