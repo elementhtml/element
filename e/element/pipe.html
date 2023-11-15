@@ -125,21 +125,27 @@
 
         #receive(event) {
             this.dispatchEvent(new CustomEvent('receive', { detail: event }))
+            const finish = detail => {
+                this.#value = detail
+                this.dispatchEvent(new CustomEvent('change', { detail }))
+            }, process = detail => {
+                let transform = this.E.getVariable(this.transform, this)
+                if (transform) {
+                    try {
+                        this.E.expandTransform(transform, this).then(transform => {
+                            this.E.env.libraries.jsonata(transform).evaluate(event).then(result => finish(result))
+                        })
+                    } catch (e) {
+                        this.E.utils.processError('transform', e, this, e)
+                    }
+                } else { finish(result) }
+            }
             if (event instanceof MessageEvent) {
-                this.#parse(event.data).then(detail => {
-                    this.#value = detail
-                    this.dispatchEvent(new CustomEvent('change', { detail }))
-                })
+                this.#parse(event.data).then(detail => process(detail))
             } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
-                this.#parse(event.detail).then(detail => {
-                    this.#value = detail
-                    this.dispatchEvent(new CustomEvent('change', { detail }))
-                })
+                this.#parse(event.detail).then(detail => process(detail))
             } else if (event instanceof Response) {
-                this.#parse(event).then(detail => {
-                    this.#value = detail
-                    this.dispatchEvent(new CustomEvent('change', { detail }))
-                })
+                this.#parse(event).then(detail => process(detail))
             }
         }
 
