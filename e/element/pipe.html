@@ -90,18 +90,6 @@
                     this.#receiver = payload => {
                         if (typeof this.#hub[receiverName] === 'function') this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)), payload)
                     }
-                } else if (receiverStatement.includes('{')) {
-                    this.#receiver = payload => {
-                        if (this.#hub[receiverName] instanceof Object) {
-                            if (payload instanceof Object) Object.assign(...this.#hub[receiverName], payload)
-                        } else { this.#hub[receiverName] = payload }
-                    }
-                } else if (receiverStatement.includes('[')) {
-                    this.#receiver = payload => {
-                        if (Array.isArray(this.#hub[receiverName])) {
-                            this.#hub[receiverName].push(payload)
-                        } else { this.#hub[receiverName] = [payload] }
-                    }
                 } else {
                     this.#receiver = undefined
                     if (receiverName) this.#hub.addEventListener(receiverName, event => this.#receive(event))
