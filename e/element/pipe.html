@@ -10,8 +10,11 @@
         #options
         #optionsMap = {}
         #queue = []
+        #receiver
+        #receiverArgs = []
         #send
-        #sendArgs = []
+        #sender
+        #senderArgs = []
         #transform
         #value
         #via
@@ -26,7 +29,7 @@
 
         async send(payload) {
             if (this.#hubAvailable) {
-                const sender = (this.E.env.map.get(this) ?? {}).send
+                const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
                 if (typeof sender === 'function') {
                     sender(payload, this)
                 } else if (this.#hub instanceof WebSocket) {
@@ -40,7 +43,7 @@
                     const eventDetail = payload instanceof Object ? payload : { detail: payload }
                     this.dispatchEvent(new CustomEvent(this.#via, eventDetail))
                 } else if (this.#hub instanceof Object) {
-                    const methodName = this.#send || 'send'
+                    const methodName = 'send'
                     if (typeof this.#hub[methodName] === 'function') {
                         this.#hub[methodName](payload)
                     } else {
@@ -55,6 +58,10 @@
             } else { this.#queue.push(payload) }
         }
 
+        async refresh() {
+
+        }
+
         #createHub(via) {
             this.#hubAvailable = false
             this.#queue = []
@@ -62,20 +69,40 @@
             this.#abortController = new AbortController()
             via = this.E.getVariable(via, this)
             if (via[0] === '`' && via.endsWith('`')) {
-                let [sendStatement, ...hubStatement] = via.slice(1, -1).split('.').map(s => s.trim()).filter(s => !!s).reverse()
-                if (sendStatement && !hubStatement.length) {
-                    hubStatement = sendStatement
-                    sendStatement = undefined
+                let [hubSendStatement, receiveStatement] = via.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
+                let [senderStatement, ...hubStatement] = hubSendStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
+                if (senderStatement && !hubStatement.length) {
+                    hubStatement = senderStatement
+                    senderStatement = undefined
                 } else { hubStatement = hubStatement.join('.') }
                 this.#hub = this.E.utils.resolveGlobal(hubStatement, this)
                 if (!this.#hub) return
-                const [sendName, sendArgs] = sendStatement.split('(').map(s => s.trim())
-                this.#send = sendName || undefined
-                this.#sendArgs = (sendArgs ?? '').slice(0, -1).split(',').map(s => s.trim())
+                let [senderName, senderArgs] = senderStatement.split('(').map(s => s.trim()).filter(s => !!s)
+                senderArgs = (senderArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
+                this.#sender = payload => {
+                    if (typeof this.#hub[senderName] === 'function') {
+                        this.#hub[senderName](...senderArgs.map(a => this.E.getVariable(a, this)), payload)
+                    } else if ((this.#hub[senderName] instanceof Object) && (payload instanceof Object)) {
+                        Object.assign(...this.#hub[senderName], payload)
+                    }
+                }
+                let [receiverName, receiverArgs] = receiverStatement.split('(').map(s => s.trim()).filter(s => !!s)
+                receiverArgs = (receiverArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
+                if (receiveStatement.includes('(')) {
+                    this.#receiver = payload => {
+                        if (typeof this.#hub[receiverName] === 'function') {
+                            this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)), payload)
+                        } else if ((this.#hub[receiverName] instanceof Object) && (payload instanceof Object)) {
+                            Object.assign(...this.#hub[receiverName], payload)
+                        }
+                    }
+                } else {
+                    this.#receiver = undefined
+                    if (receiverName) this.#hub.addEventListener(receiverName, event => this.#receive(event))
+                }
                 this.#hubAvailable = true
                 for (const j of this.#queue) this.send(j)
             } else if (via.startsWith('wss://')) {
-                this.#send = 'send'
                 this.#sendArgs = []
                 const makeSocket = () => {
                     const optionsMap = this.optionsMap ?? {}
