@@ -11,10 +11,8 @@
         #optionsMap = {}
         #queue = []
         #receiver
-        #receiverArgs = []
         #send
         #sender
-        #senderArgs = []
         #transform
         #value
         #via
@@ -69,7 +67,7 @@
             this.#abortController = new AbortController()
             via = this.E.getVariable(via, this)
             if (via[0] === '`' && via.endsWith('`')) {
-                let [hubSendStatement, receiveStatement] = via.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
+                let [hubSendStatement, receiverStatement] = via.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
                 let [senderStatement, ...hubStatement] = hubSendStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
                 if (senderStatement && !hubStatement.length) {
                     hubStatement = senderStatement
@@ -88,7 +86,7 @@
                 }
                 let [receiverName, receiverArgs] = receiverStatement.split('(').map(s => s.trim()).filter(s => !!s)
                 receiverArgs = (receiverArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
-                if (receiveStatement.includes('(')) {
+                if (receiverStatement.includes('(')) {
                     this.#receiver = payload => {
                         if (typeof this.#hub[receiverName] === 'function') {
                             this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)), payload)
@@ -103,7 +101,6 @@
                 this.#hubAvailable = true
                 for (const j of this.#queue) this.send(j)
             } else if (via.startsWith('wss://')) {
-                this.#sendArgs = []
                 const makeSocket = () => {
                     const optionsMap = this.optionsMap ?? {}
                     this.#hub = new WebSocket(via, optionsMap.protocols ?? [])
