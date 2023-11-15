@@ -25,7 +25,7 @@
 
         async connectedCallback() { }
 
-        async send(payload) {
+        send(payload) {
             if (this.#hubAvailable) {
                 const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
                 if (typeof sender === 'function') {
