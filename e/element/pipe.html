@@ -5,105 +5,109 @@
 
         #abortController = new AbortController()
         #contentType
-        #listen
-        #options
-        #optionsMap
-        #resource
-        #resourceReady
-        #sendQueue = []
-        #transform
-        #value
-        #via
-
-        _contentType = 'application/json'
-        _defaultListen = 'message'
-        _defaultUse = 'detail'
-        __ = '.value'
-        _optionsTransform
-        _resourceClass = 'EventTarget'
-        _resourceNewArgs = ''
-        _resourceReadyTest
-        _sendMethodName
-
         #hub
         #hubAvailable = false
-        #via
-        #send
-        #sendArgs = []
         #options
         #optionsMap = {}
         #queue = []
         #receive
+        #send
+        #sendArgs = []
+        #transform
+        #value
+        #via
 
         constructor() {
             super()
-            this.addEventListener('_ready', event => {
-                for (const q of this.#sendQueue) this.send(q)
-            })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('hub', 'via', 'transform', 'content-type', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'content-type', 'options') }
 
         async connectedCallback() { }
 
         async send(payload) {
-            if (this.#resourceReady) {
-                const sender = (this.E.env.map.get(this) ?? {}).sender, sendMethodName = this.getAttribute('send')
+            if (this.#hubAvailable) {
+                const sender = (this.E.env.map.get(this) ?? {}).send
                 if (typeof sender === 'function') {
-                    await sender(payload, this)
-                } else if (sendMethodName && (typeof this.#resource[sendMethodName] === 'function')) {
-                    await this.#resource[sendMethodName](payload, this)
-                } else if (this._sendMethodName && (typeof this.#resource[this._sendMethodName] === 'function')) {
-                    await this.#resource[this._sendMethodName](payload, this)
-                } else if (typeof this._sender === 'function') {
-                    await this._sender(payload, this)
+                    sender(payload, this)
+                } else if (this.#hub instanceof WebSocket) {
+                    this.#hub.send(payload)
+                } else if (this.#hub instanceof EventSource) {
+                    const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
+                    fetch(this.#hub.url, { ...(this.optionsMap ?? {}), ...requestOptions })
+                } else if (this.#hub instanceof WebTransport) {
+
+                } else if (this.#hub instanceof EventTarget) {
+                    const eventDetail = payload instanceof Object ? payload : { detail: payload }
+                    this.dispatchEvent(new CustomEvent(this.#via, eventDetail))
+                } else if (this.#hub instanceof Object) {
+                    const methodName = this.#send || 'send'
+                    if (typeof this.#hub[methodName] === 'function') {
+                        this.#hub[methodName](payload)
+                    } else {
+                        this.#hub[methodName] = payload
+                    }
+                } else if (this.#hub instanceof Function) {
+                    this.#hub(payload)
+                } else if (typeof this.#hub === 'string') {
+                    const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
+                    fetch(this.#hub, { ...(this.optionsMap ?? {}), ...requestOptions }).then(response => this.#receive(response))
                 }
-            } else { this.#sendQueue.push(payload) }
+            } else { this.#queue.push(payload) }
         }
 
-        #createHub() {
+        #createHub(via) {
             this.#hubAvailable = false
             this.#queue = []
-            if (!this.#via) {
-                this.#hub = new EventTarget()
-                this.#hubAvailable = true
-            } else if (this.#via[0] === '`') {
-                const [hubStatement, sendStatement] = this.#via.slice(1).split('`', 2).map(s => s.trim())
+            this.#abortController.abort()
+            this.#abortController = new AbortController()
+            via = this.E.getVariable(via, this)
+            if (via[0] === '`') {
+                const [hubStatement, sendStatement] = via.slice(1).split('`', 2).map(s => s.trim())
                 this.#hub = this.E.utils.resolveGlobal(hubStatement, this)
                 if (!this.#hub) return
                 const [sendName, sendArgs] = sendStatement.split('(').map(s => s.trim())
                 this.#send = sendName || undefined
                 this.#sendArgs = (sendArgs ?? '').slice(0, -1).split(',').map(s => s.trim())
                 this.#hubAvailable = true
-            } else if (this.#via.startsWith('wss://')) {
+                for (const j of this.#queue) this.send(j)
+            } else if (via.startsWith('wss://')) {
                 this.#send = 'send'
                 this.#sendArgs = []
                 const makeSocket = () => {
                     const optionsMap = this.optionsMap ?? {}
-                    this.#hub = new WebSocket(this.#via, optionsMap.protocols ?? [])
+                    this.#hub = new WebSocket(via, optionsMap.protocols ?? [])
                     if (optionsMap.binaryType) this.#hub.binaryType = optionsMap.binaryType
-                    this.#hub.addEventListener('open', event => this.#hubAvailable = true, { once: true })
-                    this.#hub.addEventListener('error', event => this.#hubAvailable = false)
+                    this.#hub.addEventListener('open', event => {
+                        this.#hubAvailable = true
+                        for (const j of this.#queue) this.send(j)
+                    }, { once: true, signal: this.#abortController.signal })
+                    this.#hub.addEventListener('error', event => this.#hubAvailable = false, { signal: this.#abortController.signal })
                     this.#hub.addEventListener('close', event => {
                         this.#hubAvailable = false
                         makeSocket()
-                    }, { once: true })
-                    this.#hub.addEventListener('message', event => this.#receive(event))
+                    }, { once: true, signal: this.#abortController.signal })
+                    this.#hub.addEventListener('message', event => this.#receive(event), { signal: this.#abortController.signal })
                 }
                 makeSocket()
-            } else if (this.#via.startsWith('https://') || this.#via.startsWith('http://')) {
-                this.#hub = this.#via
+            } else if (via.startsWith('https://') || via.startsWith('http://')) {
+                this.#hub = via
                 this.#hubAvailable = true
-            } else if (this.#via.startsWith('sse://')) {
-                const [url, events = ['message']] = this.#via.split('!', 2)
+                for (const j of this.#queue) this.send(j)
+            } else if (via.startsWith('sse://')) {
+                const [url, events = ['message']] = via.split('!', 2)
                 this.#hub = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
-                this.#hub.addEventListener('open', event => this.#hubAvailable = true)
-                for (const eventName of events) this.#hub.addEventListener(eventName, event => this.#receive(event))
-            } else if (this.#via.startsWith('wt://')) {
+                this.#hub.addEventListener('open', event => {
+                    this.#hubAvailable = true
+                    for (const j of this.#queue) this.send(j)
+                }, { signal: this.#abortController.signal })
+                for (const eventName of events) this.#hub.addEventListener(eventName, event => this.#receive(event), { signal: this.#abortController.signal })
+            } else if (via.startsWith('wt://')) {
                 const makeTransport = () => {
-                    this.#hub = new WebTransport(this.#via.replace('wt://', 'https://'), this.optionsMap)
+                    this.#hub = new WebTransport(via.replace('wt://', 'https://'), this.optionsMap)
                     this.#hub.ready.then(() => {
                         this.#hubAvailable = true
+                        for (const j of this.#queue) this.send(j)
                     })
                     this.#hub.closed.then(() => {
                         this.#hubAvailable = false
@@ -111,88 +115,31 @@
                     })
                 }
                 makeTransport()
-
-
-
+            } else if (via) {
+                this.#hub = new EventTarget()
+                this.addEventListener(via, event => this.#receive(event), { signal: this.#abortController.signal })
+                this.#hubAvailable = true
+                for (const j of this.#queue) this.send(j)
             }
         }
 
-
-        async _setResource(signature) {
-            let use = this._defaultUse, listen = this.listen || this._defaultListen, contentType = this.contentType,
-                transform = await this.E.expandTransform(this.transform, this), options = this.optionsMap
-            if (!signature || (signature.endsWith(')') && signature.includes('('))) {
-                const [resourceClass, newArgs] = signature ? (signature.slice(0, -1).split('(')) : [(this._resourceClass ?? 'EventTarget'), (this._resourceNewArgs ?? '')], args = newArgs.split(',').map(a => this.E.utils.resolveMergeToken(a, this))
-                const optionsArgs = (this._optionsTransform) ? await this.E.env.libraries.jsonata(this._optionsTransform).evaluate(options ?? {}) : (options ? [options] : [])
-                if (typeof window[resourceClass] !== 'function') return
-                this.#resource = new window[resourceClass](...args, ...optionsArgs)
-                if (typeof this._resourceReadyTest === 'function') {
-                    this.E.utils.waitUntil(async () => { this._resourceReadyTest(this.#resource, this) })
-                } else { this.#resourceReady = true }
-            } else {
-                const url = this.E.resolveUrl(signature)
-                if (url.startsWith('wss://')) {
-                    let binaryType = (options ?? {}).binaryType
-                    if (binaryType) delete options.binaryType
-                    this.#resource = new WebSocket(url, (options ?? {}))
-                    if (binaryType) this.#resource.binaryType = binaryType
-                    this.#resource.addEventListener('open', event => {
-                        this.#resourceReady = true
-                        this.dispatchEvent(new CustomEvent('_ready'))
-                    })
-                    this.#resource.addEventListener('close', event => {
-                        this.#resourceReady = false
-                        this.#abortController.abort()
-                        this.#abortController = new AbortController()
-                        this._setResource(signature)
-                    })
-                    this.#resource.addEventListener('error', event => { })
-                    use = 'data'
-                } else {
-                    if (!listen || listen.includes('$')) {
-                        this._sender = async (payload) => {
-                            const requestOptions = this.optionsMap ?? {}
-                            if (payload) requestOptions.body = payload
-                            if (payload && (typeof payload !== 'string')) payload = await this.#serialize(payload, contentType ?? this._contentType)
-                            const result = await this.#parse((await fetch(url, requestOptions)), contentType)
-                            if (transform) result = await this.E.env.libraries.jsonata(transform).evaluate(result)
-                            this.#value = result
-                            this.dispatchEvent(new CustomEvent('change', { detail: result }))
-                        }
-                        if (listen.includes('$')) {
-                            await this._sender()
-                            if (listen === '$') this.#resourceReady = true
-                        }
-                    }
-                    if (listen && (listen !== '$')) {
-                        this.#resource = new EventSource(url, options)
-                        this.#resource.addEventListener('open', event => {
-                            this.#resourceReady = true
-                        })
-                        this.#resource.addEventListener('error', event => { })
-                        use = 'data'
-                    }
-                }
-            }
-            if (!(this.#resource instanceof EventTarget)) return
-            let eventMaps = (listen || '').split(',').map(s => s.trim())
-            for (const eventMap of eventMaps) {
-                if (eventMap === '$') continue
-                let [listenToUse = this._defaultListen, dispatchAs] = eventMap.split('|').map(s => s.trim()), listenTo, thisUse = use
-                if (listenToUse.includes('.')) {
-                    let listenToUseSplit = listenToUse.split('.').map(s => s.trim())
-                    thisUse = listenToUseSplit.pop() || use
-                    listenTo = listenToUseSplit.join('.')
-                } else { listenTo = listenToUse }
-                dispatchAs ||= listenTo
-                this.#resource.addEventListener(listenTo, async event => {
-                    let payload = event[thisUse || 'detail']
-                    if (contentType && ((typeof payload === 'string') || (payload instanceof Response))) payload = await this.#parse(payload, contentType)
-                    if (transform) payload = await this.E.env.libraries.jsonata(transform).evaluate(payload)
-                    this.#value = payload
-                    if (dispatchAs !== 'change') this.dispatchEvent(new CustomEvent('change', { detail: payload }))
-                    this.dispatchEvent(new CustomEvent(dispatchAs, { detail: payload }))
-                }, { signal: this.#abortController.signal })
+        #receive(event) {
+            this.dispatchEvent(new CustomEvent('receive', { detail: event }))
+            if (event instanceof MessageEvent) {
+                this.#parse(event.data).then(detail => {
+                    this.#value = detail
+                    this.dispatchEvent(new CustomEvent('change', { detail }))
+                })
+            } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
+                this.#parse(event.detail).then(detail => {
+                    this.#value = detail
+                    this.dispatchEvent(new CustomEvent('change', { detail }))
+                })
+            } else if (event instanceof Response) {
+                this.#parse(event).then(detail => {
+                    this.#value = detail
+                    this.dispatchEvent(new CustomEvent('change', { detail }))
+                })
             }
         }
 
@@ -202,8 +149,7 @@
         get ['content-type']() { return this.contentType }
         set ['content-type'](value) { this.contentType = value }
 
-        get listen() { return this.E.utils.safeGet(this, this.#listen, 'listen') }
-        set listen(value) { this.#listen = value }
+        get hub() { return this.#hub }
 
         get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
         set options(value) {
@@ -218,8 +164,6 @@
             return this.#optionsMap
         }
 
-        get resource() { return this.#resource }
-
         get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) { this.#transform = value }
 
@@ -228,12 +172,13 @@
         get via() { return this.E.utils.safeGet(this, this.#via, 'via') }
         set via(value) {
             if (this.#via === value) return
-            this._setResource(value)
+            this.#createHub(value)
             this.#via = value
         }
 
         async #parse(value, contentType) {
             const parser = (this.E.env.map.get(this) ?? {}).parser
+            contentType ||= this.contentType
             return (typeof parser === 'function') ? (await parser(value, this, contentType)) : (await this.E.parse(value, this, contentType))
         }
 
@@ -243,4 +188,5 @@
         }
 
     }
+
 </script>
