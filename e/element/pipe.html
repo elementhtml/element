@@ -10,7 +10,6 @@
         #options
         #optionsMap = {}
         #queue = []
-        #receive
         #send
         #sendArgs = []
         #transform
@@ -62,8 +61,12 @@
             this.#abortController.abort()
             this.#abortController = new AbortController()
             via = this.E.getVariable(via, this)
-            if (via[0] === '`') {
-                const [hubStatement, sendStatement] = via.slice(1).split('`', 2).map(s => s.trim())
+            if (via[0] === '`' && via.endsWith('`')) {
+                let [sendStatement, ...hubStatement] = via.slice(1, -1).split('.').map(s => s.trim()).filter(s => !!s).reverse()
+                if (sendStatement && !hubStatement.length) {
+                    hubStatement = sendStatement
+                    sendStatement = undefined
+                } else { hubStatement = hubStatement.join('.') }
                 this.#hub = this.E.utils.resolveGlobal(hubStatement, this)
                 if (!this.#hub) return
                 const [sendName, sendArgs] = sendStatement.split('(').map(s => s.trim())
