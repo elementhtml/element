@@ -63,6 +63,7 @@
         #createHub(via) {
             this.#hubAvailable = false
             this.#queue = []
+            this.#receiver = undefined
             this.#abortController.abort()
             this.#abortController = new AbortController()
             via = this.E.getVariable(via, this)
@@ -87,11 +88,10 @@
                 let [receiverName, receiverArgs] = receiverStatement.split(/{|\(|\[/).map(s => s.trim()).filter(s => !!s)
                 receiverArgs = (receiverArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
                 if (receiverStatement.includes('(')) {
-                    this.#receiver = payload => {
-                        if (typeof this.#hub[receiverName] === 'function') this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)), payload)
+                    this.#receiver = () => {
+                        if (typeof this.#hub[receiverName] === 'function') return this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)))
                     }
                 } else {
-                    this.#receiver = undefined
                     if (receiverName) this.#hub.addEventListener(receiverName, event => this.#receive(event))
                 }
                 this.#hubAvailable = true
@@ -196,7 +196,18 @@
         get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) { this.#transform = value }
 
-        get value() { return this.#value }
+        get value() {
+            let currentValue = this.#value
+            if (typeof this.#receiver === 'function') {
+                currentValue = this.#receiver()
+                this.dispatchEvent(new CustomEvent('receive'))
+            }
+            if (JSON.stringify(currentValue ?? null) !== JSON.stringify(this.#value ?? null)) {
+                this.#value = currentValue
+                this.dispatchEvent(new CustomEvent('change', { detail: currentValue }))
+            }
+            return this.#value
+        }
 
         get via() { return this.E.utils.safeGet(this, this.#via, 'via') }
         set via(value) {
