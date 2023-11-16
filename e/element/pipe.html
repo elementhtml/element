@@ -13,7 +13,6 @@
         #receiver
         #send
         #sender
-        #transform
         #value
         #via
 
@@ -21,11 +20,12 @@
             super()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'transform', 'content-type', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'content-type', 'options') }
 
         async connectedCallback() { }
 
         send(payload) {
+            console.log('line 29', payload)
             if (this.#hubAvailable) {
                 const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
                 if (typeof sender === 'function') {
@@ -151,24 +151,13 @@
             const finish = detail => {
                 this.#value = detail
                 this.dispatchEvent(new CustomEvent('change', { detail }))
-            }, process = detail => {
-                let transform = this.E.getVariable(this.transform, this)
-                if (transform) {
-                    try {
-                        this.E.expandTransform(transform, this).then(transform => {
-                            this.E.env.libraries.jsonata(transform).evaluate(event).then(result => finish(result))
-                        })
-                    } catch (e) {
-                        this.E.utils.processError('transform', e, this, e)
-                    }
-                } else { finish(result) }
             }
             if (event instanceof MessageEvent) {
-                this.#parse(event.data).then(detail => process(detail))
+                this.#parse(event.data).then(detail => finish(detail))
             } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
-                this.#parse(event.detail).then(detail => process(detail))
+                this.#parse(event.detail).then(detail => finish(detail))
             } else if (event instanceof Response) {
-                this.#parse(event).then(detail => process(detail))
+                this.#parse(event).then(detail => finish(detail))
             }
         }
 
@@ -192,9 +181,6 @@
             if (this.#options !== optionsAttr) this.#optionsMap = this.E.utils.parseObjectAttribute(optionsAttr, this)
             return this.#optionsMap
         }
-
-        get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
-        set transform(value) { this.#transform = value }
 
         get value() {
             let currentValue = this.#value
