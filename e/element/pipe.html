@@ -25,7 +25,7 @@
         async connectedCallback() { }
 
         send(payload) {
-            console.log('line 29', payload)
+            console.log('pipe.html: line 29', payload)
             if (this.#hubAvailable) {
                 const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
                 if (typeof sender === 'function') {

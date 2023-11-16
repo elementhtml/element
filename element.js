@@ -961,22 +961,35 @@ const ElementHTML = Object.defineProperties({}, {
             return inheritance
         }
     },
-    getValueOf: {
+    flatten: {
         enumerable: true, value: function (element) {
-            const override = (this.env.map.get(element) ?? {})['eValueOf']
+            const override = (this.env.map.get(element) ?? {})['eFlatten']
             if (override) return typeof override === 'function' ? override(element) : override
             return {
-                ...Object.fromEntries(Object.entries(element)),
-                ...Object.fromEntries(Object.entries(element.dataset).map(ent => ([`dataset.${ent[0]}`, ent[1]]))),
                 ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
                 ...Object.fromEntries(['baseURI', 'checked', 'childElementCount', 'className',
                     'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
                     'id', 'innerHTML', 'innerText', 'lang', 'localName', 'namespaceURI',
                     'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'style', 'tagName', 'textContent', 'title', 'value'].map(p => ([`${p}`, element[p]]))),
-                [`.tag`]: element.tagName.toLowerCase()
+                    'selected', 'slot', 'style', 'tagName', 'textContent', 'title', 'value'].map(p => ([p, element[p]])))
             }
+        }
+    },
+    hydrate: {
+        enumerable: true, value: function (jsonString) {
+            let elementMap
+            try { elementMap = JSON.parse(jsonString) } catch (e) { return }
+            if (!(elementMap instanceof Object)) return
+            if (!elementMap.tagName) return
+            element = document.createElement(elementMap.tagName)
+            for (const [k, v] of Object.entries(elementMap)) {
+                if (k === 'tagName') continue
+                if (k.startsWith('@')) {
+                    element.setAttribute(k.slice(1), v)
+                } else { element[k] = v }
+            }
+            return element
         }
     },
     getVariable: {
@@ -1370,7 +1383,7 @@ const ElementHTML = Object.defineProperties({}, {
                 async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-                valueOf() { return this.E.getValueOf(this) }
+                valueOf() { return this.E.flatten(this) }
                 set _(value) { this.#_ = value }
                 get _() { return this.#_ }
             }
