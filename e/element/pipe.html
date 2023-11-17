@@ -9,22 +9,39 @@
         #hubAvailable = false
         #options
         #optionsMap = {}
+        #project
         #queue = []
         #receiver
         #send
         #sender
+        #source
+        #transform
         #value
-        #via
 
         constructor() {
             super()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('via', 'content-type', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type', 'options', 'project', 'source', 'transform') }
 
         async connectedCallback() { }
 
-        send(payload) {
+        read(event) {
+            this.dispatchEvent(new CustomEvent('receive', { detail: event }))
+            const finish = detail => {
+                this.#value = detail
+                this.dispatchEvent(new CustomEvent('change', { detail }))
+            }
+            if (event instanceof MessageEvent) {
+                this.#parse(event.data).then(detail => finish(detail))
+            } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
+                this.#parse(event.detail).then(detail => finish(detail))
+            } else if (event instanceof Response) {
+                this.#parse(event).then(detail => finish(detail))
+            }
+        }
+
+        write(payload) {
             console.log('pipe.html: line 29', payload)
             if (this.#hubAvailable) {
                 const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
@@ -60,7 +77,7 @@
 
         }
 
-        #createHub(via) {
+        #connectSource(via) {
             this.#hubAvailable = false
             this.#queue = []
             this.#receiver = undefined
@@ -146,21 +163,6 @@
             }
         }
 
-        #receive(event) {
-            this.dispatchEvent(new CustomEvent('receive', { detail: event }))
-            const finish = detail => {
-                this.#value = detail
-                this.dispatchEvent(new CustomEvent('change', { detail }))
-            }
-            if (event instanceof MessageEvent) {
-                this.#parse(event.data).then(detail => finish(detail))
-            } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
-                this.#parse(event.detail).then(detail => finish(detail))
-            } else if (event instanceof Response) {
-                this.#parse(event).then(detail => finish(detail))
-            }
-        }
-
         get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'contentType') }
         set contentType(value) { this.#contentType = value }
 
@@ -182,6 +184,18 @@
             return this.#optionsMap
         }
 
+        get project() { return this.E.utils.safeGet(this, this.#project, 'project') }
+        set project(value) {
+            if (this.#project === value) return
+            this.#project = value
+        }
+
+        get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
+        set transform(value) {
+            if (this.#transform === value) return
+            this.#transform = value
+        }
+
         get value() {
             let currentValue = this.#value
             if (typeof this.#receiver === 'function') {
@@ -195,11 +209,11 @@
             return this.#value
         }
 
-        get via() { return this.E.utils.safeGet(this, this.#via, 'via') }
-        set via(value) {
-            if (this.#via === value) return
-            this.#createHub(value)
-            this.#via = value
+        get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
+        set source(value) {
+            if (this.#source === value) return
+            this.#connectSource(value)
+            this.#source = value
         }
 
         async #parse(value, contentType) {
