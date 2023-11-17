@@ -4,7 +4,7 @@
 [elementhtml.dev](https://elementhtml.dev)
 
 ## Watch
-[@elementhtml on Youtube](https://www.youtube.com/@elementhtml)
+[@elementhtml on YouTube](https://www.youtube.com/@elementhtml)
 
 ## Chat
 [@elementhtml on Mastodon](https://mastodon.social/@elementhtml)
