@@ -917,7 +917,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             try {
                 const variables = []
-                if (transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
+                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
@@ -948,17 +948,11 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
             } catch (e) {
+                if (!element) return
                 element.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
                 if (element.errors === 'throw') { throw new Error(e); return } else if (element.errors === 'hide') { transform = transform }
             }
             return transform
-        }
-    },
-    getInheritance: {
-        enumerable: true, value: function (id = 'HTMLElement') {
-            const inheritance = [id]
-            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
-            return inheritance
         }
     },
     flatten: {
@@ -976,20 +970,11 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    hydrate: {
-        enumerable: true, value: function (jsonString) {
-            let elementMap
-            try { elementMap = JSON.parse(jsonString) } catch (e) { return }
-            if (!(elementMap instanceof Object)) return
-            if (!elementMap.tagName) return
-            element = document.createElement(elementMap.tagName)
-            for (const [k, v] of Object.entries(elementMap)) {
-                if (k === 'tagName') continue
-                if (k.startsWith('@')) {
-                    element.setAttribute(k.slice(1), v)
-                } else { element[k] = v }
-            }
-            return element
+    getInheritance: {
+        enumerable: true, value: function (id = 'HTMLElement') {
+            const inheritance = [id]
+            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
+            return inheritance
         }
     },
     getVariable: {
@@ -1014,6 +999,22 @@ const ElementHTML = Object.defineProperties({}, {
                 variableValue = this.utils.getVariableResult(variableValue, args, element)
             }
             return variableValue
+        }
+    },
+    hydrate: {
+        enumerable: true, value: function (jsonString) {
+            let elementMap
+            try { elementMap = JSON.parse(jsonString) } catch (e) { return }
+            if (!(elementMap instanceof Object)) return
+            if (!elementMap.tagName) return
+            element = document.createElement(elementMap.tagName)
+            for (const [k, v] of Object.entries(elementMap)) {
+                if (k === 'tagName') continue
+                if (k.startsWith('@')) {
+                    element.setAttribute(k.slice(1), v)
+                } else { element[k] = v }
+            }
+            return element
         }
     },
     installLibraryFromSrc: {
@@ -1093,6 +1094,21 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value.includes('/')) {
                 return this.resolveUrl(new URL(value, element.baseURI).href)
             } else { return this.resolveUrl(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
+        }
+    },
+    runTransform: {
+        enumerable: true, value: async function (transform, element, data = {}, variableMap = {}) {
+            transform = this.expandTransform(transform, element, variableMap)
+            if (!transform) return data
+            let result
+            try {
+                result = await this.E.env.libraries.jsonata(transform).evaluate(data)
+            } catch (e) {
+                const errors = element?.errors ?? this.env.options.errors
+                if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
+                if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
+            }
+            return result
         }
     },
     sortByInheritance: {

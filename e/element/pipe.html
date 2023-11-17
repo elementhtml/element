@@ -36,27 +36,31 @@
 
         write(payload) {
             if (this.#sourceObjectAvailable) {
-                const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
+                const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer, transform = this.transform
+                if (transform) {
+
+
+                }
                 if (typeof writer === 'function') {
                     writer(payload, this)
                 } else if (this.#sourceObject instanceof WebSocket) {
-                    this.#sourceObject.write(payload)
+                    this.#sourceObject.send(payload)
                 } else if (this.#sourceObject instanceof EventSource) {
                     const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
                     fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), ...requestOptions })
                 } else if (this.#sourceObject instanceof WebTransport) {
 
                 } else if (this.#sourceObject instanceof EventTarget) {
-                    const eventDetail = payload instanceof Object ? payload : { detail: payload }
-                    this.dispatchEvent(new CustomEvent(this.#source, eventDetail))
-                } else if (this.#sourceObject instanceof Object) {
-                    this.#sourceObject = payload
+                    this.dispatchEvent(new CustomEvent(this.#source, { detail: payload }))
+                } else if ((this.#sourceObject instanceof Object) && (payload instanceof Object)) {
+                    Object.assign(this.#sourceObject, payload)
                 } else if (this.#sourceObject instanceof Function) {
                     this.#sourceObject(payload)
                 } else if (typeof this.#sourceObject === 'string') {
                     const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
                     fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), ...requestOptions }).then(response => this.read(response))
-                }
+                } else { return }
+                this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#sendQueue.push(payload) }
         }
 

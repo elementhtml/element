@@ -110,14 +110,12 @@
             this.#createBound(value, 'resource')
             this.#resource = value
             const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-            console.log('pointer.html: line 113', autoRefresh, this.#use, this.#boundResourceEventNames)
             if (autoRefresh) { this.#refresh(); return }
             const boundTarget = this.boundTarget
             if (!boundTarget || (typeof boundTarget === 'string')) return
             if (this.#use === '$') {
                 if (autoRefresh) this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
-                console.log('pointer.html: line 119', value)
                 if (autoRefresh) this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
             }
         }
