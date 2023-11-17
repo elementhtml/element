@@ -4,10 +4,10 @@
 [elementhtml.dev](https://elementhtml.dev)
 
 ## Watch
-[Youtube](https://www.youtube.com/@elementhtml)
+[@elementhtml on Youtube](https://www.youtube.com/@elementhtml)
 
 ## Chat
-[Mastadon](https://mastodon.social/@elementhtml)
+[@elementhtml on Mastadon](https://mastodon.social/@elementhtml)
 
 ## Join
 [Discord](https://discord.gg/mxgTJ9Y3SP)
