@@ -5,15 +5,15 @@
 
         #abortController = new AbortController()
         #contentType
-        #hub
-        #hubAvailable = false
+        #sourceObject
+        #sourceObjectAvailable = false
         #options
         #optionsMap = {}
         #project
-        #queue = []
-        #receiver
+        #sendQueue = []
+        #reader
         #send
-        #sender
+        #writer
         #source
         #transform
         #value
@@ -26,141 +26,142 @@
 
         async connectedCallback() { }
 
-        read(event) {
-            this.dispatchEvent(new CustomEvent('receive', { detail: event }))
-            const finish = detail => {
-                this.#value = detail
-                this.dispatchEvent(new CustomEvent('change', { detail }))
-            }
-            if (event instanceof MessageEvent) {
-                this.#parse(event.data).then(detail => finish(detail))
-            } else if (event instanceof CustomEvent && (event.detail !== undefined)) {
-                this.#parse(event.detail).then(detail => finish(detail))
-            } else if (event instanceof Response) {
-                this.#parse(event).then(detail => finish(detail))
-            }
+        read(detail) {
+            const parseTarget = (detail instanceof CustomEvent && (detail.detail !== undefined)) ? detail.detail : ((detail instanceof MessageEvent) ? detail.data : detail)
+            this.#parse(parseTarget).then(v => {
+                this.dispatchEvent(new CustomEvent('read', { detail }))
+                this.#handleChange(v)
+            })
         }
 
         write(payload) {
-            console.log('pipe.html: line 29', payload)
-            if (this.#hubAvailable) {
-                const sender = (this.E.env.map.get(this) ?? {}).sender ?? this.#sender
-                if (typeof sender === 'function') {
-                    sender(payload, this)
-                } else if (this.#hub instanceof WebSocket) {
-                    this.#hub.send(payload)
-                } else if (this.#hub instanceof EventSource) {
+            if (this.#sourceObjectAvailable) {
+                const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
+                if (typeof writer === 'function') {
+                    writer(payload, this)
+                } else if (this.#sourceObject instanceof WebSocket) {
+                    this.#sourceObject.write(payload)
+                } else if (this.#sourceObject instanceof EventSource) {
                     const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
-                    fetch(this.#hub.url, { ...(this.optionsMap ?? {}), ...requestOptions })
-                } else if (this.#hub instanceof WebTransport) {
+                    fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), ...requestOptions })
+                } else if (this.#sourceObject instanceof WebTransport) {
 
-                } else if (this.#hub instanceof EventTarget) {
+                } else if (this.#sourceObject instanceof EventTarget) {
                     const eventDetail = payload instanceof Object ? payload : { detail: payload }
-                    this.dispatchEvent(new CustomEvent(this.#via, eventDetail))
-                } else if (this.#hub instanceof Object) {
-                    const methodName = 'send'
-                    if (typeof this.#hub[methodName] === 'function') {
-                        this.#hub[methodName](payload)
-                    } else {
-                        this.#hub[methodName] = payload
-                    }
-                } else if (this.#hub instanceof Function) {
-                    this.#hub(payload)
-                } else if (typeof this.#hub === 'string') {
+                    this.dispatchEvent(new CustomEvent(this.#source, eventDetail))
+                } else if (this.#sourceObject instanceof Object) {
+                    this.#sourceObject = payload
+                } else if (this.#sourceObject instanceof Function) {
+                    this.#sourceObject(payload)
+                } else if (typeof this.#sourceObject === 'string') {
                     const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
-                    fetch(this.#hub, { ...(this.optionsMap ?? {}), ...requestOptions }).then(response => this.#receive(response))
+                    fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), ...requestOptions }).then(response => this.read(response))
                 }
-            } else { this.#queue.push(payload) }
+            } else { this.#sendQueue.push(payload) }
         }
 
-        async refresh() {
-
-        }
-
-        #connectSource(via) {
-            this.#hubAvailable = false
-            this.#queue = []
-            this.#receiver = undefined
+        #connectSource(source) {
+            this.#sourceObjectAvailable = false
+            this.#sendQueue = []
+            this.#reader = undefined
+            this.#writer = undefined
             this.#abortController.abort()
             this.#abortController = new AbortController()
-            via = this.E.getVariable(via, this)
-            if (via[0] === '`' && via.endsWith('`')) {
-                let [hubSendStatement, receiverStatement] = via.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
-                let [senderStatement, ...hubStatement] = hubSendStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
-                if (senderStatement && !hubStatement.length) {
-                    hubStatement = senderStatement
-                    senderStatement = undefined
-                } else { hubStatement = hubStatement.join('.') }
-                this.#hub = this.E.utils.resolveGlobal(hubStatement, this)
-                if (!this.#hub) return
-                let [senderName, senderArgs] = senderStatement.split('(').map(s => s.trim()).filter(s => !!s)
-                senderArgs = (senderArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
-                this.#sender = payload => {
-                    if (typeof this.#hub[senderName] === 'function') {
-                        this.#hub[senderName](...senderArgs.map(a => this.E.getVariable(a, this)), payload)
-                    } else if ((this.#hub[senderName] instanceof Object) && (payload instanceof Object)) {
-                        Object.assign(...this.#hub[senderName], payload)
+            source = this.E.getVariable(source, this)
+            if (source[0] === '`' && source.endsWith('`')) {
+                const [sourceWriteStatement, readerStatement] = source.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
+                let [writerStatement, ...sourceStatement] = sourceWriteStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
+                if (writerStatement && !sourceStatement.length) {
+                    sourceStatement = writerStatement
+                    writerStatement = undefined
+                } else { sourceStatement = sourceStatement.join('.') }
+                this.#sourceObject = this.E.utils.resolveGlobal(sourceStatement, this)
+                if (!this.#sourceObject) return
+                let [writerName, writerArgs] = writerStatement.split('(').map(s => s.trim()).filter(s => !!s)
+                writerArgs = (writerArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
+                this.#writer = payload => {
+                    if (typeof this.#sourceObject[writerName] === 'function') {
+                        this.#sourceObject[writerName](...writerArgs.map(a => this.E.getVariable(a, this)), payload)
+                    } else if ((this.#sourceObject[writerName] instanceof Object) && (payload instanceof Object)) {
+                        Object.assign(...this.#sourceObject[writerName], payload)
                     }
                 }
-                let [receiverName, receiverArgs] = receiverStatement.split(/{|\(|\[/).map(s => s.trim()).filter(s => !!s)
-                receiverArgs = (receiverArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
-                if (receiverStatement.includes('(')) {
-                    this.#receiver = () => {
-                        if (typeof this.#hub[receiverName] === 'function') return this.#hub[receiverName](...receiverArgs.map(a => this.E.getVariable(a, this)))
+                let [readerName, readerArgs] = readerStatement.split(/{|\(|\[/).map(s => s.trim()).filter(s => !!s)
+                readerArgs = (readerArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
+                if (readerStatement.includes('(')) {
+                    this.#reader = () => {
+                        if (typeof this.#sourceObject[readerName] === 'function') return this.#sourceObject[readerName](...readerArgs.map(a => this.E.getVariable(a, this)))
                     }
-                } else {
-                    if (receiverName) this.#hub.addEventListener(receiverName, event => this.#receive(event))
-                }
-                this.#hubAvailable = true
-                for (const j of this.#queue) this.send(j)
-            } else if (via.startsWith('wss://')) {
+                } else if (readerName) { this.#sourceObject.addEventListener(readerName, event => this.read(event)) }
+                this.#sourceObjectAvailable = true
+                for (const j of this.#sendQueue) this.send(j)
+            } else if (source.startsWith('wss://')) {
                 const makeSocket = () => {
                     const optionsMap = this.optionsMap ?? {}
-                    this.#hub = new WebSocket(via, optionsMap.protocols ?? [])
-                    if (optionsMap.binaryType) this.#hub.binaryType = optionsMap.binaryType
-                    this.#hub.addEventListener('open', event => {
-                        this.#hubAvailable = true
-                        for (const j of this.#queue) this.send(j)
+                    this.#sourceObject = new WebSocket(source, optionsMap.protocols ?? [])
+                    if (optionsMap.binaryType) this.#sourceObject.binaryType = optionsMap.binaryType
+                    this.#sourceObject.addEventListener('open', event => {
+                        this.#sourceObjectAvailable = true
+                        for (const j of this.#sendQueue) this.write(j)
                     }, { once: true, signal: this.#abortController.signal })
-                    this.#hub.addEventListener('error', event => this.#hubAvailable = false, { signal: this.#abortController.signal })
-                    this.#hub.addEventListener('close', event => {
-                        this.#hubAvailable = false
+                    this.#sourceObject.addEventListener('error', event => this.#sourceObjectAvailable = false, { signal: this.#abortController.signal })
+                    this.#sourceObject.addEventListener('close', event => {
+                        this.#sourceObjectAvailable = false
                         makeSocket()
                     }, { once: true, signal: this.#abortController.signal })
-                    this.#hub.addEventListener('message', event => this.#receive(event), { signal: this.#abortController.signal })
+                    this.#sourceObject.addEventListener('message', event => this.read(event), { signal: this.#abortController.signal })
                 }
                 makeSocket()
-            } else if (via.startsWith('https://') || via.startsWith('http://')) {
-                this.#hub = via
-                this.#hubAvailable = true
-                for (const j of this.#queue) this.send(j)
-            } else if (via.startsWith('sse://')) {
-                const [url, events = ['message']] = via.split('!', 2)
-                this.#hub = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
-                this.#hub.addEventListener('open', event => {
-                    this.#hubAvailable = true
-                    for (const j of this.#queue) this.send(j)
+            } else if (source.startsWith('https://') || source.startsWith('http://')) {
+                this.#sourceObject = source
+                this.#sourceObjectAvailable = true
+                for (const j of this.#sendQueue) this.write(j)
+            } else if (source.startsWith('sse://')) {
+                const [url, events = ['message']] = source.split('!', 2)
+                this.#sourceObject = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
+                this.#sourceObject.addEventListener('open', event => {
+                    this.#sourceObjectAvailable = true
+                    for (const j of this.#sendQueue) this.write(j)
                 }, { signal: this.#abortController.signal })
-                for (const eventName of events) this.#hub.addEventListener(eventName, event => this.#receive(event), { signal: this.#abortController.signal })
-            } else if (via.startsWith('wt://')) {
+                for (const eventName of events) this.#sourceObject.addEventListener(eventName, event => this.read(event), { signal: this.#abortController.signal })
+            } else if (source.startsWith('wt://')) {
                 const makeTransport = () => {
-                    this.#hub = new WebTransport(via.replace('wt://', 'https://'), this.optionsMap)
-                    this.#hub.ready.then(() => {
-                        this.#hubAvailable = true
-                        for (const j of this.#queue) this.send(j)
+                    this.#sourceObject = new WebTransport(via.replace('wt://', 'https://'), this.optionsMap)
+                    this.#sourceObject.ready.then(() => {
+                        this.#sourceObjectAvailable = true
+                        for (const j of this.#sendQueue) this.write(j)
                     })
-                    this.#hub.closed.then(() => {
-                        this.#hubAvailable = false
+                    this.#sourceObject.closed.then(() => {
+                        this.#sourceObjectAvailable = false
                         makeTransport()
                     })
                 }
                 makeTransport()
-            } else if (via) {
-                this.#hub = new EventTarget()
-                this.addEventListener(via, event => this.#receive(event), { signal: this.#abortController.signal })
-                this.#hubAvailable = true
-                for (const j of this.#queue) this.send(j)
+            } else if (source) {
+                this.#sourceObject = new EventTarget()
+                this.addEventListener(source, event => this.read(event), { signal: this.#abortController.signal })
+                this.#sourceObjectAvailable = true
+                for (const j of this.#sendQueue) this.write(j)
             }
+        }
+
+        #handleChange(newValue) {
+            if (JSON.stringify(newValue ?? null) !== JSON.stringify(this.#value ?? null)) {
+                this.#value = newValue
+                this.dispatchEvent(new CustomEvent('change', { detail: newValue }))
+            }
+        }
+
+        async #parse(value, contentType) {
+            const parser = (this.E.env.map.get(this) ?? {}).parser
+            contentType ||= this.contentType
+            return (typeof parser === 'function') ? (await parser(value, this, contentType)) : (await this.E.parse(value, this, contentType))
+        }
+
+        async #serialize(value, contentType) {
+            const serializer = (this.E.env.map.get(this) ?? {}).serializer
+            contentType ||= this.contentType
+            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.E.serialize(value, this, contentType))
         }
 
         get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'contentType') }
@@ -168,8 +169,6 @@
 
         get ['content-type']() { return this.contentType }
         set ['content-type'](value) { this.contentType = value }
-
-        get hub() { return this.#hub }
 
         get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
         set options(value) {
@@ -190,6 +189,17 @@
             this.#project = value
         }
 
+        get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
+        set source(value) {
+            if (this.#source === value) return
+            this.#connectSource(value)
+            this.#source = value
+        }
+
+        get sourceObject() { return this.#sourceObject }
+
+        get sourceObjectAvailable() { return this.#sourceObjectAvailable }
+
         get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) {
             if (this.#transform === value) return
@@ -198,33 +208,12 @@
 
         get value() {
             let currentValue = this.#value
-            if (typeof this.#receiver === 'function') {
-                currentValue = this.#receiver()
-                this.dispatchEvent(new CustomEvent('receive'))
+            if (typeof this.#reader === 'function') {
+                currentValue = this.#reader()
+                this.dispatchEvent(new CustomEvent('read'))
             }
-            if (JSON.stringify(currentValue ?? null) !== JSON.stringify(this.#value ?? null)) {
-                this.#value = currentValue
-                this.dispatchEvent(new CustomEvent('change', { detail: currentValue }))
-            }
+            this.#handleChange(currentValue)
             return this.#value
-        }
-
-        get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
-        set source(value) {
-            if (this.#source === value) return
-            this.#connectSource(value)
-            this.#source = value
-        }
-
-        async #parse(value, contentType) {
-            const parser = (this.E.env.map.get(this) ?? {}).parser
-            contentType ||= this.contentType
-            return (typeof parser === 'function') ? (await parser(value, this, contentType)) : (await this.E.parse(value, this, contentType))
-        }
-
-        async #serialize(value, contentType) {
-            const serializer = (this.E.env.map.get(this) ?? {}).serializer
-            return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.E.serialize(value, this, contentType))
         }
 
     }
