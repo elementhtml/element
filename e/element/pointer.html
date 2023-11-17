@@ -381,7 +381,6 @@
             if (!this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
-            console.log('pointer.html: line 384', result, boundTarget)
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
