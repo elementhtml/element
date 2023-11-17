@@ -7,7 +7,7 @@
 [@elementhtml on Youtube](https://www.youtube.com/@elementhtml)
 
 ## Chat
-[@elementhtml on Mastadon](https://mastodon.social/@elementhtml)
+[@elementhtml on Mastodon](https://mastodon.social/@elementhtml)
 
 ## Join
 [Discord](https://discord.gg/mxgTJ9Y3SP)
