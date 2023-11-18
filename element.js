@@ -327,7 +327,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     getValue: {
         enumerable: true, value: function (element, useDataset = 'auto') {
-            if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
+            if (!(element instanceof HTMLElement)) return
             const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
             if (preGetValue) element = typeof preGetValue === 'function' ? preGetValue(element, useDataset) : preGetValue
             const ret = (v) => {
@@ -335,16 +335,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if (postGetValue) v = typeof postGetValue === 'function' ? postGetValue(v, element, useDataset) : postGetValue
                 return v
             }
-            if (useDataset === 'eValueOf') {
-                const override = (this.env.map.get(element) ?? {})['eValueOf']
-                if (override) return typeof override === 'function' ? override(element) : override
-                return {
-                    ...element.dataset, [`#tagName`]: element.tagName.toLowerCase(),
-                    ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
-                    ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, element[p]])))
-                }
-            }
-            if (element.hasAttribute('itemscope')) {
+            if ('value' in element) {
+                return element.value
+            } else if (element.hasAttribute('itemscope')) {
                 const value = {}, parseElementForValues = (el) => {
                     if (!el) return
                     const scopeTo = el.hasAttribute('id') ? 'id' : 'itemscope'
@@ -373,7 +366,7 @@ const ElementHTML = Object.defineProperties({}, {
             } else {
                 if (useDataset === 'auto') useDataset = !!Object.keys(element.dataset).length
                 if (useDataset) return ret({ ...element.dataset })
-                const tag = element.tagName.toLowerCase()
+                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
                 if (tag === 'meta') return ret(element.getAttribute('content'))
                 if (['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].includes(tag)) return ret(new URL(element.getAttribute('src'), element.getRootNode().baseURI).href)
                 if (['a', 'area', 'link'].includes(tag)) return ret(new URL(element.getAttribute('href'), element.getRootNode().baseURI).href)
@@ -387,7 +380,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     setValue: {
         enumerable: true, value: function (element, value, scopeNode, silent = undefined) {
-            if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
+            if (!(element instanceof HTMLElement)) return
             const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
             if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(value, element, scopeNode) : preSetValue
             const close = () => {
@@ -395,8 +388,11 @@ const ElementHTML = Object.defineProperties({}, {
                 if (postSetValue) element = typeof postSetValue === 'function' ? postSetValue(element, value, scopeNode) : postSetValue
                 if (!silent) element.dispatchEvent(new CustomEvent('change', { detail: { value, scopeNode } }))
                 return element
-            }, tag = element.tagName.toLowerCase()
-            if (value instanceof Object) {
+            }, tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+            console.log('line 392', element, value)
+            if (('value' in element) && !(value instanceof Object)) {
+                element.value = value
+            } else if (value instanceof Object) {
                 if (element.hasAttribute('itemscope')) {
                     for (const [propName, propValue] of Object.entries(value)) {
                         let propElement
@@ -450,7 +446,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
-            if ((element.nodeType !== Node.ELEMENT_NODE) && (element.nodeType !== Node.DOCUMENT_NODE)) return
+            if (!(element instanceof HTMLElement)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
             if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
             if (preSinkData instanceof Object) ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = preSinkData)
@@ -479,7 +475,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options', 'variables'])}`)
                 if (transform.includes('$sourceElement')) variables.push(`$sourceElement := ${JSON.stringify(sourceElement ? sourceElement.valueOf() : {})}`)
                 if (transform.includes('$target')) variables.push(`$target := ${JSON.stringify(this.getValue(element))}`)
-                if (transform.includes('$targetValueOf')) variables.push(`$targetValueOf := ${JSON.stringify(this.getValue(element, 'eValueOf'))}`)
                 if (transform.includes('$flag')) variables.push(`$flag := ${JSON.stringify(flag ?? '')}`)
                 if (transform.includes('$context')) variables.push(`$context := ${JSON.stringify(context ?? '')}`)
                 for (const [vn, vv] of Object.entries(this.env.variables)) {
@@ -489,17 +484,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
                 data = await this.env.libraries.jsonata(transform).evaluate(data)
             }
-            if ((data?.nodeType === Node.ELEMENT_NODE) || (data?.nodeType === Node.DOCUMENT_NODE)) {
-                if (data.eDataset) {
-                    data = data.valueOf()
-                } else {
-                    data = {
-                        ...data.dataset,
-                        ...Object.fromEntries(data.getAttributeNames().map(a => ([`@${a}`, data.getAttribute(a)]))),
-                        ...Object.fromEntries(['innerHTML', 'innerText', 'textContent', 'value'].map(p => ([`.${p}`, data[p]])))
-                    }
-                }
-            }
+            if (data instanceof HTMLElement) data = this.flatten(data)
             if (!(data instanceof Object)) return this.setValue(element, data, undefined, silent)
             if (!Object.keys(data).length) return element
             flag ||= sourceElement?.flag
@@ -1151,6 +1136,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (transform in shorthands) {
+                console.log('line 1139', transform, b, d)
                 return shorthands[transform]()
             } else if (validGlobals.includes(transform)) {
                 return window[transform]

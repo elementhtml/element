@@ -110,12 +110,17 @@
             this.#createBound(value, 'resource')
             this.#resource = value
             const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-            if (autoRefresh) { this.#refresh(); return }
+            if (autoRefresh) {
+                console.log('pointer.html: line 114')
+                this.#refresh(); return
+            }
             const boundTarget = this.boundTarget
             if (!boundTarget || (typeof boundTarget === 'string')) return
             if (this.#use === '$') {
+                console.log('pointer.html: line 120')
                 if (autoRefresh) this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
+                console.log('pointer.html: line 123')
                 if (autoRefresh) this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
             }
         }
@@ -182,7 +187,7 @@
                 let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags)
                 const attachEventListener = (node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController) => {
                     if (!node) return
-                    if ((useFlags.includes(useRefresh)) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
+                    if (useFlags.includes(useRefresh) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
                     node.addEventListener(eventName, event => {
                         let proceed = true, count = getCount()
                         if (refreshStep) proceed = (count >= start) && (!end || (count < end))
@@ -191,42 +196,49 @@
                         if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
                         if (!proceed) return
                         if (use === '!') {
+                            console.log('pointer.html: line 199')
                             this.#refresh(event)
                         } else if (use === '$') {
+                            console.log('pointer.html: line 202')
                             this.#refresh(bound)
                         } else if (use === '_') {
-                            this.#refresh(Array.isArray(bound) ? bound.map(n => this.E.getValue(n)) : this.E.getValue(node))
-                        } else { this.#refresh(this.E.getValue(node)) }
+                            console.log('pointer.html: line 205')
+                            this.#refresh(Array.isArray(bound) ? bound.map(n => this.E.getValue(n)) : this.E.getValue(bound))
+                        } else {
+                            console.log('pointer.html: line 208')
+                            this.#refresh(this.E.getValue(node))
+                        }
                     }, { signal: boundController.signal })
                 }
                 if (!scope) return
                 setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]), this)
-                if (bindStatementSplit[1]) {
-                    const processRecords = records => {
-                        let oldBound = getBound(), newBound = this.E.utils.resolveSelector(scope, bindStatementSplit[1], this)
-                        setBound(newBound)
-                        oldBound = Array.isArray(oldBound) ? oldBound : [oldBound]
-                        newBound = Array.isArray(newBound) ? newBound : [newBound]
-                        let oldBoundSet = new Set(oldBound), newBoundSet = new Set(newBound)
-                        if (mode === 'target' && (oldBound.some(b => !newBoundSet.has(b)) || newBound.some(b => !oldBoundSet.has(b)))) this.#boundTargetUpdated = true
-                        if (mode === 'resource') {
-                            if (refreshOn) {
-                                const boundController = getBoundController(), [refreshFrom, refreshStep = ''] = refreshOn.split('{')
-                                let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
-                                for (let eventName of this.#boundResourceEventNames) {
-                                    for (const node of newBound) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
-                                }
+                const processRecords = records => {
+                    let oldBound = getBound(), newBound = this.E.utils.resolveSelector(scope, bindStatementSplit[1], this)
+                    setBound(newBound)
+                    oldBound = Array.isArray(oldBound) ? oldBound : [oldBound]
+                    newBound = Array.isArray(newBound) ? newBound : [newBound]
+                    let oldBoundSet = new Set(oldBound), newBoundSet = new Set(newBound)
+                    if (mode === 'target' && (oldBound.some(b => !newBoundSet.has(b)) || newBound.some(b => !oldBoundSet.has(b)))) this.#boundTargetUpdated = true
+                    if (mode === 'resource') {
+                        if (refreshOn) {
+                            const boundController = getBoundController(), [refreshFrom, refreshStep = ''] = refreshOn.split('{')
+                            let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
+                            for (let eventName of this.#boundResourceEventNames) {
+                                for (const node of newBound) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
                             }
                         }
-                        const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-                        if (autoRefresh) this.#refresh()
                     }
-                    let observer = getBoundObserver()
-                    if (observer) processRecords(observer.takeRecords())
-                    observer && (observer.disconnect())
-                    observer = setBoundObserver(new MutationObserver(processRecords))
-                    observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
+                    const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
+                    if (autoRefresh) {
+                        console.log('pointer.html: line 233', records)
+                        this.#refresh()
+                    }
                 }
+                let observer = getBoundObserver()
+                if (observer) processRecords(observer.takeRecords())
+                observer && (observer.disconnect())
+                observer = setBoundObserver(new MutationObserver(processRecords))
+                observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeOldValue: true })
                 if (mode === 'resource') this.#use = use
                 if (refreshOn) {
                     let boundController = getBoundController()
@@ -320,6 +332,7 @@
         }
 
         async #refresh(payload) {
+            console.log('pointer.html: line 335', this, payload)
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
