@@ -1098,8 +1098,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
-            transform = this.expandTransform(transform, element, variableMap)
-            if (!transform) return data
             const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v === undefined ? [] : [v]),
                 iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = data,
                 runGlobal = (s, x, y) => {
@@ -1157,9 +1155,8 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...args)
                 }
             }
-
-
-
+            transform = this.expandTransform(transform, element, variableMap)
+            if (!transform) return data
             try {
                 result = await this.E.env.libraries.jsonata(transform).evaluate(data)
             } catch (e) {
