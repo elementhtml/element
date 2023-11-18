@@ -910,7 +910,6 @@ const ElementHTML = Object.defineProperties({}, {
     expandTransform: {
         enumerable: true, value: async function (transform, element, variableMap = {}) {
             if (!transform) return
-            await this.installLibraryFromSrc('jsonata')
             if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
                 const variableValue = this.getVariable(transform, element)
                 if (typeof variableValue === 'string') transform = variableValue
@@ -1176,6 +1175,7 @@ const ElementHTML = Object.defineProperties({}, {
             transform = this.expandTransform(transform, element, variableMap)
             if (!transform) return data
             try {
+                await this.installLibraryFromSrc('jsonata')
                 result = await this.E.env.libraries.jsonata(transform).evaluate(data)
             } catch (e) {
                 const errors = element?.errors ?? this.env.options.errors
