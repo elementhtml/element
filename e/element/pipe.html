@@ -27,16 +27,26 @@
         async connectedCallback() { }
 
         read(detail) {
-            const parseTarget = (detail instanceof CustomEvent && (detail.detail !== undefined)) ? detail.detail : ((detail instanceof MessageEvent) ? detail.data : detail)
-            this.#parse(parseTarget).then(v => {
-                this.dispatchEvent(new CustomEvent('read', { detail }))
-                this.#handleChange(v)
-            })
+            const reader = (this.E.env.map.get(this) ?? {}).reader ?? this.#reader
+            if (typeof reader === 'function') {
+                Promise.resolve(reader(detail, this)).then(result => {
+                    this.#parse(result).then(v => {
+                        this.dispatchEvent(new CustomEvent('read', { detail: result }))
+                        this.#handleChange(v)
+                    })
+                })
+            } else {
+                const parseTarget = (detail instanceof CustomEvent && (detail.detail !== undefined)) ? detail.detail : ((detail instanceof MessageEvent) ? detail.data : detail)
+                this.#parse(parseTarget).then(v => {
+                    this.dispatchEvent(new CustomEvent('read', { detail }))
+                    this.#handleChange(v)
+                })
+            }
         }
 
         write(payload) {
             if (this.#sourceObjectAvailable) {
-                payload = this.E.runTransform(this.transform, this.#value, payload, element)
+                payload = this.E.runTransform(this.transform, this.#value, payload, this)
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {
                     writer(payload, this)
@@ -129,6 +139,9 @@
                 for (const eventName of events) this.#sourceObject.addEventListener(eventName, event => this.read(event), { signal: this.#abortController.signal })
             } else if (source.startsWith('wt://')) {
                 const makeTransport = () => {
+                    const optionsMap = this.optionsMap ?? {}, { datagrams, sendOrder } = optionsMap
+                    delete optionsMap.datagrams
+                    delete optionsMap.sendOrder
                     this.#sourceObject = new WebTransport(via.replace('wt://', 'https://'), this.optionsMap)
                     this.#sourceObject.ready.then(() => {
                         this.#sourceObjectAvailable = true
@@ -137,6 +150,19 @@
                     this.#sourceObject.closed.then(() => {
                         this.#sourceObjectAvailable = false
                         makeTransport()
+                    })
+                    let stream = datagrams ? this.#sourceObject.datagrams : createBidirectionalStream({ sendOrder })
+                    Promise.resolve(stream).then(async stream => {
+                        this.#reader = async () => {
+                            const reader = stream.readable.getReader(), result = []
+                            while (true) {
+                                const { value, done } = await reader.read()
+                                result.push(...value)
+                                if (done) break
+                            }
+                            return result
+                        }
+                        this.#writer = async payload => this.#serialize(payload).then(d => stream.writable.write(Uint8Array.from((new TextEncoder()).encode(d))))
                     })
                 }
                 makeTransport()
