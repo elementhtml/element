@@ -36,11 +36,8 @@
 
         write(payload) {
             if (this.#sourceObjectAvailable) {
-                const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer, transform = this.transform
-                if (transform) {
-
-
-                }
+                payload = this.E.runTransform(this.transform, this.#value, payload, element)
+                const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {
                     writer(payload, this)
                 } else if (this.#sourceObject instanceof WebSocket) {
@@ -217,7 +214,7 @@
                 this.dispatchEvent(new CustomEvent('read'))
             }
             this.#handleChange(currentValue)
-            return this.#value
+            return this.E.runTransform(this.project, this, this.#value)
         }
 
     }
