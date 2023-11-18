@@ -48,14 +48,16 @@
                 } else if (this.#sourceObject instanceof WebTransport) {
 
                 } else if (this.#sourceObject instanceof EventTarget) {
-                    this.dispatchEvent(new CustomEvent(this.#source, { detail: payload }))
+                    this.#sourceObject.dispatchEvent(new CustomEvent(this.#source, { detail: payload }))
                 } else if ((this.#sourceObject instanceof Object) && (payload instanceof Object)) {
                     Object.assign(this.#sourceObject, payload)
                 } else if (this.#sourceObject instanceof Function) {
                     this.#sourceObject(payload)
                 } else if (typeof this.#sourceObject === 'string') {
-                    const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
-                    fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), ...requestOptions }).then(response => this.read(response))
+                    this.#serialize(payload).then(p => {
+                        const requestOptions = { ...(this.optionsMap ?? {}), body: p }
+                        fetch(this.#sourceObject, requestOptions).then(response => this.read(response))
+                    })
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#sendQueue.push(payload) }
