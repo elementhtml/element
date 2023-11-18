@@ -1101,14 +1101,12 @@ const ElementHTML = Object.defineProperties({}, {
             const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v === undefined ? [] : [v]),
                 iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = data,
                 runGlobal = (s, x, y) => {
-                    // 'Global.func(b, d)'
                     const [globalObject, funcSig] = s.split('.')
                     if (!(window[globalObject] instanceof Object)) return x
                     const [funcName] = funcSig.split('(')[0]
                     if (typeof window[globalObject][funcName] !== 'function') return x
                     return window[globalObject][funcName](x, y)
                 }, runVar = (s, x, y) => {
-                    // '$func(b, d)'
                     const funcName = s.slice(1, s.indexOf('(')), func = this.getVariable(funcName, element)
                     if (func === undefined) return x
                     if (typeof func !== 'function') return func
@@ -1126,10 +1124,6 @@ const ElementHTML = Object.defineProperties({}, {
                     'Number': '*',
                     'Object': '*',
                     'String': ['fromCharCode', 'fromCodePoint']
-                }, validVars = () => {
-                    let vars = []
-                    for (const [k, v] of Object.entries(this.env.variables)) if ((v instanceof Object) || (typeof v === 'Function')) vars.push(k)
-                    return vars
                 }, shorthands = {
                     '++': () => pI(b) + 1, '--': () => pI(b) - 1,
                     '+n': () => pF(b) + pF(d), '+n': () => pF(b) - pF(d), '*n': () => pF(b) * pF(d), '/n': () => pF(b) / pF(d),
@@ -1140,19 +1134,43 @@ const ElementHTML = Object.defineProperties({}, {
                     '{}': () => ({ ...iO(b), ...iO(d) }), '{key}': (key) => ({ ...iO(b), [key]: d })
                 }
             let result, temp
+            const getArgs = t => {
+                const r = {
+                    [`${temp}(~)`]: [d, b], [`${temp}(...,)`]: [...iA(b), d], [`${temp}(,...)`]: [b, ...iA(d)], [`${temp}(...,...)`]: [...iA(b), ...iA(d)],
+                    [`${temp}(...~)`]: [...iA(d), b], [`${temp}(~...)`]: [d, ...iA(b)], [`${temp}(...~...)`]: [...iA(d), ...iA(b)]
+                }
+                return r[t] ?? [b, d]
+            }, resolveChild = (pr, tr, tp) => {
+                pr ||= window
+                tr ||= transfrom
+                tp ||= temp
+                const [, childName] = tr.split('.'), globalObject = pr[tp]
+                if ((childName in globalObject[childName]) && (typeof globalObject[childName] !== 'function')) return globalObject[childName]
+                if (childName.includes('(')) {
+                    const [childFuncName,] = childName.split('(')
+                    if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...getArgs(`${childName}`))
+                }
+            }
             if (transform in shorthands) {
                 return shorthands[transform]()
             } else if (validGlobals.includes(transform)) {
                 return window[transform]
             } else if (temp = Object.keys(validGlobalFunctions).find(k => transform.startsWith(`${k}(`))) {
-                const args = (transform === `${temp}(~)`) ? [d, b] : [b, d]
-                return window[temp](...args)
+                return window[temp](...getArgs(transform))
             } else if (temp = Object.keys(validGlobalObjects).find(k => transform.startsWith(`${k}.`))) {
-                const [, childName] = transform.split('.'), globalObject = window[temp]
-                if ((childName in globalObject[childName]) && (typeof globalObject[childName] !== 'function')) return globalObject[childName]
-                if (childName.includes('(')) {
-                    const [childFuncName,] = childName.split('('), args = (transform === `${temp}.${childFuncName}(~)`) ? [d, b] : [b, d]
-                    if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...args)
+                return resolveChild()
+            } else if (temp = Object.entries(this.env.variables).find(ent => ((transform === `$${ent[0]}`) || transform.startsWith(`$${ent[0]}{`) || transform.startsWith(`$${ent[0]}(`) || transform.startsWith(`$${ent[0]}.`)))) {
+                let vars = []
+                for (const [k, v] of Object.entries(this.env.variables)) if ((v instanceof Object) || (typeof v === 'Function')) vars.push(k)
+                if (transform === `$${ent[0]}`) {
+                    return ent[1]
+                } else if (transform.startsWith(`$${ent[0]}{`)) {
+                    const key = (transform.match(new RegExp(`\\$${ent[0]}\\{(.*)\\}`)) ?? [])[1]
+                    return key ? { ...iO(ent[1]), [key]: d } : { ...iO(ent[1]), ...iO(d) }
+                } else if (transform.startsWith(`$${ent[0]}(`)) {
+                    if (typeof ent[1] === 'function') return ent[1](...getArgs(transform.slice(1)))
+                } else if (transform === `$${ent[0]}.`) {
+                    return resolveChild(this.env.variables, transform, ent[0])
                 }
             }
             transform = this.expandTransform(transform, element, variableMap)
