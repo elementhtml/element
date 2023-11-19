@@ -9,7 +9,6 @@
         #sourceObjectAvailable = false
         #options
         #optionsMap = {}
-        #project
         #sendQueue = []
         #reader
         #send
@@ -22,7 +21,7 @@
             super()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type', 'options', 'project', 'source', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type', 'options', 'source', 'transform') }
 
         async connectedCallback() { }
 
@@ -210,12 +209,6 @@
             return this.#optionsMap
         }
 
-        get project() { return this.E.utils.safeGet(this, this.#project, 'project') }
-        set project(value) {
-            if (this.#project === value) return
-            this.#project = value
-        }
-
         get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
         set source(value) {
             if (this.#source === value) return
@@ -233,15 +226,7 @@
             this.#transform = value
         }
 
-        get value() {
-            if (typeof this.#reader === 'function') {
-                let currentValue = this.#reader()
-                this.dispatchEvent(new CustomEvent('read'))
-                this.#handleChange(currentValue)
-            }
-            const project = this.project
-            return project ? this.E.runTransform(project, this.#value, undefined, this) : this.#value
-        }
+        get value() { return this.#value }
 
     }
 
