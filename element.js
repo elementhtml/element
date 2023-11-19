@@ -445,6 +445,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
+            console.log('line 448', element, data, flag)
             if (!(element instanceof HTMLElement)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
             if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
@@ -512,6 +513,7 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (dataIsObject && flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
+                console.log('line 516', element, data, flag)
                 if (flag.startsWith('...')) {
                     const sinkFunctionName = flag.slice(3)
                     if (typeof element[sinkFunctionName] === 'function' && dataIsObject && Array.isArray(data)) {
@@ -951,7 +953,8 @@ const ElementHTML = Object.defineProperties({}, {
                     'id', 'innerHTML', 'innerText', 'lang', 'localName', 'namespaceURI',
                     'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'style', 'tagName', 'textContent', 'title', 'value'].map(p => ([p, element[p]])))
+                    'selected', 'slot', 'tagName', 'textContent', 'title', 'value'].map(p => ([p, element[p]]))),
+                style: Object.fromEntries(Object.entries(element.style).filter(ent => !!ent[1]))
             }
         }
     },
@@ -997,6 +1000,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (k === 'tagName') continue
                 if (k.startsWith('@')) {
                     element.setAttribute(k.slice(1), v)
+                } else if (k === 'style') {
+                    if (v instanceof Object) for (const [p, s] of Object.entries(v)) element.style.setProperty(p, s)
                 } else { element[k] = v }
             }
             return element
