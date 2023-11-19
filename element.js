@@ -389,7 +389,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!silent) element.dispatchEvent(new CustomEvent('change', { detail: { value, scopeNode } }))
                 return element
             }, tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-            console.log('line 392', element, value)
             if (('value' in element) && !(value instanceof Object)) {
                 element.value = value
             } else if (value instanceof Object) {
@@ -485,9 +484,9 @@ const ElementHTML = Object.defineProperties({}, {
                 data = await this.env.libraries.jsonata(transform).evaluate(data)
             }
             if (data instanceof HTMLElement) data = this.flatten(data)
-            if (!(data instanceof Object)) return this.setValue(element, data, undefined, silent)
             if (!Object.keys(data).length) return element
             flag ||= sourceElement?.flag
+            const dataIsObject = (data instanceof Object)
             if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
                 const useNode = element === document.head ? element : document
                 for (const [k, v] of Object.entries(data)) {
@@ -502,28 +501,28 @@ const ElementHTML = Object.defineProperties({}, {
                 return await close(element)
             }
             const tag = element.tagName.toLowerCase()
-            if (flag === '@') {
+            if (dataIsObject && flag === '@') {
                 for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? element.removeAttribute(k) : element.setAttribute(k, v)
-            } else if (flag === '.') {
+            } else if (dataIsObject && flag === '.') {
                 for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? delete element[k] : element[k] = v
-            } else if (flag === 'dataset') {
+            } else if (dataIsObject && flag === 'dataset') {
                 for (const [k, v] of Object.entries(data)) element.dataset[k] = v
-            } else if (flag === 'eDataset' && element.eDataset instanceof Object) {
+            } else if (dataIsObject && flag === 'eDataset' && element.eDataset instanceof Object) {
                 Object.assign(element.eDataset, data)
-            } else if (flag === 'eContext' && element.eContext instanceof Object) {
+            } else if (dataIsObject && flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
                 if (flag.startsWith('...')) {
                     const sinkFunctionName = flag.slice(3)
-                    if (typeof element[sinkFunctionName] === 'function') {
+                    if (typeof element[sinkFunctionName] === 'function' && dataIsObject && Array.isArray(data)) {
                         element[sinkFunctionName](...data)
-                    } else if (!element[sinkFunctionName] || (element[sinkFunctionName] instanceof Object)) {
+                    } else if (dataIsObject && !element[sinkFunctionName] || (element[sinkFunctionName] instanceof Object)) {
                         element[sinkFunctionName] = { ...(element[sinkFunctionName] ?? {}), ...data }
                     }
                 } else { element[flag](data) }
-            } else if (flag && element[flag] instanceof Object) {
+            } else if (dataIsObject && flag && element[flag] instanceof Object) {
                 Object.assign(element[flag], data)
-            } else if (element.querySelector(':scope > template')) {
+            } else if (dataIsObject && element.querySelector(':scope > template')) {
                 let after = document.createElement('meta')
                 after.toggleAttribute('after', true)
                 element.querySelector(`:scope > template:last-of-type`).after(after)
@@ -674,9 +673,9 @@ const ElementHTML = Object.defineProperties({}, {
                         element.setAttribute('list', sourceElement.dataset.datalistId)
                     }
                 }
-            } else if (['form', 'fieldset'].includes(tag)) {
+            } else if (dataIsObject && ['form', 'fieldset'].includes(tag)) {
                 for (const [k, v] of Object.entries(data)) this.sinkData((element.querySelector(`[name=${k}]`) || {}), v)
-            } else if (['table', 'tbody'].includes(tag)) {
+            } else if (dataIsObject && ['table', 'tbody'].includes(tag)) {
                 let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
                 if (!tbody) element.append(tbody = document.createElement('tbody'))
                 let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r))) || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
@@ -689,7 +688,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!thRow) thead.prepend(thRow = document.createElement('tr'))
                         for (const h of headers) thead.appendChild(document.createElement('th')).textContent = h
                     }
-                    const namedRows = data instanceof Object
+                    const namedRows = !Array.isArray(data)
                     for (const [k, v] of Object.entries(rowsData)) {
                         const tr = document.createElement('tr')
                         namedRows && tr.setAttribute('name', k)
@@ -705,7 +704,7 @@ const ElementHTML = Object.defineProperties({}, {
                     li.innerHTML = item
                     element.append(li)
                 }
-            } else if ((tag === 'dl') && (data instanceof Object)) {
+            } else if (dataIsObject && (tag === 'dl') && (data instanceof Object)) {
                 element.replaceChildren()
                 for (const [t, d] of Object.entries(data)) {
                     const dt = document.createElement('dt')
@@ -715,8 +714,10 @@ const ElementHTML = Object.defineProperties({}, {
                     dd.innerHTML = d
                     element.append(dd)
                 }
+            } else if (!dataIsObject) {
+                this.setValue(element, data, undefined, silent)
             } else {
-                if (element.eDataset instanceof Object) {
+                if (dataIsObject && element.eDataset instanceof Object) {
                     Object.assign(element.eDataset, data)
                 } else {
                     const sinkDataAuto = (k, v, flag, element, sourceElement, context, layer, silent) => {
@@ -765,7 +766,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!typeCheck && (input instanceof Object)) return input
             input = typeCheck ? input : `${input}`
             if (!contentType) {
-                contentType = sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || undefined
+                contentType = sourceElement.getAttribute('content-type') || (sourceElement.optionsMap ?? {})['Content-Type'] || sourceElement._contentType || undefined
                 if (!contentType && (input instanceof Response)) {
                     contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
                     contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
@@ -1136,7 +1137,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (transform in shorthands) {
-                console.log('line 1139', transform, b, d)
                 return shorthands[transform]()
             } else if (validGlobals.includes(transform)) {
                 return window[transform]

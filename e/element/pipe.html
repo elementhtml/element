@@ -41,31 +41,29 @@
         }
 
         async write(payload) {
-            console.log('pipe.html: line 44', payload)
             if (this.#sourceObjectAvailable) {
-                payload = await this.E.runTransform(this.transform, payload, this.#value, this)
-                console.log('pipe.html: line 47', payload, this.value)
+                const transform = this.transform
+                if (transform) {
+                    await this.read()
+                    payload = await this.E.runTransform(this.transform, payload, this.#value, this)
+                }
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {
-                    writer(payload, this)
+                    await this.read(await writer(payload, this))
                 } else if (this.#sourceObject instanceof WebSocket) {
-                    this.#sourceObject.send(payload)
+                    this.#sourceObject.send(await this.#serialize(payload))
                 } else if (this.#sourceObject instanceof EventSource) {
-                    const requestOptions = payload instanceof Object ? payload : { body: JSON.stringify(payload) }
-                    fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), ...requestOptions })
+                    fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) })
                 } else if (this.#sourceObject instanceof WebTransport) {
-
+                    writer(payload, this)
                 } else if (this.#sourceObject instanceof EventTarget) {
                     this.#sourceObject.dispatchEvent(new CustomEvent(this.#source, { detail: payload }))
                 } else if ((this.#sourceObject instanceof Object) && (payload instanceof Object)) {
-                    Object.assign(this.#sourceObject, payload)
+                    await this.read(Object.assign(this.#sourceObject, payload))
                 } else if (this.#sourceObject instanceof Function) {
-                    this.#sourceObject(payload)
+                    await this.read(this.#sourceObject(payload))
                 } else if (typeof this.#sourceObject === 'string') {
-                    this.#serialize(payload).then(p => {
-                        const requestOptions = { ...(this.optionsMap ?? {}), body: p }
-                        fetch(this.#sourceObject, requestOptions).then(response => this.read(response))
-                    })
+                    await this.read(await fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#sendQueue.push(payload) }
@@ -161,6 +159,7 @@
                             return result
                         }
                         this.#writer = async payload => this.#serialize(payload).then(d => stream.writable.write(Uint8Array.from((new TextEncoder()).encode(d))))
+                        this.#sourceObjectAvailable = true
                     })
                 }
                 makeTransport()
@@ -234,16 +233,13 @@
         }
 
         get value() {
-            let currentValue = this.#value
             if (typeof this.#reader === 'function') {
-                currentValue = this.#reader()
+                let currentValue = this.#reader()
                 this.dispatchEvent(new CustomEvent('read'))
+                this.#handleChange(currentValue)
             }
-            this.#handleChange(currentValue)
-            return this.E.runTransform(this.project, this, this.#value)
-        }
-        set value(v) {
-            this.write(v)
+            const project = this.project
+            return project ? this.E.runTransform(project, this.#value, undefined, this) : this.#value
         }
 
     }
