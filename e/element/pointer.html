@@ -110,18 +110,19 @@
             this.#createBound(value, 'resource')
             this.#resource = value
             const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-            if (autoRefresh) {
-                console.log('pointer.html: line 114')
-                this.#refresh(); return
-            }
             const boundTarget = this.boundTarget
             if (!boundTarget || (typeof boundTarget === 'string')) return
             if (this.#use === '$') {
-                console.log('pointer.html: line 120')
                 if (autoRefresh) this.#refresh(this.#boundResource)
             } else if (this.#use === '_') {
-                console.log('pointer.html: line 123')
-                if (autoRefresh) this.#refresh(Array.isArray(this.#boundResource) ? this.#boundResource.map(n => this.E.getValue(n)) : this.E.getValue(this.#boundResource))
+                if (autoRefresh) {
+                    let resourceValue = Array.isArray(this.#boundResource)
+                        ? this.#boundResource.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(this.#boundResource)
+                    if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
+                    this.#refresh(resourceValue)
+                }
+            } else {
+                if (autoRefresh) this.#refresh()
             }
         }
 
@@ -196,16 +197,15 @@
                         if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
                         if (!proceed) return
                         if (use === '!') {
-                            console.log('pointer.html: line 199')
                             this.#refresh(event)
                         } else if (use === '$') {
-                            console.log('pointer.html: line 202')
                             this.#refresh(bound)
                         } else if (use === '_') {
-                            console.log('pointer.html: line 205')
-                            this.#refresh(Array.isArray(bound) ? bound.map(n => this.E.getValue(n)) : this.E.getValue(bound))
+                            let resourceValue = Array.isArray(bound) ? bound.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(bound)
+                            if ((!Array.isArray(resourceValue) && resourceValue) || (Array.isArray(resourceValue) && resourceValue.length)) {
+                                this.#refresh(Array.isArray(bound) ? bound.map(n => this.E.getValue(n)) : this.E.getValue(bound))
+                            }
                         } else {
-                            console.log('pointer.html: line 208')
                             this.#refresh(this.E.getValue(node))
                         }
                     }, { signal: boundController.signal })
@@ -229,10 +229,7 @@
                         }
                     }
                     const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-                    if (autoRefresh) {
-                        console.log('pointer.html: line 233', records)
-                        this.#refresh()
-                    }
+                    if (autoRefresh) this.#refresh()
                 }
                 let observer = getBoundObserver()
                 if (observer) processRecords(observer.takeRecords())

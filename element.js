@@ -484,9 +484,9 @@ const ElementHTML = Object.defineProperties({}, {
                 data = await this.env.libraries.jsonata(transform).evaluate(data)
             }
             if (data instanceof HTMLElement) data = this.flatten(data)
-            if (!Object.keys(data).length) return element
-            flag ||= sourceElement?.flag
             const dataIsObject = (data instanceof Object)
+            if (dataIsObject && !Object.keys(data).length) return element
+            flag ||= sourceElement?.flag
             if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
                 const useNode = element === document.head ? element : document
                 for (const [k, v] of Object.entries(data)) {
@@ -1088,18 +1088,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
             const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v === undefined ? [] : [v]),
                 iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = data,
-                runGlobal = (s, x, y) => {
-                    const [globalObject, funcSig] = s.split('.')
-                    if (!(window[globalObject] instanceof Object)) return x
-                    const [funcName] = funcSig.split('(')[0]
-                    if (typeof window[globalObject][funcName] !== 'function') return x
-                    return window[globalObject][funcName](x, y)
-                }, runVar = (s, x, y) => {
-                    const funcName = s.slice(1, s.indexOf('(')), func = this.getVariable(funcName, element)
-                    if (func === undefined) return x
-                    if (typeof func !== 'function') return func
-                    return func(x, y)
-                }, validGlobals = [
+                validGlobals = [
                     'Infinity', 'NaN', , 'undefined'
                 ], validGlobalFunctions = [
                     'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'isFinite', 'isNaN', 'parseFloat', 'parseInt'
