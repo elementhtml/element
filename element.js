@@ -445,7 +445,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
-            console.log('line 448', element, data, flag)
             if (!(element instanceof HTMLElement)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
             if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
@@ -513,7 +512,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (dataIsObject && flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
             } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function'))) {
-                console.log('line 516', element, data, flag)
                 if (flag.startsWith('...')) {
                     const sinkFunctionName = flag.slice(3)
                     if (typeof element[sinkFunctionName] === 'function' && dataIsObject && Array.isArray(data)) {
@@ -522,8 +520,8 @@ const ElementHTML = Object.defineProperties({}, {
                         element[sinkFunctionName] = { ...(element[sinkFunctionName] ?? {}), ...data }
                     }
                 } else { element[flag](data) }
-            } else if (dataIsObject && flag && element[flag] instanceof Object) {
-                Object.assign(element[flag], data)
+            } else if (flag) {
+                element[flag] = data
             } else if (dataIsObject && element.querySelector(':scope > template')) {
                 let after = document.createElement('meta')
                 after.toggleAttribute('after', true)

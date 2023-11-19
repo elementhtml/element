@@ -49,13 +49,14 @@
                 }
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {
-                    await this.read(await writer(payload, this))
+                    const p = this.contentType ? await this.#serialize(payload) : payload
+                    await this.read(await writer(p, this))
                 } else if (this.#sourceObject instanceof WebSocket) {
                     this.#sourceObject.send(await this.#serialize(payload))
                 } else if (this.#sourceObject instanceof EventSource) {
                     fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) })
                 } else if (this.#sourceObject instanceof WebTransport) {
-                    writer(payload, this)
+                    writer(await this.#serialize(payload), this)
                 } else if (this.#sourceObject instanceof EventTarget) {
                     this.#sourceObject.dispatchEvent(new CustomEvent(this.#source, { detail: payload }))
                 } else if ((this.#sourceObject instanceof Object) && (payload instanceof Object)) {
@@ -190,7 +191,7 @@
             return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.E.serialize(value, this, contentType))
         }
 
-        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'contentType') }
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
         set contentType(value) { this.#contentType = value }
 
         get ['content-type']() { return this.contentType }
