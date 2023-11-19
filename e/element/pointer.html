@@ -229,7 +229,8 @@
                         }
                     }
                     const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-                    if (autoRefresh) this.#refresh()
+                    console.log('pointer.html: line 232', autoRefresh)
+                    //if (autoRefresh) this.#refresh()
                 }
                 let observer = getBoundObserver()
                 if (observer) processRecords(observer.takeRecords())

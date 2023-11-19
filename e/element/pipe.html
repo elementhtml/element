@@ -9,7 +9,7 @@
         #sourceObjectAvailable = false
         #options
         #optionsMap = {}
-        #sendQueue = []
+        #writeQueue = []
         #reader
         #send
         #writer
@@ -51,7 +51,7 @@
                     const p = this.contentType ? await this.#serialize(payload) : payload
                     await this.read(await writer(p, this))
                 } else if (this.#sourceObject instanceof WebSocket) {
-                    this.#sourceObject.send(await this.#serialize(payload))
+                    this.#sourceObject.write(await this.#serialize(payload))
                 } else if (this.#sourceObject instanceof EventSource) {
                     fetch(this.#sourceObject.url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) })
                 } else if (this.#sourceObject instanceof WebTransport) {
@@ -66,12 +66,12 @@
                     await this.read(await fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
-            } else { this.#sendQueue.push(payload) }
+            } else { this.#writeQueue.push(payload) }
         }
 
         #connectSource(source) {
             this.#sourceObjectAvailable = false
-            this.#sendQueue = []
+            this.#writeQueue = []
             this.#reader = undefined
             this.#writer = undefined
             this.#abortController.abort()
@@ -103,7 +103,7 @@
                     }
                 } else if (readerName) { this.#sourceObject.addEventListener(readerName, event => this.read(event)) }
                 this.#sourceObjectAvailable = true
-                for (const j of this.#sendQueue) this.send(j)
+                Promise.all(this.#writeQueue.map(p => this.write(p))).then(() => this.read())
             } else if (source.startsWith('wss://')) {
                 const makeSocket = () => {
                     const optionsMap = this.optionsMap ?? {}
@@ -111,7 +111,7 @@
                     if (optionsMap.binaryType) this.#sourceObject.binaryType = optionsMap.binaryType
                     this.#sourceObject.addEventListener('open', event => {
                         this.#sourceObjectAvailable = true
-                        for (const j of this.#sendQueue) this.write(j)
+                        for (const j of this.#writeQueue) this.write(j)
                     }, { once: true, signal: this.#abortController.signal })
                     this.#sourceObject.addEventListener('error', event => this.#sourceObjectAvailable = false, { signal: this.#abortController.signal })
                     this.#sourceObject.addEventListener('close', event => {
@@ -124,13 +124,13 @@
             } else if (source.startsWith('https://') || source.startsWith('http://')) {
                 this.#sourceObject = source
                 this.#sourceObjectAvailable = true
-                for (const j of this.#sendQueue) this.write(j)
+                for (const j of this.#writeQueue) this.write(j)
             } else if (source.startsWith('sse://')) {
                 const [url, events = ['message']] = source.split('!', 2)
                 this.#sourceObject = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
                 this.#sourceObject.addEventListener('open', event => {
                     this.#sourceObjectAvailable = true
-                    for (const j of this.#sendQueue) this.write(j)
+                    for (const j of this.#writeQueue) this.write(j)
                 }, { signal: this.#abortController.signal })
                 for (const eventName of events) this.#sourceObject.addEventListener(eventName, event => this.read(event), { signal: this.#abortController.signal })
             } else if (source.startsWith('wt://')) {
@@ -141,7 +141,7 @@
                     this.#sourceObject = new WebTransport(via.replace('wt://', 'https://'), this.optionsMap)
                     this.#sourceObject.ready.then(() => {
                         this.#sourceObjectAvailable = true
-                        for (const j of this.#sendQueue) this.write(j)
+                        for (const j of this.#writeQueue) this.write(j)
                     })
                     this.#sourceObject.closed.then(() => {
                         this.#sourceObjectAvailable = false
@@ -167,7 +167,7 @@
                 this.#sourceObject = new EventTarget()
                 this.addEventListener(source, event => this.read(event), { signal: this.#abortController.signal })
                 this.#sourceObjectAvailable = true
-                for (const j of this.#sendQueue) this.write(j)
+                for (const j of this.#writeQueue) this.write(j)
             }
         }
 
