@@ -911,6 +911,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element && transform.includes('$parent')) variables.push(`$parent := ${JSON.stringify(this.flatten(element.parentElement))}`)
                 if (element && transform.includes('$root')) variables.push(`$root := ${JSON.stringify(this.flatten(element.getRootNode()))}`)
                 if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
+                if (transform.includes('$uuid')) variables.push(`$uuid := ${JSON.stringify(crypto.randomUUID())}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
