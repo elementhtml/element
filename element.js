@@ -507,7 +507,8 @@ const ElementHTML = Object.defineProperties({}, {
                     } else { Object.assign(element, (data ?? {})) }
                 }
             } else if (flag && (flag.endsWith('()') || flag.includes('(,') || flag.includes(',)') || flag.endsWith('(...)') || flag.includes('(...,') || flag.includes(',...)'))) {
-                let [sinkFunctionName, sinkFlag] = flag.split('(')
+                let [sinkFunctionName, ...sinkFlag] = flag.split('(')
+                sinkFlag = sinkFlag.join('(')
                 if (sinkFlag.endsWith(')')) sinkFlag = sinkFlag.slice(0, -1)
                 if (typeof element[sinkFunctionName] !== 'function') return
                 if (sinkFlag.includes('...') && Array.isArray(data)) {
@@ -986,23 +987,26 @@ const ElementHTML = Object.defineProperties({}, {
     getVariable: {
         enumerable: true, value: function (variableRef, element) {
             if (!variableRef) return
-            if (variableRef[0] !== '$') return variableRef
-            let variableName = variableRef.slice(1)
-            if (!variableName) return
-            let variableValue
-            if (variableName.includes('.')) {
-                let variableNameSplit = variableName.split('.')
-                variableValue = this.env.variables[variableNameSplit.shift()]
-                if (!(variableValue instanceof Object)) return variableValue
-                for (const part of variableNameSplit) {
-                    variableValue = variableValue[part]
-                    if (!(variableValue instanceof Object)) break
+            let variableName = variableRef.slice(1), variableValue = variableRef
+            if (element && variableName && variableRef[0] === '@') {
+                return element.getAttribute(variableName)
+            } else if (element && variableName && variableRef[0] === '.') {
+                return element[variableName]
+            } else if (variableName && variableRef[0] === '$') {
+                if (variableName.includes('.')) {
+                    let variableNameSplit = variableName.split('.')
+                    variableValue = this.env.variables[variableNameSplit.shift()]
+                    if (!(variableValue instanceof Object)) return variableValue
+                    for (const part of variableNameSplit) {
+                        variableValue = variableValue[part]
+                        if (!(variableValue instanceof Object)) break
+                    }
+                } else { variableValue = this.env.variables[variableName] }
+                if (element && variableName.includes('(') && variableName.endsWith(')')) {
+                    let [variablePartName, ...argsRest] = mm.split('(')
+                    args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
+                    variableValue = this.utils.getVariableResult(variableValue, args, element)
                 }
-            } else { variableValue = this.env.variables[variableName] }
-            if (element && variableName.includes('(') && variableName.endsWith(')')) {
-                let [variablePartName, ...argsRest] = mm.split('(')
-                args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
-                variableValue = this.utils.getVariableResult(variableValue, args, element)
             }
             return variableValue
         }
