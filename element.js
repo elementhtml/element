@@ -912,6 +912,15 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element && transform.includes('$root')) variables.push(`$root := ${JSON.stringify(this.flatten(element.getRootNode()))}`)
                 if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
                 if (transform.includes('$uuid')) variables.push(`$uuid := ${JSON.stringify(crypto.randomUUID())}`)
+                const date = new Date(), dateMethods = {
+                    date: 'toDateString', datetime: 'toString', now: 'valueOf',
+                    dateISO: 'toISOString', localeDate: 'toLocaleDateString', localeDateTime: 'toLocaleString',
+                    localeTime: 'toLocaleTimeString', time: 'toTimeString', utc: 'toUTCString'
+                }
+                for (const [vn, dm] of Object.entries(dateMethods)) if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(date[dm]())}`)
+                if (transform.includes('$id')) variables.push(`$id := ${JSON.stringify(crypto.randomUUID().replaceAll('-', ''))}`)
+                if (transform.includes('$rand')) variables.push(`$rand := ${JSON.stringify(Math.round(Math.random() * 1000000000))}`)
+                if (transform.includes('$randFloat')) variables.push(`$randFloat := ${JSON.stringify(Math.random())}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
