@@ -1087,7 +1087,7 @@ const ElementHTML = Object.defineProperties({}, {
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
             const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v === undefined ? [] : [v]),
-                iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = data,
+                iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = typeof data === 'string' ? data.trim() : data,
                 validGlobals = [
                     'Infinity', 'NaN', , 'undefined'
                 ], validGlobalFunctions = [
