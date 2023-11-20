@@ -522,32 +522,24 @@ const ElementHTML = Object.defineProperties({}, {
                     } else { Object.assign(element, (data ?? {})) }
                 }
             } else if (flag && (flag.endsWith('()') || flag.includes('(,') || flag.includes(',)') || flag.endsWith('(...)') || flag.includes('(...,') || flag.includes(',...)'))) {
-                const [sinkFunctionName, sinkFlag] = flag.split('(')
+                let [sinkFunctionName, sinkFlag] = flag.split('(')
+                if (sinkFlag.endsWith(')')) sinkFlag = sinkFlag.slice(0, -1)
                 if (typeof element[sinkFunctionName] !== 'function') return
                 if (sinkFlag.includes('...') && Array.isArray(data)) {
-                    if (sinkFlag === '...)') {
+                    if (sinkFlag === '...') {
                         element[sinkFunctionName](...data)
                     } else if (sinkFlag.includes('...,')) {
                         element[sinkFunctionName](...data, ...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)))
                     } else if (sinkFlag.includes(',...')) {
-                        element[sinkFunctionName](...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)), ...data)
+                        element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), ...data)
                     } else { return }
-                } else if (sinkFlag === ')') {
+                } else if (sinkFlag === '') {
                     element[sinkFunctionName](data)
                 } else if (sinkFlag.startsWith(',')) {
-                    element[sinkFunctionName](data, ...sinkFlag.slice(1).split(',').map(a => this.getVariable(a, element)))
-                } else if (sinkFlag.endsWith(',)')) {
-                    element[sinkFunctionName](...sinkFlag.slice(0, -2).split(',').map(a => this.getVariable(a, element)), data)
+                    element[sinkFunctionName](data, ...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)))
+                } else if (sinkFlag.endsWith(',')) {
+                    element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), data)
                 } else { return }
-            } else if (flag && ((flag.startsWith('...')) || (typeof element[flag] === 'function') || flag.includes('('))) {
-                if (flag.startsWith('...')) {
-                    const sinkFunctionName = flag.slice(3)
-                    if (typeof element[sinkFunctionName] === 'function' && dataIsObject && Array.isArray(data)) {
-                        element[sinkFunctionName](...data)
-                    } else if (dataIsObject && !element[sinkFunctionName] || (element[sinkFunctionName] instanceof Object)) {
-                        element[sinkFunctionName] = { ...(element[sinkFunctionName] ?? {}), ...data }
-                    }
-                } else { element[flag](data) }
             } else if (flag) {
                 element[flag] = data
             } else if (dataIsObject && element.querySelector(':scope > template')) {
