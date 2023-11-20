@@ -41,7 +41,12 @@
 
         async write(payload, useTransform) {
             if (this.#sourceObjectAvailable) {
-                const transform = useTransform && this.dataset[useTransform] ? this.dataset[useTransform] : this.transform
+                let transform
+                if (useTransform && (useTransform = useTransform.trim())) {
+                    if (useTransform.startsWith('`') && useTransform.endsWith('`')) {
+                        transform = useTransform.slice(1, -1).trim()
+                    } else { transform = this.dataset[useTransform] }
+                } else { transform = this.transform }
                 if (transform) {
                     await this.read()
                     payload = await this.E.runTransform(transform, payload, this.#value, this)

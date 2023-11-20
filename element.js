@@ -458,6 +458,19 @@ const ElementHTML = Object.defineProperties({}, {
             }
             rootElement ||= element
             if (transform) {
+
+                console.log('line 462', data)
+
+                data = await this.runTransform(transform, data, this.getValue(element), this, {
+                    flag, context, layer, silent,
+                    root: rootElement ? this.flatten(rootElement) : undefined,
+                    source: sourceElement ? this.flatten(sourceElement) : undefined,
+                    target: this.flatten(element)
+                })
+
+                console.log('line 471', data)
+
+                /*
                 if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
                     const scriptTag = document.createElement('script')
                     scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
@@ -482,6 +495,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
                 data = await this.env.libraries.jsonata(transform).evaluate(data)
+                */
             }
             if (data instanceof HTMLElement) data = this.flatten(data)
             const dataIsObject = (data instanceof Object)
@@ -922,7 +936,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
             try {
                 const variables = []
-                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.valueOf())}`)
+                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.flatten(element))}`)
+                if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
@@ -1148,13 +1163,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...getArgs(`${childName}`))
                 }
             }
+            console.log('line 1166', typeof transform, transform)
             if (transform in shorthands) {
                 return shorthands[transform]()
             } else if (transform && transform.match(/^\[\d+\]$/)) {
                 const a = iA(b)
                 a[parseInt(transform.slice(1, -1)) || 0] = d
                 return a
-            } else if (transform && transform.match(/^\{.+\}$/)) {
+            } else if (transform && transform.match(/^\{[a-zA-Z0-9\-\_]+\}$/)) {
                 const obj = iO(b)
                 obj[transform.slice(1, -1)] = d
                 return obj
@@ -1178,12 +1194,14 @@ const ElementHTML = Object.defineProperties({}, {
                     return resolveChild(this.env.variables, transform, ent[0])
                 }
             }
-            transform = this.expandTransform(transform, element, variableMap)
+            transform = await this.expandTransform(transform, element, variableMap)
+            console.log('line 1198', transform)
             if (!transform) return data
             try {
                 await this.installLibraryFromSrc('jsonata')
-                result = await this.E.env.libraries.jsonata(transform).evaluate(data)
+                result = await this.env.libraries.jsonata(transform).evaluate(data)
             } catch (e) {
+                console.log('line 1204', e)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
