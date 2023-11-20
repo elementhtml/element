@@ -931,7 +931,8 @@ const ElementHTML = Object.defineProperties({}, {
                     if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
                 }
                 for (const [vn, vv] of Object.entries(this.env.variables)) {
-                    if ((vn === 'env') || (vn === 'this')) continue
+                    if ((vn === 'env') || (vn === 'this') || (vn === 'value') || (vn === 'sessionStorage') || (vn === 'localStorage')) continue
+                    if (vn in variableMap) continue
                     if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
                 }
                 if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
