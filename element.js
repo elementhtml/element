@@ -1127,7 +1127,7 @@ const ElementHTML = Object.defineProperties({}, {
                     '^n': () => pF(b) ** pF(d), '%n': () => pF(b) % pF(d),
                     'n+': () => pF(d) - pF(b), 'n/': () => pF(d) / pF(b), 'n^': () => pF(d) ** pF(b), 'n%': () => pF(d) % pF(b),
                     '&': () => `${b}${d}`, '&s': (s) => `${b}${s}${d}`, '&/': () => `${b}\n${d}`, 's&': (s) => `${d}${s}${b}`, '/&': () => `${d}\n${b}`,
-                    '[]': () => iA(b).concat(iA(d)), '[]+': () => iA(b).concat(iA(d)), '+[]': () => iA(d).concat(iA(b)),
+                    '[]': () => iA(d), '[]+': () => iA(b).concat(iA(d)), '+[]': () => iA(d).concat(iA(b)),
                     '{}': () => ({ ...iO(b), ...iO(d) }), '{key}': (key) => ({ ...iO(b), [key]: d })
                 }
             let result, temp
@@ -1150,6 +1150,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (transform in shorthands) {
                 return shorthands[transform]()
+            } else if (transform && transform.match(/^\[\d+\]$/)) {
+                const a = iA(b)
+                a[parseInt(transform.slice(1, -1)) || 0] = d
+                return a
+            } else if (transform && transform.match(/^\{.+\}$/)) {
+                const obj = iO(b)
+                obj[transform.slice(1, -1)] = d
+                return obj
             } else if (validGlobals.includes(transform)) {
                 return window[transform]
             } else if (temp = Object.keys(validGlobalFunctions).find(k => transform.startsWith(`${k}(`))) {
