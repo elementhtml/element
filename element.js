@@ -1,6 +1,6 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '0.9.5' },
+    version: { enumerable: true, value: '0.9.6' },
 
     env: {
         enumerable: true, value: Object.defineProperties({}, {

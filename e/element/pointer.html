@@ -229,7 +229,7 @@
                         }
                     }
                     const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-                    console.log('pointer.html: line 232', autoRefresh)
+                    //console.log('pointer.html: line 232', autoRefresh)
                     //if (autoRefresh) this.#refresh()
                 }
                 let observer = getBoundObserver()
@@ -391,7 +391,7 @@
             if (!this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
-            if (!this.hasAttribute('allow-empty') && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
+            if (!this.hasAttribute('allow-empty') && !(result instanceof Node) && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
@@ -430,10 +430,7 @@
                     for (const eventName of this.#targetEvents) for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
                         if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: result }))
                     }
-                } else {
-                    console.log('pointer.html: line 433', result, this)
-                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
-                }
+                } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
             }
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
         }
