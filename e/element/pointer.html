@@ -391,9 +391,7 @@
             if (!this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
-
             if (!this.hasAttribute('allow-empty') && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
-
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {
