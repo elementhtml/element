@@ -25,22 +25,23 @@
 
         async connectedCallback() { }
 
-        async read(detail) {
+        async read(detail, dryRun = false) {
             const reader = (this.E.env.map.get(this) ?? {}).reader ?? this.#reader
             if (typeof reader === 'function') {
                 const result = await reader(detail, this), v = await this.#parse(result)
+                if (dryRun) return v
                 this.dispatchEvent(new CustomEvent('read', { detail: result }))
                 this.#handleChange(v)
             } else {
                 const parseTarget = (detail instanceof CustomEvent && (detail.detail !== undefined)) ? detail.detail : ((detail instanceof MessageEvent) ? detail.data : detail),
                     v = this.#parse(parseTarget)
+                if (dryRun) return v
                 this.dispatchEvent(new CustomEvent('read', { detail }))
                 this.#handleChange(v)
             }
         }
 
         async write(payload, useTransform) {
-            console.log('pipe.html: line 43', payload, useTransform)
             if (this.#sourceObjectAvailable) {
                 let transform
                 if (useTransform && (useTransform = useTransform.trim())) {
@@ -49,8 +50,9 @@
                     } else { transform = this.dataset[useTransform] }
                 } else { transform = this.transform }
                 if (transform) {
-                    await this.read()
-                    payload = await this.E.runTransform(transform, payload, this.#value, this)
+                    let baseValue = {}
+                    try { baseValue = JSON.parse(JSON.stringify(this.#value ?? {})) } catch (e) { }
+                    payload = await this.E.runTransform(transform, payload, baseValue, this)
                 }
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {

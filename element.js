@@ -1130,7 +1130,11 @@ const ElementHTML = Object.defineProperties({}, {
                     'n+': () => pF(d) - pF(b), 'n/': () => pF(d) / pF(b), 'n^': () => pF(d) ** pF(b), 'n%': () => pF(d) % pF(b),
                     '&': () => `${b}${d}`, '&s': (s) => `${b}${s}${d}`, '&/': () => `${b}\n${d}`, 's&': (s) => `${d}${s}${b}`, '/&': () => `${d}\n${b}`,
                     '[]': () => iA(d), '[]+': () => iA(b).concat(iA(d)), '+[]': () => iA(d).concat(iA(b)),
-                    '{}': () => ({ ...iO(b), ...iO(d) }), '{key}': (key) => ({ ...iO(b), [key]: d })
+                    '{}': () => ({ ...iO(b), ...iO(d) }), '{...}': () => {
+                        const bb = iO(b); for (const [k, v] of Object.entries(iO(d))) bb[k] = { ...iO(bb[k]), ...iO(d[k]) }; return bb
+                    }, '{~...}': () => {
+                        const dd = iO(d); for (const [k, v] of Object.entries(iO(b))) dd[k] = { ...iO(dd[k]), ...iO(b[k]) }; return dd
+                    }
                 }
             let result, temp
             const getArgs = t => {
