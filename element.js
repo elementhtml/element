@@ -444,23 +444,26 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     sinkData: {
-        enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, rootElement = undefined, silent = undefined) {
+        enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, scopeElement = undefined, silent = undefined) {
             if (!(element instanceof HTMLElement)) return
             const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
-            if (typeof preSinkData === 'function') ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement))
-            if (preSinkData instanceof Object) ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, rootElement=rootElement } = preSinkData)
+            if (typeof preSinkData === 'function') {
+                ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, scopeElement=scopeElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, scopeElement))
+            } else if (preSinkData instanceof Object) {
+                ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, scopeElement=scopeElement } = preSinkData)
+            }
             const close = async (element) => {
                 const postSinkData = (this.env.map.get(element) ?? {})['postSinkData']
-                if (typeof postSinkData === 'function') element = await postSinkData(element, data, flag, transform, sourceElement, context, layer, rootElement)
+                if (typeof postSinkData === 'function') element = await postSinkData(element, data, flag, transform, sourceElement, context, layer, scopeElement)
                 if (postSinkData instanceof Object) element = postSinkData
-                if (!silent) element.dispatchEvent(new CustomEvent('sinkData', { detail: { data, flag, transform, sourceElement, context, layer, rootElement } }))
+                if (!silent) element.dispatchEvent(new CustomEvent('sinkData', { detail: { data, flag, transform, sourceElement, context, layer, scopeElement } }))
                 return element
             }
-            rootElement ||= element
+            scopeElement ||= element
             if (transform) {
                 data = await this.runTransform(transform, data, this.getValue(element), this, {
                     flag, context, layer, silent,
-                    root: rootElement ? this.flatten(rootElement) : undefined,
+                    scope: scopeElement ? this.flatten(scopeElement) : undefined,
                     source: sourceElement ? this.flatten(sourceElement) : undefined,
                     target: this.flatten(element)
                 })
@@ -904,7 +907,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
             try {
                 const variables = []
-                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(element.flatten(element))}`)
+                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.flatten(element))}`)
+                if (element && transform.includes('$parent')) variables.push(`$parent := ${JSON.stringify(this.flatten(element.parentElement))}`)
+                if (element && transform.includes('$root')) variables.push(`$root := ${JSON.stringify(this.flatten(element.getRootNode()))}`)
                 if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
