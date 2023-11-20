@@ -458,44 +458,12 @@ const ElementHTML = Object.defineProperties({}, {
             }
             rootElement ||= element
             if (transform) {
-
-                console.log('line 462', data)
-
                 data = await this.runTransform(transform, data, this.getValue(element), this, {
                     flag, context, layer, silent,
                     root: rootElement ? this.flatten(rootElement) : undefined,
                     source: sourceElement ? this.flatten(sourceElement) : undefined,
                     target: this.flatten(element)
                 })
-
-                console.log('line 471', data)
-
-                /*
-                if (!this.env.libraries.jsonata && !document.querySelector('script[src="https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js"]')) {
-                    const scriptTag = document.createElement('script')
-                    scriptTag.setAttribute('src', 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                    document.head.append(scriptTag)
-                    await this.utils.waitUntil(() => window.jsonata)
-                    this.env.libraries.jsonata = window.jsonata
-                }
-                await this.utils.waitUntil(() => this.env.libraries.jsonata)
-                if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                    const variableValue = this.getVariable(transform, element)
-                    if (typeof variableValue === 'string') transform = variableValue
-                }
-                const variables = []
-                if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options', 'variables'])}`)
-                if (transform.includes('$sourceElement')) variables.push(`$sourceElement := ${JSON.stringify(sourceElement ? sourceElement.valueOf() : {})}`)
-                if (transform.includes('$target')) variables.push(`$target := ${JSON.stringify(this.getValue(element))}`)
-                if (transform.includes('$flag')) variables.push(`$flag := ${JSON.stringify(flag ?? '')}`)
-                if (transform.includes('$context')) variables.push(`$context := ${JSON.stringify(context ?? '')}`)
-                for (const [vn, vv] of Object.entries(this.env.variables)) {
-                    if ((vn === 'env') || (vn === 'sourceElement') || (vn === 'target') || (vn === 'flag') || (vn === 'context')) continue
-                    if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
-                }
-                if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
-                data = await this.env.libraries.jsonata(transform).evaluate(data)
-                */
             }
             if (data instanceof HTMLElement) data = this.flatten(data)
             const dataIsObject = (data instanceof Object)
@@ -1163,7 +1131,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...getArgs(`${childName}`))
                 }
             }
-            console.log('line 1166', typeof transform, transform)
             if (transform in shorthands) {
                 return shorthands[transform]()
             } else if (transform && transform.match(/^\[\d+\]$/)) {
@@ -1195,13 +1162,11 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             transform = await this.expandTransform(transform, element, variableMap)
-            console.log('line 1198', transform)
             if (!transform) return data
             try {
                 await this.installLibraryFromSrc('jsonata')
                 result = await this.env.libraries.jsonata(transform).evaluate(data)
             } catch (e) {
-                console.log('line 1204', e)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
