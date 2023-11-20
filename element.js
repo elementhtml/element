@@ -960,8 +960,9 @@ const ElementHTML = Object.defineProperties({}, {
                     'id', 'innerHTML', 'innerText', 'lang', 'localName', 'namespaceURI',
                     'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'tagName', 'textContent', 'title', 'value'].map(p => ([p, element[p]]))),
-                style: Object.fromEntries(Object.entries(element.style).filter(ent => !!ent[1]))
+                    'selected', 'slot', 'tagName', 'textContent', 'title'].map(p => ([p, element[p]]))),
+                style: Object.fromEntries(Object.entries(element.style).filter(ent => !!ent[1])),
+                value: 'value' in element ? element.value : undefined
             }
         }
     },
@@ -1009,6 +1010,8 @@ const ElementHTML = Object.defineProperties({}, {
                     element.setAttribute(k.slice(1), v)
                 } else if (k === 'style') {
                     if (v instanceof Object) for (const [p, s] of Object.entries(v)) element.style.setProperty(p, s)
+                } else if (k === 'value') {
+                    try { element.value = v } catch (e) { }
                 } else { element[k] = v }
             }
             return element
