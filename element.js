@@ -526,6 +526,10 @@ const ElementHTML = Object.defineProperties({}, {
                 } else if (sinkFlag.endsWith(',')) {
                     element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), data)
                 } else { return }
+            } else if (flag && flag.startsWith('!')) {
+                let eventName = flag.slice(1)
+                if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
+                element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
             } else if (flag) {
                 element[flag] = data
             } else if (dataIsObject && element.querySelector(':scope > template')) {
