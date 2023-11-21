@@ -737,7 +737,19 @@ const ElementHTML = Object.defineProperties({}, {
                             if (key && key.startsWith('@')) {
                                 (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
                             } else if (key && key.startsWith('.')) {
-                                (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
+                                if (key.includes('(')) {
+                                    let [methodName, ...args] = key.slice(1).split('(')
+                                    if (typeof target[methodName] !== 'function') return
+                                    args = args.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), target))
+                                    args.push(v)
+                                    target[methodName](...args)
+                                } else {
+                                    (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
+                                }
+                            } else if (key && key.startsWith('!')) {
+                                let eventName = key.slice(1)
+                                if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
+                                target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
                             } else if (key) {
                                 if (v === null) {
                                     delete target.dataset[key]
@@ -752,7 +764,19 @@ const ElementHTML = Object.defineProperties({}, {
                         if (key.startsWith('@')) {
                             (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
                         } else if (key.startsWith('.')) {
-                            (v === null || v === undefined) ? delete target[k.slice(1)] : target[key.slice(1)] = v
+                            if (key.includes('(')) {
+                                let [methodName, ...args] = key.slice(1).split('(')
+                                if (typeof target[methodName] !== 'function') return
+                                args = args.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), target))
+                                args.push(v)
+                                target[methodName](...args)
+                            } else {
+                                (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
+                            }
+                        } else if (key && key.startsWith('!')) {
+                            let eventName = key.slice(1)
+                            if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
+                            target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
                         } else if (key) {
                             if (v === null) {
                                 delete target.dataset[key]
