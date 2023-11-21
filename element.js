@@ -1192,8 +1192,18 @@ const ElementHTML = Object.defineProperties({}, {
             if (!transform) return data
             try {
                 await this.installLibraryFromSrc('jsonata')
-                result = await this.env.libraries.jsonata(transform).evaluate(data)
+                const expression = this.env.libraries.jsonata(transform)
+                if (transform.includes('$find(')) {
+                    expression.registerFunction('find', (qs) => {
+                        if (!qs) return {}
+                        let [scope = '*', selector] = qs.split('|'), node = element.closest(scope)
+                        if (node && selector) node = node.querySelector(selector)
+                        return node ? this.flatten(node) : {}
+                    })
+                }
+                result = await expression.evaluate(data)
             } catch (e) {
+                console.log('line 1204', e)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
