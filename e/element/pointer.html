@@ -358,32 +358,12 @@
             } else { result = payload ?? boundResource }
             let transform = this.transform
             if (transform) {
-                await this.E.installLibraryFromSrc('jsonata')
-                if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                    const variableValue = this.E.getVariable(transform, this)
-                    if (typeof variableValue === 'string') transform = variableValue
+                if (result instanceof HTMLElement) {
+                    result = this.E.flatten(result)
+                } else if (Array.isArray(result) && result.every(n => n instanceof HTMLElement)) {
+                    result = result.map(n => this.E.flatten(n))
                 }
-                try {
-                    const variables = [], hasDirectNodeReference = transform.includes('.`$&`')
-                    let directNodeReference
-                    transform = await this.E.expandTransform(transform, this)
-                    if (this.#use === '$') {
-                        if (result instanceof HTMLElement) {
-                            if (hasDirectNodeReference) directNodeReference = result
-                            result = this.E.getValueOf(result)
-                            if (directNodeReference) result['$&'] = directNodeReference
-                        } else if (Array.isArray(result) && result.every(n => n instanceof HTMLElement)) {
-                            result = result.map(n => {
-                                const vv = this.E.getValueOf(n)
-                                if (hasDirectNodeReference) vv['$&'] = n
-                                return vv
-                            })
-                        }
-                    }
-                    result = await this.E.env.libraries.jsonata(transform).evaluate(result)
-                } catch (e) {
-                    this.E.utils.processError('transform', e, this, e)
-                }
+                result = await this.E.runTransform(transform, result, this.E.getValue(this), this)
             }
             const boundTarget = this.boundTarget ?? this.parentElement
             let valueUpdated = true

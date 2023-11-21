@@ -42,6 +42,7 @@
         }
 
         async write(payload, useTransform) {
+            //console.log('pipe.html: line 45', payload, useTransform)
             if (this.#sourceObjectAvailable) {
                 let transform
                 if (useTransform && (useTransform = useTransform.trim())) {
