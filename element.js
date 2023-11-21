@@ -968,7 +968,7 @@ const ElementHTML = Object.defineProperties({}, {
                 ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
                 ...Object.fromEntries(['baseURI', 'checked', 'childElementCount', 'className',
                     'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
-                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'namespaceURI',
+                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
                     'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                     'selected', 'slot', 'tagName', 'textContent', 'title'].map(p => ([p, element[p]]))),
@@ -1112,7 +1112,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
-            const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v === undefined ? [] : [v]),
+            const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v == undefined ? [] : [v]),
                 iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = typeof data === 'string' ? data.trim() : data,
                 validGlobals = [
                     'Infinity', 'NaN', , 'undefined'

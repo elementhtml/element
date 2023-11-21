@@ -42,7 +42,7 @@
         }
 
         async write(payload, useTransform) {
-            //console.log('pipe.html: line 45', payload, useTransform)
+            console.log('pipe.html: line 45', payload, useTransform)
             if (this.#sourceObjectAvailable) {
                 let transform
                 if (useTransform && (useTransform = useTransform.trim())) {
@@ -51,10 +51,11 @@
                     } else { transform = this.dataset[useTransform] }
                 } else { transform = this.transform }
                 if (transform) {
-                    let baseValue = {}
-                    try { baseValue = JSON.parse(JSON.stringify(this.#value ?? {})) } catch (e) { }
+                    let baseValue = null
+                    try { baseValue = JSON.parse(JSON.stringify(this.#value ?? null)) } catch (e) { console.log('pipe.html: line 55', e) }
                     payload = await this.E.runTransform(transform, payload, baseValue, this)
                 }
+                console.log('pipe.html: line 58', payload, transform)
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer
                 if (typeof writer === 'function') {
                     const p = this.contentType ? await this.#serialize(payload) : payload
