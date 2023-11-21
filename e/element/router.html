@@ -7,6 +7,7 @@
         #name
         #options
         #optionsMap
+        #value
 
         static {
             Object.defineProperty(this, 'modes', { value: this.E.env.modes })
@@ -37,7 +38,13 @@
 
         toString() { return this.#name }
 
-        connectedCallback() { }
+        connectedCallback() {
+            window.addEventListener('hashchange', event => {
+                this.#value = this.baseURI
+                this.dispatchEvent(new CustomEvent('change', { detail: { newURL: event.newURL, oldURL: event.oldURL } }))
+            })
+            this.#value = this.baseURI
+        }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
 

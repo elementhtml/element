@@ -527,6 +527,7 @@ const ElementHTML = Object.defineProperties({}, {
                     element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), data)
                 } else { return }
             } else if (flag && flag.startsWith('!')) {
+                //console.log('line 530', flag)
                 let eventName = flag.slice(1)
                 if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
                 element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
