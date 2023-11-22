@@ -109,7 +109,7 @@
             if (this.#resource === value) return
             this.#createBound(value, 'resource')
             this.#resource = value
-            const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
+            const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || ((this.#use !== '!') && this.#boundResourceEventNames.includes('change'))
             const boundTarget = this.boundTarget
             if (!boundTarget || (typeof boundTarget === 'string')) return
             if (this.#use === '$') {
@@ -121,7 +121,7 @@
                     if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
                     this.#refresh(resourceValue)
                 }
-            } else {
+            } else if (this.#use !== '!') {
                 if (autoRefresh) this.#refresh()
             }
         }
@@ -189,6 +189,7 @@
                 const attachEventListener = (node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController) => {
                     if (!node) return
                     if (useFlags.includes(useRefresh) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
+                    //if (this.id == 'test') console.log('pointer.html: line 193', node.id, eventName)
                     node.addEventListener(eventName, event => {
                         let proceed = true, count = getCount()
                         if (refreshStep) proceed = (count >= start) && (!end || (count < end))
@@ -197,6 +198,7 @@
                         if (proceed && refreshStep && step) proceed = !!((step === 1) ? (count % 2) : (count % step === 0))
                         if (!proceed) return
                         if (use === '!') {
+                            //if (this.id == 'test') console.log('pointer.html: line 201')
                             this.#refresh(event)
                         } else if (use === '$') {
                             this.#refresh(bound)
@@ -224,7 +226,7 @@
                             const boundController = getBoundController(), [refreshFrom, refreshStep = ''] = refreshOn.split('{')
                             let [start = 0, end = 0, step = 0] = refreshStep.slice(0, -1).split(':').map(s => (parseInt(s) || 0)), bound = getBound()
                             for (let eventName of this.#boundResourceEventNames) {
-                                for (const node of newBound) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
+                                //for (const node of newBound) attachEventListener(node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController)
                             }
                         }
                     }
@@ -330,6 +332,7 @@
         }
 
         async #refresh(payload) {
+            //if (this.id == 'test') console.log('pointer.html: line 335', payload)
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
@@ -410,7 +413,9 @@
                     for (const eventName of this.#targetEvents) for (const target of (Array.isArray(boundTarget) ? boundTarget : [boundTarget])) {
                         if (target instanceof EventTarget) target.dispatchEvent(new CustomEvent(eventName, { detail: result }))
                     }
-                } else { this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget]) }
+                } else {
+                    this._apply(result, Array.isArray(boundTarget) ? boundTarget : [boundTarget])
+                }
             }
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
         }
