@@ -185,12 +185,14 @@
             if (bindStatement.includes('|')) {
                 let bindStatementSplit = bindStatement.split('|').map(s => decodeURIComponent(s).trim()), useRefresh = useFlags.includes(bindStatement[0]) ? bindStatement : bindStatementSplit[2],
                     [use, refreshOn] = !useRefresh ? ['$', 'change'] : (useFlags.includes(useRefresh[0]) ? [useRefresh[0], useRefresh.slice(1).trim() || 'change'] : ['!', useRefresh])
-                let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags)
+                let scope = this.E.utils.resolveScope(bindStatementSplit[0], this, useFlags), eventNameTagMap = { form: 'submit', input: 'change', select: 'change', textarea: 'change' }
                 const attachEventListener = (node, eventName, use, useRefresh, start, end, refreshStep, bound, boundController) => {
                     if (!node) return
-                    if (useFlags.includes(useRefresh) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset && !['input', 'select', 'textarea'].includes(node.tagName.toLowerCase())) eventName = 'click'
+                    const tag = node.tagName.toLowerCase()
+                    if (useFlags.includes(useRefresh) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset) eventName = eventNameTagMap[tag] ?? 'click'
                     //if (this.id == 'test') console.log('pointer.html: line 193', node.id, eventName)
                     node.addEventListener(eventName, event => {
+                        if (eventName === 'submit') event.preventDefault()
                         let proceed = true, count = getCount()
                         if (refreshStep) proceed = (count >= start) && (!end || (count < end))
                         setCount(count + 1)
