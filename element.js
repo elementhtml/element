@@ -3,49 +3,39 @@ const ElementHTML = Object.defineProperties({}, {
     version: { enumerable: true, value: '0.9.6' },
 
     env: {
-        enumerable: true, value: Object.defineProperties({}, {
-            eDataset: { enumerable: true, value: new EventTarget() },
+        enumerable: true, value: {
+            eDataset: new EventTarget(),
             gateways: {
-                enumerable: true, value: {
-                    ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
-                    ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
-                }
+                ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
+                ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
             },
-            libraries: { enumerable: true, value: {} },
-            map: { value: new WeakMap() },
+            libraries: {},
+            map: new WeakMap(),
             modes: {
-                configurable: true, enumerable: true, writable: true, value: {
-                    element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
-                    theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js',
-                    publish: 'publish/manifest.json', pod: 'pod/db.js'
-                }
+                element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
+                theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js',
+                publish: 'publish/manifest.json', pod: 'pod/db.js'
             },
             options: {
-                enumerable: true, value: Object.defineProperties({}, {
-                    ajv: {
-                        enumerable: true, value: {
-                            allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
-                            strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
-                        }
-                    },
-                    errors: { enumerable: true, value: 'hide' },
-                    remarkable: {
-                        enumerable: true, value: {
-                            html: true
-                        }
-                    },
-                    security: { enumerable: true, value: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] } }
-                })
+                ajv: {
+                    enumerable: true, value: {
+                        allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
+                        strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
+                    }
+                },
+                errors: 'hide',
+                remarkable: {
+                    html: true
+                },
+                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] }
             },
-            proxies: { enumerable: true, value: {} },
+            proxies: {},
             sources: {
-                enumerable: true, value: {
-                    jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
-                    remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
-                }
+                jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
+                remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
-            variables: { enumerable: true, value: {} }
-        })
+            variables: {}
+        }
     },
 
     utils: {
@@ -240,12 +230,9 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
-                if (this._globalLoadCalled) return
-                Object.defineProperty(this, '_globalLoadCalled', { enumerable: false, value: true })
-                Object.defineProperty(this.env, 'ElementHTML', { enumerable: true, value: this })
-                Object.freeze(this.env.options.security)
-                Object.freeze(this.env.proxies)
-                Object.freeze(this.env.gateways)
+                if (this.env._globalLoadCalled) return
+                this.env._globalLoadCalled = true
+                this.env.ElementHTML = this
                 const newModes = {}
                 for (const [mode, signature] of Object.entries(this.env.modes)) {
                     let [path, pointer, ...suffix] = signature.split('/').map(s => s.split('.')).flat()
@@ -257,7 +244,13 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     })
                 }
-                Object.defineProperty(this.env, 'modes', { enumerable: true, value: newModes })
+                this.env.modes = newModes
+                Object.freeze(this.env)
+                Object.freeze(this.env.gateways)
+                Object.freeze(this.env.modes)
+                Object.freeze(this.env.options.security)
+                Object.freeze(this.env.proxies)
+                Object.freeze(this.env.sources)
                 this.encapsulateNative()
             }
             rootElement && await this.activateTag(this.utils.getCustomTag(rootElement), rootElement)
@@ -303,11 +296,16 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ImportPackage: {
-        enumerable: true, value: function (p, a) {
-            const areas = ['eDataset', 'modes', 'proxies', 'gateways', 'options', 'variables']
-            for (const a in areas) {
+        enumerable: true, value: function (packageObject) {
+            for (const a in ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables']) {
+                if (packageObject[a] instanceof Object) {
+                    this.env[a] = { ...this.env[a], ...packageObject[a] }
+                } else if (typeof packageObject[a] === 'function') {
+
+                }
+
                 if (!area || (area === a)) {
-                    const resultArea = area ? p : p[a]
+                    const resultArea = area ? packageObject : packageObject[a]
                     if (resultArea instanceof Object) this.env[a] = { ...this.env[a], ...resultArea }
                 }
             }
