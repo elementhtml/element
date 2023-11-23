@@ -361,7 +361,7 @@
                     }
                 }
             } else { result = payload ?? boundResource }
-            let transform = this.transform.trim()
+            let transform = (this.transform ?? '').trim()
             if (transform && transform.startsWith('$') && !/[({]+|(\$\.)/.test(transform)) transform = this.E.getVariable(transform)
             if (transform) {
                 if (result instanceof HTMLElement) {

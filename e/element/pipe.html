@@ -49,7 +49,7 @@
                         transform = useTransform.slice(1, -1).trim()
                     } else { transform = useTransform }
                 } else {
-                    transform = this.transform.trim()
+                    transform = (this.transform ?? '').trim()
                     if (transform && transform.startsWith('$') && !/[({]+|(\$\.)/.test(transform)) transform = this.E.getVariable(transform)
                 }
                 if (transform) {
