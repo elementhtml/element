@@ -54,7 +54,7 @@
                 }
                 if (transform) {
                     let baseValue = null
-                    try { baseValue = JSON.parse(JSON.stringify(this.#value ?? null)) } catch (e) { console.log('pipe.html: line 54', e) }
+                    try { baseValue = JSON.parse(JSON.stringify(this.#value ?? null)) } catch (e) { console.log('pipe.html: line 57', e) }
                     payload = await this.E.runTransform(transform, payload, baseValue, this)
                 }
                 const writer = (this.E.env.map.get(this) ?? {}).writer ?? this.#writer

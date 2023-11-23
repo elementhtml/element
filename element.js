@@ -1216,7 +1216,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 result = await expression.evaluate(data)
             } catch (e) {
-                console.log('line 1235', e, transform)
+                console.log('line 1219', e, transform)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
