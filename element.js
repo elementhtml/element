@@ -296,18 +296,16 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ImportPackage: {
-        enumerable: true, value: function (packageObject) {
+        enumerable: true, value: async function (packageObject) {
+            if (!(packageObject instanceof Object)) return
+            let packageContents = {}
+            if ((typeof packageObject.loader === 'function')) {
+                packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
+            } else {
+                packageContents = packageObject
+            }
             for (const a in ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables']) {
-                if (packageObject[a] instanceof Object) {
-                    this.env[a] = { ...this.env[a], ...packageObject[a] }
-                } else if (typeof packageObject[a] === 'function') {
-
-                }
-
-                if (!area || (area === a)) {
-                    const resultArea = area ? packageObject : packageObject[a]
-                    if (resultArea instanceof Object) this.env[a] = { ...this.env[a], ...resultArea }
-                }
+                if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
             }
         }
     },
@@ -1536,10 +1534,14 @@ const ElementHTML = Object.defineProperties({}, {
 
 let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
 if (metaOptions.packages) {
+    const importmapElement = document.head.querySelector('script[type="importmap]')
+    let importmap = { imports: {} }
+    if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
+    const imports = importmap.imports ?? {}
     for (const p of packages.split(',').map(s => s.trim())) {
         if (!p) continue
-        const packageUrl = p.includes('/') ? ElementHTML.resolveUrl(p) : ElementHTML.resolveUrl(`ipfs://${p}`)
-        ElementHTML.ImportPackage(await import(packageUrl))
+        if ((typeof imports[p] === 'string') && imports[p].includes('/')) p = ElementHTML.resolveUrl(imports[p])
+        ElementHTML.ImportPackage(await import(p))
     }
 }
 let expose = metaOptions.Expose || metaOptions.expose, load = metaOptions.Load || metaOptions.load
