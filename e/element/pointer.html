@@ -334,7 +334,6 @@
         }
 
         async #refresh(payload) {
-            //if (this.id == 'test') console.log('pointer.html: line 335', payload)
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
@@ -374,10 +373,10 @@
             const boundTarget = this.boundTarget ?? this.parentElement
             let valueUpdated = true
             try { valueUpdated = (JSON.stringify(this.#value ?? null) !== JSON.stringify(result ?? null)) } catch (e) { }
-            if (!this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
+            if ((this._mode !== 'theme') && !this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
-            if (!this.hasAttribute('allow-empty') && !(result instanceof Node) && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
+            if ((this._mode !== 'theme') && !this.hasAttribute('allow-empty') && !(result instanceof Node) && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
             if (typeof boundTarget === 'string') {
                 const requestOptions = await this.E.compileRequestOptions(result, this), optionsKeys = Object.keys(requestOptions)
                 if (requestOptions.body && !requestOptions.method) {

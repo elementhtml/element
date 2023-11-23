@@ -173,8 +173,9 @@ const ElementHTML = Object.defineProperties({}, {
                     } else if (scopeStatement === ':host') {
                         scope = element.getRootNode()
                         if (scope instanceof ShadowRoot) scope = scope.host
+                        if (scope === document) scope = document.documentElement
                     } else if (scopeStatement === ':document') {
-                        scope = document
+                        scope = document.documentElement
                     } else { scope = element.closest(scopeStatement) }
                     return scope
                 }
@@ -734,7 +735,14 @@ const ElementHTML = Object.defineProperties({}, {
                             let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
                             key = kk
                             if (!qs) return
-                            target = target.querySelector(qs)
+                            if (qs.includes('|')) {
+                                const [scope, selector] = qs.split('|')
+                                let scopeElement = this.utils.resolveScope(scope, target)
+                                if (!scopeElement) return
+                                target = scopeElement ? scopeElement.querySelector(selector) : undefined
+                            } else {
+                                target = target.querySelector(qs)
+                            }
                             if (!target) return
                             if (key && key.startsWith('@')) {
                                 (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
