@@ -6,8 +6,14 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: {
             eDataset: new EventTarget(),
             gateways: {
-                ipfs: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipfs.dweb.link/')}`,
-                ipns: hostpath => `https://${this.utils.splitOnce(hostpath, '/').join('.ipns.dweb.link/')}`
+                ipfs: hostpath => {
+                    const [cid, ...path] = hostpath.split('/')
+                    return `https://${cid}.ipfs.dweb.link/${path.join('/')}}`
+                },
+                ipns: hostpath => {
+                    const [cid, ...path] = hostpath.split('/')
+                    return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
+                },
             },
             libraries: {},
             map: new WeakMap(),
@@ -297,14 +303,10 @@ const ElementHTML = Object.defineProperties({}, {
     },
     ImportPackage: {
         enumerable: true, value: async function (packageObject) {
-            if (!(packageObject instanceof Object)) return
-            let packageContents = {}
-            if ((typeof packageObject.loader === 'function')) {
-                packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            } else {
-                packageContents = packageObject
-            }
-            for (const a in ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables']) {
+            if (typeof packageObject !== 'object') return
+            let packageContents = packageObject.default ?? {}
+            if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
+            for (const a of ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables']) {
                 if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
             }
         }
@@ -525,7 +527,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (flag && flag.startsWith('!')) {
                 let eventName = flag.slice(1)
                 if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
-                //console.log('line 532', flag, eventName, element.id)
                 element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
             } else if (flag) {
                 element[flag] = data
@@ -1199,19 +1200,6 @@ const ElementHTML = Object.defineProperties({}, {
                 return window[temp](...getArgs(transform))
             } else if (temp = Object.keys(validGlobalObjects).find(k => transform.startsWith(`${k}.`))) {
                 return resolveChild()
-            } else if (temp = Object.entries(this.env.variables).find(ent => ((transform === `$${ent[0]}`) || transform.startsWith(`$${ent[0]}{`) || transform.startsWith(`$${ent[0]}(`) || transform.startsWith(`$${ent[0]}.`)))) {
-                let vars = []
-                for (const [k, v] of Object.entries(this.env.variables)) if ((v instanceof Object) || (typeof v === 'Function')) vars.push(k)
-                if (transform === `$${ent[0]}`) {
-                    return ent[1]
-                } else if (transform.startsWith(`$${ent[0]}{`)) {
-                    const key = (transform.match(new RegExp(`\\$${ent[0]}\\{(.*)\\}`)) ?? [])[1]
-                    return key ? { ...iO(ent[1]), [key]: d } : { ...iO(ent[1]), ...iO(d) }
-                } else if (transform.startsWith(`$${ent[0]}(`)) {
-                    if (typeof ent[1] === 'function') return ent[1](...getArgs(transform.slice(1)))
-                } else if (transform === `$${ent[0]}.`) {
-                    return resolveChild(this.env.variables, transform, ent[0])
-                }
             }
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
@@ -1538,7 +1526,7 @@ if (metaOptions.packages) {
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
     const imports = importmap.imports ?? {}
-    for (const p of packages.split(',').map(s => s.trim())) {
+    for (const p of metaOptions.packages.split(',').map(s => s.trim())) {
         if (!p) continue
         if ((typeof imports[p] === 'string') && imports[p].includes('/')) p = ElementHTML.resolveUrl(imports[p])
         ElementHTML.ImportPackage(await import(p))

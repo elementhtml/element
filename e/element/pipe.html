@@ -47,8 +47,11 @@
                 if (useTransform && (useTransform = useTransform.trim())) {
                     if (useTransform.startsWith('`') && useTransform.endsWith('`')) {
                         transform = useTransform.slice(1, -1).trim()
-                    } else { transform = this.dataset[useTransform] }
-                } else { transform = this.transform }
+                    } else { transform = useTransform }
+                } else {
+                    transform = this.transform.trim()
+                    if (transform && transform.startsWith('$') && !/[({]+|(\$\.)/.test(transform)) transform = this.E.getVariable(transform)
+                }
                 if (transform) {
                     let baseValue = null
                     try { baseValue = JSON.parse(JSON.stringify(this.#value ?? null)) } catch (e) { console.log('pipe.html: line 54', e) }
