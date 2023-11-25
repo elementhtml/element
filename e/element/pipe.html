@@ -34,19 +34,22 @@
                 this.#handleChange(v)
             } else {
                 const parseTarget = (detail instanceof CustomEvent && (detail.detail !== undefined)) ? detail.detail : ((detail instanceof MessageEvent) ? detail.data : detail),
-                    v = this.#parse(parseTarget)
+                    v = await this.#parse(parseTarget)
                 if (dryRun) return v
                 this.dispatchEvent(new CustomEvent('read', { detail }))
                 this.#handleChange(v)
             }
         }
 
-        async write(payload, useTransform) {
+        async write(payload, useTransform, path) {
             if (this.#sourceObjectAvailable) {
                 let transform
                 if (useTransform && (useTransform = useTransform.trim())) {
                     if (useTransform.startsWith('`') && useTransform.endsWith('`')) {
                         transform = useTransform.slice(1, -1).trim()
+                    } else if (useTransform.startsWith('/') || useTransform.startsWith('./') || useTransform.startsWith('../')) {
+                        path = useTransform
+                        useTransform = undefined
                     } else { transform = useTransform }
                 } else {
                     transform = (this.transform ?? '').trim()
@@ -74,7 +77,8 @@
                 } else if (this.#sourceObject instanceof Function) {
                     await this.read(this.#sourceObject(payload))
                 } else if (typeof this.#sourceObject === 'string') {
-                    await this.read(await fetch(this.#sourceObject, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
+                    const url = new URL(path || '', this.#sourceObject).href
+                    await this.read(await fetch(url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#writeQueue.push(payload) }

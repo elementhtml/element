@@ -38,6 +38,8 @@
 
         toString() { return this.#name }
 
+        static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
+
         connectedCallback() {
             window.addEventListener('hashchange', event => {
                 this.#value = this.baseURI
@@ -46,14 +48,22 @@
             this.#value = this.baseURI
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
-
-        processor = function (router, mode, path = undefined, suffix = undefined, pointer = undefined, get = false) {
+        processor(router, mode, path = undefined, suffix = undefined, pointer = undefined, get = false) {
             path ||= router.modes[mode]?.path ?? mode
             pointer ||= router.modes[mode]?.pointer ?? mode
             suffix ||= router.modes[mode]?.suffix ?? ''
             const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix ? '.' + suffix : ''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
             return get ? fetch(router.E.resolveUrl(url), this.optionsMap) : url
+        }
+
+        to(path, mode) {
+            let url
+            if (mode && (typeof this.modes[mode] === 'function')) {
+                url = this.modes[mode](path)
+            } else {
+                url = new URL(`${this.base && this.base.endsWith('*') ? ('./') : (this.name + '/')}${path}`, this.base ? (new URL(this.base, this.baseURI).href) : this.baseURI).href
+            }
+            window.location = url
         }
 
         get base() { return this.#base }

@@ -750,7 +750,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 if (key.includes('(')) {
                                     let [methodName, ...args] = key.slice(1).split('(')
                                     if (typeof target[methodName] !== 'function') return
-                                    args = args.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), target))
+                                    args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
                                     args.push(v)
                                     target[methodName](...args)
                                 } else {
@@ -777,7 +777,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (key.includes('(')) {
                                 let [methodName, ...args] = key.slice(1).split('(')
                                 if (typeof target[methodName] !== 'function') return
-                                args = args.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), target))
+                                args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
                                 args.push(v)
                                 target[methodName](...args)
                             } else {
@@ -1024,7 +1024,7 @@ const ElementHTML = Object.defineProperties({}, {
             let variableName = variableRef.slice(1), variableValue = variableRef
             if (element && variableName && variableRef[0] === '@') {
                 return element.getAttribute(variableName)
-            } else if (element && variableName && variableRef[0] === '.') {
+            } else if (element && variableName && variableRef[0] === '.' && !variableRef.includes('/')) {
                 return element[variableName]
             } else if (variableName && variableRef[0] === '$') {
                 if (variableName.includes('.')) {

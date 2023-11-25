@@ -389,21 +389,26 @@
                     if (apply === '...') {
                         targetArgs = Array.isArray(result) ? result : [result]
                     } else if (apply && Array.isArray(result)) {
-                        targetArgs = apply.split(',').filter(v => !!v).map(s => this.E.utils.resolveMergeToken(s.trim(), this))
+                        targetArgs = apply.split(',').filter(v => !!v).map(s => this.E.getVariable(s.trim(), this))
                         for (let i = 0; i < Math.max(targetArgs.length, result.length); i++) targetArgs[i] = result[i] ?? targetArgs[i]
                     } else { targetArgs = [result] }
                     boundTarget(...targetArgs)
                 }
             } else if (boundTarget instanceof Object && !(boundTarget instanceof HTMLElement) && !Array.isArray(boundTarget)) {
                 let apply = this.apply || '', [subName, args] = apply.split('(').map(s => s.trim())
+                if (typeof args === 'string') args = args.slice(0, -1)
                 if (args && subName && (typeof boundTarget[subName] == 'function')) {
-                    if (payload) {
+                    if (result) {
                         let targetArgs = []
-                        if (apply === '...') {
-                            targetArgs = Array.isArray(result) ? result : [result]
-                        } else if (apply && Array.isArray(result)) {
-                            targetArgs = args.slice(0, -1).split(',').filter(v => !!v).map(s => this.E.utils.resolveMergeToken(s.trim(), this))
-                            for (let i = 0; i < Math.max(targetArgs.length, result.length); i++) targetArgs[i] = result[i] ?? targetArgs[i]
+                        if (typeof args === 'string') {
+                            args.split(',').forEach(s => {
+                                s = s.trim()
+                                if (s === '') {
+                                    targetArgs.push(result)
+                                } else if (s === '...') {
+                                    targetArgs.push(...(Array.isArray(result) ? result : [result]))
+                                } else { targetArgs.push(this.E.getVariable(s, this)) }
+                            })
                         } else { targetArgs = [result] }
                         boundTarget[subName](...targetArgs)
                     }
