@@ -1537,6 +1537,7 @@ if (metaOptions.packages) {
     for (const p of metaOptions.packages.split(',').map(s => s.trim())) {
         if (!p) continue
         if ((typeof imports[p] === 'string') && imports[p].includes('/')) p = ElementHTML.resolveUrl(imports[p])
+        console.log('line 1541', p)
         ElementHTML.ImportPackage(await import(p))
     }
 }
