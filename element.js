@@ -6,14 +6,14 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: {
             eDataset: new EventTarget(),
             gateways: {
-                ipfs: hostpath => {
+                ipfs: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipfs.dweb.link/${path.join('/')}}`
                 },
-                ipns: hostpath => {
+                ipns: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
-                },
+                }
             },
             libraries: {},
             map: new WeakMap(),
@@ -1116,8 +1116,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!value.includes('://')) return value
                 if (!value.startsWith('http://') && !value.startsWith('https://')) {
                     const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-                    value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath) : value
+                    value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
                 }
+                if (typeof value !== 'string') return value
                 for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
                 return value
             } else if (value.includes(':') && !value.includes('://')) {
@@ -1537,7 +1538,7 @@ if (metaOptions.packages) {
     for (const p of metaOptions.packages.split(',').map(s => s.trim())) {
         if (!p) continue
         if ((typeof imports[p] === 'string') && imports[p].includes('/')) p = ElementHTML.resolveUrl(imports[p])
-        ElementHTML.ImportPackage(await import(p))
+        await ElementHTML.ImportPackage(await import(p))
     }
 }
 let expose = metaOptions.Expose || metaOptions.expose, load = metaOptions.Load || metaOptions.load
