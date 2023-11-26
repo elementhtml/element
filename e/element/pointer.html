@@ -319,9 +319,7 @@
                     }
                 })
             } else {
-                console.log('pointer.html: line 322', bindStatement, this)
                 let url = this.E.resolveUrl(bindStatement, this), boundController = getBoundController()
-                console.log('pointer.html: line 324', url, this)
                 if (boundController) boundController.abort()
                 setBound(url)
                 if ((mode === 'resource') && bindStatement.includes(':#')) {
@@ -339,14 +337,25 @@
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
-            if (!payload && (typeof boundResource === 'string')) {
+            if (!payload && ((typeof boundResource === 'string') || (typeof boundResource === 'function'))) {
+                const requestOptions = await this.E.compileRequestOptions(payload, this)
                 let contentType = this.E.utils.getContentType(this, typeof boundResource === 'string' ? boundResource : undefined)
                 if (this._isReference && (contentType === 'application/javascript')) {
                     result = await import(boundResource)
                 } else if (contentType === 'application/schema+json') {
                     result = boundResource
+                } else if (typeof boundResource === 'function') {
+                    result = await boundResource({
+                        method: requestOptions.method ?? 'GET',
+                        headers: {
+                            'Content-Type': contentType,
+                            ...requestOptions
+                        },
+                        url: new URL(this.#resource)
+                    },
+                        payload)
                 } else {
-                    const requestOptions = await this.E.compileRequestOptions(payload, this), req = fetch(boundResource, requestOptions)
+                    const req = fetch(boundResource, requestOptions)
                     if (this._isReference) {
                         if (contentType === 'application/wasm') {
                             result = this.E.utils.getWasm(req)
