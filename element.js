@@ -1262,7 +1262,7 @@ const ElementHTML = Object.defineProperties({}, {
             const loadResult = await this.loadTagAssetsFromId(id, forceReload)
             if (!loadResult) return
             const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
-            globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+            if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
     encapsulateNative: {

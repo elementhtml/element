@@ -319,7 +319,9 @@
                     }
                 })
             } else {
+                console.log('pointer.html: line 322', bindStatement, this)
                 let url = this.E.resolveUrl(bindStatement, this), boundController = getBoundController()
+                console.log('pointer.html: line 324', url, this)
                 if (boundController) boundController.abort()
                 setBound(url)
                 if ((mode === 'resource') && bindStatement.includes(':#')) {
