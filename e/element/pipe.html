@@ -84,10 +84,7 @@
                             requestOptions = await this.E.compileRequestOptions(p, this),
                             context = { method: requestOptions.method ?? 'GET', headers: { 'Content-Type': contentType }, url: new URL(this.#sourceObject) }
                         await this.read(await url(context, p))
-                    } else {
-                        await this.read(await fetch(url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
-                    }
-
+                    } else { await this.read(await fetch(url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) })) }
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#writeQueue.push(payload) }
