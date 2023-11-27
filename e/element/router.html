@@ -56,7 +56,8 @@
             return get ? fetch(router.E.resolveUrl(url), this.optionsMap) : url
         }
 
-        to(path, mode) {
+        to(path, proceed, mode) {
+            if (proceed === false) return
             let url
             if (mode && (typeof this.modes[mode] === 'function')) {
                 url = this.modes[mode](path)
