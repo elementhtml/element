@@ -531,6 +531,8 @@ const ElementHTML = Object.defineProperties({}, {
                 element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
             } else if (flag) {
                 element[flag] = data
+            } else if (dataIsObject && element.hasAttribute('itemscope')) {
+                this.setValue(element, data)
             } else if (dataIsObject && element.querySelector(':scope > template')) {
                 let after = document.createElement('meta')
                 after.toggleAttribute('after', true)
@@ -1436,6 +1438,15 @@ const ElementHTML = Object.defineProperties({}, {
                                             return $this.hasAttribute(property.slice(1))
                                         case '.':
                                             return property.slice(1) in $this
+                                        case '`':
+                                            const [qs, p] = property.slice(1).split('`')
+                                            if (!qs) return false
+                                            const el = $this.querySelector(qs)
+                                            if (!el) return false
+                                            if (!p) return true
+                                            return p[0] === '@' ? el.hasAttribute(p.slice(1))
+                                                : (p[0] === '.' ? (p.slice(1) in el)
+                                                    : p.includes('-') ? (p.replaceAll('-', '__') in el) : (p in el))
                                         default:
                                             return property.includes('-') ? (property.replaceAll('-', '__') in target) : (property in target)
                                     }
@@ -1448,6 +1459,15 @@ const ElementHTML = Object.defineProperties({}, {
                                             return $this.getAttribute(property.slice(1))
                                         case '.':
                                             return $this[property.slice(1)]
+                                        case '`':
+                                            const [qs, p] = property.slice(1).split('`')
+                                            if (!qs) return false
+                                            const el = $this.querySelector(qs)
+                                            if (!el) return false
+                                            if (!p) return true
+                                            return p[0] === '@' ? el.getAttribute(p.slice(1))
+                                                : (p[0] === '.' ? el[p.slice(1)]
+                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p])
                                         default:
                                             return property.includes('-') ? target[property.replaceAll('-', '__')] : target[property]
                                     }
@@ -1464,6 +1484,15 @@ const ElementHTML = Object.defineProperties({}, {
                                             if (value === null || value === undefined) {
                                                 return delete $this[property.slice(1)]
                                             } else { return $this[property.slice(1)] = value }
+                                        case '`':
+                                            const [qs, p] = property.slice(1).split('`')
+                                            if (!qs) return
+                                            const el = $this.querySelector(qs)
+                                            if (!el) return
+                                            if (!p) return this.setValue(el, value)
+                                            return p[0] === '@' ? el.setAttribute(p.slice(1), value)
+                                                : (p[0] === '.' ? el[p.slice(1)] = value
+                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p] = value)
                                         default:
                                             let oldValue
                                             if (property.includes('-')) {
@@ -1486,6 +1515,15 @@ const ElementHTML = Object.defineProperties({}, {
                                             return $this.removeAttribute(property.slice(1))
                                         case '.':
                                             return delete $this[property.slice(1)]
+                                        case '`':
+                                            const [qs, p] = property.slice(1).split('`')
+                                            if (!qs) return
+                                            const el = $this.querySelector(qs)
+                                            if (!el) return
+                                            if (!p) return el.remove()
+                                            return p[0] === '@' ? el.removeAttribute(p.slice(1))
+                                                : (p[0] === '.' ? delete el[p.slice(1)]
+                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : delete el[p])
                                         default:
                                             let retval, oldValue
                                             if (property.includes('-')) {
