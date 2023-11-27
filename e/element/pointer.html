@@ -192,7 +192,7 @@
                     if (useFlags.includes(useRefresh) && (this.#boundResourceEventNames.length === 1) && eventName === 'change' && !node.eDataset) eventName = eventNameTagMap[tag] ?? 'click'
                     //if (this.id == 'test') console.log('pointer.html: line 193', node.id, eventName)
                     node.addEventListener(eventName, event => {
-                        if (eventName === 'submit') event.preventDefault()
+                        if ((eventName === 'submit') || (node.tagName.toLowerCase() === 'a' && node.hasAttribute('href'))) event.preventDefault()
                         let proceed = true, count = getCount()
                         if (refreshStep) proceed = (count >= start) && (!end || (count < end))
                         setCount(count + 1)

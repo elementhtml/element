@@ -491,8 +491,10 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? delete element[k] : element[k] = v
             } else if (dataIsObject && flag === 'dataset') {
                 for (const [k, v] of Object.entries(data)) element.dataset[k] = v
-            } else if (dataIsObject && flag === 'eDataset' && element.eDataset instanceof Object) {
-                Object.assign(element.eDataset, data)
+            } else if (dataIsObject && flag === 'eDataset') {
+                if (element.eDataset instanceof Object) {
+                    Object.assign(element.eDataset, data)
+                } else { element.eDataset = data }
             } else if (dataIsObject && flag === 'eContext' && element.eContext instanceof Object) {
                 Object.assign(element.eContext, data)
             } else if (flag && ((data ?? {}) instanceof Object) && (flag.endsWith('{}') || flag.endsWith('{...}') || flag.endsWith('{,...}') || flag.endsWith('{...,}'))) {
@@ -630,9 +632,9 @@ const ElementHTML = Object.defineProperties({}, {
                     if (entryTemplate) {
                         const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
                             entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
-                        let valueTemplates = entryNode.querySelectorAll(`template[data-e-value]${querySuffix}`)
+                        let valueTemplates = entryNode.querySelectorAll(`:scope > template[data-e-value]${querySuffix}`)
                         if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key, undefined, silent))
-                        if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
+                        //if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
                         if (valueTemplates.length) {
                             let valueTemplate = valueTemplates[valueTemplates.length - 1]
                             for (const t of valueTemplates) {
@@ -1441,7 +1443,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         case '`':
                                             const [qs, p] = property.slice(1).split('`')
                                             if (!qs) return false
-                                            const el = $this.querySelector(qs)
+                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
                                             if (!el) return false
                                             if (!p) return true
                                             return p[0] === '@' ? el.hasAttribute(p.slice(1))
@@ -1462,7 +1464,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         case '`':
                                             const [qs, p] = property.slice(1).split('`')
                                             if (!qs) return false
-                                            const el = $this.querySelector(qs)
+                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
                                             if (!el) return false
                                             if (!p) return true
                                             return p[0] === '@' ? el.getAttribute(p.slice(1))
@@ -1478,21 +1480,21 @@ const ElementHTML = Object.defineProperties({}, {
                                     switch (property[0]) {
                                         case '@':
                                             if (value === null || value === undefined) {
-                                                return $this.removeAttribute(property.slice(1))
-                                            } else { return $this.setAttribute(property.slice(1), value) }
+                                                return $this.removeAttribute(property.slice(1)) ?? true
+                                            } else { return $this.setAttribute(property.slice(1), value) ?? true }
                                         case '.':
                                             if (value === null || value === undefined) {
-                                                return delete $this[property.slice(1)]
-                                            } else { return $this[property.slice(1)] = value }
+                                                return delete $this[property.slice(1)] ?? true
+                                            } else { return ($this[property.slice(1)] = value) ?? true }
                                         case '`':
                                             const [qs, p] = property.slice(1).split('`')
                                             if (!qs) return
-                                            const el = $this.querySelector(qs)
-                                            if (!el) return
-                                            if (!p) return this.setValue(el, value)
-                                            return p[0] === '@' ? el.setAttribute(p.slice(1), value)
+                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
+                                            if (!el) return true
+                                            if (!p) return this.setValue(el, value) ?? true
+                                            return (p[0] === '@' ? el.setAttribute(p.slice(1), value)
                                                 : (p[0] === '.' ? el[p.slice(1)] = value
-                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p] = value)
+                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p] = value)) ?? true
                                         default:
                                             let oldValue
                                             if (property.includes('-')) {
@@ -1512,18 +1514,18 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (override) return typeof override === 'function' ? override($this, target, property) : override
                                     switch (property[0]) {
                                         case '@':
-                                            return $this.removeAttribute(property.slice(1))
+                                            return $this.removeAttribute(property.slice(1)) ?? true
                                         case '.':
                                             return delete $this[property.slice(1)]
                                         case '`':
                                             const [qs, p] = property.slice(1).split('`')
                                             if (!qs) return
-                                            const el = $this.querySelector(qs)
+                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
                                             if (!el) return
                                             if (!p) return el.remove()
-                                            return p[0] === '@' ? el.removeAttribute(p.slice(1))
+                                            return (p[0] === '@' ? el.removeAttribute(p.slice(1))
                                                 : (p[0] === '.' ? delete el[p.slice(1)]
-                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : delete el[p])
+                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : delete el[p])) ?? true
                                         default:
                                             let retval, oldValue
                                             if (property.includes('-')) {
