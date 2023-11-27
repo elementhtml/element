@@ -394,10 +394,18 @@
                     navigator.sendBeacon(this.E.resolveUrl(boundTarget, this), requestOptions.body)
                 } else { fetch(this.E.resolveUrl(boundTarget, this), requestOptions) }
             } else if (typeof boundTarget === 'function') {
-                const apply = (this.apply || '')
                 if (payload) {
                     let targetArgs = []
-                    if (apply === '...') {
+                    const apply = (this.apply || '')
+                    if (this.#target && !this.#target.startsWith('`') && !this.#target.includes(';')) {
+                        const requestOptions = await this.E.compileRequestOptions(result, this),
+                            contentType = this.E.utils.getContentType(this, this.#target)
+                        targetArgs.push({
+                            method: requestOptions.method ?? 'GET',
+                            headers: { 'Content-Type': contentType },
+                            url: new URL(this.#target)
+                        }, payload)
+                    } else if (apply === '...') {
                         targetArgs = Array.isArray(result) ? result : [result]
                     } else if (apply && Array.isArray(result)) {
                         targetArgs = apply.split(',').filter(v => !!v).map(s => this.E.getVariable(s.trim(), this))
