@@ -77,8 +77,17 @@
                 } else if (this.#sourceObject instanceof Function) {
                     await this.read(this.#sourceObject(payload))
                 } else if (typeof this.#sourceObject === 'string') {
-                    const url = new URL(path || '', this.#sourceObject).href
-                    await this.read(await fetch(url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
+                    let { href: url, protocol, pathname } = new URL(path || '', this.#sourceObject)
+                    url = this.E.resolveUrl(url)
+                    if (typeof url === 'function') {
+                        const contentType = this.contentType, p = contentType ? await this.#serialize(payload) : payload,
+                            requestOptions = await this.E.compileRequestOptions(p, this),
+                            context = { method: requestOptions.method ?? 'GET', headers: { 'Content-Type': contentType }, url: new URL(this.#sourceObject) }
+                        await this.read(await url(context, p))
+                    } else {
+                        await this.read(await fetch(url, { ...(this.optionsMap ?? {}), body: (await this.#serialize(payload)) }))
+                    }
+
                 } else { return }
                 this.dispatchEvent(new CustomEvent('write', { detail: payload }))
             } else { this.#writeQueue.push(payload) }
@@ -136,10 +145,6 @@
                     this.#sourceObject.addEventListener('message', event => this.read(event), { signal: this.#abortController.signal })
                 }
                 makeSocket()
-            } else if (source.startsWith('https://') || source.startsWith('http://')) {
-                this.#sourceObject = source
-                this.#sourceObjectAvailable = true
-                for (const j of this.#writeQueue) this.write(j)
             } else if (source.startsWith('sse://')) {
                 const [url, events = ['message']] = source.split('!', 2)
                 this.#sourceObject = new EventSource(url.replace('sse://', 'https://'), this.optionsMap)
@@ -178,6 +183,10 @@
                     })
                 }
                 makeTransport()
+            } else if (source.includes('://')) {
+                this.#sourceObject = source
+                this.#sourceObjectAvailable = true
+                for (const j of this.#writeQueue) this.write(j)
             } else if (source) {
                 this.#sourceObject = new EventTarget()
                 this.addEventListener(source, event => this.read(event), { signal: this.#abortController.signal })

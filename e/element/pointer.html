@@ -404,7 +404,7 @@
                             method: requestOptions.method ?? 'GET',
                             headers: { 'Content-Type': contentType },
                             url: new URL(this.#target)
-                        }, payload)
+                        }, result)
                     } else if (apply === '...') {
                         targetArgs = Array.isArray(result) ? result : [result]
                     } else if (apply && Array.isArray(result)) {
