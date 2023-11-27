@@ -57,7 +57,12 @@
         }
 
         to(path, proceed, mode) {
-            if (proceed === false) return
+            if (proceed === false) {
+                return
+            } else if (mode === undefined) {
+                if (proceed === 'string') mode = proceed
+                if (Array.isArray(proceed)) [proceed, mode] = proceed
+            }
             let url
             if (mode && (typeof this.modes[mode] === 'function')) {
                 url = this.modes[mode](path)
