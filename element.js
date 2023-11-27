@@ -94,7 +94,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (value[0] === '$') return ElementHTML.getVariable(value, element) ?? retval
                         if (value[0] === '?') value = decodeURIComponent(value).slice(1)
                         if ((value[0] === '{') && (value.slice(-1) === '}')) {
-                            try { retval = JSON.parse(value) } catch (e) { }
+                            try { retval = JSON.parse(value) } catch (e) { console.log('line 97', e) }
                         } else {
                             try { retval = Object.fromEntries((new URLSearchParams(value)).entries()) } catch (e) { }
                         }
@@ -730,54 +730,39 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (!dataIsObject) {
                 this.setValue(element, data, undefined, silent)
             } else {
-                if (dataIsObject && element.eDataset instanceof Object) {
-                    Object.assign(element.eDataset, data)
-                } else {
-                    const sinkDataAuto = (k, v, flag, element, sourceElement, context, layer, silent) => {
-                        let key = k.trim(), target = element
-                        if (key.startsWith('`')) {
-                            let [qs, kk] = this.utils.splitOnce(key.slice(1), '`').map(s => s.trim())
-                            key = kk
-                            if (!qs) return
-                            if (qs.includes('|')) {
-                                const [scope, selector] = qs.split('|')
-                                let scopeElement = this.utils.resolveScope(scope, target)
-                                if (!scopeElement) return
-                                target = scopeElement ? scopeElement.querySelector(selector) : undefined
-                            } else {
-                                target = target.querySelector(qs)
-                            }
-                            if (!target) return
-                            if (key && key.startsWith('@')) {
-                                (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                            } else if (key && key.startsWith('.')) {
-                                if (key.includes('(')) {
-                                    let [methodName, ...args] = key.slice(1).split('(')
-                                    if (typeof target[methodName] !== 'function') return
-                                    args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
-                                    args.push(v)
-                                    target[methodName](...args)
-                                } else {
-                                    (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
-                                }
-                            } else if (key && key.startsWith('!')) {
-                                let eventName = key.slice(1)
-                                if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
-                                target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
-                            } else if (key) {
-                                if (v === null) {
-                                    delete target.dataset[key]
-                                } else { target.dataset[key] = v }
-                            } else if (target === element) {
-                                this.setValue(target, v, undefined, silent)
-                            } else {
-                                this.sinkData(target, v, undefined, undefined, sourceElement, context, layer, element, silent)
-                            }
-                            return
-                        }
-                        if (key.startsWith('@')) {
+                //if (dataIsObject && element.eDataset instanceof Object) {
+                //    Object.assign(element.eDataset, data)
+                //} else {
+                const resolveTargetAndKey = (statement, element) => {
+                    let target, [qs, key] = this.utils.splitOnce(statement.slice(1), '`').map(s => s.trim())
+                    if (!qs) return [element, key]
+                    if (qs.includes('|')) {
+                        const [scope, selector] = qs.split('|')
+                        let scopeElement = this.utils.resolveScope(scope, element)
+                        if (!scopeElement) return [, key]
+                        target = scopeElement ? scopeElement.querySelector(selector) : undefined
+                    } else {
+                        target = element.querySelector(qs)
+                    }
+                    return [target, key]
+                }, resolveForV = (v, element) => {
+                    if (v[0] === '`' && v.slice(1).includes('`')) {
+                        let [target, key] = resolveTargetAndKey(v, element)
+                        if (key[0] === '@') {
+                            return target.getAttribute(key.slice(1))
+                        } else if (key[0] === '.') {
+                            return target[key.slice(1)]
+                        } else if (key) { return target.dataset[key] }
+                    } else { return v }
+                }, sinkDataAuto = (k, v, flag, element, sourceElement, context, layer, silent) => {
+                    if (v && (typeof v === 'string')) v = resolveForV(v, element)
+                    let key = k.trim(), target = element
+                    if (key.startsWith('`')) {
+                        [target, key] = resolveTargetAndKey(key, element)
+                        if (!target) return
+                        if (key && key.startsWith('@')) {
                             (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                        } else if (key.startsWith('.')) {
+                        } else if (key && key.startsWith('.')) {
                             if (key.includes('(')) {
                                 let [methodName, ...args] = key.slice(1).split('(')
                                 if (typeof target[methodName] !== 'function') return
@@ -795,10 +780,37 @@ const ElementHTML = Object.defineProperties({}, {
                             if (v === null) {
                                 delete target.dataset[key]
                             } else { target.dataset[key] = v }
-                        } else { this.setValue(target, v, undefined, silent) }
+                        } else if (target === element) {
+                            this.setValue(target, v, undefined, silent)
+                        } else {
+                            this.sinkData(target, v, undefined, undefined, sourceElement, context, layer, element, silent)
+                        }
+                        return
                     }
-                    for (const [k, v] of Object.entries(data)) sinkDataAuto(k, v, flag, element, sourceElement, context, layer, silent)
+                    if (key.startsWith('@')) {
+                        (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
+                    } else if (key.startsWith('.')) {
+                        if (key.includes('(')) {
+                            let [methodName, ...args] = key.slice(1).split('(')
+                            if (typeof target[methodName] !== 'function') return
+                            args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
+                            args.push(v)
+                            target[methodName](...args)
+                        } else {
+                            (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
+                        }
+                    } else if (key && key.startsWith('!')) {
+                        let eventName = key.slice(1)
+                        if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
+                        target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                    } else if (key) {
+                        if (v === null) {
+                            delete target.dataset[key]
+                        } else { target.dataset[key] = v }
+                    } else { this.setValue(target, v, undefined, silent) }
                 }
+                for (const [k, v] of Object.entries(data)) sinkDataAuto(k, v, flag, element, sourceElement, context, layer, silent)
+                //}
             }
             return await close(element)
         }
@@ -915,15 +927,19 @@ const ElementHTML = Object.defineProperties({}, {
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
             let requestOptions = optionsMap ?? element?.optionsMap ?? {}
-            if (requestOptions.$ && typeof requestOptions.$ === 'string') {
+            if (requestOptions.$ && typeof requestOptions.$ === 'string' && requestOptions.$.startsWith('$')) {
                 let variableValue = this.getVariable(requestOptions.$, element)
-                if (variableValue && (variableValue instanceof Object)) requestOptions = { ...variableValue, ...requestOptions }
+                if (variableValue && (variableValue instanceof Object)) {
+                    requestOptions.headers = { ...(variableValue.headers ?? {}), ...(requestOptions.headers ?? {}) }
+                    requestOptions = { ...variableValue, ...requestOptions }
+                }
             }
             let headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
+            for (const [k, v] of Object.entries(element.dataset)) if (k.startsWith('eHeader')) headers[k.slice(7)] = v
             contentType ||= element.getAttribute('content-type') || element._contentType
+            requestOptions.headers = headers
             if (!contentType && body) contentType ||= defaultContentType
             if (contentType) {
-                requestOptions.headers = headers
                 requestOptions.headers['Content-Type'] = contentType
                 delete requestOptions.headers['content-type']
                 delete requestOptions.headers.contentType
@@ -1222,7 +1238,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const expression = this.env.libraries.jsonata(transform)
                 if (transform.includes('$find(')) {
                     expression.registerFunction('find', (qs) => {
-                        if (!qs) return {}
+                        if (!qs) return this.flatten(element)
                         let [scope = '*', selector] = qs.split('|'), node = element.closest(scope)
                         if (node && selector) node = node.querySelector(selector)
                         return node ? this.flatten(node) : {}
