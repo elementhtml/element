@@ -193,6 +193,7 @@
                 getBoundObserver = () => mode === 'resource' ? this.#boundResourceObserver : this.#boundTargetObserver,
                 setCount = v => mode === 'resource' ? (this.#boundResourceRefreshCount = v) : (this.#boundTargetRefreshCount = v),
                 getCount = () => mode === 'resource' ? this.#boundResourceRefreshCount : this.#boundTargetRefreshCount
+            value = this.E.getVariable(value, this)
             let bindStatement = value ?? '|'
             const useFlags = ['!', '$', '_']
             if (mode === 'target') this.#targetEvents = []
@@ -372,7 +373,7 @@
                     result = await boundResource({
                         method: requestOptions.method ?? 'GET',
                         headers: { ...(requestOptions.headers ?? {}), 'Content-Type': contentType },
-                        url: new URL(this.#resource)
+                        url: new URL(this.E.getVariable(this.#resource, this))
                     },
                         payload)
                 } else {
