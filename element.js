@@ -477,7 +477,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (data instanceof HTMLElement) data = this.flatten(data)
             const dataIsObject = (data instanceof Object)
-            if (dataIsObject && !Object.keys(data).length) return element
+            //if (dataIsObject && !Object.keys(data).length) return element
             flag ||= sourceElement?.flag
             if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
                 const useNode = element === document.head ? element : document
@@ -634,44 +634,50 @@ const ElementHTML = Object.defineProperties({}, {
                     return newTemplate
                 }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
                 const entries = Array.isArray(data) ? data.entries() : Object.entries(data)
-                for (const [key, value] of entries) {
-                    let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
-                        || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
-                    if (entryTemplate) {
-                        const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
-                            entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
-                        let valueTemplates = entryNode.querySelectorAll(`:scope > template[data-e-value]${querySuffix}`)
-                        if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key, undefined, silent))
-                        //if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
-                        if (valueTemplates.length) {
-                            let valueTemplate = valueTemplates[valueTemplates.length - 1]
-                            for (const t of valueTemplates) {
-                                if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-use')) continue
-                                const templateDataType = t.getAttribute('data-e-if-type')
-                                if ((value?.constructor?.name?.toLowerCase() === templateDataType) || ((templateDataType === 'object') && (value instanceof Object))
-                                    || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
-                            }
-                            const valueNode = build(valueTemplate, key, value).content.cloneNode(true)
-                            for (const recursiveTemplate of recursiveTemplates) {
-                                let placed = false
-                                for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-place-into'))) {
-                                    scopedTarget.prepend(recursiveTemplate.cloneNode(true))
-                                    placed = true
-                                }
-                                if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
-                            }
-                            this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
-                            valueTemplate.replaceWith(...valueNode.children)
+                const processTemplate = (entryTemplate, key, value, empty) => {
+                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
+                        entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
+                    let valueTemplates = entryNode.querySelectorAll(`:scope > template[data-e-value]${querySuffix}`)
+                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key, undefined, silent))
+                    //if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
+                    if (valueTemplates.length) {
+                        let valueTemplate = valueTemplates[valueTemplates.length - 1]
+                        for (const t of valueTemplates) {
+                            if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-use')) continue
+                            const templateDataType = t.getAttribute('data-e-if-type')
+                            if ((value?.constructor?.name?.toLowerCase() === templateDataType) || ((templateDataType === 'object') && (value instanceof Object))
+                                || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
                         }
-                        if ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false'))) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
-                        if (entryTemplate.getAttribute('data-e-property')) {
-                            entryTemplate.after(...entryNode.children)
-                        } else {
-                            const nextAfter = entryNode.children[entryNode.children.length - 1]
-                            after?.after(...entryNode.children)
-                            if (nextAfter) after = nextAfter
+                        const valueNode = build(valueTemplate, key, value).content.cloneNode(true)
+                        for (const recursiveTemplate of recursiveTemplates) {
+                            let placed = false
+                            for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-place-into'))) {
+                                scopedTarget.prepend(recursiveTemplate.cloneNode(true))
+                                placed = true
+                            }
+                            if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
                         }
+                        if (!empty) this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
+                        valueTemplate.replaceWith(...valueNode.children)
                     }
+                    if (!empty && ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false')))) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
+                    if (entryTemplate.getAttribute('data-e-property')) {
+                        entryTemplate.after(...entryNode.children)
+                    } else {
+                        const nextAfter = entryNode.children[entryNode.children.length - 1]
+                        after?.after(...entryNode.children)
+                        if (nextAfter) after = nextAfter
+                    }
+                }
+                if (entries.length ?? data.length) {
+                    for (const [key, value] of entries) {
+                        let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
+                            || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
+                        if (entryTemplate) processTemplate(entryTemplate, key, value)
+                    }
+                } else {
+                    let entryTemplate = element.querySelector(`:scope > template[data-e-if-empty]${querySuffix}`)
+                    if (entryTemplate) processTemplate(entryTemplate, undefined, undefined, true)
                 }
                 element.querySelector('meta[after]')?.remove()
             } else if (['input', 'select', 'datalist'].includes(tag) && Array.isArray(data)) {
