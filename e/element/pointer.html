@@ -24,6 +24,7 @@
         #rewrite
         #rewriteRules = []
         #target
+        #touch
         #transform
         #targetEvents = []
         #use
@@ -39,7 +40,7 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'touch', 'transform') }
 
         async connectedCallback() { }
 
@@ -48,6 +49,19 @@
         async parse(value) { return await this.parser(value, this) }
 
         async serialize(value, contentType) { return await this.serializer(value, this, contentType) }
+
+        async refresh() {
+            if (this.#use === '$') {
+                this.#refresh(this.#boundResource)
+            } else if (this.#use === '_') {
+                let resourceValue = Array.isArray(this.#boundResource)
+                    ? this.#boundResource.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(this.#boundResource)
+                if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
+                this.#refresh(resourceValue)
+            } else if (this.#use !== '!') {
+                this.#refresh()
+            }
+        }
 
         get apply() { return this.E.utils.safeGet(this, this.#apply, 'apply') }
         set apply(value) {
@@ -152,6 +166,14 @@
             if (this.#target === value) return
             this.#createBound(value, 'target')
             this.#target = value
+        }
+
+        get touch() {
+            return this.E.utils.safeGet(this, this.#touch, 'touch')
+        }
+        set touch(value) {
+            if (this.#touch === value) return
+            this.#touch = value
         }
 
         get transform() {
@@ -337,7 +359,7 @@
             }
         }
 
-        async #refresh(payload) {
+        async #refresh(payload, force) {
             const boundResource = this.boundResource
             if (!boundResource) return
             let result
@@ -385,7 +407,7 @@
             const boundTarget = this.boundTarget ?? this.parentElement
             let valueUpdated = true
             try { valueUpdated = (JSON.stringify(this.#value ?? null) !== JSON.stringify(result ?? null)) } catch (e) { }
-            if ((this._mode !== 'theme') && !this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
+            if (!force && (this._mode !== 'theme') && !this.hasAttribute('force') && !this.#boundTargetUpdated && !valueUpdated) return
             this.#boundTargetUpdated = false
             this.#value = result
             if ((this._mode !== 'theme') && !this.hasAttribute('allow-empty') && !(result instanceof Node) && (result === undefined || result === null || result === '' || (Array.isArray(result) && !result.length) || ((result instanceof Object) && !Object.keys(result).length))) return
@@ -445,6 +467,11 @@
                 }
             }
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
+            const touch = this.touch
+            if (touch) {
+                const touchTarget = this.E.utils.resolveScopedSelector(touch, this)
+                if (touchTarget && (typeof touchTarget?.refresh === 'function')) touchTarget.refresh()
+            }
         }
 
     }

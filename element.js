@@ -194,6 +194,14 @@ const ElementHTML = Object.defineProperties({}, {
                     return selected
                 }
             },
+            resolveScopedSelector: {
+                enumerable: true, value: function (scopedSelector, element) {
+                    if (!scopedSelector.includes('|')) scopedSelector = `|${scopedSelector}`
+                    let [scopeStatement, selector] = scopedSelector.split('|')
+                    const scope = this.resolveScope(scopeStatement, element)
+                    return this.resolveSelector(scope, selector, element)
+                }
+            },
             safeGet: {
                 enumerable: true, value: function (element, privateValue, attrName, propName) {
                     propName ||= attrName
