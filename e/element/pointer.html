@@ -58,9 +58,7 @@
                     ? this.#boundResource.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(this.#boundResource)
                 if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
                 this.#refresh(resourceValue)
-            } else if (this.#use !== '!') {
-                this.#refresh()
-            }
+            } else { this.#refresh() }
         }
 
         get apply() { return this.E.utils.safeGet(this, this.#apply, 'apply') }
