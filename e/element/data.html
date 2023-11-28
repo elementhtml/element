@@ -8,6 +8,7 @@
             Object.defineProperties(this, {
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
+                        if (!target || !Array.isArray(target) || !target.length) return
                         let apply = this.apply ?? this.getAttribute('apply'), applyMap = this.applyMap ?? {}, { flag, transform } = applyMap
                         if (!flag && !transform && apply && !apply.startsWith('{') && !apply.includes('=')) flag = apply.trim()
                         const boundResource = this.boundResource, boundTarget = this.boundTarget

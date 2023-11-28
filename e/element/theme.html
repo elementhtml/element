@@ -8,6 +8,7 @@
             Object.defineProperties(this, {
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
+                        if (!target || !Array.isArray(target) || !target.length) return
                         let apply = this.apply ?? this.getAttribute('apply') ?? 'innerHTML'
                         if (this.dataset.stylesheetId) for (const ss of this.getRootNode().querySelectorAll(`style[data-stylesheet-id="${this.dataset.stylesheetId}"]`)) ss.remove()
                         this.dataset.stylesheetId = crypto.randomUUID()

@@ -12,6 +12,7 @@
             Object.defineProperties(this, {
                 _apply: {
                     configurable: false, enumerable: false, value: async (result, target) => {
+                        if (!target || !Array.isArray(target) || !target.length) return
                         if (typeof result !== 'string') {
                             if (!Array.isArray(result)) result = [result]
                             for (const [i, r] of result.entries()) if (r instanceof Node) result[i] = r.textContent

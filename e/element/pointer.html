@@ -233,7 +233,11 @@
                         }
                     }
                     const autoRefresh = !this.#use || !this.#boundResourceEventNames.length || this.#boundResourceEventNames.includes('change')
-                    //console.log('pointer.html: line 232', autoRefresh)
+                    if (mode === 'target' && this.#value) {
+                        const applyToTargets = newBound.filter(b => !oldBoundSet.has(b))
+                        if (applyToTargets.length) this._apply(this.#value, applyToTargets)
+                    }
+                    //console.log('pointer.html: line 240', autoRefresh)
                     //if (autoRefresh) this.#refresh()
                 }
                 let observer = getBoundObserver()
