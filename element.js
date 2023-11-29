@@ -1158,7 +1158,7 @@ const ElementHTML = Object.defineProperties({}, {
                     variableRef = variablePartName
                 }
                 let variableResult = this.getVariable(variableRef, element)
-                if (typeof variableResult === 'function') variableResult = variableResult(element, ...args)
+                if (typeof variableResult === 'function') variableResult = variableResult(...args)
                 variableResult ||= ''
                 if (typeof variableResult !== 'string') variableResult = JSON.stringify(variableResult)
                 statement = statement.replaceAll(`{${variableExpression}}`, variableResult)
@@ -1168,7 +1168,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveVariables: {
         enumerable: true, value: function (statement, element) {
-            return statement ? this.mergeVariables(this.getVariable(statement, this), this) : undefined
+            return statement ? this.mergeVariables(this.getVariable(statement, element), element) : undefined
         }
     },
     resolveUrl: {
