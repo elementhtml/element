@@ -1145,6 +1145,32 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    mergeVariables: {
+        enumerable: true, value: function (statement, element) {
+            if (!statement) return
+            for (const expression of statement.matchAll(/\{(?<variableExpression>.+?)\}/g)) {
+                let { variableExpression } = (expression?.groups ?? {})
+                if (!variableExpression) continue
+                let variableRef = variableExpression, args = [element]
+                if (variableExpression.includes('(')) {
+                    let [variablePartName, ...argsRest] = variableExpression.split('(')
+                    args.push(argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)))
+                    variableRef = variablePartName
+                }
+                let variableResult = this.getVariable(variableRef, element)
+                if (typeof variableResult === 'function') variableResult = variableResult(element, ...args)
+                variableResult ||= ''
+                if (typeof variableResult !== 'string') variableResult = JSON.stringify(variableResult)
+                statement = statement.replaceAll(`{${variableExpression}}`, variableResult)
+            }
+            return statement
+        }
+    },
+    resolveVariables: {
+        enumerable: true, value: function (statement, element) {
+            return statement ? this.mergeVariables(this.getVariable(statement, this), this) : undefined
+        }
+    },
     resolveUrl: {
         enumerable: true, value: function (value, element) {
             if (!element) {
