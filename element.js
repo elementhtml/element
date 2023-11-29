@@ -918,7 +918,6 @@ const ElementHTML = Object.defineProperties({}, {
                 return (new URLSearchParams(input)).toString()
             }
             if (contentType === 'text/css') {
-                console.log('line 895', input, sourceElement, contentType)
                 if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
                 if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
             }
