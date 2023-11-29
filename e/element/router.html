@@ -64,12 +64,16 @@
                 if (Array.isArray(proceed)) [proceed, mode] = proceed
             }
             let url
-            if (mode && (typeof this.modes[mode] === 'function')) {
-                url = this.modes[mode](path)
+            if (path && (typeof path === 'string')) {
+                if (mode && (typeof this.modes[mode] === 'function')) {
+                    url = this.modes[mode](path)
+                } else {
+                    url = new URL(`${this.base && this.base.endsWith('*') ? ('./') : (this.name + '/')}${path}`, this.base ? (new URL(this.base, this.baseURI).href) : this.baseURI).href
+                }
+                window.location = url
             } else {
-                url = new URL(`${this.base && this.base.endsWith('*') ? ('./') : (this.name + '/')}${path}`, this.base ? (new URL(this.base, this.baseURI).href) : this.baseURI).href
+                window.location.reload()
             }
-            window.location = url
         }
 
         get base() { return this.#base }
