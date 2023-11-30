@@ -499,7 +499,6 @@
                 const [thenSelector, thenTransform = '', thenFlag = ''] = then.split(' ~> '), thenTarget = this.E.utils.resolveScopedSelector(thenSelector, this)
                 if (thenTarget) this.E.sinkData(thenTarget, result, thenFlag.trim(), thenTransform.trim(), this, {}, 0, undefined, true)
             }
-
         }
 
     }
