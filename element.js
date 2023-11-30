@@ -541,15 +541,21 @@ const ElementHTML = Object.defineProperties({}, {
                 let eventName = flag.slice(1)
                 if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
                 element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
-            } else if (flag) {
-                element[flag] = data
+            } else if (flag && flag.startsWith('.')) {
+                element[flag.slice(1)] = data
             } else if (dataIsObject && element.hasAttribute('itemscope')) {
                 this.setValue(element, data)
             } else if (dataIsObject && element.querySelector(':scope > template')) {
                 let after = document.createElement('meta')
                 after.toggleAttribute('after', true)
-                element.querySelector(`:scope > template:last-of-type`).after(after)
-                while (after.nextElementSibling) after.nextElementSibling.remove()
+                if (flag === 'prepend') {
+                    element.querySelector(`:scope > template:last-of-type`).after(after)
+                } else if (flag === 'append') {
+                    element.append(after)
+                } else {
+                    element.querySelector(`:scope > template:last-of-type`).after(after)
+                    while (after.nextElementSibling) after.nextElementSibling.remove()
+                }
                 const filterTemplates = (templates, value, data) => {
                     if (!templates.length) return
                     const matchingTemplates = [], ops = {
@@ -1210,6 +1216,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
+            if (transform) transform = transform.trim()
             const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v == undefined ? [] : [v]),
                 iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = typeof data === 'string' ? data.trim() : data,
                 validGlobals = [
@@ -1261,6 +1268,15 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (transform && transform.match(/^\[\d+\]$/)) {
                 const a = iA(b)
                 a[parseInt(transform.slice(1, -1)) || 0] = d
+                return a
+            } else if (transform && transform.match(/^\+?\[.+\]\+?$/)) {
+                console.log('line 1267', b, d, element, element.value)
+                const sep = transform.slice(transform.indexOf('[') + 1, transform.indexOf(']')),
+                    pre = transform.slice(transform, transform.indexOf('[')), post = transform.slice(transform.indexOf(']') + 1)
+                const bb = (typeof b === 'string') ? b.split(sep).map(s => s.trim()).filter(s => !!s) : iA(b)
+                const dd = (typeof d === 'string') ? d.split(sep).map(s => s.trim()).filter(s => !!s) : iA(d)
+                const a = []
+                pre ? a.push(...dd, ...bb) : (post ? a.push(...bb, ...dd) : a.push(...dd))
                 return a
             } else if (transform && transform.match(/^\{[a-zA-Z0-9\-\_]+\}$/)) {
                 const obj = iO(b)

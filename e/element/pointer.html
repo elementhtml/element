@@ -24,6 +24,7 @@
         #rewrite
         #rewriteRules = []
         #target
+        #then
         #touch
         #transform
         #targetEvents = []
@@ -40,7 +41,7 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'touch', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'then', 'touch', 'transform') }
 
         async connectedCallback() { }
 
@@ -164,6 +165,14 @@
             if (this.#target === value) return
             this.#createBound(value, 'target')
             this.#target = value
+        }
+
+        get then() {
+            return this.E.utils.safeGet(this, this.#then, 'then')
+        }
+        set then(value) {
+            if (this.#then === value) return
+            this.#then = value
         }
 
         get touch() {
@@ -468,9 +477,29 @@
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
             const touch = this.touch
             if (touch) {
-                const touchTarget = this.E.utils.resolveScopedSelector(touch, this)
-                if (touchTarget && (typeof touchTarget?.refresh === 'function')) touchTarget.refresh()
+                const [touchSelector, touchEvent] = touch.split(' ~> '), touchTarget = this.E.utils.resolveScopedSelector(touchSelector, this)
+                if (touchTarget) {
+                    if (touchEvent) {
+                        if (touchEvent.startsWith('!')) {
+                            touchTarget.dispatchEvent(new CustomEvent(touchEvent.slice(1), { detail: result }))
+                        } else if (touchEvent.includes('(')) {
+                            const [touchEventName, ...touchEventArgs] = touchEvent.split('(').map(s => s.trim())
+                            if (typeof touchTarget[touchEventName] === 'function') {
+                                touchEventArgs = touchEventArgs.join('(').split(',').map(v => this.E.resolveVariables(v.trim()))
+                                touchTarget[touchEventName](...touchEventArgs)
+                            }
+                        }
+                    } else {
+                        if ((typeof touchTarget?.refresh === 'function')) touchTarget.refresh()
+                    }
+                }
             }
+            const then = this.then
+            if (then) {
+                const [thenSelector, thenTransform = '', thenFlag = ''] = then.split(' ~> '), thenTarget = this.E.utils.resolveScopedSelector(thenSelector, this)
+                if (thenTarget) this.E.sinkData(thenTarget, result, thenFlag.trim(), thenTransform.trim(), this, {}, 0, undefined, true)
+            }
+
         }
 
     }
