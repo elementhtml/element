@@ -515,7 +515,7 @@ const ElementHTML = Object.defineProperties({}, {
                         element[sinkPropertyName] = ((element[sinkPropertyName] ?? {}) instanceof Object) ? Object.assign(element[sinkPropertyName], (data ?? {})) : element[sinkPropertyName]
                     } else { Object.assign(element, (data ?? {})) }
                 }
-            } else if (flag && (flag.endsWith('()') || flag.includes('(,') || flag.includes(',)') || flag.endsWith('(...)') || flag.includes('(...,') || flag.includes(',...)'))) {
+            } else if (flag && flag.includes('(') && flag.endsWith(')')) {
                 let [sinkFunctionName, ...sinkFlag] = flag.split('(')
                 sinkFlag = sinkFlag.join('(')
                 if (sinkFlag.endsWith(')')) sinkFlag = sinkFlag.slice(0, -1)
@@ -534,7 +534,9 @@ const ElementHTML = Object.defineProperties({}, {
                     element[sinkFunctionName](data, ...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)))
                 } else if (sinkFlag.endsWith(',')) {
                     element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), data)
-                } else { return }
+                } else {
+                    element[sinkFunctionName](this.resolveVariables(sinkFlag, element))
+                }
             } else if (flag && flag.startsWith('!')) {
                 let eventName = flag.slice(1)
                 if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
@@ -660,7 +662,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!empty) this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
                         valueTemplate.replaceWith(...valueNode.children)
                     }
-                    if (!empty && ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false')))) this.sinkData(entryNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
+                    const sinkInto = entryTemplate.dataset.eSlot ? entryNode.querySelector(entryTemplate.dataset.eSlot) : entryNode.children[0]
+                    if (!empty && sinkInto && ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false')))) this.sinkData(sinkInto, value, flag, transform, sourceElement, context, layer + 1, element)
                     if (entryTemplate.getAttribute('data-e-property')) {
                         entryTemplate.after(...entryNode.children)
                     } else {
@@ -1285,7 +1288,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 result = await expression.evaluate(data)
             } catch (e) {
-                console.log('line 1219', e, transform)
+                console.log('line 1290', e, transform)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }

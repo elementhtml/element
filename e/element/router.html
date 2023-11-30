@@ -56,6 +56,11 @@
             return get ? fetch(router.E.resolveUrl(url), this.optionsMap) : url
         }
 
+        load(path, proceed, mode) {
+            this.to(path, proceed, mode)
+            window.requestAnimationFrame(() => window.location.reload())
+        }
+
         to(path, proceed, mode) {
             if (proceed === false) {
                 return
@@ -65,14 +70,14 @@
             }
             let url
             if (path && (typeof path === 'string')) {
+                path = this.E.resolveVariables(path, this)
+                if (!path) return
                 if (mode && (typeof this.modes[mode] === 'function')) {
                     url = this.modes[mode](path)
                 } else {
                     url = new URL(`${this.base && this.base.endsWith('*') ? ('./') : (this.name + '/')}${path}`, this.base ? (new URL(this.base, this.baseURI).href) : this.baseURI).href
                 }
                 window.location = url
-            } else {
-                window.location.reload()
             }
         }
 
