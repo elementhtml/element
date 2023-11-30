@@ -3,6 +3,7 @@
 <script>
     export default class extends `meta` {
 
+        #and
         #apply
         #applyMap
         #boundResource
@@ -41,7 +42,7 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'then', 'touch', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('and', 'apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'then', 'touch', 'transform') }
 
         async connectedCallback() { }
 
@@ -51,15 +52,26 @@
 
         async serialize(value, contentType) { return await this.serializer(value, this, contentType) }
 
-        async refresh() {
+        async refresh(payload) {
             if (this.#use === '$') {
-                this.#refresh(this.#boundResource)
+                this.#refresh(payload ?? this.#boundResource)
             } else if (this.#use === '_') {
-                let resourceValue = Array.isArray(this.#boundResource)
-                    ? this.#boundResource.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(this.#boundResource)
-                if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
-                this.#refresh(resourceValue)
-            } else { this.#refresh() }
+                let resourceValue
+                if (payload === undefined) {
+                    resourceValue = Array.isArray(this.#boundResource)
+                        ? this.#boundResource.map(n => this.E.getValue(n)).filter(n => !!n) : this.E.getValue(this.#boundResource)
+                    if (!resourceValue || (Array.isArray(resourceValue) && !resourceValue.length)) return
+                }
+                this.#refresh(payload ?? resourceValue)
+            } else { this.#refresh(payload) }
+        }
+
+        get and() {
+            return this.E.utils.safeGet(this, this.#and, 'and')
+        }
+        set and(value) {
+            if (this.#and === value) return
+            this.#and = value
         }
 
         get apply() { return this.E.utils.safeGet(this, this.#apply, 'apply') }
@@ -475,27 +487,26 @@
                 }
             }
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
-            const then = this.then
-            if (then) {
-                const [thenSelector, thenTransform = '', thenFlag = ''] = then.split(' ~> '), thenTarget = this.E.utils.resolveScopedSelector(thenSelector, this)
-                if (thenTarget) this.E.sinkData(thenTarget, result, thenFlag.trim(), thenTransform.trim(), this, {}, 0, undefined, true)
+            for (const andOrThen of ['and', 'then']) {
+                const atStatement = this[andOrThen]
+                if (atStatement) {
+                    for (const at of atStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                        const [atSelector, atTransform = '', atFlag = ''] = at.split(' ~> '), atTarget = this.E.utils.resolveScopedSelector(atSelector, this)
+                        if (atTarget) this.E.sinkData(atTarget, result, atFlag.trim(), atTransform.trim(), this, {}, 0, undefined, andOrThen === 'and')
+                    }
+                }
             }
-            const touch = this.touch
-            if (touch) {
-                const [touchSelector, touchEvent] = touch.split(' ~> '), touchTarget = this.E.utils.resolveScopedSelector(touchSelector, this)
-                if (touchTarget) {
-                    if (touchEvent) {
-                        if (touchEvent.startsWith('!')) {
-                            touchTarget.dispatchEvent(new CustomEvent(touchEvent.slice(1), { detail: result }))
-                        } else if (touchEvent.includes('(')) {
-                            const [touchEventName, ...touchEventArgs] = touchEvent.split('(').map(s => s.trim())
-                            if (typeof touchTarget[touchEventName] === 'function') {
-                                touchEventArgs = touchEventArgs.join('(').split(',').map(v => this.E.resolveVariables(v.trim()))
-                                touchTarget[touchEventName](...touchEventArgs)
-                            }
-                        }
+            const touchStatement = this.touch
+            if (touchStatement) {
+                for (let touch of touchStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                    const [touchSelector, touchTransform = ''] = touch.split(' ~> ')
+                    let touchTarget = this.E.resolveUrl(touchSelector, this), touchPayload
+                    if (touchTransform) touchPayload = await this.E.runTransform(touchTransform, result, undefined, this)
+                    if (touchTarget.startsWith('https://')) {
+                        navigator.sendBeacon(touchTarget, touchPayload)
                     } else {
-                        if ((typeof touchTarget?.refresh === 'function')) touchTarget.refresh()
+                        touchTarget = this.E.utils.resolveScopedSelector(touchSelector, this)
+                        if ((typeof touchTarget?.refresh === 'function')) touchTarget.refresh(touchPayload)
                     }
                 }
             }
