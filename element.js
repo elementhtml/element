@@ -188,25 +188,28 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             resolveSelector: {
-                enumerable: true, value: function (scope, selector, element) {
+                enumerable: true, value: function (scope, selector) {
                     let selected
                     if (!selector) {
                         selected = scope
-                        //} else if (selector === '$') {
-                        //  selected = element
                     } else if (selector.includes('{') && selector.endsWith('}')) {
                         let [selectorStem, sig] = selector.split('{')
                         selected = this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
-                    } else { selected = scope.querySelector(selector) }
+                    } else {
+                        selected = scope.querySelector(selector)
+                    }
                     return selected
                 }
             },
             resolveScopedSelector: {
                 enumerable: true, value: function (scopedSelector, element) {
-                    if (!scopedSelector.includes('|')) scopedSelector = `|${scopedSelector}`
-                    let [scopeStatement, selector] = scopedSelector.split('|')
-                    const scope = this.resolveScope(scopeStatement, element)
-                    return this.resolveSelector(scope, selector, element)
+                    let scope = element, selector = scopedSelector
+                    if (scopedSelector.includes('|')) {
+                        const [scopeStatement, selectorStatement] = scopedSelector.split('|')
+                        selector = selectorStatement
+                        scope = this.resolveScope(scopeStatement, element)
+                    }
+                    return this.resolveSelector(scope, selector)
                 }
             },
             safeGet: {
@@ -789,20 +792,25 @@ const ElementHTML = Object.defineProperties({}, {
                                     tt.dispatchEvent(new CustomEvent(eventName, { detail: vv }))
                                 }
                                 break
-                            case '_':
-                            case undefined:
-                                this.setValue(tt, vv, target, silent)
-                                break
-                            default:
+                            case '.':
                                 if (k.includes('(') && k.endsWith(')')) {
-                                    this.runElementMethod(k, tt)
+                                    this.runElementMethod(k.slice(1), tt)
                                 } else {
                                     if (vv == null) {
-                                        delete tt[k]
+                                        delete tt[k.slice(1)]
                                     } else {
-                                        tt[k] = vv
+                                        tt[k.slice(1)] = vv
                                     }
                                 }
+                                break
+                            case '_':
+                                this.setValue(tt, vv, target, silent)
+                                break
+                            case undefined:
+                                this.sinkData(tt, vv, flag, undefined, target, context, layer + 1, element, silent)
+                                break
+                            default:
+                                tt.dataset[k] = vv
                         }
                     }
                     if (!Array.isArray(target)) target = [target]
