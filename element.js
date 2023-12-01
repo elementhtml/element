@@ -793,7 +793,17 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                                 break
                             case '.':
-                                if (k.includes('(') && k.endsWith(')')) {
+                                if (k === '.') {
+                                    if (vv) {
+                                        if (v.includes('<') && v.includes('>')) {
+                                            tt.innerHTML = vv
+                                        } else { tt.textContent = vv }
+                                    } else { tt.replaceChildren() }
+                                } else if (k === '..') {
+                                    tt.textContent = vv
+                                } else if (k === '...') {
+                                    tt.innerText = vv
+                                } else if (k.includes('(') && k.endsWith(')')) {
                                     this.runElementMethod(k.slice(1), tt)
                                 } else {
                                     if (vv == null) {
@@ -802,6 +812,9 @@ const ElementHTML = Object.defineProperties({}, {
                                         tt[k.slice(1)] = vv
                                     }
                                 }
+                                break
+                            case '<':
+                                if (k === '<>') tt.innerHTML = vv
                                 break
                             case '_':
                                 this.setValue(tt, vv, target, silent)
