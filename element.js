@@ -33,7 +33,14 @@ const ElementHTML = Object.defineProperties({}, {
                 remarkable: {
                     html: true
                 },
-                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] }
+                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },
+                defaultEventTypes: { input: 'change', textarea: 'change', select: 'change', form: 'submit' },
+                elementPropertiesToFlatten: ['baseURI', 'checked', 'childElementCount', 'className',
+                    'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
+                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
+                    'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
+                    'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
+                    'selected', 'slot', 'tagName', 'textContent', 'title']
             },
             proxies: {},
             sources: {
@@ -753,87 +760,55 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (!dataIsObject) {
                 this.setValue(element, data, undefined, silent)
             } else {
-                //if (dataIsObject && element.eDataset instanceof Object) {
-                //    Object.assign(element.eDataset, data)
-                //} else {
                 const resolveTargetAndKey = (statement, element) => {
                     let target, [qs, key] = this.utils.splitOnce(statement.slice(1), '`').map(s => s.trim())
                     if (!qs) return [element, key]
-                    if (qs.includes('|')) {
-                        const [scope, selector] = qs.split('|')
-                        let scopeElement = this.utils.resolveScope(scope, element)
-                        if (!scopeElement) return [, key]
-                        target = scopeElement ? scopeElement.querySelector(selector) : undefined
-                    } else {
-                        target = element.querySelector(qs)
-                    }
-                    return [target, key]
+                    return [this.utils.resolveScopedSelector(qs, element), key]
                 }, resolveForV = (v, element) => {
                     if (v[0] === '`' && v.slice(1).includes('`')) {
                         let [target, key] = resolveTargetAndKey(v, element)
-                        if (key[0] === '@') {
-                            return target.getAttribute(key.slice(1))
-                        } else if (key[0] === '.') {
-                            return target[key.slice(1)]
-                        } else if (key) { return target.dataset[key] }
-                    } else { return v }
-                }, sinkDataAuto = (k, v, flag, element, sourceElement, context, layer, silent) => {
-                    if (v && (typeof v === 'string')) v = resolveForV(v, element)
-                    let key = k.trim(), target = element
-                    if (key.startsWith('`')) {
-                        [target, key] = resolveTargetAndKey(key, element)
                         if (!target) return
-                        if (key && key.startsWith('@')) {
-                            (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                        } else if (key && key.startsWith('.')) {
-                            if (key.includes('(')) {
-                                let [methodName, ...args] = key.slice(1).split('(')
-                                if (typeof target[methodName] !== 'function') return
-                                args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
-                                args.push(v)
-                                target[methodName](...args)
-                            } else {
-                                (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
-                            }
-                        } else if (key && key.startsWith('!')) {
-                            let eventName = key.slice(1)
-                            if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
-                            target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
-                        } else if (key) {
-                            if (v === null) {
-                                delete target.dataset[key]
-                            } else { target.dataset[key] = v }
-                        } else if (target === element) {
-                            this.setValue(target, v, undefined, silent)
-                        } else {
-                            this.sinkData(target, v, undefined, undefined, sourceElement, context, layer, element, silent)
+                        return this.flatten(target, key)
+                    } else { return v }
+                }, sinkDataAuto = (k, v, flag, target, sourceElement, context, layer, silent) => {
+                    if (k[0] === '`' && k.slice(1).includes('`')) [target, k] = resolveTargetAndKey(k, element)
+                    if (!target) return
+                    const applyToTarget = (tt, vv) => {
+                        switch (k[0]) {
+                            case '@':
+                                if (vv == null) {
+                                    tt.removeAttribute(k.slice(1))
+                                } else {
+                                    tt.setAttribute(k.slice(1), vv)
+                                }
+                                break
+                            case '!':
+                                if (vv != null) {
+                                    let eventName = k.slice(1)
+                                    if (!eventName) eventName = this.env.options.defaultEventTypes[tt.tagName.toLowerCase()] ?? 'click'
+                                    tt.dispatchEvent(new CustomEvent(eventName, { detail: vv }))
+                                }
+                                break
+                            case '_':
+                            case undefined:
+                                this.setValue(tt, vv, target, silent)
+                                break
+                            default:
+                                if (k.includes('(') && k.endsWith(')')) {
+                                    this.runElementMethod(k, tt)
+                                } else {
+                                    if (vv == null) {
+                                        delete tt[k]
+                                    } else {
+                                        tt[k] = vv
+                                    }
+                                }
                         }
-                        return
                     }
-                    if (key.startsWith('@')) {
-                        (v === null || v === undefined) ? target.removeAttribute(k.slice(1)) : target.setAttribute(key.slice(1), v)
-                    } else if (key.startsWith('.')) {
-                        if (key.includes('(')) {
-                            let [methodName, ...args] = key.slice(1).split('(')
-                            if (typeof target[methodName] !== 'function') return
-                            args = args.join('(').slice(0, -1).split(',').filter(a => !!a).map(s => this.getVariable(s.trim(), target))
-                            args.push(v)
-                            target[methodName](...args)
-                        } else {
-                            (v === null || v === undefined) ? delete target[key.slice(1)] : target[key.slice(1)] = v
-                        }
-                    } else if (key && key.startsWith('!')) {
-                        let eventName = key.slice(1)
-                        if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
-                        target.dispatchEvent(new CustomEvent(eventName, { detail: v }))
-                    } else if (key) {
-                        if (v === null) {
-                            delete target.dataset[key]
-                        } else { target.dataset[key] = v }
-                    } else { this.setValue(target, v, undefined, silent) }
+                    if (!Array.isArray(target)) target = [target]
+                    for (const t of target) applyToTarget(t, (typeof v === 'string') ? resolveForV(v, t) : v)
                 }
-                for (const [k, v] of Object.entries(data)) sinkDataAuto(k, v, flag, element, sourceElement, context, layer, silent)
-                //}
+                for (const [k, v] of Object.entries(data)) sinkDataAuto(k.trim(), v, flag, element, sourceElement, context, layer, silent)
             }
             return await close(element)
         }
@@ -1038,10 +1013,12 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     flatten: {
-        enumerable: true, value: function (element) {
+        enumerable: true, value: function (element, key) {
+            if (Array.isArray(element)) return element.map(e => this.flatten(e, key))
+            if (!(element instanceof HTMLElement)) return
             const override = (this.env.map.get(element) ?? {})['eFlatten']
             if (override) return typeof override === 'function' ? override(element) : override
-            return {
+            const result = {
                 ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
                 ...Object.fromEntries(['baseURI', 'checked', 'childElementCount', 'className',
                     'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
@@ -1050,8 +1027,10 @@ const ElementHTML = Object.defineProperties({}, {
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                     'selected', 'slot', 'tagName', 'textContent', 'title'].map(p => ([p, element[p]]))),
                 style: Object.fromEntries(Object.entries(element.style).filter(ent => !!ent[1])),
-                value: 'value' in element ? element.value : undefined
+                value: 'value' in element ? element.value : undefined,
+                _: this.getValue(element)
             }
+            return key ? result[key] : result
         }
     },
     getInheritance: {
@@ -1212,6 +1191,14 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value.includes('/')) {
                 return this.resolveUrl(new URL(value, element.baseURI).href)
             } else { return this.resolveUrl(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
+        }
+    },
+    runElementMethod: {
+        enumerable: true, value: function (statement, element) {
+            let [funcName, ...argsRest] = statement.split('(')
+            if (typeof element[funcName] === 'function') {
+                return element[funcName](...argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)))
+            }
         }
     },
     runTransform: {
