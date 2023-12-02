@@ -24,7 +24,9 @@
         #options = ''
         #optionsMap = {}
         #pub
+        #prep
         #pull
+        #push
         #resource
         #rewrite
         #rewriteRules = []
@@ -48,34 +50,41 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('and', 'apply', 'channel', 'errors', 'init', 'options', 'pub', 'pull', 'resource', 'rewrite', 'sub', 'target', 'then', 'touch', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('and', 'apply', 'channel', 'errors', 'init', 'options', 'pub', 'prep', 'pull', 'push', 'resource', 'rewrite', 'sub', 'target', 'then', 'touch', 'transform') }
 
         async connectedCallback() {
             await super.connectedCallback()
-            const pullStatement = this.pull
-            if (pullStatement) {
-                for (let pull of pullStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
-                    const [pullSelector, pullTransform = ''] = pull.split(' ~> ')
-                    let pullTarget = this.E.resolveUrl(pullSelector, this), pullPayload
-                    if (pullTarget.startsWith('https://')) {
-                        const pullRequestOptions = {}
-                        if (pullTransform) pullRequestOptions = await this.E.runTransform(pullTransform, undefined, undefined, this)
-                        pullPayload = await fetch(pullTarget, pullRequestOptions)
-                    } else {
-                        pullTarget = this.E.utils.resolveScopedSelector(pullSelector, this)
-                        if (typeof pullTarget?._apply === 'function') {
-                            pullPayload = pullTarget?.value
-                            if (pullTransform) pullPayload = await this.E.runTransform(pullTransform, pullPayload, undefined, this)
-                            await pullTarget._apply(pullPayload, [this])
+            for (const ppName of ['prep', "pull"]) {
+                const ppStatement = this[ppName]
+                if (ppStatement) {
+                    let ppPayload, ppTarget
+                    for (let pp of ppStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                        const [ppSelector, ppTransform = '', ppFlag] = pp.split(' ~> ').map(s => s.trim())
+                        if (ppSelector.includes(':') && !ppSelector.includes('|')) {
+                            let ppUrl = this.E.resolveUrl(ppSelector, this)
+                            let ppRequestOptions = {}
+                            if (ppTransform) ppRequestOptions = await this.E.runTransform(ppTransform, undefined, undefined, this)
+                            ppPayload = await fetch(ppUrl, ppRequestOptions)
+                            ppPayload = await thisE.parse(ppPayload, this)
+                        } else {
+                            ppTarget = this.E.utils.resolveScopedSelector(ppSelector, this)
+                            if (!ppTarget) continue
+                            ppPayload = this.E.getValue(ppTarget?.value)
                         }
+                        if (ppTransform) ppPayload = await this.E.runTransform(ppTransform, ppPayload, undefined, this)
+                        await this.E.sinkData(this, ppPayload, ppFlag, undefined, ppTarget, {}, 0, undefined, ppName === 'prep')
                     }
                 }
             }
-            const initStatement = this.init
-            if (initStatement) {
-                for (const init of initStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
-                    const [initSelector, initTransform = '', initFlag = ''] = init.split(' ~> '), initTarget = this.E.utils.resolveScopedSelector(initSelector, this)
-                    if (initTarget) this.E.sinkData(initTarget, undefined, initFlag.trim(), initTransform.trim(), this)
+            for (const ipName of ['init', "push"]) {
+                const ipStatement = this[ipName]
+                if (ipStatement) {
+                    for (const ip of ipStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                        const [ipSelector, ipTransform = '', ipFlag = ''] = ip.split(' ~> ').map(s => s.trim()), ipTarget = this.E.utils.resolveScopedSelector(ipSelector, this)
+                        let ipPayload = this.#value
+                        if (ipTransform) ipPayload = await this.E.runTransform(ipTransform, ipPayload, undefined, this)
+                        if (ipTarget) this.E.sinkData(ipTarget, ipPayload, ipFlag, undefined, this, {}, 0, undefined, ipName === 'init')
+                    }
                 }
             }
         }
@@ -175,6 +184,12 @@
             return (typeof parser === 'function') ? parser : this.E.parse.bind(this.E)
         }
 
+        get prep() { return this.E.utils.safeGet(this, this.#prep, 'prep') }
+        set prep(value) {
+            if (this.#prep === value) return
+            this.#prep = value
+        }
+
         get pub() { return this.E.utils.safeGet(this, this.#pub, 'pub') }
         set pub(value) {
             if (this.#pub === value) return
@@ -185,6 +200,12 @@
         set pull(value) {
             if (this.#pull === value) return
             this.#pull = value
+        }
+
+        get push() { return this.E.utils.safeGet(this, this.#push, 'push') }
+        set push(value) {
+            if (this.#push === value) return
+            this.#push = value
         }
 
         get resource() { return this.E.utils.safeGet(this, this.#resource, 'resource') }
@@ -582,7 +603,7 @@
                         if (messageExpires !== undefined) {
                             this.env.channels[channelName].history.push({
                                 message: pubPayload,
-                                expires: messageExpires ? (Date.now() + (parseInt(messageExpires) || 0)) : undefined
+                                expires: messageExpires ? (Date.now() + (parseInt(messageExpires) || 0)) : Infinity
                             })
                         }
                     }
