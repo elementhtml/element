@@ -16,14 +16,20 @@
         #boundTargetObserver
         #boundTargetRefreshCount = 0
         #boundTargetUpdated = true
+        #channel
         #cycle = []
         #cycleTracker
         #errors
+        #init
         #options = ''
         #optionsMap = {}
+        #pub
+        #pull
         #resource
         #rewrite
         #rewriteRules = []
+        #sub
+        #subController
         #target
         #then
         #touch
@@ -42,9 +48,37 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('and', 'apply', 'errors', 'options', 'resource', 'rewrite', 'target', 'then', 'touch', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('and', 'apply', 'channel', 'errors', 'init', 'options', 'pub', 'pull', 'resource', 'rewrite', 'sub', 'target', 'then', 'touch', 'transform') }
 
-        async connectedCallback() { }
+        async connectedCallback() {
+            await super.connectedCallback()
+            const pullStatement = this.pull
+            if (pullStatement) {
+                for (let pull of pullStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                    const [pullSelector, pullTransform = ''] = pull.split(' ~> ')
+                    let pullTarget = this.E.resolveUrl(pullSelector, this), pullPayload
+                    if (pullTarget.startsWith('https://')) {
+                        const pullRequestOptions = {}
+                        if (pullTransform) pullRequestOptions = await this.E.runTransform(pullTransform, undefined, undefined, this)
+                        pullPayload = await fetch(pullTarget, pullRequestOptions)
+                    } else {
+                        pullTarget = this.E.utils.resolveScopedSelector(pullSelector, this)
+                        if (typeof pullTarget?._apply === 'function') {
+                            pullPayload = pullTarget?.value
+                            if (pullTransform) pullPayload = await this.E.runTransform(pullTransform, pullPayload, undefined, this)
+                            await pullTarget._apply(pullPayload, [this])
+                        }
+                    }
+                }
+            }
+            const initStatement = this.init
+            if (initStatement) {
+                for (const init of initStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                    const [initSelector, initTransform = '', initFlag = ''] = init.split(' ~> '), initTarget = this.E.utils.resolveScopedSelector(initSelector, this)
+                    if (initTarget) this.E.sinkData(initTarget, undefined, initFlag.trim(), initTransform.trim(), this)
+                }
+            }
+        }
 
         toString() { return this.resource ?? '' }
 
@@ -104,12 +138,24 @@
             return this.#boundTarget
         }
 
+        get channel() { return this.E.utils.safeGet(this, this.#channel, 'channel') }
+        set channel(value) {
+            if (this.#channel === value) return
+            this.#channel = value
+        }
+
         get contentType() { return this.E.utils.getContentType(this) }
 
         get cycle() { return this.#cycle }
 
         get errors() { return this.E.utils.safeGet(this, this.#errors, 'errors') ?? this.E.env.options.errors }
         set errors(value) { this.#errors = value }
+
+        get init() { return this.E.utils.safeGet(this, this.#init, 'init') }
+        set init(value) {
+            if (this.#init === value) return
+            this.#init = value
+        }
 
         get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
         set options(value) {
@@ -127,6 +173,18 @@
         get parser() {
             const parser = (this.E.env.map.get(this) ?? {}).parser
             return (typeof parser === 'function') ? parser : this.E.parse.bind(this.E)
+        }
+
+        get pub() { return this.E.utils.safeGet(this, this.#pub, 'pub') }
+        set pub(value) {
+            if (this.#pub === value) return
+            this.#pub = value
+        }
+
+        get pull() { return this.E.utils.safeGet(this, this.#pull, 'pull') }
+        set pull(value) {
+            if (this.#pull === value) return
+            this.#pull = value
         }
 
         get resource() { return this.E.utils.safeGet(this, this.#resource, 'resource') }
@@ -172,6 +230,30 @@
             return (typeof serializer === 'function') ? serializer : this.E.serialize.bind(this.E)
         }
 
+        get sub() { return this.E.utils.safeGet(this, this.#sub, 'sub') }
+        set sub(value) {
+            if (this.#sub === value) return
+            if (value) {
+                if (this.#subController) this.#subController.abort()
+                this.#subController = new AbortController()
+                const read = async m => {
+                    let subPayload = JSON.parse(JSON.stringify(m))
+                    if (subTransform) subPayload = await this.E.runTransform(subTransform, subPayload, undefined, this)
+                    this.#refresh(subPayload)
+                }
+                for (const sub of value.split(';').map(s => s.trim()).filter(s => !!s)) {
+                    const [subChannels, subTransform = ''] = sub.split(' ~> ')
+                    if (!subChannels) continue
+                    for (const channelName of subChannels.split(',').map(s => s.trim()).filter(s => !!s)) {
+                        this.env.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
+                        for (const entry of this.env.channels[channelName].history) if (entry?.message && (entry?.expires && (entry.expires < Date.now()))) read(entry.message)
+                        this.env.channels[channelName].endpoint.addEventListener('message', async event => read(event.data), { signal: this.#subController.signal })
+                    }
+                }
+            }
+            this.#sub = value
+        }
+
         get target() { return this.E.utils.safeGet(this, this.#target, 'target') }
         set target(value) {
             if (this.#target === value) return
@@ -187,9 +269,7 @@
             this.#then = value
         }
 
-        get touch() {
-            return this.E.utils.safeGet(this, this.#touch, 'touch')
-        }
+        get touch() { return this.E.utils.safeGet(this, this.#touch, 'touch') }
         set touch(value) {
             if (this.#touch === value) return
             this.#touch = value
@@ -487,6 +567,27 @@
                 }
             }
             this.dispatchEvent(new CustomEvent('change', { detail: { payload, result, transform } }))
+            const pubStatement = this.pub
+            if (pubStatement) {
+                for (const pub of pubStatement.split(';').map(s => s.trim()).filter(s => !!s)) {
+                    const [pubTransform, pubChannels = ''] = pub.split(' ~> ')
+                    if (!pubChannels) continue
+                    let pubPayload = JSON.parse(JSON.stringify(this.E.flatten(result)))
+                    if (pubTransform) pubPayload = await this.E.runTransform(pubTransform, pubPayload, undefined, this)
+                    for (const channelStatement of pubChannels.split(',').map(s => s.trim()).filter(s => !!s)) {
+                        const [channelName, messageExpires] = channelStatement.split(':').map(s => s.trim()).filter(s => !!s)
+                        if (!channelName) continue
+                        this.env.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
+                        this.env.channels[channelName].endpoint.postMessage(pubPayload)
+                        if (messageExpires !== undefined) {
+                            this.env.channels[channelName].history.push({
+                                message: pubPayload,
+                                expires: messageExpires ? (Date.now() + (parseInt(messageExpires) || 0)) : undefined
+                            })
+                        }
+                    }
+                }
+            }
             for (const andOrThen of ['and', 'then']) {
                 const atStatement = this[andOrThen]
                 if (atStatement) {
