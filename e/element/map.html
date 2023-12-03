@@ -35,11 +35,11 @@
                 if (this.#abortController) this.#abortController.abort()
                 this.#abortController = new AbortController()
                 for (const eventName in eventNames) {
-                    scope.addEventListener(eventName, event => {
+                    scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
                         if (!eventExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         const sourceValue = this.E.utils.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression)),
-                            messagePayload = this.E.runTransform(transformExpression, sourceValue, undefined, this)
+                            messagePayload = await this.E.runTransform(transformExpression, sourceValue, undefined, this)
                         if (messagePayload === undefined) return
                         const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
                         for (const channelNameMessageTtl of channelNames) {
@@ -59,15 +59,17 @@
                     this.constructor.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
                     if (this.#abortController) this.#abortController.abort()
                     this.#abortController = new AbortController()
-                    this.constructor.channels[channelName].endpoint.addEventListener('message', event => {
+                    this.constructor.channels[channelName].endpoint.addEventListener('message', async event => {
                         const { payload, expires, source, scope } = event.data
-                        const messagePayload = this.E.runTransform(transformExpression, payload, baseValue, this)
-
-
-
-                    })
+                        let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
+                        if (!Array.isArray(targets)) targets = [targets]
+                        for (const target of targets) {
+                            this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(applyData => {
+                                this.E.sinkData(target, applyData, undefined, undefined, this, event.data)
+                            })
+                        }
+                    }, { signal: this.#abortController.signal })
                 }
-
             }
         }
 
