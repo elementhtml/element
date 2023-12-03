@@ -92,6 +92,12 @@ const ElementHTML = Object.defineProperties({}, {
                     return await WebAssembly.instantiateStreaming(req)
                 }
             },
+            idleCallback: {
+                enumerable: true, value: async function (cb, timeout) {
+                    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0))
+                    return idle(cb, { timeout })
+                }
+            },
             parseObjectAttribute: {
                 enumerable: true, value: function (value, element) {
                     let retval = null
