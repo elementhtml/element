@@ -42,16 +42,31 @@
                             messagePayload = this.E.runTransform(transformExpression, sourceValue, undefined, this)
                         if (messagePayload === undefined) return
                         const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
-                        for (const channelExpression of channelNames) {
-                            const [channelName, channelMessageTtl] = channelExpression.split(':').map(s => s.trim())
+                        for (const channelNameMessageTtl of channelNames) {
+                            const [channelName, channelMessageTtl] = channelNameMessageTtl.split(':').map(s => s.trim())
                             if (!channelName) continue
                             this.constructor.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
                             const messageExpires = channelMessageTtl ? (Date.now() + (parseInt(channelMessageTtl) || 0)) : Infinity, message = { payload: messagePayload, expires: messageExpires, source: event.target, scope: event.currentTarget }
                             this.constructor.channels[channelName].endpoint.postMessage(message)
+                            if (message.expires > Date.now()) this.constructor.channels[channelName].history.push(message)
                         }
                     }, { signal: this.#abortController.signal })
                 }
             } else {
+                const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
+                for (const channelName of channelNames) {
+                    if (!channelName) continue
+                    this.constructor.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
+                    if (this.#abortController) this.#abortController.abort()
+                    this.#abortController = new AbortController()
+                    this.constructor.channels[channelName].endpoint.addEventListener('message', event => {
+                        const { payload, expires, source, scope } = event.data
+                        const messagePayload = this.E.runTransform(transformExpression, payload, baseValue, this)
+
+
+
+                    })
+                }
 
             }
         }
