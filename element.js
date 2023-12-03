@@ -460,6 +460,55 @@ const ElementHTML = Object.defineProperties({}, {
             return close()
         }
     },
+    applyData: {
+        enumerable: true, value: async function (element, data, silent) {
+            if (!(element instanceof HTMLElement)) return
+            if (data === null) element.remove()
+            if (!(data instanceof Object)) return this.setValue(element, data, silent)
+            for (const [k, v] of Object.entries(data)) {
+                if (!k) continue
+                switch (k[0]) {
+                    case '@':
+                        if (v === null) {
+                            element.removeAttribute(k.slice(1))
+                        } else if ((v === true) || (v === false)) {
+                            element.toggleAttribute(k.slice(1), v)
+                        } else { element.setAttribute(k.slice(1), v) }
+                        break
+                    case '!':
+                        if (v === null) continue
+                        let eventName = k.slice(1)
+                        if (!eventName) eventName = this.env.options.defaultEventTypes[tt.tagName.toLowerCase()] ?? 'click'
+                        element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        break
+                    case '.':
+                    case '<':
+                        if (!v) { element.replaceChildren(); continue }
+                        if (k === '<>') {
+                            element.innerHTML = v
+                        } else if (k === '.') {
+                            element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
+                        } else if (k === '..') {
+                            element.textContent = v
+                        } else if (k === '...') {
+                            element.innerText = v
+                        } else if (k.includes('(') && k.endsWith(')')) {
+                            this.runElementMethod(k.slice(1), v, element)
+                        }
+                        break
+                    case '`':
+                        const [nestingTargetExpression, nestingValue] = k.slice(1).split('`').map(s => s.trim())
+                        let nestingTargets = this.utils.resolveSelector(element, nestingTargetExpression)
+                        if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
+                        await Promise.all(nestingTargets.map(t => this.applyData(nestingTarget, nestingValue, silent)))
+                        break
+                    default:
+                        if (v === undefined) { delete element[k]; continue }
+                        element[k] = v
+                }
+            }
+        },
+    },
     sinkData: {
         enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, scopeElement = undefined, silent = undefined) {
             if (!(element instanceof HTMLElement)) return
