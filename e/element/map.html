@@ -70,11 +70,7 @@
                     const { payload, expires, source, scope } = event.data
                     let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
                     if (!Array.isArray(targets)) targets = [targets]
-                    for (const target of targets) {
-                        this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(applyData => {
-                            this.E.sinkData(target, applyData, undefined, undefined, this, event.data)
-                        })
-                    }
+                    for (const target of targets) this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(data => this.E.applyData(target, data))
                 }
                 for (const channelName of channelNames) {
                     if (!channelName) continue
