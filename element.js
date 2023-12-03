@@ -47,6 +47,7 @@ const ElementHTML = Object.defineProperties({}, {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
+            cells: {},
             variables: {}
         }
     },
@@ -1229,6 +1230,24 @@ const ElementHTML = Object.defineProperties({}, {
             return statement
         }
     },
+
+    getCell: {
+        enumerable: true, value: function (name) {
+            if (!name) return
+            const cells = this.env.cells
+            return cells[name] ||= {
+                eventTarget: new EventTarget(),
+                get: () => cells[name].value,
+                set: value => {
+                    cells[name].value = value
+                    cells[name].eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                },
+                value: undefined
+            }
+        }
+    },
+
+
     resolveVariables: {
         enumerable: true, value: function (statement, element) {
             return statement ? this.mergeVariables(this.getVariable(statement, element), element) : undefined

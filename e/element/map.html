@@ -3,23 +3,10 @@
 <script>
     export default class extends `meta` {
 
-        static channelHistories = {}
-        static garbageCollector = 0
-
-        #channel
         #listen
         #abortController
 
-        constructor() {
-            super()
-            if (!this.constructor.garbageCollector) {
-                this.constructor.garbageCollector = window.setInterval(() => {
-                    this.E.utils.idleCallback(() => {
-                        for (const [name, history] of Object.entries(this.constructor.channelHistories)) this.constructor.channelHistories[name] = history.filter(entry => entry.expires > Date.now())
-                    })
-                }, 1000)
-            }
-        }
+        constructor() { super() }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('listen') }
 
@@ -34,58 +21,35 @@
 
         #setListen(listenStatement) {
             if (!listenStatement) return
-            const [sourceExpression, transformExpression, sinkExpression] = listenStatement.split(' >> ').map(s => s.trim()), dirTargetToChannel = sourceExpression.includes('|') || sourceExpression.includes('`'),
-                channelExpression = dirTargetToChannel ? sinkExpression : sourceExpression, targetExpression = dirTargetToChannel ? sourceExpression : sinkExpression
-            if (!channelExpression || !targetExpression) return
-            if (dirTargetToChannel) {
+            const [sourceExpression, transformExpression, sinkExpression] = listenStatement.split(' >> ').map(s => s.trim()), dirTargetToCell = sourceExpression.includes('|') || sourceExpression.includes('`'),
+                cellExpression = dirTargetToCell ? sinkExpression : sourceExpression, targetExpression = dirTargetToCell ? sourceExpression : sinkExpression
+            if (!cellExpression || !targetExpression) return
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            if (dirTargetToCell) {
                 const [scopeEventsExpression, selector, valueSourceExpression] = targetExpression.split('|').map(s => s.trim()),
                     [scopeExpression, eventsExpression] = scopeEventsExpression.split('!').map(s => s.trim()),
                     scope = scopeExpression ? this.closest(scopeExpression) : this.parentElement
                 if (!scope) return
                 const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes)))
-                if (this.#abortController) this.#abortController.abort()
-                this.#abortController = new AbortController()
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
                         if (!eventsExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         const sourceValue = this.E.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression ?? selector)),
-                            messagePayload = await this.E.runTransform(transformExpression, sourceValue, undefined, this)
-                        if (messagePayload === undefined) return
-                        const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
-                        for (const channelNameMessageTtl of channelNames) {
-                            const [channelName, channelMessageTtl] = channelNameMessageTtl.split(':').map(s => s.trim())
-                            if (!channelName) continue
-                            this.#channel ||= new BroadcastChannel(channelName)
-                            this.constructor.channelHistories[channelName] ||= []
-                            const messageExpires = channelMessageTtl ? (Date.now() + (parseInt(channelMessageTtl) || 0)) : Infinity, message = { payload: messagePayload, expires: messageExpires }
-                            this.#channel.postMessage(message)
-                            if (message.expires > Date.now()) this.constructor.channelHistories[channelName].push(message)
-                        }
+                            value = await this.E.runTransform(transformExpression, sourceValue, undefined, this),
+                            cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
+                        for (const cellName of cellNames) this.E.getCell(cellName).set(value)
                     }, { signal: this.#abortController.signal })
                 }
             } else {
-                const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
-                const processMessage = message => {
-                    const { payload, expires, source, scope } = event.data
-                    let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
-                    if (!Array.isArray(targets)) targets = [targets]
-                    for (const target of targets) {
-                        this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(data => {
-                            this.E.applyData(target, data)
-                        })
-                    }
-                }
-                for (const channelName of channelNames) {
-                    if (!channelName) continue
-                    this.#channel ||= new BroadcastChannel(channelName)
-                    this.constructor.channelHistories[channelName] ||= []
-                    if (this.#abortController) this.#abortController.abort()
-                    this.#abortController = new AbortController()
-                    this.#channel.addEventListener('message', event => {
-                        processMessage(event.data)
+                const cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
+                for (const cellName of cellNames) {
+                    this.E.getCell(cellName).eventTarget.addEventListener('change', event => {
+                        let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
+                        if (!Array.isArray(targets)) targets = [targets]
+                        for (const target of targets) this.E.runTransform(transformExpression, event.detail, this.E.flatten(target), this).then(data => this.E.applyData(target, data))
                     }, { signal: this.#abortController.signal })
-                    for (const message of this.constructor.channelHistories[channelName]) processMessage(message)
                 }
             }
         }
