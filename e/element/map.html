@@ -1,0 +1,26 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #listen
+
+        constructor() { super() }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('listen') }
+
+        async connectedCallback() { }
+
+        get listen() { return this.E.utils.safeGet(this, this.#listen, 'listen') }
+        set listen(value) {
+            if (this.#listen === value) return
+            this.#setListen(value)
+            this.#listen = value
+        }
+
+        #setListen(listen) {
+
+        }
+
+    }
+</script>
