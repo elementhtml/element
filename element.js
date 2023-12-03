@@ -270,15 +270,6 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 this.env.modes = newModes
-                const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0)), run = () => {
-                    const runResult = baseFunc(...(args.slice(0, -1).split(',').map(s => s.trim()).map(arg => this.E.getVariable(arg, this))))
-                    if (recur === 'every' && mode === 'lazy' && (runResult instanceof Promise)) runResult.then(() => window.setTimeout(() => window.requestIdleCallback(() => run()), periodMs))
-                }
-                window.setInterval(() => {
-                    idle(() => {
-                        for (const channel of Object.values(this.env.channels)) channel.history = channel.history.filter(entry => entry.expires > Date.now())
-                    })
-                }, 1000)
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
                 Object.freeze(this.env.modes)

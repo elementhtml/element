@@ -4,11 +4,23 @@
     export default class extends `meta` {
 
         static channels = {}
+        static idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0))
+        static garbageCollector = 0
 
         #listen
         #abortController
 
-        constructor() { super() }
+        constructor() {
+            super()
+            if (!this.constructor.garbageCollector) {
+                this.constructor.garbageCollector = window.setInterval(() => {
+                    this.constructor.idle(() => {
+                        for (const channel of Object.values(this.constructor.channels)) channel.history = channel.history.filter(entry => entry.expires > Date.now())
+                    })
+                }, 1000)
+
+            }
+        }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('listen') }
 
@@ -54,21 +66,23 @@
                 }
             } else {
                 const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
+                const processMessage = message => {
+                    const { payload, expires, source, scope } = event.data
+                    let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
+                    if (!Array.isArray(targets)) targets = [targets]
+                    for (const target of targets) {
+                        this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(applyData => {
+                            this.E.sinkData(target, applyData, undefined, undefined, this, event.data)
+                        })
+                    }
+                }
                 for (const channelName of channelNames) {
                     if (!channelName) continue
                     this.constructor.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
                     if (this.#abortController) this.#abortController.abort()
                     this.#abortController = new AbortController()
-                    this.constructor.channels[channelName].endpoint.addEventListener('message', async event => {
-                        const { payload, expires, source, scope } = event.data
-                        let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
-                        if (!Array.isArray(targets)) targets = [targets]
-                        for (const target of targets) {
-                            this.E.runTransform(transformExpression, payload, this.E.flatten(target), this).then(applyData => {
-                                this.E.sinkData(target, applyData, undefined, undefined, this, event.data)
-                            })
-                        }
-                    }, { signal: this.#abortController.signal })
+                    this.constructor.channels[channelName].endpoint.addEventListener('message', async event => processMessage(event.data), { signal: this.#abortController.signal })
+                    for (const message of this.constructor.channels[channelName].history) processMessage(message)
                 }
             }
         }
