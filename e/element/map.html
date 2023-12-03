@@ -3,7 +3,10 @@
 <script>
     export default class extends `meta` {
 
+        static channels = {}
+
         #listen
+        #abortController
 
         constructor() { super() }
 
@@ -18,8 +21,39 @@
             this.#listen = value
         }
 
-        #setListen(listen) {
+        #setListen(listenStatement) {
+            if (!listenStatement) return
+            const [sourceExpression, transformExpression, sinkExpression] = listenStatement.split(' >> ').map(s => s.trim()), dirTargetToChannel = sourceExpression.includes('|') || sourceExpression.includes('`'),
+                channelExpression = dirTargetToChannel ? sinkExpression : sourceExpression, targetExpression = dirTargetToChannel ? sourceExpression : sinkExpression
+            if (!channelExpression || !targetExpression) return
+            if (dirTargetToChannel) {
+                const [scopeEventsExpression, selector, valueSourceExpression] = targetExpression.split('|').map(s => s.trim()),
+                    [scopeExpression, eventsExpression] = scopeEventsExpression.split('!').map(s => s.trim()),
+                    scope = scopeExpression ? this.closest(scopeExpression) : this.parentElement
+                if (!scope) return
+                const eventNames = eventExpression ? eventExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes)))
+                if (this.#abortController) this.#abortController.abort()
+                this.#abortController = new AbortController()
+                for (const eventName in eventNames) {
+                    scope.addEventListener(eventName, event => {
+                        if (!event.target.matches(selector)) return
+                        if (!eventExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                        const sourceValue = this.E.utils.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression)),
+                            messagePayload = this.E.runTransform(transformExpression, sourceValue, undefined, this)
+                        if (messagePayload === undefined) return
+                        const channelNames = this.E.resolveVariables(channelExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this))
+                        for (const channelExpression of channelNames) {
+                            const [channelName, channelMessageTtl] = channelExpression.split(':').map(s => s.trim())
+                            if (!channelName) continue
+                            this.constructor.channels[channelName] ||= { endpoint: new BroadcastChannel(channelName), history: [] }
+                            const messageExpires = channelMessageTtl ? (Date.now() + (parseInt(channelMessageTtl) || 0)) : Infinity, message = { payload: messagePayload, expires: messageExpires, source: event.target, scope: event.currentTarget }
+                            this.constructor.channels[channelName].endpoint.postMessage(message)
+                        }
+                    }, { signal: this.#abortController.signal })
+                }
+            } else {
 
+            }
         }
 
     }

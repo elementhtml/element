@@ -4,7 +4,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
-            channels: {},
             eDataset: new EventTarget(),
             gateways: {
                 ipfs: (hostpath, E) => {
