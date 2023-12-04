@@ -105,7 +105,7 @@
             this.#abortController = new AbortController()
             source = this.E.getVariable(source, this)
             if (source[0] === '`' && source.endsWith('`')) {
-                const [sourceWriteStatement, readerStatement] = source.slice(1, -1).split('!', 2).map(s => s.trim()).filter(s => !!s)
+                const [sourceWriteStatement, readerStatement] = source.slice(1, -1).split(' -> ', 2).map(s => s.trim()).filter(s => !!s)
                 let [writerStatement, ...sourceStatement] = sourceWriteStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
                 if (writerStatement && !sourceStatement.length) {
                     sourceStatement = writerStatement
@@ -128,7 +128,11 @@
                     this.#reader = () => {
                         if (typeof this.#sourceObject[readerName] === 'function') return this.#sourceObject[readerName](...readerArgs.map(a => this.E.getVariable(a, this)))
                     }
-                } else if (readerName) { this.#sourceObject.addEventListener(readerName, event => this.read(event)) }
+                } else if (readerName[0] === '!') {
+                    this.#sourceObject.addEventListener(readerName.slice(1), event => this.read(event))
+                } else if (readerName) {
+                    this.#reader = () => this.#sourceObject[readerName]
+                }
                 this.#sourceObjectAvailable = true
                 Promise.all(this.#writeQueue.map(p => this.write(p))).then(() => this.read())
             } else if (source.startsWith('wss://')) {
