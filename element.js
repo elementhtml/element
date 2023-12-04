@@ -414,9 +414,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!silent) element.dispatchEvent(new CustomEvent('change', { detail: { value, scopeNode } }))
                 return element
             }, tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-            if (('value' in element) && !(value instanceof Object)) {
-                element.value = value
-            } else if (value instanceof Object) {
+            if (value instanceof Object) {
                 if (element.hasAttribute('itemscope')) {
                     for (const [propName, propValue] of Object.entries(value)) {
                         let propElement
@@ -505,22 +503,20 @@ const ElementHTML = Object.defineProperties({}, {
                             element.innerHTML = v
                         } else if (k[0] === '<' && k.slice(-1) === '>') {
                             const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
-                            let renderExpression = k.slice(1, -1),
+                            let renderExpression = k.slice(1, -1), insertSelector,
                                 posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
                             if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
                             if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                 const useTemplate = this.utils.resolveScopedSelector(renderExpression.slice(1, -1), element)
-                                if (useTemplate) this.applyDataWithTemplate(element, data, useTemplate, posMap[posMatch.trim()], insertSelector)
+                                if (useTemplate) this.applyDataWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
                             } else {
-                                const tagMatch = renderExpression.match(/^[a-z0-9\-]+/g),
-                                    idMatch = renderExpression.match(/(\#[a-zA-Z0-9\-]+)+/g), classMatch = renderExpression.match(/(\.[a-zA-Z0-9\-]+)+/g),
-                                    attrMatch = renderExpression.match(/\[[a-zA-Z0-9\-\= ]+\]/g)
-                                if (tagMatch) {
-                                    this.applyDataWithTemplate(element, data, tagMatch[0], insertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
-                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
-                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
-                                    )
-                                }
+                                const tagMatch = renderExpression.match(/^[a-z0-9\-]+/g) ?? [],
+                                    idMatch = renderExpression.match(/(\#[a-zA-Z0-9\-]+)+/g) ?? [], classMatch = renderExpression.match(/(\.[a-zA-Z0-9\-]+)+/g) ?? [],
+                                    attrMatch = renderExpression.match(/\[[a-zA-Z0-9\-\= ]+\]/g) ?? []
+                                this.applyDataWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
+                                    (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
+                                    Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
+                                )
                             }
                         } else if (k === '.') {
                             element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
@@ -542,380 +538,38 @@ const ElementHTML = Object.defineProperties({}, {
             }
         },
     },
-    sinkData: {
-        enumerable: true, value: async function (element, data, flag, transform, sourceElement, context = {}, layer = 0, scopeElement = undefined, silent = undefined) {
-            if (!(element instanceof HTMLElement)) return
-            const preSinkData = (this.env.map.get(element) ?? {})['preSinkData']
-            if (typeof preSinkData === 'function') {
-                ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, scopeElement=scopeElement } = await preSinkData(element, data, flag, transform, sourceElement, context, layer, scopeElement))
-            } else if (preSinkData instanceof Object) {
-                ({ element=element, data=data, flag=flag, transform=transform, sourceElement=sourceElement, context=content, layer=layer, scopeElement=scopeElement } = preSinkData)
+
+    applyDataWithTemplate: {
+        enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
+            if (insertSelector) element = element.querySelector(insertSelector)
+            if (!element) return
+            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
+            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
+            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
+            insertPosition ||= 'replaceChildren'
+            let useNode
+            if (tag instanceof HTMLTemplateElement) {
+                useNode = tag.content.cloneNode(true).firstElementChild
+            } else if (tag instanceof HTMLElement) {
+                useNode = tag.cloneNode(true)
+            } else if (typeof tag === 'string') {
+                useNode = document.createElement(tag)
+            } else { return }
+            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
+            const buildNode = node => {
+                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
+                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
+                return node
             }
-            const close = async (element) => {
-                const postSinkData = (this.env.map.get(element) ?? {})['postSinkData']
-                if (typeof postSinkData === 'function') element = await postSinkData(element, data, flag, transform, sourceElement, context, layer, scopeElement)
-                if (postSinkData instanceof Object) element = postSinkData
-                if (!silent) element.dispatchEvent(new CustomEvent('sinkData', { detail: { data, flag, transform, sourceElement, context, layer, scopeElement } }))
-                return element
-            }
-            scopeElement ||= element
-            if (transform) {
-                data = await this.runTransform(transform, data, this.getValue(element), this, {
-                    flag, context, layer, silent,
-                    scope: scopeElement ? this.flatten(scopeElement) : undefined,
-                    source: sourceElement ? this.flatten(sourceElement) : undefined,
-                    target: this.flatten(element)
-                })
-            }
-            if (data instanceof HTMLElement) data = this.flatten(data)
-            const dataIsObject = (data instanceof Object)
-            //if (dataIsObject && !Object.keys(data).length) return element
-            flag ||= sourceElement?.flag
-            if (element === document.head || element === document || (element === sourceElement && sourceElement?.parentElement === document.head)) {
-                const useNode = element === document.head ? element : document
-                for (const [k, v] of Object.entries(data)) {
-                    if (k === 'title' || k === '@title' || k === '.title') {
-                        useNode.querySelector('title').textContent = v
-                    } else {
-                        const metaElements = useNode.children,
-                            metaElement = (k.startsWith('@') || k.startsWith('.')) ? metaElements[k.slice(1)] : metaElements[k]
-                        metaElement && metaElement.setAttribute('content', v)
-                    }
-                }
-                return await close(element)
-            }
-            const tag = element.tagName.toLowerCase()
-            if (dataIsObject && flag === '@') {
-                for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? element.removeAttribute(k) : element.setAttribute(k, v)
-            } else if (dataIsObject && flag === '.') {
-                for (const [k, v] of Object.entries(data)) (v === null || v === undefined) ? delete element[k] : element[k] = v
-            } else if (dataIsObject && flag === 'dataset') {
-                for (const [k, v] of Object.entries(data)) element.dataset[k] = v
-            } else if (dataIsObject && flag === 'eDataset') {
-                if (element.eDataset instanceof Object) {
-                    Object.assign(element.eDataset, data)
-                } else { element.eDataset = data }
-            } else if (dataIsObject && flag === 'eContext' && element.eContext instanceof Object) {
-                Object.assign(element.eContext, data)
-            } else if (flag && ((data ?? {}) instanceof Object) && (flag.endsWith('{}') || flag.endsWith('{...}') || flag.endsWith('{,...}') || flag.endsWith('{...,}'))) {
-                const [sinkPropertyName, sinkFlag] = flag.split('{')
-                if (sinkFlag === '...,}') {
-                    element[sinkPropertyName] = (sinkPropertyName && ((element[sinkPropertyName] ?? {}) instanceof Object)) ? Object.assign((data ?? {}), (element[sinkPropertyName] ?? {})) : element[sinkPropertyName]
-                } else {
-                    if (sinkPropertyName) element[sinkPropertyName] ||= {}
-                    if (sinkPropertyName) {
-                        element[sinkPropertyName] = ((element[sinkPropertyName] ?? {}) instanceof Object) ? Object.assign(element[sinkPropertyName], (data ?? {})) : element[sinkPropertyName]
-                    } else { Object.assign(element, (data ?? {})) }
-                }
-            } else if (flag && flag.includes('(') && flag.endsWith(')')) {
-                let [sinkFunctionName, ...sinkFlag] = flag.split('(')
-                sinkFlag = sinkFlag.join('(')
-                if (sinkFlag.endsWith(')')) sinkFlag = sinkFlag.slice(0, -1)
-                if (typeof element[sinkFunctionName] !== 'function') return
-                if (sinkFlag.includes('...') && Array.isArray(data)) {
-                    if (sinkFlag === '...') {
-                        element[sinkFunctionName](...data)
-                    } else if (sinkFlag.includes('...,')) {
-                        element[sinkFunctionName](...data, ...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)))
-                    } else if (sinkFlag.includes(',...')) {
-                        element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), ...data)
-                    } else { return }
-                } else if (sinkFlag === '') {
-                    element[sinkFunctionName](data)
-                } else if (sinkFlag.startsWith(',')) {
-                    element[sinkFunctionName](data, ...sinkFlag.split(',').slice(1).map(a => this.getVariable(a, element)))
-                } else if (sinkFlag.endsWith(',')) {
-                    element[sinkFunctionName](...sinkFlag.split(',').slice(0, -1).map(a => this.getVariable(a, element)), data)
-                } else {
-                    element[sinkFunctionName](this.resolveVariables(sinkFlag, element))
-                }
-            } else if (flag && flag.startsWith('!')) {
-                let eventName = flag.slice(1)
-                if (!eventName) { eventName = ['input', 'select', 'textarea'].includes(target.tagName.toLowerCase()) ? 'change' : 'click' }
-                element.dispatchEvent(new CustomEvent(eventName, { detail: data }))
-            } else if (flag && flag.startsWith('.')) {
-                element[flag.slice(1)] = data
-            } else if (dataIsObject && element.hasAttribute('itemscope')) {
-                this.setValue(element, data)
-            } else if (dataIsObject && element.querySelector(':scope > template')) {
-                let after = document.createElement('meta')
-                after.toggleAttribute('after', true)
-                if (flag === 'prepend') {
-                    element.querySelector(`:scope > template:last-of-type`).after(after)
-                } else if (flag === 'append') {
-                    element.append(after)
-                } else {
-                    element.querySelector(`:scope > template:last-of-type`).after(after)
-                    while (after.nextElementSibling) after.nextElementSibling.remove()
-                }
-                const filterTemplates = (templates, value, data) => {
-                    if (!templates.length) return
-                    const matchingTemplates = [], ops = {
-                        '=': (c, v) => v == c, '!': (c, v) => v != c, '<': (c, v) => v < c, '>': (c, v) => v > c, '%': (c, v) => !!(v % c),
-                        '~': (c, v) => !(v % c), '^': (c, v) => `${v}`.startsWith(c), '$': (c, v) => `${v}`.endsWith(c),
-                        '*': (c, v) => `${v}`.includes(c), '-': (c, v) => !`${v}`.includes(c),
-                        '+': (c, v) => `${v}`.split(' ').includes(c), '_': (c, v) => !`${v}`.split(' ').includes(c),
-                        '/': (c, v) => (new RegExp(...this.utils.splitOnce(c.split('').reverse().join(''), '/').map(s => s.s.split("").reverse().join("")))).test(`${v}`)
-                    }
-                    for (const et of templates) {
-                        const ifLayer = et.getAttribute('data-e-if-layer')
-                        if (ifLayer) {
-                            const separator = ifLayer.includes('||') ? '||' : '&&', results = []
-                            for (const cond of ifLayer.split(separator).map(s => s.trim())) {
-                                if (cond[0] in ops) {
-                                    results.push(ops[cond[0]](cond.slice(1), layer))
-                                } else { results.push(ops['='](cond, layer)) }
-                            }
-                            if (!((separator == '||') ? results.includes(true) : !results.includes(false))) continue
-                        }
-                        const ifContext = et.getAttributeNames().filter(an => an.startsWith('data-e-if-context-')).map(an => [an.replace('data-e-if-context-', ''), el.getAttribute(an)])
-                        if (ifContext.length) for (const [ck, cond] of ifContext) {
-                            if (typeof context[ck] === 'function') if (!context[ck](cond, ck, layer, context, el.cloneNode(true))) continue
-                            const separator = ifContext.includes('||') ? '||' : '&&', results = []
-                            for (const cond of ifContext.split(separator).map(s => s.trim())) if (cond[0] in ops) results.push((ops[cond[0]] ?? ops['='])(cond.slice(1), context[ck]))
-                            if (!((separator == '||') ? results.includes(true) : !result.includes(false))) continue
-                        }
-                        const ifType = et.getAttribute('data-e-if-type')
-                        if (ifType && !((value?.constructor?.name?.toLowerCase() === ifType.toLowerCase())
-                            || ((ifType === 'object') && (value instanceof Object)) || ((ifType === 'scalar') && !(value instanceof Object)))) continue
-                        const ifParent = et.getAttribute('data-e-if-parent')
-                        if (ifParent && !((data?.constructor?.name?.toLowerCase() === ifParent.toLowerCase()))) continue
-                        return et
-                    }
-                    return
-                }, build = (template, key, value) => {
-                    const newTemplate = document.createElement('template')
-                    newTemplate.content.replaceChildren(...template.content.cloneNode(true).children)
-                    const runMerge = (eMerge, use) => {
-                        for (const [k, v] of Object.entries(eMerge)) {
-                            if (v === '.') {
-                                use = use.replaceAll(k, `${key ?? ''}`)
-                            } else if (v === '$') {
-                                use = use.replaceAll(k, `${value ?? ''}`)
-                            } else { use = use.replaceAll(k, `${data[v] ?? ''}`) }
-                        }
-                        return use.trim()
-                    }
-                    for (const useTemplate of newTemplate.content.querySelectorAll('template[data-e-use]')) {
-                        const fragmentsToUse = []
-                        for (let use of (useTemplate.getAttribute('data-e-use') || '').split(';')) {
-                            if (use.startsWith('`') && use.endsWith('`')) {
-                                const htmlFragment = document.createElement('div')
-                                if (useTemplate.dataset.eMerge) {
-                                    const eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {})
-                                    use = runMerge(eMerge, use.slice(1, -1))
-                                }
-                                /* need to support setHTML, using white-listed custom elements and attribute etc */
-                                // typeof htmlFragment.setHTML === 'function' ? htmlFragment.setHTML(use) : (htmlFragment.innerHTML = use)
-                                htmlFragment.innerHTML = use
-                                for (const element of htmlFragment.querySelectorAll('*')) {
-                                    const tag = element.tagName.toLowerCase()
-                                    if (tag === 'script' && !this.env.options.security.allowTemplateUseScripts) element.remove()
-                                    if (tag.includes('-') && !tag.startsWith('e-') && !this.env.options.security.allowTemplateUseCustom.includes(tag)) element.remove()
-                                }
-                                fragmentsToUse.push(...Array.from(htmlFragment.children).map(c => c.cloneNode(true)))
-                            } else {
-                                const [scopeStatement, selector = "template[data-e-fragment]"] = this.utils.splitOnce(use, '|').map(s => s.trim()),
-                                    fragmentToUse = (this.utils.resolveScope(scopeStatement, element) || element).querySelector(selector)
-                                if (fragmentToUse) {
-                                    const fragmentChildren = fragmentToUse.tagName.toLowerCase() === 'template' ? fragmentToUse.content.children : fragmentToUse.children
-                                    fragmentsToUse.push(...Array.from(fragmentChildren).map(c => c.cloneNode(true)).map(n => {
-                                        let eMerge = (this.utils.parseObjectAttribute(useTemplate.dataset.eMerge, element) || {}), use = n.innerHTML
-                                        use = runMerge(eMerge, use)
-                                        // typeof n.setHTML === 'function' ? n.setHTML(use) : (n.innerHTML = use)
-                                        n.innerHTML = use
-                                        return n
-                                    }))
-                                }
-                            }
-                        }
-                        useTemplate.replaceWith(...fragmentsToUse.map(n => n.cloneNode(true)))
-                    }
-                    return newTemplate
-                }, querySuffix = ':not([data-e-fragment]):not([data-e-use])'
-                const entries = Array.isArray(data) ? data.entries() : Object.entries(data)
-                const processTemplate = (entryTemplate, key, value, empty) => {
-                    const recursiveTemplates = element.querySelectorAll(':scope > template[data-e-place-into]'),
-                        entryNode = build(entryTemplate, key, value).content.cloneNode(true), keyTemplate = filterTemplates(entryNode.querySelectorAll(`template[data-e-key]${querySuffix}`), value, data)
-                    let valueTemplates = entryNode.querySelectorAll(`:scope > template[data-e-value]${querySuffix}`)
-                    if (keyTemplate) keyTemplate.replaceWith(this.setValue(build(keyTemplate, key, value).content.cloneNode(true).children[0] || '', key, undefined, silent))
-                    //if (!valueTemplates.length) valueTemplates = entryNode.querySelectorAll(`template:not([data-e-key])${querySuffix}`)
-                    if (valueTemplates.length) {
-                        let valueTemplate = valueTemplates[valueTemplates.length - 1]
-                        for (const t of valueTemplates) {
-                            if (t.getAttribute('data-e-fragment') || t.getAttribute('data-e-use')) continue
-                            const templateDataType = t.getAttribute('data-e-if-type')
-                            if ((value?.constructor?.name?.toLowerCase() === templateDataType) || ((templateDataType === 'object') && (value instanceof Object))
-                                || ((templateDataType === 'scalar') && !(value instanceof Object))) { valueTemplate = t; break }
-                        }
-                        const valueNode = build(valueTemplate, key, value).content.cloneNode(true)
-                        for (const recursiveTemplate of recursiveTemplates) {
-                            let placed = false
-                            for (const scopedTarget of valueNode.querySelectorAll(recursiveTemplate.getAttribute('data-e-place-into'))) {
-                                scopedTarget.prepend(recursiveTemplate.cloneNode(true))
-                                placed = true
-                            }
-                            if (!placed && (value instanceof Object)) valueNode.prepend(recursiveTemplate.cloneNode(true))
-                        }
-                        if (!empty) this.sinkData(valueNode.children[0], value, flag, transform, sourceElement, context, layer + 1, element)
-                        valueTemplate.replaceWith(...valueNode.children)
-                    }
-                    const sinkInto = entryTemplate.dataset.eSlot ? entryNode.querySelector(entryTemplate.dataset.eSlot) : entryNode.children[0]
-                    if (!empty && sinkInto && ((entryTemplate.dataset.eSink === 'true') || (!keyTemplate && !valueTemplates.length && (entryTemplate.dataset.eSink !== 'false')))) this.sinkData(sinkInto, value, flag, transform, sourceElement, context, layer + 1, element)
-                    if (entryTemplate.getAttribute('data-e-property')) {
-                        entryTemplate.after(...entryNode.children)
-                    } else {
-                        const nextAfter = entryNode.children[entryNode.children.length - 1]
-                        after?.after(...entryNode.children)
-                        if (nextAfter) after = nextAfter
-                    }
-                }
-                if (entries.length ?? data.length) {
-                    for (const [key, value] of entries) {
-                        let entryTemplate = filterTemplates(element.querySelectorAll(`:scope > template[data-e-property="${key}"]:not([data-e-key])${querySuffix}`), value, data)
-                            || filterTemplates(element.querySelectorAll(`:scope > template:not([data-e-property]):not([data-e-key])${querySuffix}`), value, data)
-                        if (entryTemplate) processTemplate(entryTemplate, key, value)
-                    }
-                } else {
-                    let entryTemplate = element.querySelector(`:scope > template[data-e-if-empty]${querySuffix}`)
-                    if (entryTemplate) processTemplate(entryTemplate, undefined, undefined, true)
-                }
-                element.querySelector('meta[after]')?.remove()
-            } else if (['input', 'select', 'datalist'].includes(tag) && Array.isArray(data)) {
-                const optionElements = []
-                for (const d of data) {
-                    const optionElement = document.createElement('option')
-                    this.setValue(optionElement, d, element, true)
-                    optionElements.push(optionElement)
-                }
-                if (tag === 'select' || tag === 'datalist') {
-                    element.replaceChildren(...optionElements)
-                } else if (tag === 'input' && sourceElement) {
-                    const datalist = sourceElement.dataset.datalistId
-                        ? document.getElementById(sourceElement.dataset.datalistId) : document.createElement('datalist')
-                    datalist.replaceChildren(...optionElements)
-                    if (!sourceElement.dataset.datalistId) {
-                        sourceElement.dataset.datalistId = crypto.randomUUID()
-                        datalist.setAttribute('id', sourceElement.dataset.datalistId)
-                        document.body.append(datalist)
-                        element.setAttribute('list', sourceElement.dataset.datalistId)
-                    }
-                }
-            } else if (dataIsObject && ['form', 'fieldset'].includes(tag)) {
-                for (const [k, v] of Object.entries(data)) this.sinkData((element.querySelector(`[name=${k}]`) || {}), v)
-            } else if (dataIsObject && ['table', 'tbody'].includes(tag)) {
-                let tbody = tag === 'tbody' ? element : element.querySelector('tbody')
-                if (!tbody) element.append(tbody = document.createElement('tbody'))
-                let rowsData = ((Array.isArray(data) && data.every(r => Array.isArray(r))) || (data instanceof Object && Object.values(data).every(r => Array.isArray(r)))) ? data : undefined
-                if (rowsData) {
-                    if (tag === 'table') {
-                        const headers = rowsData.shift()
-                        let thead = element.querySelector('thead')
-                        if (!thead) element.prepend(thead = document.createElement('thead'))
-                        let thRow = thead.querySelector('tr')
-                        if (!thRow) thead.prepend(thRow = document.createElement('tr'))
-                        for (const h of headers) thead.appendChild(document.createElement('th')).textContent = h
-                    }
-                    const namedRows = !Array.isArray(data)
-                    for (const [k, v] of Object.entries(rowsData)) {
-                        const tr = document.createElement('tr')
-                        namedRows && tr.setAttribute('name', k)
-                        for (const vv of v) tr.appendChild(document.createElement('td')).textContent = vv
-                        tbody.append(tr)
-                    }
-                }
-            } else if (['ul', 'ol'].includes(tag)) {
-                if (!Array.isArray(data)) data = [data]
-                element.replaceChildren()
-                for (const item of data) {
-                    const li = document.createElement('li')
-                    li.innerHTML = item
-                    element.append(li)
-                }
-            } else if (dataIsObject && (tag === 'dl') && (data instanceof Object)) {
-                element.replaceChildren()
-                for (const [t, d] of Object.entries(data)) {
-                    const dt = document.createElement('dt')
-                    dt.innerHTML = t
-                    element.append(dt)
-                    const dd = document.createElement('dd')
-                    dd.innerHTML = d
-                    element.append(dd)
-                }
-            } else if (!dataIsObject) {
-                this.setValue(element, data, undefined, silent)
-            } else {
-                const resolveTargetAndKey = (statement, element) => {
-                    let target, [qs, key] = this.utils.splitOnce(statement.slice(1), '`').map(s => s.trim())
-                    if (!qs) return [element, key]
-                    return [this.utils.resolveScopedSelector(qs, element), key]
-                }, resolveForV = (v, element) => {
-                    if (v[0] === '`' && v.slice(1).includes('`')) {
-                        let [target, key] = resolveTargetAndKey(v, element)
-                        if (!target) return
-                        return this.flatten(target, key)
-                    } else { return v }
-                }, sinkDataAuto = (k, v, flag, target, sourceElement, context, layer, silent) => {
-                    if (k[0] === '`' && k.slice(1).includes('`')) [target, k] = resolveTargetAndKey(k, element)
-                    if (!target) return
-                    const applyToTarget = (tt, vv) => {
-                        switch (k[0]) {
-                            case '@':
-                                if (vv == null) {
-                                    tt.removeAttribute(k.slice(1))
-                                } else {
-                                    tt.setAttribute(k.slice(1), vv)
-                                }
-                                break
-                            case '!':
-                                if (vv != null) {
-                                    let eventName = k.slice(1)
-                                    if (!eventName) eventName = this.env.options.defaultEventTypes[tt.tagName.toLowerCase()] ?? 'click'
-                                    tt.dispatchEvent(new CustomEvent(eventName, { detail: vv }))
-                                }
-                                break
-                            case '.':
-                                if (k === '.') {
-                                    if (vv) {
-                                        if (v.includes('<') && v.includes('>')) {
-                                            tt.innerHTML = vv
-                                        } else { tt.textContent = vv }
-                                    } else { tt.replaceChildren() }
-                                } else if (k === '..') {
-                                    tt.textContent = vv
-                                } else if (k === '...') {
-                                    tt.innerText = vv
-                                } else if (k.includes('(') && k.endsWith(')')) {
-                                    this.runElementMethod(k.slice(1), tt)
-                                } else {
-                                    if (vv == null) {
-                                        delete tt[k.slice(1)]
-                                    } else {
-                                        tt[k.slice(1)] = vv
-                                    }
-                                }
-                                break
-                            case '<':
-                                if (k === '<>') tt.innerHTML = vv
-                                break
-                            case '_':
-                                this.setValue(tt, vv, target, silent)
-                                break
-                            case undefined:
-                                this.sinkData(tt, vv, flag, undefined, target, context, layer + 1, element, silent)
-                                break
-                            default:
-                                tt.dataset[k] = vv
-                        }
-                    }
-                    if (!Array.isArray(target)) target = [target]
-                    for (const t of target) applyToTarget(t, (typeof v === 'string') ? resolveForV(v, t) : v)
-                }
-                for (const [k, v] of Object.entries(data)) sinkDataAuto(k.trim(), v, flag, element, sourceElement, context, layer, silent)
-            }
-            return await close(element)
+            let nodesToApply = []
+            if (Array.isArray(data)) {
+                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
+            } else { nodesToApply.push([buildNode(useNode), data]) }
+            element[insertPosition](...nodesToApply.map(n => n[0]))
+            for (const n of nodesToApply) this.applyData(...n)
         }
     },
+
 
     parse: {
         enumerable: true, value: async function (input, sourceElement, contentType) {
@@ -1023,39 +677,6 @@ const ElementHTML = Object.defineProperties({}, {
             return JSON.stringify(input)
         }
     },
-
-
-    applyDataWithTemplate: {
-        enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
-            let useNode
-            if (tag instanceof HTMLTemplateElement) {
-                useNode = tag.content.cloneNode(true).firstElementChild
-            } else if (tag instanceof HTMLElement) {
-                useNode = tag.cloneNode(true)
-            } else if (typeof tag === 'string') {
-                useNode = document.createElement(tag)
-            } else { return }
-            if (id && (typeof id === 'string')) useNode.setAttribute('id', id)
-            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
-            if (classList && Array.isArray(classList)) for (let className of classList.map(s => s.trim()).filter(s => !!s)[sort]()) {
-                if (className[0] === '!') {
-                    className = className.slice(1)
-                    if (className) useNode.classList.remove(className)
-                } else { useNode.classList.add(className) }
-            }
-            if (attributeMap && (attributeMap instanceof Object)) for (const [n, v] of Object.entries(attributeMap)) {
-                if ((typeof v !== 'string') && (typeof v !== 'number')) {
-                    useNode.toggleAttribute(n, v)
-                } else { useNode.setAttribute(n, v) }
-            }
-            insertPosition ||= 'replaceChildren'
-            if (insertSelector) element = element.querySelector(insertSelector)
-            if (!element) return
-            element[insertPosition](useNode)
-            this.applyData(useNode, data)
-        }
-    },
-
 
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
