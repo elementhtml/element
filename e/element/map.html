@@ -47,14 +47,17 @@
                     }, { signal: this.#abortController.signal })
                 }
             } else {
-                const cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
-                for (const cellName of cellNames) {
-                    this.E.getCell(cellName).eventTarget.addEventListener('change', event => {
+                const cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c),
+                    applyCellValue = (cellValue, cellName) => {
                         let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
                         if (!Array.isArray(targets)) targets = [targets]
-                        for (const target of targets) {
-                            this.E.runTransform(transformExpression, event.detail, this, { cell: this.E.getCell(cellName).get() }).then(data => this.E.applyData(target, data))
-                        }
+                        for (const target of targets) this.E.runTransform(transformExpression, cellValue, this, { cell: this.E.getCell(cellName).get() }).then(data => this.E.applyData(target, data))
+                    }
+                for (const cellName of cellNames) {
+                    const cell = this.E.getCell(cellName), cellValue = cell.get()
+                    if (cellValue !== undefined) applyCellValue(cellValue, cellName)
+                    cell.eventTarget.addEventListener('change', event => {
+                        applyCellValue(event.detail, cellName)
                     }, { signal: this.#abortController.signal })
                 }
             }
