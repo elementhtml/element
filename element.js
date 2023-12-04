@@ -527,10 +527,9 @@ const ElementHTML = Object.defineProperties({}, {
                         } else { setProperty(k.slice(1), v, element) }
                         break
                     case '`':
-                        const [nestingTargetExpression, nestingValue] = k.slice(1).split('`').map(s => s.trim())
-                        let nestingTargets = this.utils.resolveScopedSelector(nestingTargetExpression, element)
+                        let nestingTargets = this.utils.resolveScopedSelector(k.slice(1, -1), element)
                         if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
-                        await Promise.all(nestingTargets.map(t => this.applyData(t, nestingValue, silent)))
+                        await Promise.all(nestingTargets.map(t => this.applyData(t, v, silent)))
                         break
                     default:
                         setProperty(k, v, element)
@@ -567,6 +566,15 @@ const ElementHTML = Object.defineProperties({}, {
             } else { nodesToApply.push([buildNode(useNode), data]) }
             element[insertPosition](...nodesToApply.map(n => n[0]))
             for (const n of nodesToApply) this.applyData(...n)
+        }
+    },
+
+    runElementMethod: {
+        enumerable: true, value: function (statement, arg, element) {
+            let [funcName, ...argsRest] = statement.split('(')
+            if (typeof element[funcName] === 'function') {
+                return element[funcName](...argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)), arg)
+            }
         }
     },
 
@@ -967,14 +975,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value.includes('/')) {
                 return this.resolveUrl(new URL(value, element.baseURI).href)
             } else { return this.resolveUrl(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
-        }
-    },
-    runElementMethod: {
-        enumerable: true, value: function (statement, element) {
-            let [funcName, ...argsRest] = statement.split('(')
-            if (typeof element[funcName] === 'function') {
-                return element[funcName](...argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)))
-            }
         }
     },
     runTransform: {
