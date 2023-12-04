@@ -504,16 +504,19 @@ const ElementHTML = Object.defineProperties({}, {
                         if (k === '<>') {
                             element.innerHTML = v
                         } else if (k[0] === '<' && k.slice(-1) === '>') {
-                            const renderExpression = k.slice(1, -1)
+                            const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
+                            let renderExpression = k.slice(1, -1),
+                                posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
+                            if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
                             if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
-                                const useTemplate = element.querySelector(`template${renderExpression.slice(1, -1)}`)
-                                if (useTemplate) this.applyDataWithTemplate(element, data, useTemplate)
+                                const useTemplate = this.utils.resolveScopedSelector(renderExpression.slice(1, -1), element)
+                                if (useTemplate) this.applyDataWithTemplate(element, data, useTemplate, posMap[posMatch.trim()], insertSelector)
                             } else {
                                 const tagMatch = renderExpression.match(/^[a-z0-9\-]+/g),
                                     idMatch = renderExpression.match(/(\#[a-zA-Z0-9\-]+)+/g), classMatch = renderExpression.match(/(\.[a-zA-Z0-9\-]+)+/g),
                                     attrMatch = renderExpression.match(/\[[a-zA-Z0-9\-\= ]+\]/g)
                                 if (tagMatch) {
-                                    this.applyDataWithTag(element, data, tagMatch[0], (idMatch[0] ?? '').slice(1),
+                                    this.applyDataWithTemplate(element, data, tagMatch[0], insertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
                                         (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
                                         Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
                                     )
@@ -1020,6 +1023,39 @@ const ElementHTML = Object.defineProperties({}, {
             return JSON.stringify(input)
         }
     },
+
+
+    applyDataWithTemplate: {
+        enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
+            let useNode
+            if (tag instanceof HTMLTemplateElement) {
+                useNode = tag.content.cloneNode(true).firstElementChild
+            } else if (tag instanceof HTMLElement) {
+                useNode = tag.cloneNode(true)
+            } else if (typeof tag === 'string') {
+                useNode = document.createElement(tag)
+            } else { return }
+            if (id && (typeof id === 'string')) useNode.setAttribute('id', id)
+            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
+            if (classList && Array.isArray(classList)) for (let className of classList.map(s => s.trim()).filter(s => !!s)[sort]()) {
+                if (className[0] === '!') {
+                    className = className.slice(1)
+                    if (className) useNode.classList.remove(className)
+                } else { useNode.classList.add(className) }
+            }
+            if (attributeMap && (attributeMap instanceof Object)) for (const [n, v] of Object.entries(attributeMap)) {
+                if ((typeof v !== 'string') && (typeof v !== 'number')) {
+                    useNode.toggleAttribute(n, v)
+                } else { useNode.setAttribute(n, v) }
+            }
+            insertPosition ||= 'replaceChildren'
+            if (insertSelector) element = element.querySelector(insertSelector)
+            if (!element) return
+            element[insertPosition](useNode)
+            this.applyData(useNode, data)
+        }
+    },
+
 
     compileRequestOptions: {
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
