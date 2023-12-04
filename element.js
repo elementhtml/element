@@ -528,9 +528,9 @@ const ElementHTML = Object.defineProperties({}, {
                         break
                     case '`':
                         const [nestingTargetExpression, nestingValue] = k.slice(1).split('`').map(s => s.trim())
-                        let nestingTargets = this.utils.resolveSelector(element, nestingTargetExpression)
+                        let nestingTargets = this.utils.resolveScopedSelector(nestingTargetExpression, element)
                         if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
-                        await Promise.all(nestingTargets.map(t => this.applyData(nestingTarget, nestingValue, silent)))
+                        await Promise.all(nestingTargets.map(t => this.applyData(t, nestingValue, silent)))
                         break
                     default:
                         setProperty(k, v, element)
