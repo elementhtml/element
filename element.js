@@ -491,10 +491,13 @@ const ElementHTML = Object.defineProperties({}, {
                         } else { element.setAttribute(k.slice(1), v) }
                         break
                     case '!':
-                        if (v === null) continue
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = this.env.options.defaultEventTypes[tt.tagName.toLowerCase()] ?? 'click'
-                        element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        if (!eventName) eventName = this.env.options.defaultEventTypes[element.tagName.toLowerCase()] ?? 'click'
+                        if (v === null) {
+                            element.addEventListener(eventName, event => event.preventDefault(), { once: true })
+                        } else {
+                            element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        }
                         break
                     case '.':
                     case '<':
