@@ -5,23 +5,29 @@
 
         #abortController = new AbortController()
         #contentType
-        #sourceObject
-        #sourceObjectAvailable = false
         #options
         #optionsMap = {}
-        #writeQueue = []
+        #pull
+        #pullAbortController
+        #push
+        #pushAbortController
         #reader
         #send
-        #writer
         #source
+        #sourceObject
+        #sourceObjectAvailable = false
+        #sync
+        #syncAbortController
         #transform
         #value
+        #writeQueue = []
+        #writer
 
         constructor() {
             super()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type', 'options', 'source', 'transform') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'content-type', 'options', 'push', 'pull', 'source', 'sync', 'transform') }
 
         async connectedCallback() { }
 
@@ -211,6 +217,9 @@
             return (typeof serializer === 'function') ? (await serializer(value, this, contentType)) : (await this.E.serialize(value, this, contentType))
         }
 
+        get [':']() { return this.source }
+        set [':'](value) { this.source = value }
+
         get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
         set contentType(value) { this.#contentType = value }
 
@@ -230,6 +239,35 @@
             return this.#optionsMap
         }
 
+        get pull() { return this.E.utils.safeGet(this, this.#pull, 'pull') }
+        set pull(value) {
+            if (this.#pull === value) return
+            if (value) {
+                if (this.#pullAbortController) this.#pullAbortController.abort()
+                this.#pullAbortController = new AbortController()
+                const signal = this.#pullAbortController.signal
+                this.E.getCell(cellName).eventTarget.addEventListener('change', event => {
+                    if (event.detail !== undefined && (event.detail !== this.#value)) this.write(event.detail)
+                }, { signal })
+            }
+            this.#pull = value
+        }
+
+        get push() { return this.E.utils.safeGet(this, this.#push, 'push') }
+        set push(value) {
+            if (this.#push === value) return
+            if (value) {
+                if (this.#pushAbortController) this.#pushAbortController.abort()
+                this.#pushAbortController = new AbortController()
+                const signal = this.#pushAbortController.signal
+                this.addEventListener('change', event => {
+                    if (this.#value === undefined) return
+                    this.E.getCell(cellName).set(this.#value)
+                }, { once, signal })
+            }
+            this.#push = value
+        }
+
         get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
         set source(value) {
             if (this.#source === value) return
@@ -240,6 +278,30 @@
         get sourceObject() { return this.#sourceObject }
 
         get sourceObjectAvailable() { return this.#sourceObjectAvailable }
+
+        get sync() { return this.E.utils.safeGet(this, this.#sync, 'sync') }
+        set sync(value) {
+            if (this.#sync === value) return
+            if (value) {
+                if (this.#syncAbortController) this.#syncAbortController.abort()
+                this.#syncAbortController = new AbortController()
+                const signal = this.#syncAbortController.signal, once = true
+                if (this.#value === undefined) {
+                    this.addEventListener('change', event => {
+                        if (this.#value === undefined) return
+                        const cell = this.E.getCell(value)
+                        if (cell.get() === undefined) cell.set(this.#value)
+                    }, { once, signal })
+                } else {
+                    const cell = this.E.getCell(value)
+                    if (cell.get() === undefined) cell.set(this.#value)
+                }
+                this.E.getCell(value).eventTarget.addEventListener('change', event => {
+                    if (event.detail !== undefined && (event.detail !== this.#value)) this.write(event.detail)
+                }, { signal })
+            }
+            this.#sync = value
+        }
 
         get transform() { return this.E.utils.safeGet(this, this.#transform, 'transform') }
         set transform(value) {

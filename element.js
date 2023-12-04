@@ -184,6 +184,7 @@ const ElementHTML = Object.defineProperties({}, {
                         scope = element
                     } else if ((scopeStatement === ':') || scopeStatement === ':root') {
                         scope = element.getRootNode()
+                        if (scope === document) scope = document.documentElement
                     } else if (scopeStatement === ':host') {
                         scope = element.getRootNode()
                         if (scope instanceof ShadowRoot) scope = scope.host
@@ -211,10 +212,10 @@ const ElementHTML = Object.defineProperties({}, {
             resolveScopedSelector: {
                 enumerable: true, value: function (scopedSelector, element) {
                     let scope = element, selector = scopedSelector
-                    if (scopedSelector.includes('|')) {
-                        const [scopeStatement, selectorStatement] = scopedSelector.split('|')
-                        selector = selectorStatement
+                    if (selector.includes('|')) {
+                        const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
                         scope = this.resolveScope(scopeStatement, element)
+                        selector = selectorStatement
                     }
                     return this.resolveSelector(scope, selector)
                 }
@@ -472,6 +473,15 @@ const ElementHTML = Object.defineProperties({}, {
             if (!(element instanceof HTMLElement)) return
             if (data === null) element.remove()
             if (!(data instanceof Object)) return this.setValue(element, data, silent)
+            const setProperty = (k, v, element) => {
+                if (k.includes('(') && k.endsWith(')')) {
+                    this.runElementMethod(k, v, element)
+                } else {
+                    if (v === undefined) {
+                        delete element[k]
+                    } else { element[k] = v }
+                }
+            }
             for (const [k, v] of Object.entries(data)) {
                 if (!k) continue
                 switch (k[0]) {
@@ -493,15 +503,29 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!v) { element.replaceChildren(); continue }
                         if (k === '<>') {
                             element.innerHTML = v
+                        } else if (k[0] === '<' && k.slice(-1) === '>') {
+                            const renderExpression = k.slice(1, -1)
+                            if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
+                                const useTemplate = element.querySelector(`template${renderExpression.slice(1, -1)}`)
+                                if (useTemplate) this.applyDataWithTemplate(element, data, useTemplate)
+                            } else {
+                                const tagMatch = renderExpression.match(/^[a-z0-9\-]+/g),
+                                    idMatch = renderExpression.match(/(\#[a-zA-Z0-9\-]+)+/g), classMatch = renderExpression.match(/(\.[a-zA-Z0-9\-]+)+/g),
+                                    attrMatch = renderExpression.match(/\[[a-zA-Z0-9\-\= ]+\]/g)
+                                if (tagMatch) {
+                                    this.applyDataWithTag(element, data, tagMatch[0], (idMatch[0] ?? '').slice(1),
+                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
+                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
+                                    )
+                                }
+                            }
                         } else if (k === '.') {
                             element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
                         } else if (k === '..') {
                             element.textContent = v
                         } else if (k === '...') {
                             element.innerText = v
-                        } else if (k.includes('(') && k.endsWith(')')) {
-                            this.runElementMethod(k.slice(1), v, element)
-                        }
+                        } else { setProperty(k.slice(1), v, element) }
                         break
                     case '`':
                         const [nestingTargetExpression, nestingValue] = k.slice(1).split('`').map(s => s.trim())
@@ -510,8 +534,7 @@ const ElementHTML = Object.defineProperties({}, {
                         await Promise.all(nestingTargets.map(t => this.applyData(nestingTarget, nestingValue, silent)))
                         break
                     default:
-                        if (v === undefined) { delete element[k]; continue }
-                        element[k] = v
+                        setProperty(k, v, element)
                 }
             }
         },
@@ -1239,6 +1262,7 @@ const ElementHTML = Object.defineProperties({}, {
                 eventTarget: new EventTarget(),
                 get: () => cells[name].value,
                 set: value => {
+                    if (cells[name].value === value) return
                     cells[name].value = value
                     cells[name].eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                 },
@@ -1297,80 +1321,8 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     runTransform: {
-        enumerable: true, value: async function (transform, data = {}, baseValue = undefined, element = undefined, variableMap = {}) {
+        enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
-            const pF = v => parseFloat(v) || 0, pI = v => parseInt(v) || 0, iA = v => Array.isArray(v) ? v : (v == undefined ? [] : [v]),
-                iO = v => (v instanceof Object) ? v : {}, b = baseValue, d = typeof data === 'string' ? data.trim() : data,
-                validGlobals = [
-                    'Infinity', 'NaN', , 'undefined'
-                ], validGlobalFunctions = [
-                    'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'isFinite', 'isNaN', 'parseFloat', 'parseInt'
-                ], validGlobalObjects = {
-                    'Array': ['from', 'isArray', 'of'],
-                    'BigInt': ['asIntN', 'asUintN'],
-                    'Date': ['now', 'parse', 'UTC'],
-                    'Intl': ['getCanonicalLocales', 'supportedValuesOf'],
-                    'Math': '*',
-                    'Number': '*',
-                    'Object': '*',
-                    'String': ['fromCharCode', 'fromCodePoint']
-                }, shorthands = {
-                    '++': () => pI(b) + 1, '--': () => pI(b) - 1,
-                    '+n': () => pF(b) + pF(d), '+n': () => pF(b) - pF(d), '*n': () => pF(b) * pF(d), '/n': () => pF(b) / pF(d),
-                    '^n': () => pF(b) ** pF(d), '%n': () => pF(b) % pF(d),
-                    'n+': () => pF(d) - pF(b), 'n/': () => pF(d) / pF(b), 'n^': () => pF(d) ** pF(b), 'n%': () => pF(d) % pF(b),
-                    '&': () => `${b}${d}`, '&s': (s) => `${b}${s}${d}`, '&/': () => `${b}\n${d}`, 's&': (s) => `${d}${s}${b}`, '/&': () => `${d}\n${b}`,
-                    '[]': () => iA(d), '[]+': () => iA(b).concat(iA(d)), '+[]': () => iA(d).concat(iA(b)),
-                    '{}': () => ({ ...iO(b), ...iO(d) }), '{...}': () => {
-                        const bb = iO(b); for (const [k, v] of Object.entries(iO(d))) bb[k] = { ...iO(bb[k]), ...iO(d[k]) }; return bb
-                    }, '{~...}': () => {
-                        const dd = iO(d); for (const [k, v] of Object.entries(iO(b))) dd[k] = { ...iO(dd[k]), ...iO(b[k]) }; return dd
-                    }
-                }
-            let result, temp
-            const getArgs = t => {
-                const r = {
-                    [`${temp}(~)`]: [d, b], [`${temp}(...,)`]: [...iA(b), d], [`${temp}(,...)`]: [b, ...iA(d)], [`${temp}(...,...)`]: [...iA(b), ...iA(d)],
-                    [`${temp}(...~)`]: [...iA(d), b], [`${temp}(~...)`]: [d, ...iA(b)], [`${temp}(...~...)`]: [...iA(d), ...iA(b)]
-                }
-                return r[t] ?? [b, d]
-            }, resolveChild = (pr, tr, tp) => {
-                pr ||= window
-                tr ||= transfrom
-                tp ||= temp
-                const [, childName] = tr.split('.'), globalObject = pr[tp]
-                if ((childName in globalObject[childName]) && (typeof globalObject[childName] !== 'function')) return globalObject[childName]
-                if (childName.includes('(')) {
-                    const [childFuncName,] = childName.split('(')
-                    if (typeof globalObject[childFuncName] === 'function') return globalObject[childFuncName](...getArgs(`${childName}`))
-                }
-            }
-            if (transform in shorthands) {
-                return shorthands[transform]()
-            } else if (transform && transform.match(/^\[\d+\]$/)) {
-                const a = iA(b)
-                a[parseInt(transform.slice(1, -1)) || 0] = d
-                return a
-            } else if (transform && transform.match(/^\+?\[.+\]\+?$/)) {
-                console.log('line 1267', b, d, element, element.value)
-                const sep = transform.slice(transform.indexOf('[') + 1, transform.indexOf(']')),
-                    pre = transform.slice(transform, transform.indexOf('[')), post = transform.slice(transform.indexOf(']') + 1)
-                const bb = (typeof b === 'string') ? b.split(sep).map(s => s.trim()).filter(s => !!s) : iA(b)
-                const dd = (typeof d === 'string') ? d.split(sep).map(s => s.trim()).filter(s => !!s) : iA(d)
-                const a = []
-                pre ? a.push(...dd, ...bb) : (post ? a.push(...bb, ...dd) : a.push(...dd))
-                return a
-            } else if (transform && transform.match(/^\{[a-zA-Z0-9\-\_]+\}$/)) {
-                const obj = iO(b)
-                obj[transform.slice(1, -1)] = d
-                return obj
-            } else if (validGlobals.includes(transform)) {
-                return window[transform]
-            } else if (temp = Object.keys(validGlobalFunctions).find(k => transform.startsWith(`${k}(`))) {
-                return window[temp](...getArgs(transform))
-            } else if (temp = Object.keys(validGlobalObjects).find(k => transform.startsWith(`${k}.`))) {
-                return resolveChild()
-            }
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
             try {
@@ -1384,14 +1336,13 @@ const ElementHTML = Object.defineProperties({}, {
                         return node ? this.flatten(node) : {}
                     })
                 }
-                result = await expression.evaluate(data)
+                if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
+                return await expression.evaluate(data)
             } catch (e) {
-                console.log('line 1290', e, transform)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
             }
-            return result
         }
     },
     sortByInheritance: {

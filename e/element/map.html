@@ -8,9 +8,12 @@
 
         constructor() { super() }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('listen') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'listen') }
 
         async connectedCallback() { }
+
+        get [':']() { return this.listen }
+        set [':'](value) { this.listen = value }
 
         get listen() { return this.E.utils.safeGet(this, this.#listen, 'listen') }
         set listen(value) {
@@ -29,7 +32,7 @@
             if (dirTargetToCell) {
                 const [scopeEventsExpression, selector, valueSourceExpression] = targetExpression.split('|').map(s => s.trim()),
                     [scopeExpression, eventsExpression] = scopeEventsExpression.split('!').map(s => s.trim()),
-                    scope = scopeExpression ? this.closest(scopeExpression) : this.parentElement
+                    scope = scopeExpression ? this.E.utils.resolveScope(scopeExpression, this) : this.parentElement
                 if (!scope) return
                 const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes)))
                 for (const eventName of eventNames) {
@@ -37,9 +40,10 @@
                         if (!event.target.matches(selector)) return
                         if (!eventsExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         const sourceValue = this.E.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression ?? selector)),
-                            value = await this.E.runTransform(transformExpression, sourceValue, undefined, this),
                             cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
-                        for (const cellName of cellNames) this.E.getCell(cellName).set(value)
+                        for (const cellName of cellNames) {
+                            this.E.getCell(cellName).set(await this.E.runTransform(transformExpression, sourceValue, this, { cell: this.E.getCell(cellName).get() }))
+                        }
                     }, { signal: this.#abortController.signal })
                 }
             } else {
@@ -48,7 +52,9 @@
                     this.E.getCell(cellName).eventTarget.addEventListener('change', event => {
                         let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
                         if (!Array.isArray(targets)) targets = [targets]
-                        for (const target of targets) this.E.runTransform(transformExpression, event.detail, this.E.flatten(target), this).then(data => this.E.applyData(target, data))
+                        for (const target of targets) {
+                            this.E.runTransform(transformExpression, event.detail, this, { cell: this.E.getCell(cellName).get() }).then(data => this.E.applyData(target, data))
+                        }
                     }, { signal: this.#abortController.signal })
                 }
             }
