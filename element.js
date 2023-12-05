@@ -794,24 +794,59 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     flatten: {
-        enumerable: true, value: function (element, key) {
-            if (Array.isArray(element)) return element.map(e => this.flatten(e, key))
-            if (!(element instanceof HTMLElement)) return (key && (element instanceof Object)) ? element[key] : element
-            const override = (this.env.map.get(element) ?? {})['eFlatten']
-            if (override) return typeof override === 'function' ? override(element) : override
-            const result = {
-                ...Object.fromEntries(element.getAttributeNames().map(a => ([`@${a}`, element.getAttribute(a)]))),
-                ...Object.fromEntries(['baseURI', 'checked', 'childElementCount', 'className',
-                    'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
-                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
-                    'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
-                    'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'tagName', 'textContent', 'title'].map(p => ([p, element[p]]))),
-                style: Object.fromEntries(Object.entries(element.style).filter(ent => !!ent[1])),
-                value: 'value' in element ? element.value : undefined,
-                _: this.getValue(element)
+        enumerable: true, value: function (value, key) {
+            let result
+            const compile = (plain, complex = []) => {
+                return {
+                    ...Object.fromEntries(plain.filter(p => value[p] !== undefined).map(p => ([p, value[p]]))),
+                    ...Object.fromEntries(complex.filter(p => value[p] !== undefined).map(p => ([p, this.flatten(value[p])])))
+                }
             }
-            return key ? result[key] : result
+            if (!(value instanceof Object)) {
+                result = value
+            } else if (Array.isArray(value)) {
+                result = value.map(e => this.flatten(e, key))
+            } else if (value instanceof HTMLElement) {
+                const override = (this.env.map.get(value) ?? {})['eFlatten']
+                if (override) return typeof override === 'function' ? override(value) : override
+                result = {
+                    ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
+                    ...compile(['baseURI', 'checked', 'childElementCount', 'className',
+                        'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
+                        'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
+                        'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
+                        'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
+                        'selected', 'slot', 'tagName', 'textContent', 'title'], []),
+                    style: Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1])),
+                    value: 'value' in value ? value.value : undefined,
+                    _: this.getValue(value)
+                }
+            } else if (value instanceof Event) {
+                result = compile(
+                    ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
+                        'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
+                        'acceleration', 'accelerationIncludingGravity', 'interval', 'rotationRate',
+                        'absolute', 'alpha', 'beta', 'gamma', 'message', 'filename', 'lineno', 'colno',
+                        'clientId', 'replacesClientId', 'resultingClientId', 'newURL', 'oldURL', 'newVersion', 'oldVersion',
+                        'inputType', 'isComposing', 'altKey', 'code', 'ctrlKey', 'isComposing', 'key', 'location', 'metaKey', 'repeat', 'shiftKey',
+                        'lastEventId', 'origin', 'button', 'buttons', 'clientX', 'clientY', 'ctrlKey', 'metaKey', 'movementX', 'movementY',
+                        'offsetX', 'offsetY', 'pageX', 'pageY', 'screenX', 'screenY', 'shiftKey', 'x', 'y', 'persisted',
+                        'height', 'isPrimary', 'pointerId', 'pointerType', 'pressure', 'tangentialPressure', 'tiltX', 'tiltY', 'twist', 'width',
+                        'state', 'lengthComputable', 'loaded', 'total', 'key', 'newValue', 'oldValue', 'url', 'propertyName', 'detail', 'statusMessage',
+                        'deltaX', 'deltaY', 'deltaZ'
+                    ],
+                    ['currentTarget', 'target', 'data', 'clipboardData', 'detail', 'dataTransfer', 'relatedTarget', 'formData', 'submitter']
+                )
+            } else if (value instanceof Blob) {
+                result = compile(['size', 'type'])
+            } else if (value instanceof DataTransfer) {
+                result = compile(['dropEffect', 'effectAllowed', 'types'])
+            } else if (value instanceof FormData) {
+                result = Object.fromEntries(value.entries())
+            } else if (value instanceof Object) {
+                result = key ? value[key] : value
+            }
+            return result
         }
     },
     getInheritance: {
@@ -1005,6 +1040,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
+            //console.log('line 1008', data, variableMap)
             if (transform) transform = transform.trim()
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
@@ -1017,6 +1053,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {})
                     })
                 }
+                if (transform.includes('$console(')) expression.registerFunction('console', (m) => console.log(m))
+                if (transform.includes('$stop(')) expression.registerFunction('stop', () => undefined)
                 if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
                 if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
                 return await expression.evaluate(data)

@@ -42,22 +42,24 @@
                         const sourceValue = this.E.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression ?? selector)),
                             cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
                         for (const cellName of cellNames) {
-                            this.E.getCell(cellName).set(await this.E.runTransform(transformExpression, sourceValue, this, { cell: this.E.getCell(cellName).get() }))
+                            const cell = this.E.getCell(cellName).get(), result = await this.E.runTransform(transformExpression, sourceValue, this, { cell, event: this.E.flatten(event) })
+                            if ((result === undefined) || (cell === result) || (JSON.stringify(cell) === JSON.stringify(result))) continue
+                            this.E.getCell(cellName).set(result)
                         }
                     }, { signal: this.#abortController.signal })
                 }
             } else {
                 const cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c),
-                    applyCellValue = (cellValue, cellName) => {
+                    applyCellValue = (cellValue, cellName, event) => {
                         let targets = this.E.utils.resolveScopedSelector(targetExpression, this)
                         if (!Array.isArray(targets)) targets = [targets]
-                        for (const target of targets) this.E.runTransform(transformExpression, cellValue, this, { cell: this.E.getCell(cellName).get() }).then(data => this.E.applyData(target, data))
+                        for (const target of targets) this.E.runTransform(transformExpression, cellValue, this, { cell: this.E.getCell(cellName).get(), event }).then(data => this.E.applyData(target, data))
                     }
                 for (const cellName of cellNames) {
                     const cell = this.E.getCell(cellName), cellValue = cell.get()
                     if (cellValue !== undefined) applyCellValue(cellValue, cellName)
                     cell.eventTarget.addEventListener('change', event => {
-                        applyCellValue(event.detail, cellName)
+                        applyCellValue(event.detail, cellName, event)
                     }, { signal: this.#abortController.signal })
                 }
             }
