@@ -939,16 +939,27 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (name) {
             if (!name) return
             const cells = this.env.cells
-            return cells[name] ||= {
-                eventTarget: new EventTarget(),
-                get: function () { return this.value },
-                set: function (value) {
-                    if (this.value === value) return
-                    this.value = value
-                    this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                },
-                value: undefined
+            if (!cells[name]) {
+                const cell = {
+                    channel: new BroadcastChannel(name),
+                    eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value) {
+                        if (this.value === value) return
+                        this.channel.postMessage(value)
+                        this.value = value
+                        cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                    },
+                    value: undefined
+                }
+                cell.channel.addEventListener('message', event => {
+                    if (event.data === cell.value) return
+                    cell.value = event.data
+                    cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: event.data }))
+                })
+                cells[name] = cell
             }
+            return cells[name]
         }
     },
 
