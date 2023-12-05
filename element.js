@@ -1014,9 +1014,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$find(')) {
                     expression.registerFunction('find', (qs) => {
                         if (!qs) return this.flatten(element)
-                        let [scope, selector] = qs.split('|'), node = scope ? element.closest(scope) : element.parentElement
-                        if (node && selector) node = node.querySelector(selector)
-                        return node ? this.flatten(node) : {}
+                        return this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {})
                     })
                 }
                 if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)

@@ -34,7 +34,7 @@
                     [scopeExpression, eventsExpression] = scopeEventsExpression.split('!').map(s => s.trim()),
                     scope = scopeExpression ? this.E.utils.resolveScope(scopeExpression, this) : this.parentElement
                 if (!scope) return
-                const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes)))
+                const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
