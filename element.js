@@ -483,6 +483,23 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [k, v] of Object.entries(data)) {
                 if (!k) continue
                 switch (k[0]) {
+                    case '#':
+                        if (k === '#') element.setAttribute('id', v)
+                        break
+                    case '&':
+                        const className = k.slice(1)
+                        if (!className) continue
+                        element.classList.toggle(className, v)
+                        break
+                    case '^':
+                        const styleRule = k.slice(1)
+                        if (!styleRule) continue
+                        if (v === null) {
+                            element.style.removeProperty(styleRule)
+                        } else {
+                            element.style.setProperty(styleRule, v)
+                        }
+                        break
                     case '@':
                         if (v === null) {
                             element.removeAttribute(k.slice(1))
@@ -732,16 +749,12 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element && transform.includes('$parent')) variables.push(`$parent := ${JSON.stringify(this.flatten(element.parentElement))}`)
                 if (element && transform.includes('$root')) variables.push(`$root := ${JSON.stringify(this.flatten(element.getRootNode()))}`)
                 if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
-                if (transform.includes('$uuid')) variables.push(`$uuid := ${JSON.stringify(crypto.randomUUID())}`)
                 const date = new Date(), dateMethods = {
                     date: 'toDateString', datetime: 'toString', now: 'valueOf',
                     dateISO: 'toISOString', localeDate: 'toLocaleDateString', localeDateTime: 'toLocaleString',
                     localeTime: 'toLocaleTimeString', time: 'toTimeString', utc: 'toUTCString'
                 }
                 for (const [vn, dm] of Object.entries(dateMethods)) if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(date[dm]())}`)
-                if (transform.includes('$id')) variables.push(`$id := ${JSON.stringify(crypto.randomUUID().replaceAll('-', ''))}`)
-                if (transform.includes('$rand')) variables.push(`$rand := ${JSON.stringify(Math.round(Math.random() * 1000000000))}`)
-                if (transform.includes('$randFloat')) variables.push(`$randFloat := ${JSON.stringify(Math.random())}`)
                 if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
                 if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
                     const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
@@ -996,6 +1009,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
+                if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
                 return await expression.evaluate(data)
             } catch (e) {
                 const errors = element?.errors ?? this.env.options.errors
