@@ -34,7 +34,7 @@ const ElementHTML = Object.defineProperties({}, {
                     html: true
                 },
                 security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },
-                defaultEventTypes: { input: 'change', textarea: 'change', select: 'change', form: 'submit' },
+                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
                 elementPropertiesToFlatten: ['baseURI', 'checked', 'childElementCount', 'className',
                     'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
                     'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
@@ -777,7 +777,7 @@ const ElementHTML = Object.defineProperties({}, {
                     variables.push(`$${storageType} := ${JSON.stringify(Object.fromEntries(entries))}`)
                 }
                 for (const [variableName, variableValue] of Object.entries(variableMap)) {
-                    if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(variableValue)}`)
+                    if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(this.flatten(variableValue))}`)
                 }
                 for (const [vn, vv] of Object.entries(this.env.variables)) {
                     if ((vn === 'env') || (vn === 'this') || (vn === 'value') || (vn === 'sessionStorage') || (vn === 'localStorage')) continue
@@ -810,6 +810,8 @@ const ElementHTML = Object.defineProperties({}, {
                 const override = (this.env.map.get(value) ?? {})['eFlatten']
                 if (override) return typeof override === 'function' ? override(value) : override
                 result = {
+                    value: 'value' in value ? value.value : undefined,
+                    ...compile(Object.keys(value), Object.keys(value)),
                     ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
                     ...compile(['baseURI', 'checked', 'childElementCount', 'className',
                         'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
@@ -818,7 +820,6 @@ const ElementHTML = Object.defineProperties({}, {
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                         'selected', 'slot', 'tagName', 'textContent', 'title'], []),
                     style: Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1])),
-                    value: 'value' in value ? value.value : undefined,
                     _: this.getValue(value)
                 }
             } else if (value instanceof Event) {
@@ -844,7 +845,8 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value instanceof FormData) {
                 result = Object.fromEntries(value.entries())
             } else if (value instanceof Object) {
-                result = key ? value[key] : value
+                result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
+                result = key ? result[key] : result
             }
             return result
         }
@@ -979,8 +981,11 @@ const ElementHTML = Object.defineProperties({}, {
                     channel: new BroadcastChannel(name),
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
-                    set: function (value) {
-                        if (this.value === value) return
+                    set: function (value, force) {
+                        if (this.value === value) {
+                            if (force) cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return
+                        }
                         this.channel.postMessage(value)
                         this.value = value
                         cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
@@ -1057,6 +1062,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$stop(')) expression.registerFunction('stop', () => undefined)
                 if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
                 if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
+                if (transform.includes('$location()')) expression.registerFunction('location', () => document.location)
+
+                document.location.hash.slice(1)
                 return await expression.evaluate(data)
             } catch (e) {
                 const errors = element?.errors ?? this.env.options.errors
@@ -1256,10 +1264,10 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                     Object.defineProperties($this, {
-                        E: { enumerable: true, value: ElementHTML },
-                        eContext: { enumerable: true, value: {} },
+                        E: { enumerable: false, value: ElementHTML },
+                        eContext: { enumerable: false, value: {} },
                         eDataset: {
-                            enumerable: true, value: new Proxy($this.dataset, {
+                            enumerable: false, value: new Proxy($this.dataset, {
                                 has(target, property) {
                                     const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetHas']
                                     if (override) return typeof override === 'function' ? override($this, target, property) : override

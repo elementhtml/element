@@ -7,7 +7,6 @@
         #name
         #options
         #optionsMap
-        #value
 
         static {
             Object.defineProperty(this, 'modes', { value: this.E.env.modes })
@@ -34,6 +33,7 @@
                 f.toString = this.processor.bind(this.e, this, mode, this.modes[mode].path, this.modes[mode].suffix, false, this.modes[mode].pointer)
                 Object.defineProperty(this, mode, { configurable: true, enumerable: true, get: () => f })
             }
+            Object.defineProperty(this, 'value', { enumerable: true, get: () => this.E.flatten(document.location) })
         }
 
         toString() { return this.#name }
@@ -42,10 +42,8 @@
 
         connectedCallback() {
             window.addEventListener('hashchange', event => {
-                this.#value = this.baseURI
-                this.dispatchEvent(new CustomEvent('change', { detail: { newURL: event.newURL, oldURL: event.oldURL } }))
+                this.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { newURL: event.newURL, oldURL: event.oldURL } }))
             })
-            this.#value = this.baseURI
         }
 
         processor(router, mode, path = undefined, suffix = undefined, pointer = undefined, get = false) {
