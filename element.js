@@ -928,17 +928,16 @@ const ElementHTML = Object.defineProperties({}, {
             const cells = this.env.cells
             return cells[name] ||= {
                 eventTarget: new EventTarget(),
-                get: () => cells[name].value,
-                set: value => {
-                    if (cells[name].value === value) return
-                    cells[name].value = value
-                    cells[name].eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                get: function () { return this.value },
+                set: function (value) {
+                    if (this.value === value) return
+                    this.value = value
+                    this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                 },
                 value: undefined
             }
         }
     },
-
 
     resolveVariables: {
         enumerable: true, value: function (statement, element) {
