@@ -108,7 +108,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (value[0] === '$') return ElementHTML.getVariable(value, element) ?? retval
                         if (value[0] === '?') value = decodeURIComponent(value).slice(1)
                         if ((value[0] === '{') && (value.slice(-1) === '}')) {
-                            try { retval = JSON.parse(value) } catch (e) { console.log('line 97', e) }
+                            try { retval = JSON.parse(value) } catch (e) { console.log('line 111', e) }
                         } else {
                             try { retval = Object.fromEntries((new URLSearchParams(value)).entries()) } catch (e) { }
                         }
@@ -1045,7 +1045,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
-            //console.log('line 1008', data, variableMap)
             if (transform) transform = transform.trim()
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
