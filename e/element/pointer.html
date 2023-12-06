@@ -358,9 +358,9 @@
                     }, { signal: boundController.signal })
                 }
                 if (!scope) return
-                setBound(this.E.utils.resolveSelector(scope, bindStatementSplit[1]), this)
+                setBound(this.E.utils.resolveSelector(bindStatementSplit[1], scope), this)
                 const processRecords = records => {
-                    let oldBound = getBound(), newBound = this.E.utils.resolveSelector(scope, bindStatementSplit[1], this)
+                    let oldBound = getBound(), newBound = this.E.utils.resolveSelector(bindStatementSplit[1], scope, this)
                     setBound(newBound)
                     oldBound = Array.isArray(oldBound) ? oldBound : [oldBound]
                     newBound = Array.isArray(newBound) ? newBound : [newBound]
