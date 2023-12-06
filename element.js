@@ -977,6 +977,8 @@ const ElementHTML = Object.defineProperties({}, {
     resolveVariables: {
         enumerable: true, value: function (statement, element) {
             if (!statement) return this.flatten(element)
+            const regExp = /\$\{(.+?)\}/g
+            if (!statement.match(regExp)) return statement
             if (statement[2] === '[' && statement.endsWith(']}')) {
                 return statement.slice(3, -2).split(',').map(s => this.resolveVariables(s.trim(), element))
             } else if (statement[2] === '{' && statement.endsWith('}}')) {
@@ -985,7 +987,6 @@ const ElementHTML = Object.defineProperties({}, {
                     return [k, this.resolveVariables(v, element)]
                 }))
             }
-
             // "" '' # & ^ @ ! . .. ... <> <tag> <%scopedSelector%> ` ~
             const merge = (expression) => {
                 if (!expression) return element ? this.flatten(element) : undefined
@@ -998,7 +999,11 @@ const ElementHTML = Object.defineProperties({}, {
                         varValue = varName.slice(1, -1)
                         break
                     case '#':
-                        varValue = element.id
+                        if (varName === '#') {
+                            varValue = element.id
+                        } else {
+                            varValue = this.getCell(varName.slice(1)).get()
+                        }
                         break
                     case '&':
                         varValue = element.classList.has(varName.slice(1))
@@ -1038,13 +1043,30 @@ const ElementHTML = Object.defineProperties({}, {
                         const nestedElement = this.utils.resolveScopedSelector(nestedScopedSelector, element)
                         if (nestedElement) varValue = this.resolveVariables('${' + nestedVariableNames + '}', nestedElement)
                         break
+                    case '~':
+                        varName = varName.slice(1)
+                        if (varName.includes('.')) {
+                            let varNameSplit = varName.split('.').map(s => s.trim())
+                            varValue = this.env.variables[varNameSplit.shift()]
+                            if (!(varValue instanceof Function) && (varValue instanceof Object)) for (const part of varNameSplit) {
+                                varValue = varValue[part]
+                                if (!(varValue instanceof Object) || (varValue instanceof Function)) break
+                            }
+                        } else { varValue = this.env.variables[varName] }
+                        break
+                    default:
+                        varValue = element[varName]
                 }
+                if (expression.includes('(') && expression.endsWith(')')) {
+                    if (typeof varValue === 'function') {
+                        varValue = value(...args)
+                    } else {
+                        varValue = undefined
+                    }
+                }
+                return varValue
             }
-
-            return statement.replace(/\$\{(.+?)\}/g, merge('$1'))
-
-
-            return statement ? this.mergeVariables(this.getVariable(statement, element), element) : undefined
+            return statement.replace(regExp, merge('$1'))
         }
     },
 
