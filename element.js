@@ -1086,91 +1086,39 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    expandTransform: {
-        enumerable: true, value: async function (transform, element, variableMap = {}) {
-            if (!transform) return
-            if ((transform[0] === '$') && !transform.startsWith('$.') && !transform.slice(1).includes('$') && !transform.includes('{') && !transform.includes(':')) {
-                const variableValue = this.getVariable(transform, element)
-                if (typeof variableValue === 'string') transform = variableValue
-            }
-            try {
-                const variables = []
-                if (element && transform.includes('$this')) variables.push(`$this := ${JSON.stringify(this.flatten(element))}`)
-                if (element && transform.includes('$parent')) variables.push(`$parent := ${JSON.stringify(this.flatten(element.parentElement))}`)
-                if (element && transform.includes('$root')) variables.push(`$root := ${JSON.stringify(this.flatten(element.getRootNode()))}`)
-                if (element && transform.includes('$value')) variables.push(`$value := ${JSON.stringify(this.getValue(element))}`)
-                const date = new Date(), dateMethods = {
-                    date: 'toDateString', datetime: 'toString', now: 'valueOf',
-                    dateISO: 'toISOString', localeDate: 'toLocaleDateString', localeDateTime: 'toLocaleString',
-                    localeTime: 'toLocaleTimeString', time: 'toTimeString', utc: 'toUTCString'
-                }
-                for (const [vn, dm] of Object.entries(dateMethods)) if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(date[dm]())}`)
-                if (transform.includes('$env')) variables.push(`$env := ${JSON.stringify(this.env, ['eDataset', 'modes', 'options'])}`)
-                if (transform.includes('$sessionStorage') || transform.includes('$localStorage')) {
-                    const storageType = transform.includes('$sessionStorage') ? 'sessionStorage' : 'localStorage',
-                        entries = Object.entries(window[storageType]).map(ent => {
-                            if (ent[1] && ent[1].startsWith('{') && ent[1].endsWith('}')) {
-                                try { ent[1] = JSON.parse(ent[1]) } catch (e) { }
-                            } else if (ent[1] && ent[1].startsWith('[') && ent[1].endsWith(']')) {
-                                try { ent[1] = JSON.parse(ent[1]) } catch (e) { }
-                            } else if (ent[1] && ent[1].startsWith('"') && ent[1].endsWith('"')) {
-                                ent[1] = ent[1].slice(1, -1)
-                            } else if (Number(ent[1])) {
-                                ent[1] = Number(ent[1])
-                            } else if (ent[1] === '0') {
-                                ent[1] = 0
-                            } else if ((ent[1] === 'null') || (ent[1] === 'undefined')) {
-                                ent[1] = null
-                            }
-                            return ent
-                        })
-                    variables.push(`$${storageType} := ${JSON.stringify(Object.fromEntries(entries))}`)
-                }
-                for (const [variableName, variableValue] of Object.entries(variableMap)) {
-                    if (transform.includes(`$${variableName}`)) variables.push(`$${variableName} := ${JSON.stringify(this.flatten(variableValue))}`)
-                }
-                for (const [vn, vv] of Object.entries(this.env.variables)) {
-                    if ((vn === 'env') || (vn === 'this') || (vn === 'value') || (vn === 'sessionStorage') || (vn === 'localStorage')) continue
-                    if (vn in variableMap) continue
-                    if (transform.includes(`$${vn}`)) variables.push(`$${vn} := ${JSON.stringify(vv)}`)
-                }
-                if (variables.length) transform = `( ${variables.join(' ; ')} ; ${transform})`
-            } catch (e) {
-                if (!element) return
-                element.dispatchEvent(new CustomEvent('error', { detail: { type: 'expandTransform', message: e, input: variableMap } }))
-                if (element.errors === 'throw') { throw new Error(e); return } else if (element.errors === 'hide') { transform = transform }
-            }
-            return transform
-        }
-    },
-
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
             const transformKey = transform
-            if (!this.env.transforms[transformKey] && transformKey.startsWith('jsonata://')) transform = await fetch(this.resolveUrl(transformKey)).then(r => r.text())
-            //transform = await this.expandTransform(transform, element, variableMap)
+            let expression
+            if (transformKey.startsWith('jsonata://')) {
+                transform = this.env.transforms[transformKey] ? this.env.transforms[transformKey][0] : await fetch(this.resolveUrl(transformKey)).then(r => r.text())
+                expression = this.env.transforms[transformKey] ? this.env.transforms[transformKey][1] : undefined
+            }
             if (!transform) return data
             try {
                 await this.installLibraryFromSrc('jsonata')
-                this.env.transforms[transformKey] ||= this.env.libraries.jsonata(transform)
-                const expression = this.env.transforms[transformKey], bindings = {}
-
-                //using bindings from here on in
-
-                if (transform.includes('$find(')) {
-                    expression.registerFunction('find', (qs) => {
-                        if (!qs) return this.flatten(element)
-                        return this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {})
-                    })
-                }
-                if (transform.includes('$console(')) expression.registerFunction('console', (m) => console.log(m))
-                if (transform.includes('$stop(')) expression.registerFunction('stop', () => undefined)
-                if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
-                if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
-
+                this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
+                expression ||= this.env.transforms[transformKey][1]
+                const bindings = {}
+                if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
+                if (transform.includes('$stop(')) bindings.stop = v => v
+                if (transform.includes('$getCell(')) bindings.getCell = name => name ? this.getCell(name).get() : undefined
+                if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
+                const date = new Date(),
+                    dateMethods = ['toDateString', 'toString', 'valueOf', 'toISOString', 'toLocaleDateString', 'toLocaleString', 'toLocaleTimeString', 'toTimeString', 'toUTCString']
+                for (const dm of dateMethods) if (transform.includes(`$Date${dm}`)) bindings[`Date${dm}`] = date[dm]
+                if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+                if (element && transform.includes('$this')) bindings.this = this.flatten(element)
+                if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
+                if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
+                const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
+                for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
+                for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
+                for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = v
                 return await expression.evaluate(data, bindings)
             } catch (e) {
+                console.log('line 1121', e)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }

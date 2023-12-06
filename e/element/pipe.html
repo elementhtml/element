@@ -290,7 +290,6 @@
             if (this.#sync === value) return
             if (value) {
                 let cellName = this.E.resolveVariables(value)
-                console.log('pipe.html: line 293', cellName)
                 if (this.#syncAbortController) this.#syncAbortController.abort()
                 this.#syncAbortController = new AbortController()
                 const signal = this.#syncAbortController.signal, once = true
