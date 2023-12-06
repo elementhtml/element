@@ -50,6 +50,7 @@
             if (this.#sourceObjectAvailable) {
                 let transform
                 if (useTransform && (useTransform = useTransform.trim())) {
+                    useTransform = (this.E.resolveVariables(useTransform) ?? '', this).trim()
                     if (useTransform.startsWith('`') && useTransform.endsWith('`')) {
                         transform = useTransform.slice(1, -1).trim()
                     } else if (useTransform.startsWith('/') || useTransform.startsWith('./') || useTransform.startsWith('../')) {
@@ -57,8 +58,8 @@
                         useTransform = undefined
                     } else { transform = useTransform }
                 } else {
-                    transform = (this.transform ?? '').trim()
-                    if (transform && transform.startsWith('$') && !/[({]+|(\$\.)/.test(transform)) transform = this.E.getVariable(transform)
+                    transform = this.transform
+                    if (transform) transform = (this.E.resolveVariables(transform), this)
                 }
                 if (transform) {
                     let baseValue = null
@@ -103,7 +104,6 @@
             this.#abortController.abort()
             this.#abortController = new AbortController()
             source = this.E.resolveVariables(source, this)
-            console.log('pipe.html: line 106', source)
             if (source[0] === '`' && source.endsWith('`')) {
                 const [sourceWriteStatement, readerStatement] = source.slice(1, -1).split(' -> ', 2).map(s => s.trim()).filter(s => !!s)
                 let [writerStatement, ...sourceStatement] = sourceWriteStatement.split('.').map(s => s.trim()).filter(s => !!s).reverse()
@@ -117,7 +117,7 @@
                 writerArgs = (writerArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
                 this.#writer = payload => {
                     if (typeof this.#sourceObject[writerName] === 'function') {
-                        this.#sourceObject[writerName](...writerArgs.map(a => this.E.getVariable(a, this)), payload)
+                        this.#sourceObject[writerName](...writerArgs.map(a => this.E.resolveVariables(a, this)), payload)
                     } else if ((this.#sourceObject[writerName] instanceof Object) && (payload instanceof Object)) {
                         Object.assign(...this.#sourceObject[writerName], payload)
                     }
@@ -126,7 +126,7 @@
                 readerArgs = (readerArgs ?? '').slice(0, -1).split(',').map(s => s.trim()).filter(s => !!s)
                 if (readerStatement.includes('(')) {
                     this.#reader = () => {
-                        if (typeof this.#sourceObject[readerName] === 'function') return this.#sourceObject[readerName](...readerArgs.map(a => this.E.getVariable(a, this)))
+                        if (typeof this.#sourceObject[readerName] === 'function') return this.#sourceObject[readerName](...readerArgs.map(a => this.E.resolveVariables(a, this)))
                     }
                 } else if (readerName[0] === '!') {
                     this.#sourceObject.addEventListener(readerName.slice(1), event => this.read(event))
@@ -239,7 +239,7 @@
 
         get optionsMap() {
             const optionsAttr = this.getAttribute('options')
-            if (this.#options !== optionsAttr) this.#optionsMap = this.E.utils.parseObjectAttribute(optionsAttr, this)
+            if (this.#options !== optionsAttr) this.#optionsMap = this.E.utils.parseObjectAttribute(this.E.resolveVariables(optionsAttr, this), this)
             return this.#optionsMap
         }
 
@@ -276,7 +276,6 @@
 
         get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
         set source(value) {
-            console.log('pipe.html: line 279', value)
             if (this.#source === value) return
             this.#connectSource(value)
             this.#source = value
@@ -291,6 +290,7 @@
             if (this.#sync === value) return
             if (value) {
                 let cellName = this.E.resolveVariables(value)
+                console.log('pipe.html: line 293', cellName)
                 if (this.#syncAbortController) this.#syncAbortController.abort()
                 this.#syncAbortController = new AbortController()
                 const signal = this.#syncAbortController.signal, once = true

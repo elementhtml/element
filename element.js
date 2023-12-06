@@ -194,7 +194,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             resolveSelector: {
-                enumerable: true, value: function (scope, selector) {
+                enumerable: true, value: function (selector, scope) {
                     let selected
                     if (!selector) {
                         selected = scope
@@ -215,7 +215,7 @@ const ElementHTML = Object.defineProperties({}, {
                         scope = this.resolveScope(scopeStatement, element)
                         selector = selectorStatement
                     }
-                    return this.resolveSelector(scope, selector)
+                    return this.resolveSelector(selector, scope)
                 }
             },
             safeGet: {
@@ -976,9 +976,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveVariables: {
         enumerable: true, value: function (statement, element) {
-            if (!statement) return this.flatten(element)
-            const regExp = /\$\{(.+?)\}/g
-            if (!statement.match(regExp)) return statement
+            if (!statement) return
+            const regExp = /\$\{(.+?)\}/g, isMatch = statement.match(regExp)
+            if (!isMatch) return statement
             if (statement[2] === '[' && statement.endsWith(']}')) {
                 return statement.slice(3, -2).split(',').map(s => this.resolveVariables(s.trim(), element))
             } else if (statement[2] === '{' && statement.endsWith('}}')) {
@@ -987,12 +987,11 @@ const ElementHTML = Object.defineProperties({}, {
                     return [k, this.resolveVariables(v, element)]
                 }))
             }
-            // "" '' # & ^ @ ! . .. ... <> <tag> <%scopedSelector%> ` ~
             const merge = (expression) => {
+                if (expression) expression = expression.slice(2, -1)
                 if (!expression) return element ? this.flatten(element) : undefined
                 let [varName, ...args] = expression.split('(').map(s => s.trim()), varValue
-                args = args.join('(').split(',').map(s => s.trim()).map(a => this.resolveVariables('${' + a + '}', element))
-                if (!varName) return element ? this.flatten(element, ...args) : undefined
+                if (!varName) return element ? this.flatten(element) : undefined
                 switch (varName[0]) {
                     case '"':
                     case "'":
@@ -1006,7 +1005,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case '&':
-                        varValue = element.classList.has(varName.slice(1))
+                        varValue = element.classList.contains(varName.slice(1))
                         break
                     case '^':
                         varValue = element.style.getPropertyValue(varName.slice(1))
@@ -1038,7 +1037,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case '`':
-                        let [nestedScopedSelector, ...nestedVariableNames] = varName.split('`')
+                        let [nestedScopedSelector, ...nestedVariableNames] = varName.slice(1).split('`')
                         nestedVariableNames = nestedVariableNames.join('`')
                         const nestedElement = this.utils.resolveScopedSelector(nestedScopedSelector, element)
                         if (nestedElement) varValue = this.resolveVariables('${' + nestedVariableNames + '}', nestedElement)
@@ -1059,14 +1058,15 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (expression.includes('(') && expression.endsWith(')')) {
                     if (typeof varValue === 'function') {
-                        varValue = value(...args)
+                        args = args.join('(').slice(0, -1).split(',').map(s => s.trim()).map(a => this.resolveVariables('${' + a + '}', element))
+                        varValue = varValue(...args)
                     } else {
                         varValue = undefined
                     }
                 }
                 return varValue
             }
-            return statement.replace(regExp, merge('$1'))
+            return ((isMatch.length === 1) && (isMatch[0] === statement)) ? merge(statement) : statement.replace(regExp, merge)
         }
     },
 
@@ -1139,7 +1139,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
-            //console.log('line 1008', data, variableMap)
             if (transform) transform = transform.trim()
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data

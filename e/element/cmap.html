@@ -26,6 +26,8 @@
         }
 
         #setListen(listenStatement) {
+            listenStatement = this.E.resolveVariables(listenStatement, this)
+            //console.log('cmap.html: line 30', listenStatement)
             if (!listenStatement) return
             const [sourceExpression, transformExpression, sinkExpression] = listenStatement.split(' >> ').map(s => s.trim()), dirTargetToCell = sourceExpression.includes('|') || sourceExpression.includes('`'),
                 cellExpression = dirTargetToCell ? sinkExpression : sourceExpression, targetExpression = dirTargetToCell ? sourceExpression : sinkExpression
@@ -42,7 +44,7 @@
                     scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
                         if (!eventsExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
-                        const sourceValue = this.E.flatten(this.E.utils.resolveSelector(event.currentTarget, valueSourceExpression ?? selector)),
+                        const sourceValue = this.E.flatten(this.E.utils.resolveSelector(valueSourceExpression ?? selector, event.currentTarget)),
                             cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
                         for (const cellName of cellNames) {
                             const cell = this.E.getCell(cellName).get(), result = await this.E.runTransform(transformExpression, sourceValue, this, { cell, event: this.E.flatten(event) })
