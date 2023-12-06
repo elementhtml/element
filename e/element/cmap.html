@@ -27,7 +27,7 @@
 
         #setListen(listenStatement) {
             listenStatement = this.E.resolveVariables(listenStatement, this)
-            //console.log('cmap.html: line 30', listenStatement)
+            console.log('cmap.html: line 30', listenStatement)
             if (!listenStatement) return
             const [sourceExpression, transformExpression, sinkExpression] = listenStatement.split(' >> ').map(s => s.trim()), dirTargetToCell = sourceExpression.includes('|') || sourceExpression.includes('`'),
                 cellExpression = dirTargetToCell ? sinkExpression : sourceExpression, targetExpression = dirTargetToCell ? sourceExpression : sinkExpression

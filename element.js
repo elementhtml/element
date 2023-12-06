@@ -13,7 +13,11 @@ const ElementHTML = Object.defineProperties({}, {
                 ipns: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
-                }
+                },
+                jsonata: (hostpath, E) => {
+                    hostpath = hostpath.endsWith('.jsonata') ? hostpath : `${hostpath}.jsonata`
+                    return new URL(hostpath, document.baseURI).href
+                },
             },
             libraries: {},
             map: new WeakMap(),
@@ -48,6 +52,7 @@ const ElementHTML = Object.defineProperties({}, {
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
             cells: {},
+            transforms: {},
             variables: {}
         }
     },
@@ -1140,11 +1145,17 @@ const ElementHTML = Object.defineProperties({}, {
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
-            transform = await this.expandTransform(transform, element, variableMap)
+            const transformKey = transform
+            if (!this.env.transforms[transformKey] && transformKey.startsWith('jsonata://')) transform = await fetch(this.resolveUrl(transformKey)).then(r => r.text())
+            //transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
             try {
                 await this.installLibraryFromSrc('jsonata')
-                const expression = this.env.libraries.jsonata(transform)
+                this.env.transforms[transformKey] ||= this.env.libraries.jsonata(transform)
+                const expression = this.env.transforms[transformKey]
+
+                //using bindings from here on in
+
                 if (transform.includes('$find(')) {
                     expression.registerFunction('find', (qs) => {
                         if (!qs) return this.flatten(element)
@@ -1155,9 +1166,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$stop(')) expression.registerFunction('stop', () => undefined)
                 if (transform.includes('$getCell(')) expression.registerFunction('getCell', name => name ? this.getCell(name).get() : undefined)
                 if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
-                if (transform.includes('$location()')) expression.registerFunction('location', () => document.location)
 
-                document.location.hash.slice(1)
                 return await expression.evaluate(data)
             } catch (e) {
                 const errors = element?.errors ?? this.env.options.errors
