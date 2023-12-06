@@ -101,18 +101,18 @@ const ElementHTML = Object.defineProperties({}, {
             },
             parseObjectAttribute: {
                 enumerable: true, value: function (value, element) {
-                    let retval = null
-                    if (value instanceof Object) {
-                        retval = value
-                    } else if (typeof value === 'string') {
-                        if (value[0] === '$') return ElementHTML.getVariable(value, element) ?? retval
-                        if (value[0] === '?') value = decodeURIComponent(value).slice(1)
-                        if ((value[0] === '{') && (value.slice(-1) === '}')) {
-                            try { retval = JSON.parse(value) } catch (e) { console.log('line 111', e) }
+                    let retval = ElementHTML.resolveVariables(value)
+                    if (typeof retval === 'string') {
+                        if (retval[0] === '?') retval = decodeURIComponent(retval).slice(1)
+                        if ((retval[0] === '{') && (retval.slice(-1) === '}')) {
+                            try { retval = JSON.parse(retval) } catch (e) { console.log('line 97', e) }
                         } else {
-                            try { retval = Object.fromEntries((new URLSearchParams(value)).entries()) } catch (e) { }
+                            try { retval = Object.fromEntries((new URLSearchParams(retval)).entries()) } catch (e) { }
                         }
                     }
+                    console.log('line 113', retval)
+                    if (retval instanceof Object) for (const k in retval) retval[k] = ElementHTML.resolveVariables(retval[k])
+                    console.log('line 115', retval)
                     return retval
                 }
             },
@@ -324,6 +324,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: {
         enumerable: true, value: function (globalName = 'E') {
+            if (typeof globalName !== 'string') globalName = 'E'
             if (!globalName) globalName = 'E'
             if (globalName && !window[globalName]) window[globalName] = this
         }
@@ -1045,6 +1046,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
+            //console.log('line 1008', data, variableMap)
             if (transform) transform = transform.trim()
             transform = await this.expandTransform(transform, element, variableMap)
             if (!transform) return data
@@ -1416,15 +1418,8 @@ if (metaOptions.packages) {
         await ElementHTML.ImportPackage(await import(p))
     }
 }
-let expose = metaOptions.Expose || metaOptions.expose, load = metaOptions.Load || metaOptions.load
-if (typeof load === 'string') {
-    if (!(typeof expose == 'string' && !expose && window.E) && !(expose && window[expose])) {
-        for (const [func, args] of Object.entries(metaOptions)) if ((func !== 'load') && (func !== 'Expose') && (typeof ElementHTML[func] === 'function')) if (args.startsWith('[') && args.endsWith(']')) {
-            try { await ElementHTML[func](...JSON.parse(args)) } catch (e) { await ElementHTML[func](args) }
-        } else { await ElementHTML[func](args) }
-        if (typeof expose === 'string') await ElementHTML.Expose(expose)
-        await ElementHTML.load()
-    }
-}
+let expose = metaOptions.Expose ?? metaOptions.expose ?? (('Expose' in metaOptions) || ('expose' in metaOptions))
+if (expose) await ElementHTML.Expose(expose)
+if (('Load' in metaOptions) || ('load' in metaOptions)) await ElementHTML.load()
 
 export { ElementHTML }
