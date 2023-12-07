@@ -51,44 +51,31 @@
             } else if (direction === 'fromCell') {
 
 
-                const applyCellValue = (cellValue, cellName, event) => {
+                const applyCellValue = (value, cell, countLabel, counter, event) => {
                     let targets = this.E.utils.resolveSelector(selector, scope)
                     if (!Array.isArray(targets)) targets = [targets]
-                    for (const target of targets) this.E.runTransform(this.transform, cellValue, this, { cell: this.E.getCell(cellName).get(), event }).then(data => this.E.applyData(target, data))
+                    for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event }).then(data => this.E.applyData(target, data))
                 }
 
                 if (Array.isArray(cells)) {
                     for (const [index, cell] of cells.entries()) {
-                        const cell = this.E.getCell(cellName), cellValue = cell.get()
-                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cellName)
+                        const cellValue = cell.get()
+                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cell, 'index', index)
                         cell.eventTarget.addEventListener('change', event => {
-                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cellName, event)
+                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cell, 'index', index, event)
                         }, { signal })
                     }
                 } else if (cells) {
                     for (const [key, cell] of Object.entries(cells)) {
-
+                        const cellValue = cell.get()
+                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cell, 'key', key)
+                        cell.eventTarget.addEventListener('change', event => {
+                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cell, 'key', key, event)
+                        }, { signal })
                     }
                 }
-
-
-
-
-
-                for (const cellName of cellNames) {
-                    const cell = this.E.getCell(cellName), cellValue = cell.get()
-                    if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cellName)
-                    cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cellName, event)
-                    }, { signal: this.#abortController.signal })
-                }
-
-
-
-
             } else { return }
         }
-
 
     }
 </script>
