@@ -1,0 +1,61 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #directive
+        #cells
+        #transform
+
+        constructor() { super() }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'directive') }
+
+        async connectedCallback() { }
+
+        get directive() { return this.E.utils.safeGet(this, this.#directive, 'directive') }
+        set directive(value) {
+            if (this.#directive === value) return
+            this.#setDirective(value)
+            this.#directive = value
+        }
+
+        #setDirective(directive) {
+            directive = this.E.resolveVariables(directive, this)
+            if (!directive || (typeof directive !== 'string')) return
+            let cellsExpression, transformExpression, sinkExpression
+            for (const sep of [' >> ', ' << ']) {
+                if ((directive.indexOf(sep) > 0) && (directive.indexOf(sep, directive.indexOf(sep) + 1) > 0)) {
+                    [cellsExpression, transformExpression, sinkExpression] = directive.split(sep).map(s => s.trim())
+                }
+            }
+            cellsExpression = this.E.resolveVariables(cellsExpression, this).trim()
+            if (!cellsExpression) return
+            transformExpression = this.E.resolveVariables(transformExpression).trim()
+            if (!transformExpression) return
+            sinkExpression = this.E.resolveVariables(sinkExpression).trim()
+            if (!sinkExpression) return
+
+            if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
+                this.#cells = []
+                for (let c of cellsExpression.slice(1, -1).split(',')) this.#cells.push(this.E.getCell(this.E.resolveVariables(c.trim(), this)))
+            } else if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
+                this.#cells = {}
+                for (let cp of cellsExpression.slice(1, -1).split(',')) {
+                    let [cellKey, cellName] = cp.split(':')
+                    this.#cells[this.E.resolveVariables(cellKey.trim(), this)] = this.E.getCell(this.E.resolveVariables(cellName.trim(), this))
+                }
+            } else {
+                this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
+            }
+
+
+
+
+
+
+        }
+
+
+    }
+</script>
