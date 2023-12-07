@@ -3,6 +3,8 @@
 <script>
     export default class extends `./map` {
 
+        #options
+
         static portType = 'Remote'
 
         constructor() {
@@ -12,7 +14,42 @@
             })
         }
 
+        static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
+
+        get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
+        set options(value) { this.#options = value }
+
         #getPort(portExpression, signal) {
+            if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+            const direction = this.direction, cells = this.cells
+            if (!cells) return
+            const remoteUrl = this.E.resolveUrl(portExpression)
+            if (!remoteUrl) return
+            this.E.env.ports[remoteUrl] ||= {}
+            let handler, name = remoteUrl
+            if (remoteUrl.startsWith('ws://') || remoteUrl.startsWith('wss://')) {
+                if (!this.E.env.ports[remoteUrl].singleton) {
+                    let options = this.options ?? {}
+                    if (typeof options === 'string') options = this.E.resolveVariables('${' + options + '}')
+                    if (!(options instanceof Object)) return
+                    this.E.env.ports[remoteUrl].singleton = new WebSocket(remoteUrl, options.protocols)
+                    if (options.binaryType) this.E.env.ports[remoteUrl].singleton.binaryType = options.binaryType
+                }
+
+            }
+            if (!remoteUrl.startsWith('https://') && !remoteUrl.startsWith('http://')) return
+            if (portExpression.startsWith('wt://')) {
+
+            } else if (portExpression.startsWith('sse://')) {
+
+            } else {
+
+            }
+
+            if (!name || (typeof handler !== 'function')) return
+            this.E.env.ports[name].type = this.constructor.portType
+            this.E.env.ports[name][direction] = { handler, name, direction }
+            return this.E.env.ports[remoteUrl]
 
         }
 

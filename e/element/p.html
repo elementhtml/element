@@ -16,7 +16,6 @@
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
             const direction = this.direction, cells = this.cells
             if (!cells) return
-
             let name, handler
             if (!portExpression.endsWith('`') && (portExpression.indexOf('~') !== -1)) {
                 const portExpressionIndexOf = portExpression.indexOf('~')
@@ -40,9 +39,9 @@
                 const parentIsNewable = childExpression && (parentArgs.length || (parentExpression.includes('(') && parentExpression.endsWith(')')))
                 let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').trim().split(',').map(s => s.trim())
-                handler = (value, proxyObject, proxyMapElement) => {
+                handler = (value, port, proxyMapElement, init) => {
                     const getParentArgs = () => parentArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
-                    if ((proxyObject === true) && parentIsNewable) return new globalThis[parentObjectName](...getParentArgs())
+                    if (init) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
                     if (!(proxyObject instanceof Object)) return
                     if (childMethodName) {
                         const getChildArgs = () => childArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
@@ -62,7 +61,9 @@
             } else { return }
             if (!name || (typeof handler !== 'function')) return
             this.E.env.ports[name] ||= {}
-            this.E.env.ports[name][direction] = { handler, name, singleton: handler(undefined, true, this) }
+            this.E.env.ports[name].type = this.constructor.portType
+            this.E.env.ports[name].singleton = handler(undefined, this.E.env.ports[name], this, true)
+            this.E.env.ports[name][direction] = { handler, name, direction }
             return this.E.env.ports[name]
         }
 

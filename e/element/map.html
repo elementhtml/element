@@ -9,10 +9,11 @@
         #cells
         #transform
         #port
+        #options
 
         constructor() { super() }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'directive') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'directive', 'options') }
 
         async connectedCallback() { }
 
