@@ -57,13 +57,18 @@
                     if (!(options instanceof Object)) return
                     singleton = new EventSource(remoteUrl, options.withCredentials)
                 }
+                if (eventsExpression) {
+                    for (const eventName of eventsExpression.split(',').map(s => s.trim()).filter(s => !!s)) {
+                        port.singleton.addEventListener(eventName, event => {
+                            this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue, eventName))
+                        }, signal)
+                    }
+                }
                 port.singleton.addEventListener('message', event => {
-                    this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue))
+                    this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue, 'message'))
                 }, signal)
-
-
             } else {
-
+                return
             }
 
             if (!name || (typeof handler !== 'function')) return
