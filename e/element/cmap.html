@@ -39,11 +39,11 @@
                     [scopeExpression, eventsExpression] = scopeEventsExpression.split('!').map(s => s.trim()),
                     scope = scopeExpression ? this.E.utils.resolveScope(scopeExpression, this) : this.parentElement
                 if (!scope) return
-                const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(E.env.options.defaultEventTypes).concat(['click'])))
+                const eventNames = eventsExpression ? eventsExpression.split(',').map(s => s.trim()).filter(s => !!s) : Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
-                        if (!eventsExpression && (event.type !== (E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                        if (!eventsExpression && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         const sourceValue = this.E.flatten(this.E.utils.resolveSelector(valueSourceExpression ?? selector, event.currentTarget)),
                             cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
                         for (const cellName of cellNames) {
