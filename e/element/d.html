@@ -8,12 +8,39 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: portExpression => this.#getPort(portExpression)
+                value: portExpression => this.#getPort(portExpression, abortController)
             })
         }
 
-        #getPort(portExpression) {
+        #getPort(portExpression, abortController) {
+            if (!portResource) return
+            const direction = this.direction
+            if (this.direction === 'toCell') {
+                const [scopeExpression, selectorEvents] = portResource.split(/\|(?!\=)/g),
+                    scope = this.E.resolveScope(scopeExpression.trim(), this)
+                if (!scope) return
+                selectorEvents = selectorEvents.trim()
+                let selector, eventNames = [], selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
+                if (selectorEventsLastIndexOf === -1) {
+                    selector = selectorEvents
+                } else {
+                    selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
+                    eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
+                }
+                if (!eventNames.length) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
 
+
+
+
+            } else if (direction === 'fromCell') {
+
+
+                //const portResource = this.E.resolveScopedSelector(portExpression, this)
+                //if (!portResource) return
+
+
+
+            } else { return }
         }
 
 

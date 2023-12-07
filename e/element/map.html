@@ -3,6 +3,7 @@
 <script>
     export default class extends `meta` {
 
+        #abortController
         #direction
         #directive
         #cells
@@ -70,7 +71,10 @@
                 this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
             }
             this.#transform = transformExpression
-            this.#port = this._getPort(portExpression)
+
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            this.#port = this._getPort(portExpression, this.#abortController)
         }
 
     }
