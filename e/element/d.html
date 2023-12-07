@@ -5,7 +5,14 @@
 
         static portType = 'DOM'
 
-        _setPort(portExpression) {
+        constructor() {
+            super()
+            Object.defineProperty(this, '_getPort', {
+                value: portExpression => this.#getPort(portExpression)
+            })
+        }
+
+        #getPort(portExpression) {
 
         }
 

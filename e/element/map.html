@@ -70,7 +70,7 @@
                 this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
             }
             this.#transform = transformExpression
-            this.#port = this._setPort(portExpression)
+            this.#port = this._getPort(portExpression)
         }
 
     }
