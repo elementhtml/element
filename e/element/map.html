@@ -74,7 +74,7 @@
 
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
-            this.#port = this._getPort(portExpression, this.#abortController)
+            this.#port = this._getPort(portExpression, this.#abortController.signal)
         }
 
     }

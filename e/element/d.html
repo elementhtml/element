@@ -8,28 +8,27 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: portExpression => this.#getPort(portExpression, abortController)
+                value: portExpression => this.#getPort(portExpression, signal)
             })
         }
 
-        #getPort(portExpression, abortController) {
+        #getPort(portExpression, signal) {
             if (!portResource) return
-            const direction = this.direction
+            const direction = this.direction, cells = this.cells
+            if (!cells) return
+            const [scopeExpression, selectorEvents] = portResource.split(/\|(?!\=)/g),
+                scope = this.E.resolveScope(scopeExpression.trim(), this)
+            if (!scope) return
+            selectorEvents = selectorEvents.trim()
+            let selector, eventNames = [], useDefaultEvents = true, selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
+            if (selectorEventsLastIndexOf === -1) {
+                selector = selectorEvents
+            } else {
+                selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
+                eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
+                useDefaultEvents = !eventNames.length
+            }
             if (this.direction === 'toCell') {
-                const cells = this.cells
-                if (!cells) return
-                const [scopeExpression, selectorEvents] = portResource.split(/\|(?!\=)/g),
-                    scope = this.E.resolveScope(scopeExpression.trim(), this)
-                if (!scope) return
-                selectorEvents = selectorEvents.trim()
-                let selector, eventNames = [], useDefaultEvents = true, selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
-                if (selectorEventsLastIndexOf === -1) {
-                    selector = selectorEvents
-                } else {
-                    selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
-                    eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
-                    useDefaultEvents = !eventNames.length
-                }
                 if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
@@ -47,17 +46,43 @@
                         } else if (cells) {
                             for (const [key, cell] of Object.entries(cells)) setToCell(cell, 'key', key)
                         }
-                    }, { signal: abortController.signal })
+                    }, { signal })
+                }
+            } else if (direction === 'fromCell') {
+
+
+                const applyCellValue = (cellValue, cellName, event) => {
+                    let targets = this.E.utils.resolveSelector(selector, scope)
+                    if (!Array.isArray(targets)) targets = [targets]
+                    for (const target of targets) this.E.runTransform(this.transform, cellValue, this, { cell: this.E.getCell(cellName).get(), event }).then(data => this.E.applyData(target, data))
+                }
+
+                if (Array.isArray(cells)) {
+                    for (const [index, cell] of cells.entries()) {
+                        const cell = this.E.getCell(cellName), cellValue = cell.get()
+                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cellName)
+                        cell.eventTarget.addEventListener('change', event => {
+                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cellName, event)
+                        }, { signal })
+                    }
+                } else if (cells) {
+                    for (const [key, cell] of Object.entries(cells)) {
+
+                    }
                 }
 
 
 
 
-            } else if (direction === 'fromCell') {
 
+                for (const cellName of cellNames) {
+                    const cell = this.E.getCell(cellName), cellValue = cell.get()
+                    if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cellName)
+                    cell.eventTarget.addEventListener('change', event => {
+                        if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cellName, event)
+                    }, { signal: this.#abortController.signal })
+                }
 
-                //const portResource = this.E.resolveScopedSelector(portExpression, this)
-                //if (!portResource) return
 
 
 
