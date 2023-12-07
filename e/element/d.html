@@ -16,18 +16,42 @@
             if (!portResource) return
             const direction = this.direction
             if (this.direction === 'toCell') {
+                const cells = this.cells
+                if (!cells) return
                 const [scopeExpression, selectorEvents] = portResource.split(/\|(?!\=)/g),
                     scope = this.E.resolveScope(scopeExpression.trim(), this)
                 if (!scope) return
                 selectorEvents = selectorEvents.trim()
-                let selector, eventNames = [], selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
+                let selector, eventNames = [], useDefaultEvents = true, selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
                 if (selectorEventsLastIndexOf === -1) {
                     selector = selectorEvents
                 } else {
                     selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
                     eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
+                    useDefaultEvents = !eventNames.length
                 }
-                if (!eventNames.length) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
+                if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
+                for (const eventName of eventNames) {
+                    scope.addEventListener(eventName, async event => {
+                        if (selector && !event.target.matches(selector)) return
+                        if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                        if (this.prevent) event.preventDefault()
+                        const sourceValue = this.E.flatten(event.currentTarget), transform = this.transform, force = this.force
+                        if (Array.isArray(cells)) {
+                            for (const [index, cellObj] of cells.entries()) {
+                                const cell = cellObj.get(), result = await this.E.runTransform(transform, sourceValue, this, { cell, index, event: this.E.flatten(event) })
+                                if (!force) if ((result === undefined) || (cell === result) || (JSON.stringify(cell) === JSON.stringify(result))) continue
+                                cellObj.set(result, force)
+                            }
+                        } else if (cells) {
+                            for (const [key, cellObj] of Object.entries(cells)) {
+                                const cell = cellObj.get(), result = await this.E.runTransform(transform, sourceValue, this, { cell, key, event: this.E.flatten(event) })
+                                if (!force) if ((result === undefined) || (cell === result) || (JSON.stringify(cell) === JSON.stringify(result))) continue
+                                cellObj.set(result, force)
+                            }
+                        }
+                    }, { signal: abortController.signal })
+                }
 
 
 
