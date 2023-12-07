@@ -13,7 +13,7 @@
         }
 
         #getPort(portExpression, signal) {
-            if (!portResource) return
+            if (!portExpression || !(signal instanceof AbortSignal)) return
             const direction = this.direction, cells = this.cells
             if (!cells) return
             const [scopeExpression, selectorEvents] = portResource.split(/\|(?!\=)/g),
@@ -73,6 +73,7 @@
                     }
                 }
             } else { return }
+            return scope
         }
 
     }

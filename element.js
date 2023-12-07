@@ -1092,8 +1092,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform) transform = transform.trim()
             const transformKey = transform
             let expression
-            if (transformKey.startsWith('jsonata://')) {
-                transform = this.env.transforms[transformKey] ? this.env.transforms[transformKey][0] : await fetch(this.resolveUrl(transformKey)).then(r => r.text())
+            if ((transformKey[0] === '`') && transformKey.endsWith('`')) {
+                transform = this.env.transforms[transformKey] ? this.env.transforms[transformKey][0] : await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text())
                 expression = this.env.transforms[transformKey] ? this.env.transforms[transformKey][1] : undefined
             }
             if (!transform) return data
