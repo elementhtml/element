@@ -66,9 +66,9 @@
                     }
                 for (const cellName of cellNames) {
                     const cell = this.E.getCell(cellName), cellValue = cell.get()
-                    if (cellValue !== undefined) applyCellValue(cellValue, cellName)
+                    if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cellName)
                     cell.eventTarget.addEventListener('change', event => {
-                        applyCellValue(event.detail, cellName, event)
+                        if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cellName, event)
                     }, { signal: this.#abortController.signal })
                 }
             }
