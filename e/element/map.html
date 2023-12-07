@@ -15,6 +15,9 @@
 
         async connectedCallback() { }
 
+        get [':']() { return this.directive }
+        set [':'](value) { this.directive = value }
+
         get cells() { return this.#cells }
 
         get direction() { return this.#direction }
@@ -26,7 +29,13 @@
             this.#directive = value
         }
 
+        get force() { return this.hasAttribute('force') }
+        set force(value) { }
+
         get port() { return this.#port }
+
+        get prevent() { return this.hasAttribute('prevent') }
+        set prevent(value) { }
 
         get transform() { return this.#transform }
 
@@ -37,7 +46,7 @@
             for (const sep of [' >> ', ' << ']) {
                 if ((directive.indexOf(sep) > 0) && (directive.indexOf(sep, directive.indexOf(sep) + 1) > 0)) {
                     [cellsExpression, transformExpression, sinkExpression] = directive.split(sep).map(s => s.trim())
-                    this.#direction = sep === ' << ' ? 'in' : 'out'
+                    this.#direction = sep === ' << ' ? 'toCell' : 'fromCell'
                     break
                 }
             }
@@ -60,14 +69,9 @@
             } else {
                 this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
             }
-
             this.#transform = transformExpression
-
-            // DOM port, Remote port, Proxy port
-
             this.#port = this._setPort(portExpression)
         }
-
 
     }
 </script>
