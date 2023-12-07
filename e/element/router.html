@@ -60,6 +60,7 @@
         }
 
         to(path, proceed, mode) {
+            console.log('router.html: line 63', path, proceed, mode)
             if (proceed === false) {
                 return
             } else if (mode === undefined) {

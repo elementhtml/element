@@ -600,11 +600,12 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
-                return element[funcName](...argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)), arg)
+                argsRest = argsRest.join('(').slice(0, -1)
+                argsRest = argsRest ? argsRest.split(',').map(s => s.trim()).map(a => this.resolveVariables('${' + a + '}', element)) : []
+                return element[funcName](...argsRest, arg)
             }
         }
     },
-
 
     parse: {
         enumerable: true, value: async function (input, sourceElement, contentType) {
@@ -1116,6 +1117,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
                 for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = v
+                //console.log('line 1119', transform, data, bindings)
                 return await expression.evaluate(data, bindings)
             } catch (e) {
                 console.log('line 1121', e)

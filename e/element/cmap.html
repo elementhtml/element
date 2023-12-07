@@ -8,7 +8,7 @@
 
         constructor() { super() }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'listen', 'force') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'listen', 'force', 'prevent') }
 
         async connectedCallback() { }
 
@@ -17,6 +17,9 @@
 
         get force() { return this.hasAttribute('force') }
         set force(value) { }
+
+        get prevent() { return this.hasAttribute('prevent') }
+        set prevent(value) { }
 
         get listen() { return this.E.utils.safeGet(this, this.#listen, 'listen') }
         set listen(value) {
@@ -44,6 +47,7 @@
                     scope.addEventListener(eventName, async event => {
                         if (!event.target.matches(selector)) return
                         if (!eventsExpression && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                        if (this.prevent) event.preventDefault()
                         const sourceValue = this.E.flatten(this.E.utils.resolveSelector(valueSourceExpression ?? selector, event.currentTarget)),
                             cellNames = this.E.resolveVariables(cellExpression, this).split(',').map(s => s.trim()).filter(s => !!s).map(c => this.E.resolveVariables(c, this)).filter(c => !!c)
                         for (const cellName of cellNames) {
