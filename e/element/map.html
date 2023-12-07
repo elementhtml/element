@@ -17,6 +17,10 @@
 
         async connectedCallback() { }
 
+        saveToCell(value) {
+            //takes a parsed value and sets the cell value to it, with personalized iteration over cell arrays and cell dictionaries
+        }
+
         get [':']() { return this.directive }
         set [':'](value) { this.directive = value }
 
