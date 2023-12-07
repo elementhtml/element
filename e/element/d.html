@@ -49,14 +49,12 @@
                     }, { signal })
                 }
             } else if (direction === 'fromCell') {
-
-
                 const applyCellValue = (value, cell, countLabel, counter, event) => {
                     let targets = this.E.utils.resolveSelector(selector, scope)
                     if (!Array.isArray(targets)) targets = [targets]
-                    for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event }).then(data => this.E.applyData(target, data))
+                    for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
+                        .then(data => this.E.applyData(target, data))
                 }
-
                 if (Array.isArray(cells)) {
                     for (const [index, cell] of cells.entries()) {
                         const cellValue = cell.get()
