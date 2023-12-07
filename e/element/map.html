@@ -3,15 +3,21 @@
 <script>
     export default class extends `meta` {
 
+        #direction
         #directive
         #cells
         #transform
+        #port
 
         constructor() { super() }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'directive') }
 
         async connectedCallback() { }
+
+        get cells() { return this.#cells }
+
+        get direction() { return this.#direction }
 
         get directive() { return this.E.utils.safeGet(this, this.#directive, 'directive') }
         set directive(value) {
@@ -20,21 +26,27 @@
             this.#directive = value
         }
 
+        get port() { return this.#port }
+
+        get transform() { return this.#transform }
+
         #setDirective(directive) {
             directive = this.E.resolveVariables(directive, this)
             if (!directive || (typeof directive !== 'string')) return
-            let cellsExpression, transformExpression, sinkExpression
+            let cellsExpression, transformExpression, portExpression
             for (const sep of [' >> ', ' << ']) {
                 if ((directive.indexOf(sep) > 0) && (directive.indexOf(sep, directive.indexOf(sep) + 1) > 0)) {
                     [cellsExpression, transformExpression, sinkExpression] = directive.split(sep).map(s => s.trim())
+                    this.#direction = sep === ' << ' ? 'in' : 'out'
+                    break
                 }
             }
             cellsExpression = this.E.resolveVariables(cellsExpression, this).trim()
             if (!cellsExpression) return
             transformExpression = this.E.resolveVariables(transformExpression).trim()
             if (!transformExpression) return
-            sinkExpression = this.E.resolveVariables(sinkExpression).trim()
-            if (!sinkExpression) return
+            portExpression = this.E.resolveVariables(portExpression).trim()
+            if (!portExpression) return
 
             if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
                 this.#cells = []
@@ -49,11 +61,11 @@
                 this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
             }
 
+            this.#transform = transformExpression
 
+            // DOM port, Remote port, Proxy port
 
-
-
-
+            this.#port = this._setPort(portExpression)
         }
 
 
