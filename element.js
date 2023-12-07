@@ -53,6 +53,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             cells: {},
             transforms: {},
+            ports: {},
             variables: {}
         }
     },
@@ -601,7 +602,7 @@ const ElementHTML = Object.defineProperties({}, {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(s => s.trim()).map(a => this.resolveVariables('${' + a + '}', element)) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariables('${' + a.trim() + '}', element)) : []
                 return element[funcName](...argsRest, arg)
             }
         }

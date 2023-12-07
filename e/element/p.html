@@ -13,6 +13,38 @@
         }
 
         #getPort(portExpression, signal) {
+            if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+            const direction = this.direction, cells = this.cells
+            if (!cells) return
+
+            let portName, portDirHandler
+            if (!portExpression.endsWith('`') && (portExpression.indexOf('~') !== -1)) {
+                const portExpressionIndexOf = portExpression.indexOf('~')
+                if (portExpressionIndexOf) {
+                    const portExpressionSplit = portExpression.split('~').map(s => s.trim())
+                    portName = portExpressionSplit[0]
+                    portDirHandler = this.E.env.variables[portExpressionSplit[1]]
+                } else {
+                    portName = portExpression.slice(1)
+                    portDirHandler = this.E.env.variables[portName]
+                }
+            } else if (portExpression.endsWith('`')) {
+                const portExpressionIndexOf = portExpression.indexOf('`')
+                if (!portExpressionIndexOf || (portExpressionIndexOf === portExpression.lastIndexOf('`'))) return
+                const portName = portExpression.slice(0, portExpressionIndexOf), handlerExpression = portExpression.slice(portExpressionIndexOf).slice(1, -1)
+                if (!portName || !handlerExpression) return
+                const [parentExpression, childExpression] = handlerExpression.split('.').map(s => s.trim())
+                if (!parentExpression || (childExpression === '')) return
+                let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+                parentArgs = parentArgs.join('(').trim().split(',').map(s => s.trim())  //.map(a => this.resolveVariables('${' + a.trim() + '}', this))
+
+                portDirHandler = () => {
+                    globalThis[]
+                }
+
+
+            } else { return }
+            if (!portName || (typeof portDirHandler !== 'function')) return
 
 
         }
