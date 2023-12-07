@@ -41,11 +41,11 @@
                 let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').trim().split(',').map(s => s.trim())
                 handler = (value, proxyObject, proxyMapElement) => {
-                    const getParentArgs = () => parentArgs.map(a => proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
+                    const getParentArgs = () => parentArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
                     if ((proxyObject === true) && parentIsNewable) return new globalThis[parentObjectName](...getParentArgs())
                     if (!(proxyObject instanceof Object)) return
                     if (childMethodName) {
-                        const getChildArgs = () => childArgs.map(a => proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
+                        const getChildArgs = () => childArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
                         if (proxyObject.singleton) {
                             if (!(proxyObject.singleton instanceof Object)) return
                             if (typeof proxyObject.singleton[childMethodName] !== 'function') return
