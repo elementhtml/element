@@ -787,7 +787,15 @@ const ElementHTML = Object.defineProperties({}, {
                     result._ = {}
                     for (const c of value.querySelectorAll('[name]')) result._[c.name] ||= this.flatten(c)
                 } else if (result.tag === 'table') {
-
+                    result._ = []
+                    const rows = Array.from(value.querySelectorAll('tr')), headers = Array.from(rows.shift().querySelectorAll('th'))
+                    for (const [index, header] of headers.entries()) {
+                        for (const [i, row] of rows.entries()) {
+                            result._[i - 1] ||= {}
+                            const cell = rows[i].querySelectorAll('td')[index]
+                            result._[i - 1][header.textContent] = this.flatten(cell)
+                        }
+                    }
                 } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(result.tag)) {
                     result._ = value.value
                 } else if (result.tag === 'time') {
@@ -797,7 +805,7 @@ const ElementHTML = Object.defineProperties({}, {
                 } else if (value.hasAttribute('itemscope')) {
                     for (const c of value.querySelectorAll('[itemprop]')) result._[c.getAttribute('itemprop')] ||= this.flatten(c)
                 } else {
-                    result._ = innerText
+                    result._ = innerText.trim()
                 }
             } else if (value instanceof Event) {
                 result = compile(
