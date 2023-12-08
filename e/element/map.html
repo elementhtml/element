@@ -61,7 +61,7 @@
             let cellsExpression, transformExpression, portExpression
             for (const sep of [' >> ', ' << ']) {
                 if ((directive.indexOf(sep) > 0) && (directive.indexOf(sep, directive.indexOf(sep) + 1) > 0)) {
-                    [cellsExpression, transformExpression, sinkExpression] = directive.split(sep).map(s => s.trim())
+                    [cellsExpression, transformExpression, portExpression] = directive.split(sep).map(s => s.trim())
                     this.#direction = sep === ' << ' ? 'toCell' : 'fromCell'
                     break
                 }

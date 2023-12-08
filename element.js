@@ -195,6 +195,10 @@ const ElementHTML = Object.defineProperties({}, {
                         if (scope === document) scope = document.documentElement
                     } else if (scopeStatement === ':document') {
                         scope = document.documentElement
+                    } else if (scopeStatement === ':body') {
+                        scope = document.body
+                    } else if (scopeStatement === ':head') {
+                        scope = document.head
                     } else { scope = element.closest(scopeStatement) }
                     return scope
                 }

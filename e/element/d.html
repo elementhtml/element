@@ -8,7 +8,7 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: portExpression => this.#getPort(portExpression, signal)
+                value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
         }
 
@@ -16,10 +16,9 @@
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
             const direction = this.direction, cells = this.cells
             if (!cells) return
-            const [scopeExpression, selectorEvents] = portExpression.split(/\|(?!\=)/g),
-                scope = this.E.resolveScope(scopeExpression.trim(), this)
+            let [scopeExpression, selectorEvents] = portExpression.split(/\|(?!\=)/g).map(s => s.trim()),
+                scope = this.E.utils.resolveScope(scopeExpression, this)
             if (!scope) return
-            selectorEvents = selectorEvents.trim()
             let selector, eventNames = [], useDefaultEvents = true, selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
             if (selectorEventsLastIndexOf === -1) {
                 selector = selectorEvents
@@ -31,15 +30,21 @@
             if (this.direction === 'toCell') {
                 if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
+                    console.log('d.html: line 33', scope, eventName)
                     scope.addEventListener(eventName, async event => {
+                        console.log('d.html: line 35', scope, selector, eventName, event)
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
+                        console.log('d.html: line 39')
                         const value = this.E.flatten(event.currentTarget)
                         if (Array.isArray(cells)) {
-                            for (const [index, cell] of cells.entries()) saveToCell(value, cell, { index }, { event })
+                            for (const [index, cell] of cells.entries()) {
+                                console.log('d.html: line 40', value, cell, index, event)
+                                this.saveToCell(value, cell, { index }, { event })
+                            }
                         } else if (cells) {
-                            for (const [key, cell] of Object.entries(cells)) saveToCell(value, cell, { key }, { event })
+                            for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
                         }
                     }, { signal })
                 }

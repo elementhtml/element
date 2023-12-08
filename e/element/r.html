@@ -10,7 +10,7 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: portExpression => this.#getPort(portExpression, signal)
+                value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
         }
 
@@ -43,7 +43,7 @@
                 } else if (direction === 'toCell') {
                     // need to handle closed sockets...
                     port.singleton.addEventListener('message', event => {
-                        this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue))
+                        this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue))
                     }, signal)
                 } else { return }
             }
@@ -104,12 +104,12 @@
                 if (eventsExpression) {
                     for (const eventName of eventsExpression.split(',').map(s => s.trim()).filter(s => !!s)) {
                         port.singleton.addEventListener(eventName, event => {
-                            this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue, eventName))
+                            this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue, eventName))
                         }, signal)
                     }
                 }
                 port.singleton.addEventListener('message', event => {
-                    this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue, 'message'))
+                    this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue, 'message'))
                 }, signal)
             } else {
                 singleton = remoteUrl
@@ -124,7 +124,7 @@
                     }
                 } else if (direction === 'toCell') {
                     handler = (value, port, proxyMapElement, init) => {
-                        this.E.parse(value, this).then(parsedValue => this.E.saveToCell(parsedValue, eventName))
+                        this.E.parse(value, this).then(parsedValue => this.saveToCell(parsedValue, eventName))
                     }
                 }
             }

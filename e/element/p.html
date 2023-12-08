@@ -8,7 +8,7 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: portExpression => this.#getPort(portExpression, signal)
+                value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
         }
 
