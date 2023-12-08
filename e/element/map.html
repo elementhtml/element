@@ -20,7 +20,7 @@
         async saveToCell(rawValue, cell, cellBindings = {}, transformBindings = {}) {
             const oldValue = cell.get(), force = this.force,
                 newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
-            if (!force) if ((newValue === undefined) || (cellValue === newValue) || (JSON.stringify(cellValue) === JSON.stringify(newValue))) return
+            if (!force) if ((newValue === undefined) || (oldValue === newValue) || (JSON.stringify(oldValue) === JSON.stringify(newValue))) return
             cell.set(newValue, force)
         }
 
