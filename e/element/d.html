@@ -35,16 +35,11 @@
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
-                        const sourceValue = this.E.flatten(event.currentTarget), transform = this.transform, force = this.force,
-                            setToCell = async (cell, countLabel, counter) => {
-                                const value = cell.get(), result = await this.E.runTransform(transform, sourceValue, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event) })
-                                if (!force) if ((result === undefined) || (value === result) || (JSON.stringify(value) === JSON.stringify(result))) return
-                                cell.set(result, force)
-                            }
+                        const value = this.E.flatten(event.currentTarget)
                         if (Array.isArray(cells)) {
-                            for (const [index, cell] of cells.entries()) setToCell(cell, 'index', index)
+                            for (const [index, cell] of cells.entries()) saveToCell(value, cell, { index }, { event })
                         } else if (cells) {
-                            for (const [key, cell] of Object.entries(cells)) setToCell(cell, 'key', key)
+                            for (const [key, cell] of Object.entries(cells)) saveToCell(value, cell, { key }, { event })
                         }
                     }, { signal })
                 }

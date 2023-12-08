@@ -50,6 +50,50 @@
             if (!remoteUrl.startsWith('https://') && !remoteUrl.startsWith('http://')) return
             if (portExpression.startsWith('wt://')) {
 
+                // Dummy code from Claude! Probably doesn't work but something to start with...
+                // also look at https://github.com/w3c/webtransport/blob/master/explainer.md
+                //
+                // WebTransport server URL  
+                // const url = "https://example.com/wt";
+                // async function connect() {
+                //     const transport = new WebTransport(url);
+                //     await transport.ready;
+                //     const stream = await transport.createBidirectionalStream();
+                //     stream.readable.getReader().read().then(result => {
+                //         console.log("Received:", result.value);
+                //     });
+                //     const encoder = new TextEncoder();
+                //     const writer = stream.writable.getWriter();
+                //     writer.write(encoder.encode("Hello world!"));
+                //     transport.close();
+                // }
+                // connect();
+
+            } else if (portExpression.startsWith('rtc://')) {
+
+                // Dummy code from Claude! Probably doesn't work but something to start with...
+                // also look at https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
+                // const signalingUrl = "https://signaling.myserver.com";
+                // const pc = new RTCPeerConnection();
+                // fetch(signalingUrl, {
+                //     method: 'POST',
+                //     body: JSON.stringify(pc.localDescription)
+                // });
+                // let answerUrl;
+                // fetch(signalingUrl)
+                //     .then(resp => resp.text())
+                //     .then(url => {
+                //         answerUrl = url;
+                //     });
+                // fetch(answerUrl)
+                //     .then(resp => resp.json())
+                //     .then(answer => pc.setRemoteDescription(answer));
+                // const dc = pc.createDataChannel('data');
+                // dc.onmessage = () => { /* handle data */ };
+                // dc.onopen = () => {
+                //     dc.send('Hello world!');
+                // }
+
             } else if ((direction === 'toCell') && portExpression.startsWith('sse://')) {
                 if (!this.E.env.ports[remoteUrl].singleton) {
                     let options = this.options ?? {}
@@ -68,7 +112,21 @@
                     this.E.parse(event.data, this).then(parsedValue => this.E.saveToCell(parsedValue, 'message'))
                 }, signal)
             } else {
-                return
+                singleton = remoteUrl
+                if (direction === 'fromCell') {
+                    handler = (value, port, proxyMapElement, init) => {
+                        let options = this.options ?? {}
+                        if (typeof options === 'string') options = this.E.resolveVariables('${' + options + '}')
+                        if (!(options instanceof Object)) return
+                        this.E.serialize(value, this).then(serializedValue => fetch(singleton, options)).then(response => {
+                            if (typeof port.toCell === 'function') port.toCell(response, port, proxyMapElement, init)
+                        })
+                    }
+                } else if (direction === 'toCell') {
+                    handler = (value, port, proxyMapElement, init) => {
+                        this.E.parse(value, this).then(parsedValue => this.E.saveToCell(parsedValue, eventName))
+                    }
+                }
             }
 
             if (!name || (typeof handler !== 'function')) return
