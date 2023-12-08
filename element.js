@@ -797,7 +797,16 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                 } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(result.tag)) {
-                    result._ = value.value
+                    if (result.tag === 'input') {
+                        const type = value.getAttribute('type')
+                        if (type === 'checkbox') {
+                            result._ = value.checked
+                        } else if (type === 'radio') {
+                            result._ = value.selected
+                        } else { result._ = value.value }
+                    } else {
+                        result._ = value.value
+                    }
                 } else if (result.tag === 'time') {
                     result._ = value.getAttribute('datetime')
                 } else if (result.tag === 'meta' && !value.hasAttribute('is')) {
