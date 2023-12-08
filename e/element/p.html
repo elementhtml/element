@@ -40,24 +40,24 @@
                 const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
                 let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-                handler = (value, port, proxyMapElement, init) => {
-                    console.log('p.html: line 44', value, port, proxyMapElement, init)
+                handler = (value, proxyMapElement, init) => {
+                    console.log('p.html: line 44', value, this, proxyMapElement, init)
                     const getParentArgs = () => parentArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
                     if (init) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
-                    if (!(proxyObject instanceof Object)) return
+                    if (!(this instanceof Object)) return
                     if (childMethodName) {
                         const getChildArgs = () => childArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
-                        if (proxyObject.singleton) {
-                            if (!(proxyObject.singleton instanceof Object)) return
-                            if (typeof proxyObject.singleton[childMethodName] !== 'function') return
-                            return proxyObject.singleton[childMethodName](...getChildArgs())
+                        if (this.singleton) {
+                            if (!(this.singleton instanceof Object)) return
+                            if (typeof this.singleton[childMethodName] !== 'function') return
+                            return this.singleton[childMethodName](...getChildArgs())
                         } else {
                             if (!(globalThis[parentObjectName] instanceof Object)) return
                             if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
                             return globalThis[parentObjectName][childMethodName](...getChildArgs())
                         }
                     } else {
-                        return proxyObject.singleton ? proxyObject.singleton(...getParentArgs()) : globalThis[parentObjectName](...getParentArgs())
+                        return this.singleton ? this.singleton(...getParentArgs()) : globalThis[parentObjectName](...getParentArgs())
                     }
                 }
             } else { return }
@@ -65,14 +65,23 @@
             if (direction === 'toCell') {
 
             } else if (direction === 'fromCell') {
-
+                this.connectFromCells(signal, [name])
             } else { return }
             this.E.env.ports[name] ||= {}
+            this.E.env.ports[name].name = name
             this.E.env.ports[name].type = this.constructor.portType
-            this.E.env.ports[name].singleton = handler(undefined, this.E.env.ports[name], this, true)
+            handler = handler.bind(this.E.env.ports[name])
             this.E.env.ports[name][direction] = { handler, name, direction }
-
+            this.E.env.ports[name].singleton = handler(undefined, this, true)
             return this.E.env.ports[name]
+        }
+
+        applyCellValue(value, cell, countLabel, counter, event, name) {
+            const handler = this.E.env.ports[name]?.fromCell?.handler
+            if (!handler) return
+            const port = { name, type: this.E.env.ports[name].type }
+            this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), port })
+                .then(data => handler(data, this))
         }
 
     }
