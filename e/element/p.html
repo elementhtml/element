@@ -3,6 +3,8 @@
 <script>
     export default class extends `./map` {
 
+        #contentType
+
         static portType = 'Proxy'
 
         constructor() {
@@ -11,6 +13,14 @@
                 value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
         }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type') }
+
+        get ['content-type']() { return this.contentType }
+        set ['content-type'](value) { this.contentType = value }
+
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
+        set contentType(value) { this.#contentType = value }
 
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
@@ -41,7 +51,6 @@
                 let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 handler = (value, proxyMapElement, init) => {
-                    console.log('p.html: line 44', value, this, proxyMapElement, init)
                     const getParentArgs = () => parentArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
                     if (init) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
                     if (!(this instanceof Object)) return
@@ -80,8 +89,9 @@
             const handler = this.E.env.ports[name]?.fromCell?.handler
             if (!handler) return
             const port = { name, type: this.E.env.ports[name].type }
-            this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), port })
-                .then(data => handler(data, this))
+            console.log('p.html: line 83', this.contentType)
+            this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event, port })
+                .then(data => this.contentType ? this.E.serialize(data, this) : data).then(serializedData => handler(serializedData, this))
         }
 
     }

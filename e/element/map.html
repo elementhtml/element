@@ -24,7 +24,7 @@
                     const cellValue = cell.get()
                     if (this.force || (cellValue !== undefined)) this.applyCellValue(cellValue, cell, 'index', index)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'index', index, event, ...portTypeSpecificArgs)
+                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'index', index, this.E.flatten(event), ...portTypeSpecificArgs)
                     }, { signal })
                 }
             } else if (cells) {
@@ -32,7 +32,7 @@
                     const cellValue = cell.get()
                     if (this.force || (cellValue !== undefined)) this.applyCellValue(cellValue, cell, 'key', key)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'key', key, event, ...portTypeSpecificArgs)
+                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'key', key, this.E.flatten(event), ...portTypeSpecificArgs)
                     }, { signal })
                 }
             }
