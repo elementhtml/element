@@ -29,17 +29,17 @@
             if (Array.isArray(cells)) {
                 for (const [index, cell] of cells.entries()) {
                     const cellValue = cell.get()
-                    if (this.force || (cellValue !== undefined)) this._applyFromCell(cellValue, cell, 'index', index)
+                    if (this.force || (cellValue !== undefined)) this._applyFromCells(cellValue, cell, 'index', index)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this._applyFromCell(event.detail, cell, 'index', index, this.E.flatten(event), ...portTypeSpecificArgs)
+                        if (this.force || (event.detail !== undefined)) this._applyFromCells(event.detail, cell, 'index', index, this.E.flatten(event), ...portTypeSpecificArgs)
                     }, { signal })
                 }
             } else if (cells) {
                 for (const [key, cell] of Object.entries(cells)) {
                     const cellValue = cell.get()
-                    if (this.force || (cellValue !== undefined)) this._applyFromCell(cellValue, cell, 'key', key)
+                    if (this.force || (cellValue !== undefined)) this._applyFromCells(cellValue, cell, 'key', key)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this._applyFromCell(event.detail, cell, 'key', key, this.E.flatten(event), ...portTypeSpecificArgs)
+                        if (this.force || (event.detail !== undefined)) this._applyFromCells(event.detail, cell, 'key', key, this.E.flatten(event), ...portTypeSpecificArgs)
                     }, { signal })
                 }
             }
@@ -111,6 +111,15 @@
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
             this.#port = this._getPort(portExpression, this.#abortController.signal)
+        }
+
+        _applyToCells(value) {
+            const cells = this.cells
+            if (Array.isArray(cells)) {
+                for (const [index, cell] of cells.entries()) this.saveToCell(value, cell, { index }, { event })
+            } else if (cells) {
+                for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
+            }
         }
 
     }

@@ -10,14 +10,15 @@
             Object.defineProperty(this, '_getPort', {
                 value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
-            Object.defineProperty(this, '_applyFromCell', {
-                value: (value, cell, countLabel, counter, event, selector, scope) => this.#applyFromCell(value, cell, countLabel, counter, event, selector, scope)
+            Object.defineProperty(this, '_applyFromCells', {
+                value: (value, cell, countLabel, counter, event, selector, scope) => this.#applyFromCells(value, cell, countLabel, counter, event, selector, scope)
             })
         }
 
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
             const direction = this.direction, cells = this.cells
+            if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
             let [scopeExpression, selectorEvents] = portExpression.split(/\|(?!\=)/g).map(s => s.trim()),
                 scope = this.E.utils.resolveScope(scopeExpression, this)
@@ -38,25 +39,22 @@
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
                         const value = this.E.flatten(event.target)
-                        if (Array.isArray(cells)) {
-                            for (const [index, cell] of cells.entries()) this.saveToCell(value, cell, { index }, { event })
-                        } else if (cells) {
-                            for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
-                        }
+                        this._applyToCells(value)
                     }, { signal })
                 }
             } else if (direction === 'fromCell') {
                 this.connectFromCells(signal, [selector, scope])
-            } else { return }
+            }
             return scope
         }
 
-        #applyFromCell(value, cell, countLabel, counter, event, selector, scope) {
+        #applyFromCells(value, cell, countLabel, counter, event, selector, scope) {
             let targets = this.E.utils.resolveSelector(selector, scope)
             if (!Array.isArray(targets)) targets = [targets]
             for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
                 .then(data => this.E.applyData(target, data))
         }
+
 
     }
 </script>

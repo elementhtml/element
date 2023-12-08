@@ -12,6 +12,9 @@
             Object.defineProperty(this, '_getPort', {
                 value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
+            Object.defineProperty(this, '_applyFromCells', {
+                value: () => this.#applyFromCells()
+            })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
@@ -22,6 +25,7 @@
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
             const direction = this.direction, cells = this.cells
+            if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
             const [urlExpression, eventsExpression] = portExpression.split('!').map(s => s.trim()), remoteUrl = this.E.resolveUrl(urlExpression)
             if (!remoteUrl) return
@@ -135,6 +139,10 @@
             this.E.env.ports[name].singleton = singleton
             this.E.env.ports[name][direction] = { handler, name, direction }
             return this.E.env.ports[name]
+
+        }
+
+        #applyFromCells() {
 
         }
 
