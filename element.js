@@ -807,6 +807,12 @@ const ElementHTML = Object.defineProperties({}, {
                 } else {
                     result._ = innerText.trim()
                 }
+                if ((tag === 'select') || (tag === 'datalist')) {
+                    const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
+                    result.__ = []
+                    for (const opt of options) result.__.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
+                    if (isObj) result.__ = Object.fromEntries(result.__)
+                }
             } else if (value instanceof Event) {
                 result = compile(
                     ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
