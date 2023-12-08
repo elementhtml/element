@@ -17,18 +17,11 @@
 
         async connectedCallback() { }
 
-        setToCell = async (cell, countLabel, counter) => {
-            const value = cell.get(), result = await this.E.runTransform(transform, sourceValue, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event) })
-            if (!force) if ((result === undefined) || (value === result) || (JSON.stringify(value) === JSON.stringify(result))) return
-            cell.set(result, force)
-        }
-
-
-        async saveToCell(value, cell, cellBindings = {}, transformBindings = {}) {
-            const cellValue = cell.get(), force = this.force,
-                result = await this.E.runTransform(this.transform, value, this, { cell: { value: cellValue, name: cell.name, ...cellBindings }, ...transformBindings })
-            if (!force) if ((result === undefined) || (cellValue === result) || (JSON.stringify(cellValue) === JSON.stringify(result))) return
-            cell.set(result, force)
+        async saveToCell(rawValue, cell, cellBindings = {}, transformBindings = {}) {
+            const oldValue = cell.get(), force = this.force,
+                newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
+            if (!force) if ((newValue === undefined) || (cellValue === newValue) || (JSON.stringify(cellValue) === JSON.stringify(newValue))) return
+            cell.set(newValue, force)
         }
 
         get [':']() { return this.directive }
