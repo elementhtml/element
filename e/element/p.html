@@ -17,13 +17,7 @@
             })
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('content-type') }
-
-        get ['content-type']() { return this.contentType }
-        set ['content-type'](value) { this.contentType = value }
-
-        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
-        set contentType(value) { this.#contentType = value }
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return

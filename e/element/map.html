@@ -4,6 +4,7 @@
     export default class extends `meta` {
 
         #abortController
+        #contentType
         #direction
         #directive
         #cells
@@ -13,7 +14,13 @@
 
         constructor() { super() }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'directive', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'content-type', 'directive', 'options') }
+
+        get ['content-type']() { return this.contentType }
+        set ['content-type'](value) { this.contentType = value }
+
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
+        set contentType(value) { this.#contentType = value }
 
         async connectedCallback() { }
 
