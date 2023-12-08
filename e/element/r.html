@@ -113,7 +113,11 @@
                 }, signal)
             } else {
                 singleton = remoteUrl
-                if (direction === 'fromCell') {
+                if (direction === 'toCell') {
+                    handler = (value, port, proxyMapElement, init) => {
+                        this.E.parse(value, this).then(parsedValue => this.saveToCell(parsedValue, eventName))
+                    }
+                } else if (direction === 'fromCell') {
                     handler = (value, port, proxyMapElement, init) => {
                         let options = this.options ?? {}
                         if (typeof options === 'string') options = this.E.resolveVariables('${' + options + '}')
@@ -121,10 +125,6 @@
                         this.E.serialize(value, this).then(serializedValue => fetch(singleton, options)).then(response => {
                             if (typeof port.toCell === 'function') port.toCell(response, port, proxyMapElement, init)
                         })
-                    }
-                } else if (direction === 'toCell') {
-                    handler = (value, port, proxyMapElement, init) => {
-                        this.E.parse(value, this).then(parsedValue => this.saveToCell(parsedValue, eventName))
                     }
                 }
             }

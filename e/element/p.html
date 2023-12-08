@@ -62,10 +62,16 @@
                 }
             } else { return }
             if (!name || (typeof handler !== 'function')) return
+            if (direction === 'toCell') {
+
+            } else if (direction === 'fromCell') {
+
+            } else { return }
             this.E.env.ports[name] ||= {}
             this.E.env.ports[name].type = this.constructor.portType
             this.E.env.ports[name].singleton = handler(undefined, this.E.env.ports[name], this, true)
             this.E.env.ports[name][direction] = { handler, name, direction }
+
             return this.E.env.ports[name]
         }
 

@@ -43,31 +43,17 @@
                     }, { signal })
                 }
             } else if (direction === 'fromCell') {
-                const applyCellValue = (value, cell, countLabel, counter, event) => {
-                    let targets = this.E.utils.resolveSelector(selector, scope)
-                    if (!Array.isArray(targets)) targets = [targets]
-                    for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
-                        .then(data => this.E.applyData(target, data))
-                }
-                if (Array.isArray(cells)) {
-                    for (const [index, cell] of cells.entries()) {
-                        const cellValue = cell.get()
-                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cell, 'index', index)
-                        cell.eventTarget.addEventListener('change', event => {
-                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cell, 'index', index, event)
-                        }, { signal })
-                    }
-                } else if (cells) {
-                    for (const [key, cell] of Object.entries(cells)) {
-                        const cellValue = cell.get()
-                        if (this.force || (cellValue !== undefined)) applyCellValue(cellValue, cell, 'key', key)
-                        cell.eventTarget.addEventListener('change', event => {
-                            if (this.force || (event.detail !== undefined)) applyCellValue(event.detail, cell, 'key', key, event)
-                        }, { signal })
-                    }
-                }
+                this.connectFromCells(signal, [selector, scope])
             } else { return }
             return scope
+        }
+
+        applyCellValue(value, cell, countLabel, counter, event, selector, scope) {
+            let targets = this.E.utils.resolveSelector(selector, scope)
+            if (!Array.isArray(targets)) targets = [targets]
+            for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
+                .then(data => this.E.applyData(target, data))
+
         }
 
     }

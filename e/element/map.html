@@ -17,6 +17,27 @@
 
         async connectedCallback() { }
 
+        connectFromCells(signal, portTypeSpecificArgs = []) {
+            const cells = this.cells
+            if (Array.isArray(cells)) {
+                for (const [index, cell] of cells.entries()) {
+                    const cellValue = cell.get()
+                    if (this.force || (cellValue !== undefined)) this.applyCellValue(cellValue, cell, 'index', index)
+                    cell.eventTarget.addEventListener('change', event => {
+                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'index', index, event, ...portTypeSpecificArgs)
+                    }, { signal })
+                }
+            } else if (cells) {
+                for (const [key, cell] of Object.entries(cells)) {
+                    const cellValue = cell.get()
+                    if (this.force || (cellValue !== undefined)) this.applyCellValue(cellValue, cell, 'key', key)
+                    cell.eventTarget.addEventListener('change', event => {
+                        if (this.force || (event.detail !== undefined)) this.applyCellValue(event.detail, cell, 'key', key, event, ...portTypeSpecificArgs)
+                    }, { signal })
+                }
+            }
+        }
+
         async saveToCell(rawValue, cell, cellBindings = {}, transformBindings = {}) {
             const oldValue = cell.get(), force = this.force,
                 newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
