@@ -30,14 +30,12 @@
             if (this.direction === 'toCell') {
                 if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
-                    console.log('d.html: line 33', scope, eventName)
                     scope.addEventListener(eventName, async event => {
-                        console.log('d.html: line 35', scope, selector, eventName, event)
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
-                        console.log('d.html: line 39')
-                        const value = this.E.flatten(event.currentTarget)
+                        const value = this.E.flatten(event.target)
+                        console.log('d.html: line 38', value, event.target)
                         if (Array.isArray(cells)) {
                             for (const [index, cell] of cells.entries()) {
                                 console.log('d.html: line 40', value, cell, index, event)

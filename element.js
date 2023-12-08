@@ -181,12 +181,13 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             resolveScope: {
-                enumerable: true, value: function (scopeStatement, element, flags = []) {
+                enumerable: true, value: function (scopeStatement, element) {
                     if (!scopeStatement) return element.parentElement
                     let scope
-                    if (flags.includes(scopeStatement[0])) {
-                        scope = element
-                    } else if ((scopeStatement === ':') || scopeStatement === ':root') {
+                    if (scopeStatement === ':') {
+                        const root = element.getRootNode()
+                        scope = (root instanceof ShadowRoot) ? root : document.body
+                    } else if (scopeStatement === ':root') {
                         scope = element.getRootNode()
                         if (scope === document) scope = document.documentElement
                     } else if (scopeStatement === ':host') {
@@ -358,7 +359,6 @@ const ElementHTML = Object.defineProperties({}, {
             return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
         }
     },
-
     getValue: {
         enumerable: true, value: function (element, useDataset = 'auto') {
             if (!(element instanceof HTMLElement)) return
@@ -765,18 +765,39 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value instanceof HTMLElement) {
                 const override = (this.env.map.get(value) ?? {})['eFlatten']
                 if (override) return typeof override === 'function' ? override(value) : override
+                const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
+                    style = Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1] && (parseInt(ent[0]) != ent[0]))),
+                    innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
                 result = {
-                    value: 'value' in value ? value.value : undefined,
-                    ...compile(Object.keys(value), Object.keys(value)),
                     ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
-                    ...compile(['baseURI', 'checked', 'childElementCount', 'className',
+                    ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
                         'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
-                        'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
+                        'id', 'lang', 'localName', 'name', 'namespaceURI',
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                        'selected', 'slot', 'tagName', 'textContent', 'title'], []),
-                    style: Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1])),
-                    _: this.getValue(value)
+                        'selected', 'slot', 'tagName', 'title'], [])).filter(ent => ent[1] === '')),
+                    innerHTML, textContent, innerText, style, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
+                    '.': (textContent.includes('<') && textContent.includes('>')) ? innerHTML : textContent,
+                    '..': textContent, '...': innerText, '<>': innerHTML,
+                    value: 'value' in value ? value.value : undefined, '#': value.id, _: getValue(value)
+                }
+                for (const c of Object.keys(classList)) result[`&${c}`] = true
+                for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
+                if (result.tag === 'form' || result.tag === 'fieldset') {
+                    result._ = {}
+                    for (const c of value.querySelectorAll('[name]')) result._[c.name] ||= this.flatten(c)
+                } else if (result.tag === 'table') {
+
+                } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(result.tag)) {
+                    result._ = value.value
+                } else if (result.tag === 'time') {
+                    result._ = value.getAttribute('datetime')
+                } else if (result.tag === 'meta' && !value.hasAttribute('is')) {
+                    result._ = value.getAttribute('content')
+                } else if (value.hasAttribute('itemscope')) {
+                    for (const c of value.querySelectorAll('[itemprop]')) result._[c.getAttribute('itemprop')] ||= this.flatten(c)
+                } else {
+                    result._ = innerText
                 }
             } else if (value instanceof Event) {
                 result = compile(
