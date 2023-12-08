@@ -30,16 +30,18 @@
             } else if (portExpression.endsWith('`')) {
                 const portExpressionIndexOf = portExpression.indexOf('`')
                 if (!portExpressionIndexOf || (portExpressionIndexOf === portExpression.lastIndexOf('`'))) return
-                const name = portExpression.slice(0, portExpressionIndexOf), handlerExpression = portExpression.slice(portExpressionIndexOf).slice(1, -1)
+                name = portExpression.slice(0, portExpressionIndexOf)
+                const handlerExpression = portExpression.slice(portExpressionIndexOf).slice(1, -1)
                 if (!name || !handlerExpression) return
                 const [parentExpression, childExpression] = handlerExpression.split('.').map(s => s.trim())
                 if (!parentExpression || (childExpression === '')) return
                 let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
-                parentArgs = parentArgs.join('(').trim().split(',').map(s => s.trim())
-                const parentIsNewable = childExpression && (parentArgs.length || (parentExpression.includes('(') && parentExpression.endsWith(')')))
+                parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+                const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
                 let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-                childArgs = childArgs.join('(').trim().split(',').map(s => s.trim())
+                childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 handler = (value, port, proxyMapElement, init) => {
+                    console.log('p.html: line 44', value, port, proxyMapElement, init)
                     const getParentArgs = () => parentArgs.map(a => a === '$' ? value : proxyMapElement.E.resolveVariables('${' + a.trim() + '}', proxyMapElement))
                     if (init) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
                     if (!(proxyObject instanceof Object)) return
