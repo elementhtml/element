@@ -12,6 +12,9 @@
             Object.defineProperty(this, '_getPort', {
                 value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
+            Object.defineProperty(this, '_applyFromCell', {
+                value: (value, cell, countLabel, counter, event, name) => this.#applyFromCell(value, cell, countLabel, counter, event, name)
+            })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('content-type') }
@@ -73,6 +76,8 @@
             if (!name || (typeof handler !== 'function')) return
             if (direction === 'toCell') {
 
+
+
             } else if (direction === 'fromCell') {
                 this.connectFromCells(signal, [name])
             } else { return }
@@ -85,7 +90,7 @@
             return this.E.env.ports[name]
         }
 
-        applyCellValue(value, cell, countLabel, counter, event, name) {
+        #applyFromCell(value, cell, countLabel, counter, event, name) {
             const handler = this.E.env.ports[name]?.fromCell?.handler
             if (!handler) return
             const port = { name, type: this.E.env.ports[name].type }

@@ -10,6 +10,9 @@
             Object.defineProperty(this, '_getPort', {
                 value: (portExpression, signal) => this.#getPort(portExpression, signal)
             })
+            Object.defineProperty(this, '_applyFromCell', {
+                value: (value, cell, countLabel, counter, event, selector, scope) => this.#applyFromCell(value, cell, countLabel, counter, event, selector, scope)
+            })
         }
 
         #getPort(portExpression, signal) {
@@ -48,7 +51,7 @@
             return scope
         }
 
-        applyCellValue(value, cell, countLabel, counter, event, selector, scope) {
+        #applyFromCell(value, cell, countLabel, counter, event, selector, scope) {
             let targets = this.E.utils.resolveSelector(selector, scope)
             if (!Array.isArray(targets)) targets = [targets]
             for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
