@@ -786,12 +786,16 @@ const ElementHTML = Object.defineProperties({}, {
                         'id', 'lang', 'localName', 'name', 'namespaceURI',
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                        'selected', 'slot', 'tagName', 'title'], [])).filter(ent => ent[1] === '')),
+                        'selected', 'slot', 'tagName', 'title'], []))),
                     innerHTML, textContent, innerText, style, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
                     '.': (textContent.includes('<') && textContent.includes('>')) ? innerHTML : textContent,
-                    '..': textContent, '...': innerText, '<>': innerHTML,
-                    value: 'value' in value ? value.value : undefined, '#': value.id
+                    '..': textContent, '...': innerText, '<>': innerHTML, '#': value.id
                 }
+                if ('id' in value) result.id = value.id
+                if ('name' in value) result.name = value.name
+                if ('value' in value) result.value = value.value
+                if ('checked' in value) result.checked = value.checked
+                if ('selected' in value) result.selected = value.selected
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
                 if (result.tag === 'form' || result.tag === 'fieldset') {
