@@ -1,11 +1,11 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '0.9.6' },
+    version: { enumerable: true, value: '0.9.7' },//keep
 
     env: {
         enumerable: true, value: {
-            eDataset: new EventTarget(),
-            gateways: {
+            eDataset: new EventTarget(),//re-check
+            gateways: {//keep
                 ipfs: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipfs.dweb.link/${path.join('/')}}`
@@ -13,54 +13,50 @@ const ElementHTML = Object.defineProperties({}, {
                 ipns: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
-                },
-                jsonata: (hostpath, E) => {
-                    hostpath = hostpath.endsWith('.jsonata') ? hostpath : `${hostpath}.jsonata`
-                    return new URL(hostpath, document.baseURI).href
-                },
+                }
             },
-            libraries: {},
-            map: new WeakMap(),
-            modes: {
+            libraries: {},//keep
+            map: new WeakMap(),//re-check
+            modes: {//re-check
                 element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
                 theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js',
                 publish: 'publish/manifest.json', pod: 'pod/db.js'
             },
             options: {
-                ajv: {
+                ajv: {//re-check
                     enumerable: true, value: {
                         allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
                         strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                     }
                 },
-                errors: 'hide',
-                remarkable: {
+                errors: 'hide',//keep
+                remarkable: {//keep
                     html: true
                 },
-                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },
-                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
+                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },//keep
+                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },//keep
                 elementPropertiesToFlatten: ['baseURI', 'checked', 'childElementCount', 'className',
                     'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
                     'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
                     'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'tagName', 'textContent', 'title']
+                    'selected', 'slot', 'tagName', 'textContent', 'title']//keep
             },
-            proxies: {},
-            sources: {
+            proxies: {},//re-check
+            sources: {//keep
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
-            cells: {},
-            transforms: {},
-            ports: {},
-            variables: {}
+            cells: {},//keep
+            transforms: {},//keep
+            ports: {},//keep
+            variables: {}//keep
         }
     },
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
-            getContentType: {
+            getContentType: {//discard candidate
                 enumerable: true, value: function (element, src) {
                     let contentType = (this.optionsMap ?? {})['Content-Type'] || (this.optionsMap ?? {})['content-type'] || element.getAttribute('content-type') || element._contentType || undefined
                     if (src) {
@@ -73,13 +69,13 @@ const ElementHTML = Object.defineProperties({}, {
                     return contentType
                 }
             },
-            getCustomTag: {
+            getCustomTag: {//keep
                 enumerable: true, value: function (element) {
                     return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                         || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
                 }
             },
-            getVariableResult: {
+            getVariableResult: {//re-check
                 enumerable: true, value: function (modVar, args, element) {
                     let result
                     if (typeof modVar === 'string') {
@@ -93,19 +89,19 @@ const ElementHTML = Object.defineProperties({}, {
                     return result
                 }
             },
-            getWasm: {
+            getWasm: {//keep
                 enumerable: true, value: async function (req, options) {
                     if (typeof req === 'string') req = fetch(req, options)
                     return await WebAssembly.instantiateStreaming(req)
                 }
             },
-            idleCallback: {
+            idleCallback: {//keep
                 enumerable: true, value: async function (cb, timeout) {
                     const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0))
                     return idle(cb, { timeout })
                 }
             },
-            parseObjectAttribute: {
+            parseObjectAttribute: {//keep
                 enumerable: true, value: function (value, element) {
                     let retval = ElementHTML.resolveVariables(value)
                     if (typeof retval === 'string') {
@@ -120,7 +116,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return retval
                 }
             },
-            processError: {
+            processError: {//keep
                 enumerable: true, value: function (name, message, element, cause, detail = {}) {
                     detail = { ...detail, ...{ name, message, element, cause } }
                     if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
@@ -128,7 +124,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
                 }
             },
-            resolveForElement: {
+            resolveForElement: {//discard candidate
                 enumerable: true, value: function (element, tagName, conditions = {}, searchBody = false, equals = {}, startsWith = {}, includes = {}) {
                     let resolved
                     const testNode = (node, useConditions = false) => {
@@ -151,7 +147,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             },
-            resolveGlobal: {
+            resolveGlobal: {//discard candidate
                 enumerable: true, value: function (bindStatement, element) {
                     const statement = bindStatement.trim().match(/([A-Za-z]+)?(\(([^)]*)\))?/).slice(1, 3).map(v => v ||= '').map(v => v.slice(v[0] === '(' ? 1 : 0, v.endsWith(')') ? -1 : v.length).split(',').map(ss => ss.trim()).filter(sss => sss))
                     if (!(statement[0] ?? []).length || !window[statement[0][0]]) return
@@ -162,7 +158,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return globalObject
                 }
             },
-            resolveMergeToken: {
+            resolveMergeToken: {//re-check
                 enumerable: true, value: function (token, element) {
                     if (!token) return '$0'
                     if (typeof token === 'number') return `$${token}`
@@ -173,14 +169,14 @@ const ElementHTML = Object.defineProperties({}, {
                     return element ? element.dataset[token] : token
                 }
             },
-            resolveMeta: {
+            resolveMeta: {//re-check
                 enumerable: true, value: function (element, is, name) {
                     let metaElement
                     const rootNode = element.shadowRoot || element.getRootNode()
                     return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`)
                 }
             },
-            resolveScope: {
+            resolveScope: {//keep
                 enumerable: true, value: function (scopeStatement, element) {
                     if (!scopeStatement) return element.parentElement
                     let scope
@@ -214,7 +210,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return scope
                 }
             },
-            resolveSelector: {
+            resolveSelector: {//keep
                 enumerable: true, value: function (selector, scope) {
                     let selected
                     if (!selector) {
@@ -228,7 +224,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return selected
                 }
             },
-            resolveScopedSelector: {
+            resolveScopedSelector: {//keep
                 enumerable: true, value: function (scopedSelector, element) {
                     let scope = element, selector = scopedSelector
                     if (scopedSelector.startsWith('#')) scopedSelector = `:document|${scopedSelector}`
@@ -240,7 +236,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return this.resolveSelector(selector, scope)
                 }
             },
-            safeGet: {
+            safeGet: {//keep
                 enumerable: true, value: function (element, privateValue, attrName, propName) {
                     propName ||= attrName
                     const attr = element.getAttribute(attrName)
@@ -250,7 +246,7 @@ const ElementHTML = Object.defineProperties({}, {
                     } else { return privateValue }
                 }
             },
-            sliceAndStep: {
+            sliceAndStep: {//keep
                 enumerable: true, value: function (sig, list) {
                     let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
                     if (end === 0) end = list.length
@@ -259,19 +255,19 @@ const ElementHTML = Object.defineProperties({}, {
                     return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
                 }
             },
-            splitOnce: {
+            splitOnce: {//re-check
                 enumerable: true, value: function (str, delimiter) {
                     let r
                     str.split(delimiter).some((e, i, a) => r = a.length <= 2 ? (a) : [a[0], a.slice(1).join(delimiter)])
                     return r
                 }
             },
-            wait: {
+            wait: {//keep
                 enumerable: true, value: async function (ms) {
                     return new Promise((resolve) => setTimeout(resolve, ms))
                 }
             },
-            waitUntil: {
+            waitUntil: {//keep
                 enumerable: true, value: async function (cb, ms = 100, max = 100) {
                     let count = 0
                     while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
@@ -280,7 +276,7 @@ const ElementHTML = Object.defineProperties({}, {
         })
     },
 
-    load: {
+    load: {//keep
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
                 if (this._globalNamespace) return
@@ -337,20 +333,20 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Errors: {
+    Errors: {//keep
         enumerable: true, value: function (mode = 'hide') {
             mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
             this.env.options.errors = mode
         }
     },
-    Expose: {
+    Expose: {//keep
         enumerable: true, value: function (globalName = 'E') {
             if (typeof globalName !== 'string') globalName = 'E'
             if (!globalName) globalName = 'E'
             if (globalName && !window[globalName]) window[globalName] = this
         }
     },
-    ImportPackage: {
+    ImportPackage: {//keep
         enumerable: true, value: async function (packageObject) {
             if (typeof packageObject !== 'object') return
             let packageContents = packageObject.default ?? {}
@@ -361,17 +357,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    _: {
+    _: {//re-check
         enumerable: true, value: function (element, value, silent) {
             return (value === undefined) ? this.getValue(element) : this.setValue(element, value, undefined, silent)
         }
     },
-    $: {
+    $: {//re-check
         enumerable: true, value: async function (element, data, flag, transform, silent) {
             return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
         }
     },
-    getValue: {
+    getValue: {//re-check
         enumerable: true, value: function (element, useDataset = 'auto') {
             if (!(element instanceof HTMLElement)) return
             const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
@@ -424,7 +420,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    setValue: {
+    setValue: {//re-check
         enumerable: true, value: function (element, value, scopeNode, silent = undefined) {
             if (!(element instanceof HTMLElement)) return
             const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
@@ -487,7 +483,7 @@ const ElementHTML = Object.defineProperties({}, {
             return close()
         }
     },
-    applyData: {
+    applyData: {//keep
         enumerable: true, value: async function (element, data, silent) {
             if (!(element instanceof HTMLElement)) return
             if (data === null) element.remove()
@@ -582,7 +578,7 @@ const ElementHTML = Object.defineProperties({}, {
         },
     },
 
-    applyDataWithTemplate: {
+    applyDataWithTemplate: {//keep
         enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
@@ -613,7 +609,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    runElementMethod: {
+    runElementMethod: {//keep
         enumerable: true, value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
@@ -624,7 +620,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    parse: {
+    parse: {//keep
         enumerable: true, value: async function (input, sourceElement, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
             if (!typeCheck && (input instanceof Object)) return input
@@ -690,7 +686,7 @@ const ElementHTML = Object.defineProperties({}, {
             return text
         }
     },
-    serialize: {
+    serialize: {//keep
         enumerable: true, value: async function (input, sourceElement, contentType) {
             if (typeof input === 'string') return input
             contentType ||= sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
@@ -731,7 +727,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    compileRequestOptions: {
+    compileRequestOptions: {//discard candidate
         enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
             let requestOptions = optionsMap ?? element?.optionsMap ?? {}
             if (requestOptions.$ && typeof requestOptions.$ === 'string' && requestOptions.$.startsWith('$')) {
@@ -761,7 +757,7 @@ const ElementHTML = Object.defineProperties({}, {
             return requestOptions
         }
     },
-    flatten: {
+    flatten: {//keep
         enumerable: true, value: function (value, key) {
             let result
             const compile = (plain, complex = []) => {
@@ -868,14 +864,14 @@ const ElementHTML = Object.defineProperties({}, {
             return result
         }
     },
-    getInheritance: {
+    getInheritance: {//keep
         enumerable: true, value: function (id = 'HTMLElement') {
             const inheritance = [id]
             while (id && this.extends[id]) inheritance.push(id = this.extends[id])
             return inheritance
         }
     },
-    hydrate: {
+    hydrate: {//keep
         enumerable: true, value: function (jsonString) {
             let elementMap
             try { elementMap = JSON.parse(jsonString) } catch (e) { return }
@@ -895,7 +891,7 @@ const ElementHTML = Object.defineProperties({}, {
             return element
         }
     },
-    installLibraryFromSrc: {
+    installLibraryFromSrc: {//keep
         enumerable: true, value: async function (label, src, global) {
             if (!src && label && this.env.sources[label]) src = this.env.sources[label]
             label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
@@ -910,7 +906,7 @@ const ElementHTML = Object.defineProperties({}, {
             await this.utils.waitUntil(() => this.env.libraries[label])
         }
     },
-    installLibraryFromImport: {
+    installLibraryFromImport: {//keep
         enumerable: true, value: async function (label, importName, doNew, src, cb, cbOptions = []) {
             if (!src && label && this.env.sources[label]) src = this.env.sources[label]
             label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
@@ -941,7 +937,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    getVariable: {
+    getVariable: {//re-check
         enumerable: true, value: function (variableRef, element) {
             if (!variableRef) return
             let variableName = variableRef.slice(1), variableValue = variableRef
@@ -968,7 +964,7 @@ const ElementHTML = Object.defineProperties({}, {
             return variableValue
         }
     },
-    mergeVariables: {
+    mergeVariables: {//discard candidate
         enumerable: true, value: function (statement, element) {
             if (!statement) return
             for (const expression of statement.matchAll(/\{(?<variableExpression>.+?)\}/g)) {
@@ -989,7 +985,7 @@ const ElementHTML = Object.defineProperties({}, {
             return statement
         }
     },
-    resolveVariables: {
+    resolveVariables: {//keep
         enumerable: true, value: function (statement, element) {
             if (!statement) return
             const regExp = /\$\{(.+?)\}/g, isMatch = statement.match(regExp)
@@ -1086,7 +1082,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
-    getCell: {
+    getCell: {//keep
         enumerable: true, value: function (name) {
             if (!name) return
             const cells = this.env.cells
@@ -1117,7 +1113,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    resolveUrl: {
+    resolveUrl: {//keep
         enumerable: true, value: function (value, element) {
             if (!element) {
                 if (!value.includes('://')) return value
@@ -1153,7 +1149,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    runTransform: {
+    runTransform: {//keep
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
             const transformKey = transform
@@ -1194,7 +1190,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    sortByInheritance: {
+    sortByInheritance: {//keep
         enumerable: true, writable: false, value: function (idList) {
             return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
                 ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
@@ -1202,20 +1198,20 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    classes: { value: {} },
-    constructors: { value: {} },
-    extends: { value: {} },
-    files: { value: {} },
-    ids: { value: {} },
+    classes: { value: {} },//keep
+    constructors: { value: {} },//keep
+    extends: { value: {} },//keep
+    files: { value: {} },//keep
+    ids: { value: {} },//keep
     _observer: { enumerable: false, writable: true, value: undefined },
-    scripts: { value: {} },
-    styles: { value: {} },
+    scripts: { value: {} },//keep
+    styles: { value: {} },//keep
     _styles: { value: {} },
-    tags: { value: {} },
-    templates: { value: {} },
+    tags: { value: {} },//keep
+    templates: { value: {} },//keep
     _templates: { value: {} },
 
-    activateTag: {
+    activateTag: {//keep
         value: async function (tag, element, forceReload = false) {
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
             const id = await this.getTagId(tag, element);
@@ -1226,7 +1222,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    encapsulateNative: {
+    encapsulateNative: {//keep
         value: function () {
             const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
                 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
@@ -1255,7 +1251,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getTagId: {
+    getTagId: {//keep
         value: async function (tag, element) {
             if (this.ids[tag]) return this.ids[tag]
             const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
@@ -1264,7 +1260,7 @@ const ElementHTML = Object.defineProperties({}, {
                 routerName === 'e' ? import.meta.url : element.baseURI)).href
         }
     },
-    loadTagAssetsFromId: {
+    loadTagAssetsFromId: {//keep
         value: async function (id, forceReload = false) {
             if (!id || !id.includes('://')) return
             if (!forceReload && this.files[id]) return true
@@ -1298,14 +1294,14 @@ const ElementHTML = Object.defineProperties({}, {
             return true
         }
     },
-    stackStyles: {
+    stackStyles: {//keep
         value: function (id) {
             if (typeof this._styles[id] === 'string') return this._styles[id]
             this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
             return this._styles[id]
         }
     },
-    stackTemplates: {
+    stackTemplates: {//keep
         value: function (id) {
             if (typeof this._templates[id] === 'string') return this._templates[id]
             if (typeof this.templates[id] === 'string') {
@@ -1338,7 +1334,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    _dispatchPropertyEvent: {
+    _dispatchPropertyEvent: {//re-check
         value: function (element, eventNamePrefix, property, eventDetail) {
             eventDetail = { detail: { property: property, ...eventDetail } }
             element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
@@ -1353,7 +1349,7 @@ const ElementHTML = Object.defineProperties({}, {
                 constructor() {
                     super()
                     const $this = this
-                    if ($this.constructor.eJs || $this.constructor.eCss) {
+                    if ($this.constructor.eJs || $this.constructor.eCss) {//re-check
                         const addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
                             if (document.querySelector(querySelectorTemplate.replace(/\$E/g, src))) return
                             const tag = appendTo.appendChild(document.createElement(tagName))
@@ -1363,7 +1359,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if ($this.constructor.eCss && Array.isArray($this.constructor.eCss)) for (const src of $this.constructor.eCss) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
                         if ($this.constructor.eJs && Array.isArray($this.constructor.eJs)) for (const src of $this.constructor.eJs) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
                     }
-                    if ($this.constructor.eMjs && ($this.constructor.eMjs instanceof Object)) {
+                    if ($this.constructor.eMjs && ($this.constructor.eMjs instanceof Object)) {//re-check
                         for (const moduleName in $this.constructor.eMjs) {
                             if ($this.constructor.eMjs[moduleName].module) continue
                             if (!$this.constructor.eMjs[moduleName].src) { $this.constructor.eMjs[moduleName] = false; continue }
@@ -1377,7 +1373,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }).catch(e => $this.constructor.eMjs[moduleName].module = false)
                         }
                     }
-                    if ($this.constructor.eWasm && ($this.constructor.eWasm instanceof Object)) {
+                    if ($this.constructor.eWasm && ($this.constructor.eWasm instanceof Object)) {//re-check
                         for (const moduleName in $this.constructor.eWasm) {
                             if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
                             if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
@@ -1389,9 +1385,9 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                     Object.defineProperties($this, {
-                        E: { enumerable: false, value: ElementHTML },
-                        eContext: { enumerable: false, value: {} },
-                        eDataset: {
+                        E: { enumerable: false, value: ElementHTML },//keep
+                        eContext: { enumerable: false, value: {} },//discard candidate
+                        eDataset: {//discard candidate
                             enumerable: false, value: new Proxy($this.dataset, {
                                 has(target, property) {
                                     const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetHas']
@@ -1523,8 +1519,8 @@ const ElementHTML = Object.defineProperties({}, {
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
-                set _(value) { this.#_ = value }
-                get _() { return this.#_ }
+                set _(value) { this.#_ = value }//re-check
+                get _() { return this.#_ }//re-check
             }
         }
     }
