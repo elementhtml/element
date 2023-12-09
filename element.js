@@ -111,7 +111,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof retval === 'string') {
                         if (retval[0] === '?') retval = decodeURIComponent(retval).slice(1)
                         if ((retval[0] === '{') && (retval.slice(-1) === '}')) {
-                            try { retval = JSON.parse(retval) } catch (e) { console.log('line 97', e) }
+                            try { retval = JSON.parse(retval) } catch (e) { console.log('line 114', e) }
                         } else {
                             try { retval = Object.fromEntries((new URLSearchParams(retval)).entries()) } catch (e) { }
                         }
@@ -190,10 +190,13 @@ const ElementHTML = Object.defineProperties({}, {
                         const root = element.getRootNode()
                         scope = (root instanceof ShadowRoot) ? root : document.body
                     } else if (scopeStatement === '~') {
-                        scope = document.documentElement
+                        const root = element.getRootNode()
+                        scope = (root instanceof ShadowRoot) ? root : document.head
                     } else if (scopeStatement === '*') {
                         scope = element.getRootNode()
                         if (scope === document) scope = document.documentElement
+                    } else if (scopeStatement.startsWith('#')) {
+                        scope = document.documentElement
                     } else if (scopeStatement === ':root') {
                         scope = element.getRootNode()
                         if (scope === document) scope = document.documentElement
@@ -228,6 +231,7 @@ const ElementHTML = Object.defineProperties({}, {
             resolveScopedSelector: {
                 enumerable: true, value: function (scopedSelector, element) {
                     let scope = element, selector = scopedSelector
+                    if (scopedSelector.startsWith('#')) scopedSelector = `:document|${scopedSelector}`
                     if (selector.includes('|')) {
                         const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
                         scope = this.resolveScope(scopeStatement, element)
@@ -484,7 +488,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     applyData: {
         enumerable: true, value: async function (element, data, silent) {
-            console.log('line 480', element, data)
             if (!(element instanceof HTMLElement)) return
             if (data === null) element.remove()
             if (!(data instanceof Object)) return this.setValue(element, data, silent)
@@ -831,7 +834,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (isObj) result.__ = Object.fromEntries(result.__)
                 }
             } else if (value instanceof Event) {
-                //console.log('line 826', value)
+                //console.log('line 834', value)
                 result = compile(
                     ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
                         'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
@@ -1176,7 +1179,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = this.flatten(v)
                 const result = await expression.evaluate(data, bindings)
-                console.log('line 1172', result, transform, data)
+                // console.log('line 1179', result, transform, data)
                 return result
             } catch (e) {
                 console.log('line 1175', e)
