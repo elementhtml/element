@@ -3,98 +3,36 @@
 <script>
     export default class extends `meta` {
 
-        #base
-        #name
-        #options
-        #optionsMap
-
-        static {
-            Object.defineProperty(this, 'modes', { value: this.E.env.modes })
-        }
-
-        modes = {}
-
         constructor() {
             super()
-            for (const mode in this.constructor.modes) {
-                this.modes[mode] ||= { ...this.constructor.modes[mode] }
-                let modeSignature = this.getAttribute(mode)
-                if (modeSignature) {
-                    let [path, pointer, ...suffix] = modeSignature.split('/').map(s => s.split('.')).flat()
-                    suffix = suffix.join('.')
-                    this.modes[mode].path = path
-                    this.modes[mode].pointer = pointer
-                    this.modes[mode].suffix = suffix
-                }
-                this.modes[mode].path ||= this.constructor.modes[mode].path
-                this.modes[mode].pointer ||= this.constructor.modes[mode].pointer
-                this.modes[mode].suffix ||= this.constructor.modes[mode].suffix
-                const f = this.processor.bind(this.e, this, mode, this.modes[mode].path, this.modes[mode].suffix)
-                f.toString = this.processor.bind(this.e, this, mode, this.modes[mode].path, this.modes[mode].suffix, false, this.modes[mode].pointer)
-                Object.defineProperty(this, mode, { configurable: true, enumerable: true, get: () => f })
+            for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
+                Object.defineProperty(this, k, { enumerable: true, get: () => document.location[k] })
             }
             Object.defineProperty(this, 'value', { enumerable: true, get: () => this.E.flatten(document.location) })
         }
 
-        toString() { return this.#name }
-
-        static get observedAttributes() { return (super.observedAttributes || []).concat('base', 'name', 'options') }
+        toString() { return document.location.toString() }
 
         connectedCallback() {
             window.addEventListener('hashchange', event => {
-                this.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { newURL: event.newURL, oldURL: event.oldURL } }))
+                this.dispatchEvent(new CustomEvent('change', { bubbles: true }))
             })
         }
 
-        processor(router, mode, path = undefined, suffix = undefined, pointer = undefined, get = false) {
-            path ||= router.modes[mode]?.path ?? mode
-            pointer ||= router.modes[mode]?.pointer ?? mode
-            suffix ||= router.modes[mode]?.suffix ?? ''
-            const url = new URL(`${router.base && router.base.endsWith('*') ? ('./') : (router.name + '/')}${path}/${pointer}${suffix ? '.' + suffix : ''}`, router.base ? (new URL(router.base, router.baseURI).href) : router.baseURI).href
-            return get ? fetch(router.E.resolveUrl(url), this.optionsMap) : url
-        }
+        assign(url) { document.location.assign(url) }
 
-        load(path, proceed, mode) {
-            this.to(path, proceed, mode)
-            window.requestAnimationFrame(() => window.location.reload())
-        }
+        reload(forceGet) { document.location.reload(forceGet) }
 
-        to(path, proceed, mode) {
-            if (proceed === false) {
-                return
-            } else if (mode === undefined) {
-                if (proceed === 'string') mode = proceed
-                if (Array.isArray(proceed)) [proceed, mode] = proceed
-            }
+        replace(url) { document.location.replace(url) }
+
+        to(path) {
+            if (path === true) window.location.reload()
             let url
             if (path && (typeof path === 'string')) {
                 path = this.E.resolveVariables(path, this)
                 if (!path) return
-                if (mode && (typeof this.modes[mode] === 'function')) {
-                    url = this.modes[mode](path)
-                } else {
-                    url = new URL(`${this.base && this.base.endsWith('*') ? ('./') : (this.name + '/')}${path}`, this.base ? (new URL(this.base, this.baseURI).href) : this.baseURI).href
-                }
-                window.location = url
+                window.location = this.E.resolveUrl(path, this)
             }
-        }
-
-        get base() { return this.#base }
-        set base(value) { this.#base = value }
-
-        get name() { return this.#name }
-        set name(value) { if (value !== this.#name) this.#name = value }
-
-        get options() { return this.#options }
-        set options(value) {
-            this.#optionsMap = this.E.utils.parseObjectAttribute(value, this)
-            this.#options = value
-        }
-
-        get optionsMap() {
-            const attrOptions = this.getAttribute('options')
-            if (attrOptions && attrOptions !== this.#options) this.options = attrOptions
-            return this.#optionsMap
         }
 
     }

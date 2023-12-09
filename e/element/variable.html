@@ -1,0 +1,57 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #contentType
+        #options
+        #value
+
+        constructor() {
+            super()
+            for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
+                Object.defineProperty(this, k, { enumerable: true, get: () => document.location[k] })
+            }
+            Object.defineProperty(this, 'value', { enumerable: true, get: () => this.E.flatten(document.location) })
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('value', 'options', 'content-type') }
+
+        toString() { return document.location.toString() }
+
+        get ['content-type']() { return this.contentType }
+        set ['content-type'](value) { this.contentType = value }
+
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
+        set contentType(value) { this.#contentType = value }
+
+        get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
+        set options(value) {
+            if (value === this.#options) return
+            this.#options = value
+        }
+
+        get value() { return this.E.utils.safeGet(this, this.#value, 'value') }
+        set value(value) { this.#resolveValue(value) }
+
+        #resolveValue(value) {
+            if (value === undefined) return
+            if (typeof value !== 'string') return value
+            const oldValue = this.#value
+            const setValue = () => {
+                if (oldValue === this.#value) return
+                if (this.name) this.E.env.variables[this.name] = this.#value
+                this.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: this.#value }))
+            }
+            if (value[0] === '`' && value.endsWith('`')) {
+                const requestOptions = this.E.utils.parseObjectAttribute(this.#options ?? this.getAttribute('options'))
+                fetch(value.slice(1, - 1), requestOptions).then(r => r.text())
+                    .then(r => this.contentType ? this.E.parse(t, this) : t).then(v => this.#value = v).then(() => setValue())
+            } else {
+                this.#value = this.E.parse(value, this)
+                setValue()
+            }
+        }
+
+    }
+</script>
