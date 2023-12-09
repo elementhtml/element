@@ -42,10 +42,8 @@
                         this._applyToCells(value)
                     }, { signal })
                 }
-            } else if (direction === 'fromCell') {
-                this.connectFromCells(signal, [selector, scope])
             }
-            return scope
+            return [scope, [selector, scope]]
         }
 
         #applyFromCells(value, cell, countLabel, counter, event, selector, scope) {
@@ -55,6 +53,7 @@
                 .then(data => this.E.applyData(target, data))
         }
 
+        touch() { return }
 
     }
 </script>

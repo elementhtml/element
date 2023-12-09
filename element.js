@@ -184,9 +184,16 @@ const ElementHTML = Object.defineProperties({}, {
                 enumerable: true, value: function (scopeStatement, element) {
                     if (!scopeStatement) return element.parentElement
                     let scope
-                    if (scopeStatement === ':') {
+                    if (scopeStatement === '$') {
+                        scope = element
+                    } else if (scopeStatement === ':') {
                         const root = element.getRootNode()
                         scope = (root instanceof ShadowRoot) ? root : document.body
+                    } else if (scopeStatement === '~') {
+                        scope = document.documentElement
+                    } else if (scopeStatement === '*') {
+                        scope = element.getRootNode()
+                        if (scope === document) scope = document.documentElement
                     } else if (scopeStatement === ':root') {
                         scope = element.getRootNode()
                         if (scope === document) scope = document.documentElement
@@ -477,6 +484,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     applyData: {
         enumerable: true, value: async function (element, data, silent) {
+            console.log('line 480', element, data)
             if (!(element instanceof HTMLElement)) return
             if (data === null) element.remove()
             if (!(data instanceof Object)) return this.setValue(element, data, silent)
@@ -823,6 +831,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (isObj) result.__ = Object.fromEntries(result.__)
                 }
             } else if (value instanceof Event) {
+                //console.log('line 826', value)
                 result = compile(
                     ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
                         'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
@@ -1166,10 +1175,11 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
                 for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = this.flatten(v)
-                //console.log('line 1119', transform, data, bindings)
-                return await expression.evaluate(data, bindings)
+                const result = await expression.evaluate(data, bindings)
+                console.log('line 1172', result, transform, data)
+                return result
             } catch (e) {
-                console.log('line 1121', e)
+                console.log('line 1175', e)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }

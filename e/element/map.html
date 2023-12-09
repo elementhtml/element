@@ -46,8 +46,8 @@
         }
 
         async saveToCell(rawValue, cell, cellBindings = {}, transformBindings = {}) {
-            const oldValue = cell.get(), force = this.force,
-                newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
+            const oldValue = cell.get(), force = this.force
+            const newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
             if (!force) if ((newValue === undefined) || (oldValue === newValue) || (JSON.stringify(oldValue) === JSON.stringify(newValue))) return
             cell.set(newValue, force)
         }
@@ -71,6 +71,9 @@
 
         get port() { return this.#port }
 
+        get passive() { return this.hasAttribute('passive') }
+        set passive(value) { }
+
         get prevent() { return this.hasAttribute('prevent') }
         set prevent(value) { }
 
@@ -93,7 +96,6 @@
             if (!transformExpression) return
             portExpression = this.E.resolveVariables(portExpression).trim()
             if (!portExpression) return
-
             if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
                 this.#cells = []
                 for (let c of cellsExpression.slice(1, -1).split(',')) this.#cells.push(this.E.getCell(this.E.resolveVariables(c.trim(), this)))
@@ -107,10 +109,16 @@
                 this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
             }
             this.#transform = transformExpression
-
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
-            this.#port = this._getPort(portExpression, this.#abortController.signal)
+            const signal = this.#abortController.signal
+            const [port, portTypeSpecificArgs] = this._getPort(portExpression, signal)
+            this.#port = port
+            if (this.#direction === 'toCell') {
+                if (!this.passive) this.touch()
+            } else if (this.#direction === 'fromCell') {
+                this.connectFromCells(signal, portTypeSpecificArgs)
+            }
         }
 
         _applyToCells(value) {
@@ -121,6 +129,14 @@
                 for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
             }
         }
+
+        touch() {
+            const handler = (this.port ?? {})[this.direction]?.handler
+            if (!handler) return
+            const value = handler(undefined, this)
+            Promise.resolve(this.contentType ? this.E.parse(value, this) : value).then(parsedValue => this._applyToCells(parsedValue))
+        }
+
 
     }
 </script>

@@ -75,14 +75,7 @@
             handler = handler.bind(this.E.env.ports[name])
             this.E.env.ports[name][direction] = { handler, name, direction }
             this.E.env.ports[name].singleton = handler(undefined, this, true)
-            if (direction === 'toCell') {
-                let value = handler(undefined, this), contentType = this.contentType
-                if (contentType) value = this.E.parse(value, this)
-                this._applyToCells(value)
-            } else if (direction === 'fromCell') {
-                this.connectFromCells(signal, [name])
-            }
-            return this.E.env.ports[name]
+            return [this.E.env.ports[name], [name]]
         }
 
         #applyFromCells(value, cell, countLabel, counter, event, name) {
