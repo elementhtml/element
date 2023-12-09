@@ -283,8 +283,9 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
-                if (this.env._globalLoadCalled) return
-                this.env._globalLoadCalled = true
+                if (this._globalNamespace) return
+                Object.defineProperty(this, '_globalNamespace', { value: crypto.randomUUID() })
+                Object.defineProperty(window, this._globalNamespace, { value: ElementHTML })
                 this.env.ElementHTML = this
                 const newModes = {}
                 for (const [mode, signature] of Object.entries(this.env.modes)) {
@@ -1286,8 +1287,12 @@ const ElementHTML = Object.defineProperties({}, {
                 this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
                 if (!this.files[extendsId] && extendsId.includes('/')) return
             }
-            let sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`)
-            this.classes[id] = Function('ElementHTML', 'return ' + sanitizedScript)(this)
+            const sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`),
+                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this._globalNamespace}']; export default ${sanitizedScript}`,
+                sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
+                classModule = await import(sanitizedScriptAsUrl)
+            URL.revokeObjectURL(sanitizedScriptAsUrl)
+            this.classes[id] = classModule.default
             this.classes[id].id = id
             this.constructors[id] = class extends this.classes[id] { constructor() { super() } }
             return true
