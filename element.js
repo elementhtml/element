@@ -1169,6 +1169,14 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
                 expression ||= this.env.transforms[transformKey][1]
                 const bindings = {}
+                if (transform.includes('$is(')) {
+                    bindings.is = (schemaName, data) => {
+                        const schemaHandler = this.env.schemas[schemaName]
+                        if (typeof schemaHandler !== 'function') return false
+                        const [valid, errors] = schemaHandler(data)
+                        return { valid, errors }
+                    }
+                }
                 if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
                 if (transform.includes('$stop(')) bindings.stop = v => v
                 if (transform.includes('$getCell(')) bindings.getCell = name => name ? { name, value: this.getCell(name).get() } : undefined
