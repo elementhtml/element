@@ -16,6 +16,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             libraries: {},//keep
+            router: new EventTarget(),//keep
             map: new WeakMap(),//re-check
             modes: {//re-check
                 element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
@@ -296,6 +297,25 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 this.env.modes = newModes
+                window.addEventListener('hashchange', event => this.env.router.dispatchEvent(new CustomEvent('change')))
+                for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
+                    Object.defineProperty(this.env.router, k, { enumerable: true, get: () => document.location[k] })
+                }
+                Object.defineProperty(this.env.router, 'value', { enumerable: true, get: () => this.flatten(document.location) })
+                Object.defineProperty(this.env.router, 'assign', { enumerable: true, value: (url) => document.location.assign(url) })
+                Object.defineProperty(this.env.router, 'reload', { enumerable: true, value: (forceGet) => document.location.reload(forceGet) })
+                Object.defineProperty(this.env.router, 'replace', { enumerable: true, value: (url) => document.location.replace(url) })
+                Object.defineProperty(this.env.router, 'to', {
+                    enumerable: true, value: (path) => {
+                        if (path === true) window.location.reload()
+                        let url
+                        if (path && (typeof path === 'string')) {
+                            path = this.resolveVariables(path)
+                            if (!path) return
+                            window.location = this.resolveUrl(path)
+                        }
+                    }
+                })
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
                 Object.freeze(this.env.modes)

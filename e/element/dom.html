@@ -3,6 +3,14 @@
 <script>
     export default class extends `./map` {
 
+        #isRouter
+        #routes = {
+            '#': v => v ? document.location.hash = v : document.location.hash.slice(1),
+            '?': v => v ? document.location.search = v : document.location.search.slice(1),
+            '/': v => v ? document.location.pathname = v : document.location.pathname.slice(1)
+        }
+
+
         static portType = 'DOM'
 
         constructor() {
@@ -17,25 +25,35 @@
 
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
-            if (portExpression[0] === '#') portExpression = `:document|${portExpression}`
             const direction = this.direction, cells = this.cells
             if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
-            let [scopeExpression, selectorEvents] = portExpression.split(/\|(?!\=)/g).map(s => s.trim()),
-                scope = this.E.utils.resolveScope(scopeExpression, this)
-            if (!scope) return
-            let selector, eventNames = [], useDefaultEvents = true, selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
-            if (selectorEventsLastIndexOf === -1) {
-                selector = selectorEvents
+            let useDefaultEvents, selector, scope, eventNames = [], routeHandler = this.#routes[portExpression]
+            if (portExpression === ':' || (typeof routeHandler === 'function')) {
+                this.#isRouter = true
+                scope = this.E.env.router
+                selector = portExpression
+                eventNames = ['change']
             } else {
-                selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
-                eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
-                useDefaultEvents = !eventNames.length
+                if (portExpression[0] === '#') portExpression = `:document|${portExpression}`
+                let [scopeExpression, selectorEvents] = portExpression.split(/\|(?!\=)/g).map(s => s.trim())
+                scope = this.E.utils.resolveScope(scopeExpression, this)
+                if (!scope) return
+                let selectorEventsLastIndexOf = selectorEvents.lastIndexOf('!')
+                useDefaultEvents = true
+                if (selectorEventsLastIndexOf === -1) {
+                    selector = selectorEvents
+                } else {
+                    selector = selectorEvents.slice(0, selectorEventsLastIndexOf)
+                    eventNames = selectorEvents.slice(selectorEventsLastIndexOf + 1).split(',').map(s => s.trim()).filter(s => !!s)
+                    useDefaultEvents = !eventNames.length
+                }
             }
             if (this.direction === 'toCell') {
                 if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
+                        if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope)); return }
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
@@ -45,6 +63,7 @@
                 }
                 this.touch = () => {
                     if (!scope) return
+                    if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope)); return }
                     const targets = selector ? scope.querySelectorAll(selector) : [scope]
                     for (const target of targets) this._applyToCells(this.E.flatten(target))
                 }
@@ -53,6 +72,17 @@
         }
 
         #applyFromCells(value, cell, countLabel, counter, event, selector, scope) {
+            if (this.#isRouter) {
+                this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: selector, router: this.E.flatten(scope) })
+                    .then(data => {
+                        if (this.#routes[selector]) {
+                            this.#routes[selector](data)
+                        } else if (data instanceof Object) {
+                            const [routerProperty, routerArg] = Object.entries(data)[0] ?? []
+                            typeof this.E.env.router[routerProperty] === 'function' ? this.E.env.router[routerProperty](routerArg) : this.E.env.router[routerProperty] = routerArg
+                        }
+                    })
+            }
             let targets = this.E.utils.resolveSelector(selector, scope)
             if (!Array.isArray(targets)) targets = [targets]
             for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
