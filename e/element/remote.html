@@ -130,17 +130,19 @@
                     }
                 } else if (direction === 'fromCell') {
                     handler = (value, remoteMapElement, init) => {
-                        console.log('remote.html: line 136', value, remoteMapElement, init)
                         let options = remoteMapElement.options ?? {}
                         if (typeof options === 'string') options = remoteMapElement.E.resolveVariables('${' + options + '}')
                         if (!(options instanceof Object)) return
                         const url = remoteMapElement.E.resolveUrl(remoteMapElement.E.resolveVariables(remoteUrl, remoteMapElement), remoteMapElement)
                         if (!url) return
                         options.body = value
-                        console.log('remote.html: line 143', url, options)
-                        fetch(url, options).then(response => {
-                            console.log('remote.html: line 145', this, response)
-                            // this._applyToCells(response)
+                        fetch(url, options).then(r => {
+                            this.E.parse(r, this).then(value => {
+                                const toCellResponse = { ok: r.ok, status: r.status, headers: Object.fromEntries(r.headers.entries()), value }
+                                for (const map of this.port?.toCell?.maps ?? []) {
+                                    map.touch(toCellResponse)
+                                }
+                            })
                         })
                     }
                 }
@@ -152,8 +154,15 @@
             this.E.env.ports[name].type = this.constructor.portType
             handler = handler.bind(this.E.env.ports[name])
             this.E.env.ports[name][direction] = { handler, name, direction }
+            this.E.env.ports[name][direction].maps ||= []
+            this.E.env.ports[name][direction].maps.push(this)
             this.E.env.ports[name].singleton = remoteUrl
             return [this.E.env.ports[name], [remoteUrl]]
+        }
+
+        disconnectedCallback() {
+            const maps = ((this.port ?? {})[this.direction] ?? {})?.maps
+            if (maps) this.port[this.direction].maps = maps.filter(m => m !== this)
         }
 
         #applyFromCells(value, cell, countLabel, counter, event, url) {
@@ -163,10 +172,12 @@
                 .then(data => this.E.serialize(data, this)).then(serializedData => handler(serializedData, this))
         }
 
-        touch() {
-            const handler = (this.port ?? {})[this.direction]?.handler
+        touch(response) {
+            const direction = this.direction, port = this.port
+            if (!port || !direction) return
+            const handler = port[direction]?.handler
             if (!handler) return
-            const response = handler(this)
+            response ||= handler(this)
             if (!response) return
             Promise.resolve(response).then(response => this._applyToCells(response))
         }

@@ -100,23 +100,19 @@
                     break
                 }
             }
-            cellsExpression = this.E.resolveVariables(cellsExpression, this).trim()
-            if (!cellsExpression) return
-            transformExpression = this.E.resolveVariables(transformExpression).trim()
-            if (!transformExpression) return
-            portExpression = this.E.resolveVariables(portExpression).trim()
-            if (!portExpression) return
+            if (!cellsExpression || !transformExpression || !portExpression) return
             if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
                 this.#cells = []
-                for (let c of cellsExpression.slice(1, -1).split(',')) this.#cells.push(this.E.getCell(this.E.resolveVariables(c.trim(), this)))
-            } else if ((cellsExpression[0] === '[') && cellsExpression.endsWith(']')) {
+                for (let c of cellsExpression.slice(1, -1).split(',').map(c => c.trim()).filter(c => c)) this.#cells.push(this.E.getCell(c.trim()))
+            } else if ((cellsExpression[0] === '{') && cellsExpression.endsWith('}')) {
                 this.#cells = {}
-                for (let cp of cellsExpression.slice(1, -1).split(',')) {
-                    let [cellKey, cellName] = cp.split(':')
-                    this.#cells[this.E.resolveVariables(cellKey.trim(), this)] = this.E.getCell(this.E.resolveVariables(cellName.trim(), this))
+                for (let cp of cellsExpression.slice(1, -1).split(',').map(c => c.trim()).filter(c => c)) {
+                    let [cellKey, cellName] = cp.split(':').map(c => c.trim())
+                    if (!cellName) cellName = cellKey
+                    this.#cells[cellKey] = this.E.getCell(cellName)
                 }
             } else {
-                this.#cells = [this.E.getCell(this.E.resolveVariables(cellsExpression, this))]
+                this.#cells = [this.E.getCell(cellsExpression)]
             }
             this.#transform = transformExpression
             if (this.#abortController) this.#abortController.abort()

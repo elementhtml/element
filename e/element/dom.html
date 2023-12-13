@@ -82,6 +82,7 @@
                             typeof this.E.env.router[routerProperty] === 'function' ? this.E.env.router[routerProperty](routerArg) : this.E.env.router[routerProperty] = routerArg
                         }
                     })
+                return
             }
             let targets = this.E.utils.resolveSelector(selector, scope)
             if (!Array.isArray(targets)) targets = [targets]
