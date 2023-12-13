@@ -114,7 +114,16 @@ const ElementHTML = Object.defineProperties({}, {
                             try { retval = Object.fromEntries((new URLSearchParams(retval)).entries()) } catch (e) { }
                         }
                     }
-                    if (retval instanceof Object) for (const k in retval) retval[k] = ElementHTML.resolveVariables(retval[k])
+                    const recurse = (obj) => {
+                        for (const k in obj) {
+                            if (obj[k] instanceof Object) {
+                                recurse(obj[k])
+                            } else if (typeof obj[k] === 'string') {
+                                obj[k] = ElementHTML.resolveVariables(obj[k])
+                            }
+                        }
+                    }
+                    if (retval instanceof Object) recurse(retval)
                     return retval
                 }
             },
@@ -1033,13 +1042,6 @@ const ElementHTML = Object.defineProperties({}, {
                     case "'":
                         varValue = varName.slice(1, -1)
                         break
-                    case '#':
-                        if (varName === '#') {
-                            varValue = element.id
-                        } else {
-                            varValue = this.getCell(varName.slice(1)).get()
-                        }
-                        break
                     case '&':
                         varValue = element.classList.contains(varName.slice(1))
                         break
@@ -1078,19 +1080,29 @@ const ElementHTML = Object.defineProperties({}, {
                         const nestedElement = this.utils.resolveScopedSelector(nestedScopedSelector, element)
                         if (nestedElement) varValue = this.resolveVariables('${' + nestedVariableNames + '}', nestedElement)
                         break
-                    case '~':
-                        varName = varName.slice(1)
-                        if (varName.includes('.')) {
-                            let varNameSplit = varName.split('.').map(s => s.trim())
-                            varValue = this.env.variables[varNameSplit.shift()]
-                            if (!(varValue instanceof Function) && (varValue instanceof Object)) for (const part of varNameSplit) {
-                                varValue = varValue[part]
-                                if (!(varValue instanceof Object) || (varValue instanceof Function)) break
-                            }
-                        } else { varValue = this.env.variables[varName] }
-                        break
                     default:
-                        varValue = element[varName]
+                        if (varName === '#') {
+                            varValue = element.id
+                        } else {
+                            let getFrom = element, isCell
+                            if (varName[0] === '#') {
+                                getFrom = this.env.cells
+                                varName = varName.slice(1)
+                                isCell = true
+                            } else if (varName[0] === '~') {
+                                getFrom = this.env.variables
+                                varName = varName.slice(1)
+                            }
+                            if (varName.includes('.')) {
+                                let varNameSplit = varName.split('.').map(s => s.trim())
+                                varValue = getFrom[varNameSplit.shift()]
+                                if (isCell) varValue = varValue.value
+                                if (!(varValue instanceof Function) && (varValue instanceof Object)) for (const part of varNameSplit) {
+                                    varValue = varValue[part]
+                                    if (!(varValue instanceof Object) || (varValue instanceof Function)) break
+                                }
+                            } else { varValue = getFrom[varName] }
+                        }
                 }
                 if (expression.includes('(') && expression.endsWith(')')) {
                     if (typeof varValue === 'function') {
