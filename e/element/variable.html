@@ -9,10 +9,6 @@
 
         constructor() {
             super()
-            for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
-                Object.defineProperty(this, k, { enumerable: true, get: () => document.location[k] })
-            }
-            Object.defineProperty(this, 'value', { enumerable: true, get: () => this.E.flatten(document.location) })
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('value', 'options', 'content-type') }

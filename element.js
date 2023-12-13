@@ -47,9 +47,10 @@ const ElementHTML = Object.defineProperties({}, {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
-            cells: {},//keep
+            cells: {},//keep            
             transforms: {},//keep
-            ports: {},//keep
+            ports: {},//keep            
+            schemas: {},//keep            
             variables: {}//keep
         }
     },
@@ -795,6 +796,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if ('selected' in value) result.selected = value.selected
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
+                if (value.constructor._flattenableProperties && Array.isArray(value.constructor._flattenableProperties)) {
+                    for (const p of value.constructor._flattenableProperties) result[p] = value[p]
+                }
                 if (result.tag === 'form' || result.tag === 'fieldset') {
                     result._ = {}
                     for (const c of value.querySelectorAll('[name]')) result._[c.name] ||= this.flatten(c)._
@@ -988,6 +992,7 @@ const ElementHTML = Object.defineProperties({}, {
     resolveVariables: {//keep
         enumerable: true, value: function (statement, element) {
             if (!statement) return
+            if (typeof statement !== 'string') return statement
             const regExp = /\$\{(.+?)\}/g, isMatch = statement.match(regExp)
             if (!isMatch) return statement
             if (statement[2] === '[' && statement.endsWith(']}')) {
@@ -1166,7 +1171,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const bindings = {}
                 if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
                 if (transform.includes('$stop(')) bindings.stop = v => v
-                if (transform.includes('$getCell(')) bindings.getCell = name => name ? this.getCell(name).get() : undefined
+                if (transform.includes('$getCell(')) bindings.getCell = name => name ? { name, value: this.getCell(name).get() } : undefined
                 if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
                 const date = new Date(),
                     dateMethods = ['toDateString', 'toString', 'valueOf', 'toISOString', 'toLocaleDateString', 'toLocaleString', 'toLocaleTimeString', 'toTimeString', 'toUTCString']
@@ -1514,6 +1519,7 @@ const ElementHTML = Object.defineProperties({}, {
                     } catch (e) { }
                 }
                 static get observedAttributes() { return ['_'] }
+                static get _flattenableProperties() { return this.observedAttributes }
                 static E = ElementHTML
                 async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
                 async readyCallback() { }

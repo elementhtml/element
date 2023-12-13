@@ -12,6 +12,10 @@
         #port
         #options
 
+        static get _flattenableProperties() {
+            return (super._flattenableProperties || []).concat(['cells', 'direction', 'force', 'port', 'passive', 'prevent', 'transform'])
+        }
+
         constructor() { super() }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'content-type', 'directive', 'options') }
@@ -69,6 +73,12 @@
         get force() { return this.hasAttribute('force') }
         set force(value) { }
 
+        get options() { return this.E.utils.parseObjectAttribute(this.E.utils.safeGet(this, this.#options, 'options')) }
+        set options(value) {
+            if (this.#options === value) return
+            this.#options = value
+        }
+
         get port() { return this.#port }
 
         get passive() { return this.hasAttribute('passive') }
@@ -111,8 +121,7 @@
             this.#transform = transformExpression
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
-            const signal = this.#abortController.signal
-            const [port, portTypeSpecificArgs] = this._getPort(portExpression, signal)
+            const signal = this.#abortController.signal, [port, portTypeSpecificArgs] = this._getPort(portExpression, signal)
             this.#port = port
             if (this.#direction === 'toCell') {
                 if (!this.passive) this.touch()

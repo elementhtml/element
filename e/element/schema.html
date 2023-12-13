@@ -1,73 +1,115 @@
 <style></style>
 <template></template>
 <script>
-    export default class extends `./pointer` {
+    export default class extends `meta` {
 
-        #abortController
-        #canonicalUrl
-        #schema
-        #validate = input => true
+        #source
+        #contentType
+        #options
+        #name
+        #validate
 
         constructor() {
             super()
-            this.#abortController = new AbortController()
-            Object.defineProperties(this, {
-                _apply: {
-                    configurable: false, enumerable: false, value: async (result, target) => {
-                        if (!target || !Array.isArray(target) || !target.length) return
-                        this.#canonicalUrl = result
-                        let applyMap = this.applyMap ?? {}
-                        if (!this.E.env.libraries.ajv) {
-                            let ajvOptions = { ...this.E.env.options.ajv, ...applyMap }
-                            this.E.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
-                            const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
-                            addFormats(this.E.env.libraries.ajv)
-                        }
-                        this.#validate = this.E.env.libraries.ajv.getSchema(this.#canonicalUrl)
-                        if (!this.#validate) {
-                            let schemaFetch = await fetch(this.#canonicalUrl), schemaText = await schemaFetch.text()
-                            if (schemaFetch.status >= 400) {
-                                this.dispatchEvent(new CustomEvent('error', { detail: { type: 'load', status: schemaFetch.status, message: schemaText } }))
-                                if (this.errors === 'throw') { throw new Error(schemaText); return } else if (this.errors === 'hide') { schemaText = '{}' }
-                            }
-                            let schemaJson
-                            try { schemaJson = JSON.parse(schemaText) } catch (e) { }
-                            if (schemaJson instanceof Object) {
-                                this.#schema = JSON.parse(schemaText)
-                                delete schemaJson['$schema']
-                                this.E.env.libraries.ajv.addSchema(schemaJson, this.#canonicalUrl)
-                                this.#validate = this.E.env.libraries.ajv.getSchema(this.#canonicalUrl)
-                            } else { this.dispatchEvent(new CustomEvent('error', { detail: { type: 'parse', status: schemaFetch.status, message: schemaText } })) }
-                        }
-                        this.#abortController.abort()
-                        this.#abortController = new AbortController()
-                        for (const t of target) {
-                            t.addEventListener('change', async event => {
-                                const valid = await this.#validate(this.E.getValue(t)), errors = valid ? [] : [...this.#validate.errors]
-                                if (!valid && errors.length) {
-                                    t.dispatchEvent(new CustomEvent('error', { detail: errors }))
-                                } else if (valid) { t.dispatchEvent(new CustomEvent('success', { detail: errors })) }
-                            }, { signal: this.#abortController.signal })
-                        }
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat(':', 'source', 'content-type', 'options', 'name') }
+
+        toString() { return document.location.toString() }
+
+        get [':']() { return this.source }
+        set [':'](value) { this.source = value }
+
+        get ['content-type']() { return this.contentType }
+        set ['content-type'](value) { this.contentType = value }
+
+        get contentType() { return this.E.utils.safeGet(this, this.#contentType, 'content-type', 'contentType') }
+        set contentType(value) { this.#contentType = value }
+
+        get options() { return this.E.utils.safeGet(this, this.#options, 'options') }
+        set options(value) {
+            if (value === this.#options) return
+            this.#options = value
+        }
+
+        get name() { return this.E.utils.safeGet(this, this.#name, 'name') }
+        set name(value) {
+            if (value === this.#name) return
+            this.#name = value
+        }
+
+        get source() { return this.E.utils.safeGet(this, this.#source, 'source') }
+        set source(value) {
+            if (this.#source === value) return
+            this.#setSource(value)
+            this.#source = value
+        }
+
+        async #setSource(value) {
+            if (value === undefined) return
+            if (typeof value !== 'string') return
+            value = value.trim()
+            if (!value) return
+            const name = this.name
+            if (!name) return
+            let inline, type, schemaObj
+            const contentType = this.contentType
+            type = (contentType && contentType.includes('jsonata')) ? 'jsonata' : (contentType ? 'json-schema' : undefined)
+            if (value[0] === '$' || ((value[0] == '{') && value.endsWith('}')) || ((value[0] == '[') && value.endsWith(']'))
+                || ((value[0] == '(') && value.endsWith(')'))) {
+                inline = true
+                if (!type) {
+                    if (((value[0] == '{') && value.endsWith('}'))) {
+                        try {
+                            schemaObj = JSON.parse(value)
+                            type = schemaObj['$schema'] && schemaObj['$id'] ? 'json-schema' : 'jsonata'
+                        } catch (e) { type = 'jsonata' }
                     }
-                },
-                _contentType: { configurable: false, enumerable: false, writable: false, value: 'application/schema+json' },
-                _isReference: { configurable: false, enumerable: false, writable: false, value: true },
-                _mode: { configurable: false, enumerable: false, writable: false, value: 'schema' }
-            })
+                }
+            } else {
+                inline = false
+                if (!type) {
+                    if (value.endsWith('.jsonata')) type = 'jsonata'
+                    type ||= value.endsWith('.jsonata-book') ? 'jsonata' : undefined
+                    type ||= value.endsWith('.json') ? 'json-schema' : undefined
+                    type ||= value.endsWith('.jsonschema') ? 'json-schema' : undefined
+                }
+            }
+            if (!type) return
+            if (type === 'jsonata') {
+                this.E.env.schemas[name] = async data => {
+                    const result = await this.E.runTransform(inline ? value : ('`' + value + '`'), data, this, variableMap = {})
+                    if (typeof result === 'boolean') {
+                        return [result, []]
+                    } else if (Array.isArray(result) && result.every(m => typeof m === 'string')) {
+                        return [false, result]
+                    }
+                }
+            } else {
+                if (!this.E.env.libraries.ajv) {
+                    let ajvOptions = { ...this.E.env.options.ajv, ...(this.options ?? {}) }
+                    this.E.env.libraries.ajv = new (await import('https://cdn.jsdelivr.net/npm/ajv@8.12.0/+esm')).default(ajvOptions)
+                    const addFormats = (await import('https://cdn.jsdelivr.net/npm/ajv-formats/+esm')).default
+                    addFormats(this.E.env.libraries.ajv)
+                }
+                this.E.schemas[name] = async data => {
+                    const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
+                    return [valid, errors]
+                }
+                this.#validate = this.E.env.libraries.ajv.getSchema(value)
+                if (!this.#validate) {
+                    let schemaFetch = await fetch(value), schemaText = await schemaFetch.text(), schemaJson
+                    try { schemaJson = JSON.parse(schemaText) } catch (e) { }
+                    if (schemaJson instanceof Object) {
+                        delete schemaJson['$schema']
+                        this.E.env.libraries.ajv.addSchema(schemaJson, value)
+                        this.#validate = this.E.env.libraries.ajv.getSchema(value)
+                    }
+                }
+            }
+
+
         }
-
-        static get observedAttributes() { return (super.observedAttributes || []).concat('parser') }
-
-        validate(data) {
-            if (data instanceof HTMLElement) data = this.E.getValue(data)
-            const valid = this.#validate(data), errors = valid ? [] : [...this.#validate.errors]
-            return [valid, errors]
-        }
-
-        get schema() { return this.schema }
-
-        get canonicalUrl() { return this.#canonicalUrl }
 
     }
 </script>

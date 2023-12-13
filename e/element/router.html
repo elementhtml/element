@@ -3,10 +3,15 @@
 <script>
     export default class extends `meta` {
 
+        static get _flattenableProperties() {
+            return (super._flattenableProperties || []).concat(Object.keys(document.location).filter(k => typeof document.location[k] !== 'function'))
+        }
+
         constructor() {
             super()
             for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
                 Object.defineProperty(this, k, { enumerable: true, get: () => document.location[k] })
+                this.constructor._flattenableProperties.push(k)
             }
             Object.defineProperty(this, 'value', { enumerable: true, get: () => this.E.flatten(document.location) })
         }

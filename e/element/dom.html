@@ -17,6 +17,7 @@
 
         #getPort(portExpression, signal) {
             if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+            if (portExpression[0] === '#') portExpression = `:document|${portExpression}`
             const direction = this.direction, cells = this.cells
             if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
@@ -41,6 +42,11 @@
                         const value = this.E.flatten(event.target)
                         this._applyToCells(value)
                     }, { signal })
+                }
+                this.touch = () => {
+                    if (!scope) return
+                    const targets = selector ? scope.querySelectorAll(selector) : [scope]
+                    for (const target of targets) this._applyToCells(this.E.flatten(target))
                 }
             }
             return [scope, [selector, scope]]
