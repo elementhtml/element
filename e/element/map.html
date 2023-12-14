@@ -63,7 +63,11 @@
 
         get direction() { return this.#direction }
 
-        get directive() { return this.E.utils.safeGet(this, this.#directive, 'directive') }
+        get directive() {
+            const directiveAttr = this.hasAttribute(':') ? this.getAttribute(':') : this.getAttribute('directive')
+            if (directiveAttr !== this.#directive) this.directive = directiveAttr
+            return this.#directive
+        }
         set directive(value) {
             if (this.#directive === value) return
             this.#setDirective(value)
@@ -133,6 +137,14 @@
             } else if (cells) {
                 for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
             }
+        }
+
+        refresh(directive) {
+            if (this.id === 'feed-renderer') console.log('line 143', this.dataset.endpoint)
+            if (directive) directive = this.E.resolveVariables(directive[0] === '@' ? '${' + directive + '}'
+                : directive, this)
+            directive ||= this.directive
+            this.#setDirective(directive)
         }
 
         touch() {
