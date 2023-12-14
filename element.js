@@ -517,7 +517,23 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (element, data, silent) {
             if (!(element instanceof HTMLElement)) return
             if (data === null) element.remove()
-            if (!(data instanceof Object)) return this.setValue(element, data, silent)
+            if (!(data instanceof Object)) {
+                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+                if (tag === 'meta') {
+                    data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
+                } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(tag)) {
+                    element.value = data
+                } else if (['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].includes(tag)) {
+                    data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
+                } else if (['area', 'link'].includes(tag)) {
+                    data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
+                } else if (tag === 'object') {
+                    data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
+                } else {
+                    element.textContent = (data == undefined) ? '' : data
+                }
+                return
+            }
             const setProperty = (k, v, element) => {
                 if (k.includes('(') && k.endsWith(')')) {
                     this.runElementMethod(k, v, element)

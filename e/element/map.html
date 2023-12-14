@@ -140,7 +140,6 @@
         }
 
         refresh(directive) {
-            if (this.id === 'feed-renderer') console.log('line 143', this.dataset.endpoint)
             if (directive) directive = this.E.resolveVariables(directive[0] === '@' ? '${' + directive + '}'
                 : directive, this)
             directive ||= this.directive
