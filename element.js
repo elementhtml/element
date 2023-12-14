@@ -536,7 +536,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const setProperty = (k, v, element) => {
                 if (k.includes('(') && k.endsWith(')')) {
-                    this.runElementMethod(k, v, element)
+                    if (v != undefined) {
+                        this.runElementMethod(k, v, element)
+                    }
                 } else {
                     if (v === undefined) {
                         delete element[k]
@@ -661,7 +663,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
                 argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariables('${' + a.trim() + '}', element)) : []
-                return element[funcName](...argsRest, arg)
+                return element[funcName](...argsRest, ...(Array.isArray(arg) ? arg : [arg]))
             }
         }
     },
