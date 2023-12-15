@@ -16,15 +16,15 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: (portExpression, signal) => this.#getPort(portExpression, signal)
+                value: (portExpression) => this.#getPort(portExpression)
             })
             Object.defineProperty(this, '_applyFromCells', {
                 value: (value, cell, countLabel, counter, event, selector, scope) => this.#applyFromCells(value, cell, countLabel, counter, event, selector, scope)
             })
         }
 
-        #getPort(portExpression, signal) {
-            if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+        #getPort(portExpression) {
+            if (!portExpression || (typeof portExpression !== 'string')) return
             const direction = this.direction, cells = this.cells
             if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
@@ -58,14 +58,13 @@
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
                         const value = this.E.flatten(event.target)
-                        this._applyToCells(value)
-                    }, { signal })
+                        this._applyToCells([value])
+                    }, { signal: this._abortController.signal })
                 }
                 this.touch = () => {
                     if (!scope) return
                     if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope)); return }
-                    const targets = selector ? scope.querySelectorAll(selector) : [scope]
-                    for (const target of targets) this._applyToCells(this.E.flatten(target))
+                    this._applyToCells(this.E.flatten(selector ? scope.querySelectorAll(selector) : [scope]))
                 }
             }
             return [scope, [selector, scope]]
@@ -89,8 +88,6 @@
             for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
                 .then(data => this.E.applyData(target, data))
         }
-
-        touch() { return }
 
     }
 </script>

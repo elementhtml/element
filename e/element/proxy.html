@@ -10,7 +10,7 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: (portExpression, signal) => this.#getPort(portExpression, signal)
+                value: (portExpression) => this.#getPort(portExpression)
             })
             Object.defineProperty(this, '_applyFromCells', {
                 value: (value, cell, countLabel, counter, event, name) => this.#applyFromCells(value, cell, countLabel, counter, event, name)
@@ -19,8 +19,8 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
-        #getPort(portExpression, signal) {
-            if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+        #getPort(portExpression) {
+            if (!portExpression || (typeof portExpression !== 'string')) return
             const direction = this.direction, cells = this.cells
             if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return

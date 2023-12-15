@@ -3,7 +3,6 @@
 <script>
     export default class extends `meta` {
 
-        #abortController
         #contentType
         #direction
         #directive
@@ -12,6 +11,8 @@
         #transform
         #port
         #options
+
+        _abortController
 
         static get _flattenableProperties() {
             return (super._flattenableProperties || []).concat(['cells', 'direction', 'if', 'force', 'port', 'passive', 'prevent', 'transform'])
@@ -29,23 +30,31 @@
 
         async connectedCallback() { }
 
-        connectFromCells(signal, portTypeSpecificArgs = []) {
+        disconnectedCallback() {
+            if (this._abortController) this._abortController.abort()
+            const maps = ((this.port ?? {})[this.direction] ?? {})?.maps
+            if (maps) this.port[this.direction].maps = maps.filter(m => m !== this)
+        }
+
+        connectFromCells(portTypeSpecificArgs = []) {
             const cells = this.cells
             if (Array.isArray(cells)) {
                 for (const [index, cell] of cells.entries()) {
                     const cellValue = cell.get()
-                    if (this.force || (cellValue !== undefined)) this._applyFromCells(cellValue, cell, 'index', index, undefined, ...portTypeSpecificArgs)
+                    if (this.id == 'test') console.log('map.html: line 44', cellValue)
+                    if (this.force || (cellValue != undefined)) this._applyFromCells(cellValue, cell, 'index', index, undefined, ...portTypeSpecificArgs)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this._applyFromCells(event.detail, cell, 'index', index, this.E.flatten(event), ...portTypeSpecificArgs)
-                    }, { signal })
+                        if (this.id == 'test') console.log('map.html: line 47')
+                        if (this.force || (event.detail != undefined)) this._applyFromCells(event.detail, cell, 'index', index, this.E.flatten(event), ...portTypeSpecificArgs)
+                    }, { signal: this._abortController.signal })
                 }
             } else if (cells) {
                 for (const [key, cell] of Object.entries(cells)) {
                     const cellValue = cell.get()
-                    if (this.force || (cellValue !== undefined)) this._applyFromCells(cellValue, cell, 'key', key, undefined, ...portTypeSpecificArgs)
+                    if (this.force || (cellValue != undefined)) this._applyFromCells(cellValue, cell, 'key', key, undefined, ...portTypeSpecificArgs)
                     cell.eventTarget.addEventListener('change', event => {
-                        if (this.force || (event.detail !== undefined)) this._applyFromCells(event.detail, cell, 'key', key, this.E.flatten(event), ...portTypeSpecificArgs)
-                    }, { signal })
+                        if (this.force || (event.detail != undefined)) this._applyFromCells(event.detail, cell, 'key', key, this.E.flatten(event), ...portTypeSpecificArgs)
+                    }, { signal: this.__abortController.signal })
                 }
             }
         }
@@ -53,7 +62,7 @@
         async saveToCell(rawValue, cell, cellBindings = {}, transformBindings = {}) {
             const oldValue = cell.get(), force = this.force
             const newValue = await this.E.runTransform(this.transform, rawValue, this, { cell: { value: oldValue, name: cell.name, ...cellBindings }, ...transformBindings })
-            if (!force) if ((newValue === undefined) || (oldValue === newValue) || (JSON.stringify(oldValue) === JSON.stringify(newValue))) return
+            if (!force) if ((newValue == undefined) || (oldValue === newValue) || (JSON.stringify(oldValue) === JSON.stringify(newValue))) return
             cell.set(newValue, force)
         }
 
@@ -127,14 +136,14 @@
                 this.#cells = [this.E.getCell(cellsExpression)]
             }
             this.#transform = transformExpression
-            if (this.#abortController) this.#abortController.abort()
-            this.#abortController = new AbortController()
-            const signal = this.#abortController.signal, [port, portTypeSpecificArgs] = this._getPort(portExpression, signal)
+            if (this._abortController) this._abortController.abort()
+            this._abortController = new AbortController();
+            let [port, portTypeSpecificArgs] = this._getPort(portExpression)
             this.#port = port
             if (this.#direction === 'toCell') {
                 if (!this.passive) this.touch()
             } else if (this.#direction === 'fromCell') {
-                this.connectFromCells(signal, portTypeSpecificArgs)
+                this.connectFromCells(portTypeSpecificArgs)
             }
         }
 

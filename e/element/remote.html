@@ -10,7 +10,7 @@
         constructor() {
             super()
             Object.defineProperty(this, '_getPort', {
-                value: (portExpression, signal) => this.#getPort(portExpression, signal)
+                value: (portExpression) => this.#getPort(portExpression)
             })
             Object.defineProperty(this, '_applyFromCells', {
                 value: (value, cell, countLabel, counter, event, url) => this.#applyFromCells(value, cell, countLabel, counter, event, url)
@@ -19,8 +19,8 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
 
-        #getPort(portExpression, signal) {
-            if (!portExpression || (typeof portExpression !== 'string') || !(signal instanceof AbortSignal)) return
+        #getPort(portExpression) {
+            if (!portExpression || (typeof portExpression !== 'string')) return
             const direction = this.direction, cells = this.cells
             if ((direction !== 'toCell') && (direction !== 'fromCell')) return
             if (!cells) return
@@ -45,7 +45,7 @@
                     // need to handle closed sockets...
                     port.singleton.addEventListener('message', event => {
                         this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue))
-                    }, signal)
+                    }, { signal: this._abortController.signal })
                 } else { return }
             }
             if (!remoteUrl.startsWith('https://') && !remoteUrl.startsWith('http://')) return
@@ -106,12 +106,12 @@
                     for (const eventName of eventsExpression.split(',').map(s => s.trim()).filter(s => !!s)) {
                         port.singleton.addEventListener(eventName, event => {
                             this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue, eventName))
-                        }, signal)
+                        }, { signal: this._abortController.signal })
                     }
                 }
                 port.singleton.addEventListener('message', event => {
                     this.E.parse(event.data, this).then(parsedValue => this.saveToCell(parsedValue, 'message'))
-                }, signal)
+                }, { signal: this._abortController.signal })
             } else {
                 if (direction === 'toCell') {
                     handler = (remoteMapElement) => {
@@ -160,11 +160,6 @@
             return [this.E.env.ports[name], [remoteUrl]]
         }
 
-        disconnectedCallback() {
-            const maps = ((this.port ?? {})[this.direction] ?? {})?.maps
-            if (maps) this.port[this.direction].maps = maps.filter(m => m !== this)
-        }
-
         #applyFromCells(value, cell, countLabel, counter, event, url) {
             const handler = this.E.env.ports[url]?.fromCell?.handler
             if (!handler) return
@@ -177,6 +172,7 @@
             if (!port || !direction) return
             const handler = port[direction]?.handler
             if (!handler) return
+            //if (this.id == 'profile-getter') console.log('remote.html: line 180')
             response ||= handler(this)
             if (!response) return
             Promise.resolve(response).then(response => this._applyToCells(response))
