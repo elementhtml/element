@@ -7,7 +7,7 @@
         #direction
         #directive
         #cells
-        #if
+        #lazy
         #transform
         #port
         #options
@@ -15,7 +15,7 @@
         _abortController
 
         static get _flattenableProperties() {
-            return (super._flattenableProperties || []).concat(['cells', 'direction', 'if', 'force', 'port', 'passive', 'prevent', 'transform'])
+            return (super._flattenableProperties || []).concat(['cells', 'direction', 'lazy', 'force', 'port', 'passive', 'prevent', 'transform'])
         }
 
         constructor() { super() }
@@ -87,11 +87,8 @@
         get force() { return this.hasAttribute('force') }
         set force(value) { }
 
-        get if() { return this.E.resolveVariables(this.E.utils.safeGet(this, this.#if, 'if'), this) }
-        set if(value) {
-            if (this.#if === value) return
-            this.#if = value
-        }
+        get lazy() { return this.hasAttribute('lazy') }
+        set lazy(value) { }
 
         get options() { return this.E.utils.parseObjectAttribute(this.E.utils.safeGet(this, this.#options, 'options')) }
         set options(value) {
@@ -109,8 +106,8 @@
 
         get transform() { return this.#transform }
 
-        #setDirective(directive) {
-            if (this.hasAttribute('if') && !this.if) return
+        #setDirective(directive, boot) {
+            if (!boot && this.lazy) return
             directive = this.E.resolveVariables(directive, this)
             if (!directive || (typeof directive !== 'string')) return
             let cellsExpression, transformExpression, portExpression
@@ -157,7 +154,7 @@
         }
 
         refresh(touch) {
-            this.#setDirective(this.directive)
+            this.#setDirective(this.directive, true)
             if (touch) this.touch()
         }
 
@@ -167,7 +164,6 @@
             const value = handler(undefined, this)
             Promise.resolve(this.contentType ? this.E.parse(value, this) : value).then(parsedValue => this._applyToCells(parsedValue))
         }
-
 
     }
 </script>
