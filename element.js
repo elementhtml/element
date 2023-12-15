@@ -848,7 +848,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (result.tag === 'form' || result.tag === 'fieldset') {
                     result._ = {}
-                    for (const c of value.querySelectorAll('[name]')) result._[c.name] ||= this.flatten(c)._
+                    for (const c of value.querySelectorAll('[name]')) result._[c.getAttribute('name')] ||= this.flatten(c)._
                 } else if (result.tag === 'table') {
                     result._ = []
                     const rows = Array.from(value.querySelectorAll('tr')), headers = Array.from(rows.shift().querySelectorAll('th'))
@@ -879,11 +879,11 @@ const ElementHTML = Object.defineProperties({}, {
                 } else {
                     result._ = innerText.trim()
                 }
-                if ((result.tag === 'select') || (result.tag === 'datalist')) {
+                if (result.tag === 'datalist') {
                     const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
-                    result.__ = []
-                    for (const opt of options) result.__.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
-                    if (isObj) result.__ = Object.fromEntries(result.__)
+                    result._ = []
+                    for (const opt of options) result._.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
+                    if (isObj) result._ = Object.fromEntries(result._)
                 }
             } else if (value instanceof Event) {
                 //console.log('line 834', value)
