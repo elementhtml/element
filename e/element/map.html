@@ -8,12 +8,13 @@
         #direction
         #directive
         #cells
+        #if
         #transform
         #port
         #options
 
         static get _flattenableProperties() {
-            return (super._flattenableProperties || []).concat(['cells', 'direction', 'force', 'port', 'passive', 'prevent', 'transform'])
+            return (super._flattenableProperties || []).concat(['cells', 'direction', 'if', 'force', 'port', 'passive', 'prevent', 'transform'])
         }
 
         constructor() { super() }
@@ -77,6 +78,12 @@
         get force() { return this.hasAttribute('force') }
         set force(value) { }
 
+        get if() { return this.E.resolveVariables(this.E.utils.safeGet(this, this.#if, 'if'), this) }
+        set if(value) {
+            if (this.#if === value) return
+            this.#if = value
+        }
+
         get options() { return this.E.utils.parseObjectAttribute(this.E.utils.safeGet(this, this.#options, 'options')) }
         set options(value) {
             if (this.#options === value) return
@@ -94,6 +101,7 @@
         get transform() { return this.#transform }
 
         #setDirective(directive) {
+            if (this.hasAttribute('if') && !this.if) return
             directive = this.E.resolveVariables(directive, this)
             if (!directive || (typeof directive !== 'string')) return
             let cellsExpression, transformExpression, portExpression
@@ -139,11 +147,9 @@
             }
         }
 
-        refresh(directive) {
-            if (directive) directive = this.E.resolveVariables(directive[0] === '@' ? '${' + directive + '}'
-                : directive, this)
-            directive ||= this.directive
-            this.#setDirective(directive)
+        refresh(touch) {
+            this.#setDirective(this.directive)
+            if (touch) this.touch()
         }
 
         touch() {
