@@ -516,7 +516,7 @@ const ElementHTML = Object.defineProperties({}, {
     applyData: {//keep
         enumerable: true, value: async function (element, data, silent) {
             if (!(element instanceof HTMLElement)) return
-            if (data === null) element.remove()
+            if (data === null) return
             if (!(data instanceof Object)) {
                 const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
                 if (tag === 'meta') {

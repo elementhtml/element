@@ -164,7 +164,10 @@
             const handler = this.E.env.ports[url]?.fromCell?.handler
             if (!handler) return
             this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event, url })
-                .then(data => this.E.serialize(data, this)).then(serializedData => handler(serializedData, this))
+                .then(data => {
+                    if (data == undefined) return
+                    return this.E.serialize(data, this)
+                }).then(serializedData => handler(serializedData, this))
         }
 
         touch(response) {
