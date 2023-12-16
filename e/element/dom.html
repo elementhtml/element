@@ -53,12 +53,12 @@
                 if (useDefaultEvents) eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
                 for (const eventName of eventNames) {
                     scope.addEventListener(eventName, async event => {
-                        if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope)); return }
+                        if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope), event); return }
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                         if (this.prevent) event.preventDefault()
                         const value = this.E.flatten(event.target)
-                        this._applyToCells([value])
+                        this._applyToCells([value], event)
                     }, { signal: this._abortController.signal })
                 }
                 this.touch = () => {
@@ -78,15 +78,22 @@
                         if (this.#routes[selector]) {
                             this.#routes[selector](data)
                         } else if (data instanceof Object) {
-                            const [routerProperty, routerArg] = Object.entries(data)[0] ?? []
-                            typeof this.E.env.router[routerProperty] === 'function' ? this.E.env.router[routerProperty](routerArg) : this.E.env.router[routerProperty] = routerArg
+                            for (let [routerProperty, routerArg] of Object.entries(data)) {
+                                if (routerProperty.includes('(')) routerProperty = routerProperty.split('(')[0]
+                                if (typeof this.E.env.router[routerProperty] === 'function') {
+                                    this.E.env.router[routerProperty](routerArg)
+                                } else {
+                                    this.E.env.router[routerProperty] = routerArg
+                                }
+                            }
                         }
                     })
                 return
             }
             let targets = this.E.utils.resolveSelector(selector, scope)
+            const transform = this.transform, seek = (transform.includes('$seek(')) ? ((t, qs) => qs ? this.E.flatten(this.E.utils.resolveScopedSelector(qs, t) ?? {}) : this.E.flatten(t)) : undefined
             if (!Array.isArray(targets)) targets = [targets]
-            for (const target of targets) this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: this.E.flatten(target) })
+            for (const target of targets) this.E.runTransform(transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), seek: seek ? seek.bind(this, target) : undefined, target: this.E.flatten(target) })
                 .then(data => this.E.applyData(target, data))
         }
 

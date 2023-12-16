@@ -144,12 +144,16 @@
             }
         }
 
-        _applyToCells(value) {
-            const cells = this.cells
+        _applyToCells(value, event) {
+            const cells = this.cells, transform = this.transform, seek = (event && event.target && transform.includes('$seek('))
+                ? (qs => {
+                    return qs ? this.E.flatten(this.E.utils.resolveScopedSelector(qs, event.target) ?? {}) : this.E.flatten(event.target)
+                }) : undefined
+            const flatEvent = event ? this.E.flatten(event) : undefined
             if (Array.isArray(cells)) {
-                for (const [index, cell] of cells.entries()) this.saveToCell(value, cell, { index }, { event })
+                for (const [index, cell] of cells.entries()) this.saveToCell(value, cell, { index }, { event: flatEvent, seek })
             } else if (cells) {
-                for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event })
+                for (const [key, cell] of Object.entries(cells)) this.saveToCell(value, cell, { key }, { event: flatEvent, seek })
             }
         }
 

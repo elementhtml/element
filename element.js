@@ -308,23 +308,20 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.modes = newModes
                 window.addEventListener('hashchange', event => this.env.router.dispatchEvent(new CustomEvent('change')))
                 for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
-                    Object.defineProperty(this.env.router, k, { enumerable: true, get: () => document.location[k] })
+                    Object.defineProperty(this.env.router, k, {
+                        enumerable: true,
+                        get: () => document.location[k], set: (v) => document.location[k] = v
+                    })
                 }
                 Object.defineProperty(this.env.router, 'value', { enumerable: true, get: () => this.flatten(document.location) })
                 Object.defineProperty(this.env.router, 'assign', { enumerable: true, value: (url) => document.location.assign(url) })
-                Object.defineProperty(this.env.router, 'reload', { enumerable: true, value: (forceGet) => document.location.reload(forceGet) })
-                Object.defineProperty(this.env.router, 'replace', { enumerable: true, value: (url) => document.location.replace(url) })
-                Object.defineProperty(this.env.router, 'to', {
-                    enumerable: true, value: (path) => {
-                        if (path === true) window.location.reload()
-                        let url
-                        if (path && (typeof path === 'string')) {
-                            path = this.resolveVariables(path)
-                            if (!path) return
-                            window.location = this.resolveUrl(path)
-                        }
+                Object.defineProperty(this.env.router, 'reload', {
+                    enumerable: true, value: (forceGet) => {
+                        console.log('line 319')
+                        document.location.reload(forceGet)
                     }
                 })
+                Object.defineProperty(this.env.router, 'replace', { enumerable: true, value: (url) => document.location.replace(url) })
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
                 Object.freeze(this.env.modes)
@@ -1241,12 +1238,12 @@ const ElementHTML = Object.defineProperties({}, {
                 const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
                 for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
-                for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = this.flatten(v)
+                for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
                 const result = await expression.evaluate(data, bindings)
-                // console.log('line 1179', result, transform, data)
+                // console.log('line 1243', result, transform, data)
                 return result
             } catch (e) {
-                console.log('line 1175', e)
+                console.log('line 1175', e, element)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
