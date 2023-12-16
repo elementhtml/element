@@ -74,6 +74,7 @@
             if (this.#isRouter) {
                 this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), target: selector, router: this.E.flatten(scope) })
                     .then(data => {
+                        if (data == undefined) return
                         if (this.#routes[selector]) {
                             this.#routes[selector](data)
                         } else if (data instanceof Object) {

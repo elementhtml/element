@@ -165,9 +165,8 @@
             if (!handler) return
             this.E.runTransform(this.transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event, url })
                 .then(data => {
-                    if (data == undefined) return
-                    return this.E.serialize(data, this)
-                }).then(serializedData => handler(serializedData, this))
+                    if ((data != undefined)) return this.E.serialize(data, this).then(serializedData => handler(serializedData, this))
+                })
         }
 
         touch(response) {
