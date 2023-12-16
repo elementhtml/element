@@ -105,7 +105,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             parseObjectAttribute: {//keep
                 enumerable: true, value: function (value, element) {
-                    let retval = ElementHTML.resolveVariables(value)
+                    let retval = ElementHTML.resolveVariables(value, element)
                     if (typeof retval === 'string') {
                         if (retval[0] === '?') retval = decodeURIComponent(retval).slice(1)
                         if ((retval[0] === '{') && (retval.slice(-1) === '}')) {
@@ -119,7 +119,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (obj[k] instanceof Object) {
                                 recurse(obj[k])
                             } else if (typeof obj[k] === 'string') {
-                                obj[k] = ElementHTML.resolveVariables(obj[k])
+                                obj[k] = ElementHTML.resolveVariables(obj[k], element)
                             }
                         }
                     }

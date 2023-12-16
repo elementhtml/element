@@ -90,7 +90,7 @@
         get lazy() { return this.hasAttribute('lazy') }
         set lazy(value) { }
 
-        get options() { return this.E.utils.parseObjectAttribute(this.E.utils.safeGet(this, this.#options, 'options')) }
+        get options() { return this.E.utils.parseObjectAttribute(this.E.utils.safeGet(this, this.#options, 'options'), this) }
         set options(value) {
             if (this.#options === value) return
             this.#options = value
