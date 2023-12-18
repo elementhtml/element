@@ -385,5 +385,41 @@
             }
         }
 
+        #parseRemoteExpression(expressionCode) {
+            const globalUrl = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+            let globalConnnector, send
+            if (globalUrl.startsWith('wss://')) {
+                globalConnnector = new WebSocket(globalUrl)
+                send = p => globalConnnector.send(p)
+            } else if (globalUrl.startsWith('sse://')) {
+                globalConnnector = new EventSource(globalUrl)
+            } else if (globalUrl.startsWith('wt://')) {
+                // web transport
+            } else if (globalUrl.startsWith('rtc://')) {
+                // web rtc
+            }
+            return (result, labels, slots, cells, context) => {
+                const body = result == undefined ? undefined : ((typeof result == 'string') ? result : await this.E.serialize(result, this))
+                if (globalConnnector) return send(body)
+                const url = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+                if (!url) return
+                const headers = context.headers ?? {}, method = context.method ?? (body ? 'POST' : 'GET')
+                if (body) {
+                    headers['content-type'] = context['content-type'] ?? headers['content-type'] ?? 'application/json'
+                }
+                const options = { method, headers, body }
+                return await fetch(url, options).then(r => {
+                    return this.E.parse(r, this).then(value => {
+                        return {
+                            ok: r.ok,
+                            status: r.status,
+                            headers: Object.fromEntries(r.headers.entries()),
+                            value
+                        }
+                    })
+                })
+            }
+        }
+
     }
 </script>
