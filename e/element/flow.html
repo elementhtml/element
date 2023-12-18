@@ -186,6 +186,26 @@
             return this.#slots[name]
         }
 
+        #getSlotOrCellGroup(expression, type = '#') {
+            let group
+            if ((expression[0] === '{') && expression.endsWith('}')) {
+                group = {}
+                for (const pair of expression.slice(1, -1).trim().split(',')) {
+                    let [key, name] = pair.trim().split(':').map(s => s.trim())
+                    if (!name) name = key
+                    pairs[key] = type === '%' ? this.#getSlot(name.trim()) : this.E.getCell(name.trim())
+                }
+            } else if ((expression[0] === '[') && expression.endsWith(']')) {
+                group = []
+                for (const t of expression.split(',')) {
+                    group.push(type === '%' ? this.#getSlot(t.trim()) : this.E.getCell(t.trim()))
+                }
+            } else {
+                group = [(type === '%' ? this.#getSlot(expression) : this.E.getCell(expression))]
+            }
+            return group
+        }
+
         #parseContextStatement(statementCode) {
             const pairs = {}
             for (const s of statementCode.trim().slice(1, -1).trim().split(',')) {
@@ -212,23 +232,7 @@
                 case '%':
                 case '#':
                     const targetType = expressionCode[0], expressionCode = expressionCode.slice(1).trim()
-                    let target
-                    if ((expressionCode[0] === '{') && expressionCode.endsWith('}')) {
-                        targets = {}
-                        for (const pair of expressionCode.slice(1, -1).trim().split(',')) {
-                            let [targetKey, targetName] = pair.trim().split(':').map(s => s.trim())
-                            if (!targetName) targetName = targetKey
-                            pairs[targetKey] = targetType === '%' ? this.#getSlot(targetName.trim()) : this.E.getCell(targetName.trim())
-                        }
-                    } else if ((expressionCode[0] === '[') && expressionCode.endsWith(']')) {
-                        target = []
-                        for (const t of expressionCode.split(',')) {
-                            targets.push(targetType === '%' ? this.#getSlot(t.trim()) : this.E.getCell(t.trim()))
-                        }
-                    } else {
-                        target = [(targetType === '%' ? this.#getSlot(expressionCode) : this.E.getCell(expressionCode))]
-                    }
-                    return [target, ['change']]
+                    return [this.#getSlotOrCellGroup(expressionCode, expressionCode[0]), ['change']]
                 case '$':
                     let scopedSelector = expressionCode.slice(2, -1)
                     if (!scopedSelector) scopedSelector = ':|'
@@ -296,6 +300,26 @@
                 } else {
                     const match = result.match(regex, instanceSubstitute)
                     return match ? (match.groups ?? match[1]) : undefined
+                }
+            }
+        }
+
+        #parseStringExpression(expressionCode) {
+            return (result, labels, slots, cells, context) => expressionCode
+        }
+
+        #parseCellExpression(expressionCode) {
+            let group = this.#getSlotOrCellGroup(expressionCode, '#'),
+                config = Array.isArray(group) ? 'array' : ((expressionCode[0] === '{') ? 'object' : 'single')
+            if (config === 'single') group = group[0]
+            return (result, labels, slots, cells, context) => {
+                switch (config) {
+                    case 'single':
+                        return group.get()
+                    case 'array':
+                        return group.map(i => i.get())
+                    default:
+                        return Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
                 }
             }
         }
