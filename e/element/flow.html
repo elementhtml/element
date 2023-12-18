@@ -1,8 +1,11 @@
 <style></style>
-<template></template>
+<template>
+    <slot></slot>
+</template>
 <script>
     export default class extends `script` {
 
+        #abortController
         #context = {}
         #slots = {}
         #src
@@ -18,6 +21,8 @@
             const src = this.src, type = this.type ?? 'script/flow'
             if (src) code = [await fetch(src).then(r => r.text()), code].join('/n/n')
             if (!code) return
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
             let splitter = /\n/gm
             if (type === 'script/flow') splitter = /\n(?!\s+>>)/gm
             if (type === 'text/flow') splitter = /\n\s*\n/gm
@@ -30,12 +35,13 @@
                     continue
                 }
                 const codeExpressions = [], steps = []
-                for (let codeExpression of codeStatement.split(' >> ')) {
+                for (let [index, codeExpression] of codeStatement.split(' >> ').entries()) {
                     codeExpression = codeExpression.trim()
+                    if (!index) steps.push(this.#parseTriggerExpression(codeExpression))
                     if (!codeExpression) continue
                     switch (codeExpression[0]) {
                         case '!':
-                            steps.push(this.#parseTriggerExpression(codeExpression.slice(1)))
+                            steps.push(this.#parseEventTargetExpression(codeExpression.slice(1)))
                             break
                         case '`':
                             steps.push(this.#parseProxyExpression(codeExpression.slice(1, -1)))
@@ -90,12 +96,42 @@
             }
             let context = { ...this.E.env.context }
             for (const statement of this.#statements) {
-                let labels = {}, result
-                for (const expression of statement) {
-                    const [label, handler, defaultValue] = expression
-                    result = (await handler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
-                    if (result == undefined) break
-                    labels[label] = result
+                const triggerExpression = statement[0], context = { ...context }
+                const statementProcessor = async (result) => {
+                    let labels = {}
+                    for (const expression of statement) {
+                        const [label, expressionHandler, defaultValue] = expression
+                        result = (await expressionHandler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
+                        if (result == undefined) break
+                        labels[label] = result
+                    }
+                }
+                const [triggerTarget, eventNames] = triggerExpression
+                if (triggerTarget && Array.isArray(eventNames) && eventNames.length) {
+                    if (triggerTarget instanceof HTMLElement) {
+                        let [selector, eventList] = eventNames[0].split('!'), eventNames, useDefaultEvents
+                        if (eventList) {
+                            eventNames = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                        } else {
+                            eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
+                            useDefaultEvents = true
+                        }
+                        for (const eventName of eventNames) {
+                            triggerTarget.addEventListener(eventName, event => {
+                                if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                                if (selector && !event.target.matches(selector)) return
+                                statementProcessor(this.E.flatten(event.target))
+                            }, { signal: this.#abortController.signal })
+                        }
+                    } else if (triggerTarget instanceof EventTarget) {
+                        for (const eventName of eventNames) triggerTarget.addEventListener(eventName, statementProcessor)
+                    } else if (Array.isArray(triggerTarget)) {
+
+                    } else if (triggerTarget instanceof Object) {
+
+                    }
+                } else {
+                    await statementProcessor()
                 }
             }
         }
@@ -108,19 +144,79 @@
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
 
-        #parseContextStatement = (statement) => {
+        #getSlot(name) {
+            if (!name) return
+            if (!this.#slots[name]) {
+                const slot = {
+                    eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value, force) {
+                        if (this.value === value) {
+                            if (force) slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return
+                        }
+                        this.value = value
+                        slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                    },
+                    value: undefined, name
+                }
+                this.#slots[name] = cell
+            }
+            return this.#slots[name]
+        }
+
+        #parseContextStatement = (statementCode) => {
             const pairs = {}
-            for (const s of statement.slice(3).trim().slice(1, -1).trim().split(',')) {
+            for (const s of statementCode.slice(3).trim().slice(1, -1).trim().split(',')) {
                 let [k, v] = s.trim().split(':').map(s => s.trim())
                 if (k[0] === '"' || k[0] === "'") k = k.slice(1, -1)
                 pairs[k] = v ?? k
             }
             return [0, (result, labels, slots, cells, context) => {
                 for (const [k, v] of pairs) context[k] = this.E.resolveVariables(v ?? k, this)
-                return context
             }, undefined]
         }
 
+        #parseTriggerExpression = (expressionCode) => {
+            switch (expressionCode[0]) {
+                case '!':
+                    expressionCode = expressionCode.slice(1)
+                    if (expressionCode === '#') {
+                        return [window, ['hashchange']]
+                    } else {
+                        const [eventTargetName, eventNames] = expressionCode.split(' ')
+                        this.E.env.eventTargets[eventTargetName.trim()] ||= new EventTarget()
+                        return [this.E.env.eventTargets[eventTargetName], eventNames.trim().split(',').map(s => s.trim()).filter(s => !!s)]
+                    }
+                case '%':
+                case '#':
+                    const targetType = expressionCode[0], expressionCode = expressionCode.slice(1).trim()
+                    let target
+                    if ((expressionCode[0] === '{') && expressionCode.endsWith('}')) {
+                        targets = {}
+                        for (const pair of expressionCode.slice(1, -1).trim().split(',')) {
+                            let [targetKey, targetName] = pair.trim().split(':').map(s => s.trim())
+                            if (!targetName) targetName = targetKey
+                            pairs[targetKey] = targetType === '%' ? this.#getSlot(targetName.trim()) : this.E.getCell(targetName.trim())
+                        }
+                    } else if ((expressionCode[0] === '[') && expressionCode.endsWith(']')) {
+                        target = []
+                        for (const t of expressionCode.split(',')) {
+                            targets.push(targetType === '%' ? this.#getSlot(t.trim()) : this.E.getCell(t.trim()))
+                        }
+                    } else {
+                        target = [(targetType === '%' ? this.#getSlot(expressionCode) : this.E.getCell(expressionCode))]
+                    }
+                    return [target, ['change']]
+                case '$':
+                    let scopedSelector = expressionCode.slice(2, -1)
+                    if (!scopedSelector) scopedSelector = ':|'
+                    if (!scopedSelector.includes('|')) scopedSelector = `:|${scopedSelector}`
+                    const [scopeStatement, selector] = scopedSelector.split('|').map(s => s.trim()),
+                        scope = this.E.utils.resolveScope(scopeStatement, this)
+                    return [scope, [selector]]
+            }
+        }
 
 
     }
