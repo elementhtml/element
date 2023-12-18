@@ -52,31 +52,31 @@
                     }
                     stepLabel ||= index
                     stepHandler
-                    switch (codeExpression[0]) {
+                    switch (stepExpression[0]) {
                         case '!':
-                            stepHandler = this.#parseEventTargetExpression(codeExpression.slice(1))
+                            stepHandler = this.#parseEventTargetExpression(stepExpression.slice(1))
                             break
                         case '`':
-                            stepHandler = this.#parseProxyExpression(codeExpression.slice(1, -1))
+                            stepHandler = this.#parseProxyExpression(stepExpression.slice(1, -1))
                             break
                         case '/':
-                            stepHandler = this.#parseRegExpExpression(codeExpression.slice(1, -1))
+                            stepHandler = this.#parseRegExpExpression(stepExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            stepHandler = this.#parseStringExpression(codeExpression.slice(1, -1))
+                            stepHandler = this.#parseStringExpression(stepExpression.slice(1, -1))
                             break
                         case "#":
-                            stepHandler = this.#parseCellExpression(codeExpression.slice(1))
+                            stepHandler = this.#parseCellExpression(stepExpression.slice(1))
                             break
                         case "%":
-                            stepHandler = this.#parseSlotExpression(codeExpression.slice(1))
+                            stepHandler = this.#parseSlotExpression(stepExpression.slice(1))
                             break
                         case "$":
-                            stepHandler = this.#parseSelectorExpression(codeExpression.slice(2, -1))
+                            stepHandler = this.#parseSelectorExpression(stepExpression.slice(2, -1))
                             break
                         case "(":
-                            stepHandler = this.#parseTransformExpression(codeExpression)
+                            stepHandler = this.#parseTransformExpression(stepExpression)
                             break
                         case "{":
                         case "n":
@@ -92,15 +92,15 @@
                         case "7":
                         case "7":
                         case "9":
-                            if (codeExpression === 'null' || codeExpression === 'true' || codeExpression === 'false'
-                                || codeExpression.match(isNumeric)) {
-                                stepHandler = this.#parseJSONExpression(codeExpression)
+                            if (stepExpression === 'null' || stepExpression === 'true' || stepExpression === 'false'
+                                || stepExpression.match(isNumeric)) {
+                                stepHandler = this.#parseJSONExpression(stepExpression)
                             } else {
-                                stepHandler = this.#parseRemoteExpression(codeExpression)
+                                stepHandler = this.#parseRemoteExpression(stepExpression)
                             }
                             break
                         default:
-                            stepHandler = this.#parseRemoteExpression(codeExpression)
+                            stepHandler = this.#parseRemoteExpression(stepExpression)
                     }
                     if (stepHandler) steps.push([stepLabel, stepHandler, stepDefaultExpression])
                 }
