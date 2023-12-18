@@ -67,10 +67,10 @@
                             this.E.env.expressionHandlers[stepExpression] ||= this.#parseStringExpression(stepExpression.slice(1, -1))
                             break
                         case "#":
-                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseCellExpression(stepExpression.slice(1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSlotOrCellExpression(stepExpression.slice(1), '#')
                             break
                         case "%":
-                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSlotExpression(stepExpression.slice(1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSlotOrCellExpression(stepExpression.slice(1), '%')
                             break
                         case "$":
                             this.E.env.expressionHandlers[stepExpression] ||= this.#parseSelectorExpression(stepExpression.slice(2, -1))
@@ -308,8 +308,8 @@
             return (result, labels, slots, cells, context) => expressionCode
         }
 
-        #parseCellExpression(expressionCode) {
-            let group = this.#getSlotOrCellGroup(expressionCode, '#'),
+        #parseSlotOrCellExpression(expressionCode, type) {
+            let group = this.#getSlotOrCellGroup(expressionCode, type),
                 config = Array.isArray(group) ? 'array' : ((expressionCode[0] === '{') ? 'object' : 'single')
             if (config === 'single') group = group[0]
             return (result, labels, slots, cells, context) => {
@@ -323,6 +323,7 @@
                 }
             }
         }
+
 
     }
 </script>
