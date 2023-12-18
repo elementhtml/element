@@ -284,6 +284,21 @@
             }
         }
 
+        #parseRegExpExpression(expressionCode) {
+            let [expression, substitute] = expressionCode.split(' ').map(s => s.trim())
+            if (!expression) return
+            const regex = new RegExp(expression, 'g')
+            return (result, labels, slots, cells, context) => {
+                let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
+                if ((typeof result !== 'string') || (typeof instanceSubstitute !== string)) return
+                if (substitute) {
+                    return result.replace(regex, instanceSubstitute)
+                } else {
+                    const match = result.match(regex, instanceSubstitute)
+                    return match ? (match.groups ?? match[1]) : undefined
+                }
+            }
+        }
 
     }
 </script>
