@@ -39,31 +39,44 @@
                     codeExpression = codeExpression.trim()
                     if (!index) steps.push(this.#parseTriggerExpression(codeExpression))
                     if (!codeExpression) continue
+                    let stepLabel, stepExpression = codeExpression, stepDefaultExpression
+                    const labelMatch = stepExpression.match(/^([a-z0-9]+):\s+/)
+                    if (labelMatch) {
+                        stepLabel = labelMatch[1].trim()
+                        stepExpression = stepExpression.slice(labelMatch[0].length).trim()
+                    }
+                    const stepDefaultExpressionMatch = stepExpression.match(/\s+\?\?\s+(.+)\s*$/)
+                    if (stepDefaultExpressionMatch) {
+                        stepDefaultExpression = stepDefaultExpressionMatch[1].trim()
+                        stepExpression = stepExpression.slice(0, stepDefaultExpressionMatch.index).trim()
+                    }
+                    stepLabel ||= index
+                    stepHandler
                     switch (codeExpression[0]) {
                         case '!':
-                            steps.push(this.#parseEventTargetExpression(codeExpression.slice(1)))
+                            stepHandler = this.#parseEventTargetExpression(codeExpression.slice(1))
                             break
                         case '`':
-                            steps.push(this.#parseProxyExpression(codeExpression.slice(1, -1)))
+                            stepHandler = this.#parseProxyExpression(codeExpression.slice(1, -1))
                             break
                         case '/':
-                            steps.push(this.#parseRegExpExpression(codeExpression.slice(1, -1)))
+                            stepHandler = this.#parseRegExpExpression(codeExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            steps.push(this.#parseStringExpression(codeExpression.slice(1, -1)))
+                            stepHandler = this.#parseStringExpression(codeExpression.slice(1, -1))
                             break
                         case "#":
-                            steps.push(this.#parseCellExpression(codeExpression.slice(1)))
+                            stepHandler = this.#parseCellExpression(codeExpression.slice(1))
                             break
                         case "%":
-                            steps.push(this.#parseSlotExpression(codeExpression.slice(1)))
+                            stepHandler = this.#parseSlotExpression(codeExpression.slice(1))
                             break
                         case "$":
-                            steps.push(this.#parseSelectorExpression(codeExpression.slice(2, -1)))
+                            stepHandler = this.#parseSelectorExpression(codeExpression.slice(2, -1))
                             break
                         case "(":
-                            steps.push(this.#parseTransformExpression(codeExpression))
+                            stepHandler = this.#parseTransformExpression(codeExpression)
                             break
                         case "{":
                         case "n":
@@ -81,27 +94,26 @@
                         case "9":
                             if (codeExpression === 'null' || codeExpression === 'true' || codeExpression === 'false'
                                 || codeExpression.match(isNumeric)) {
-                                steps.push(this.#parseJSONExpression(codeExpression))
+                                stepHandler = this.#parseJSONExpression(codeExpression)
                             } else {
-                                steps.push(this.#parseRemoteExpression(codeExpression))
+                                stepHandler = this.#parseRemoteExpression(codeExpression)
                             }
                             break
                         default:
-                            steps.push(this.#parseRemoteExpression(codeExpression))
+                            stepHandler = this.#parseRemoteExpression(codeExpression)
                     }
+                    if (stepHandler) steps.push([stepLabel, stepHandler, stepDefaultExpression])
                 }
-
-
-
+                this.#statements.push(steps)
             }
             let context = { ...this.E.env.context }
             for (const statement of this.#statements) {
-                const triggerExpression = statement[0], context = { ...context }
+                const triggerExpression = statement.shift(), context = { ...context }
                 const statementProcessor = async (result) => {
                     let labels = {}
-                    for (const expression of statement) {
-                        const [label, expressionHandler, defaultValue] = expression
-                        result = (await expressionHandler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
+                    for (const step of statement) {
+                        const [label, stepHandler, defaultValue] = step
+                        result = (await stepHandler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
                         if (result == undefined) break
                         labels[label] = result
                     }
@@ -175,7 +187,7 @@
 
         #parseContextStatement = (statementCode) => {
             const pairs = {}
-            for (const s of statementCode.slice(3).trim().slice(1, -1).trim().split(',')) {
+            for (const s of statementCode.trim().slice(1, -1).trim().split(',')) {
                 let [k, v] = s.trim().split(':').map(s => s.trim())
                 if (k[0] === '"' || k[0] === "'") k = k.slice(1, -1)
                 pairs[k] = v ?? k
@@ -224,6 +236,15 @@
                         scope = this.E.utils.resolveScope(scopeStatement, this)
                     return [scope, [selector]]
             }
+        }
+
+        #parseEventTargetExpression = (expressionCode) => {
+            let [eventList, ...detailValue] = expressionCode.split(' ')
+            if (detailValue) detailValue = detailValue.join(' ')
+
+
+
+
         }
 
 
