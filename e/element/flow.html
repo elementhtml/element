@@ -10,6 +10,7 @@
         #slots = {}
         #src
         #statements = []
+        #expressions = {}
         #type
 
         constructor() { super() }
@@ -239,6 +240,7 @@
         }
 
         #parseEventTargetExpression = (expressionCode) => {
+            if (this.#expressions[expressionCode]) return this.#expressions[expressionCode]
             const pairs = []
             for (const eventPair of expressionCode.split(',')) if (eventPair) {
                 let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
@@ -254,6 +256,8 @@
                 }
             }
         }
+
+
 
 
     }
