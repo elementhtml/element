@@ -348,6 +348,22 @@
             }
         }
 
+        #parseJSONExpression(expressionCode) {
+            return (result, labels, slots, cells, context) => {
+                let r
+                try { r = JSON.parse(expressionCode) } catch (e) { return }
+                const resolve = (rr) {
+                    if (Array.isArray(rr)) {
+                        return rr.map(rrr => this.E.resolveVariables(rrr))
+                    } else if (rr instanceof Object) {
+                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m))))
+                    } else {
+                        return this.E.resolveVariables(rr)
+                    }
+                }
+                return resolve(r)
+            }
+        }
 
     }
 </script>
