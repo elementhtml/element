@@ -257,6 +257,7 @@
                     const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
                     this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: result }))
                 }
+                return result
             }
         }
 
@@ -315,12 +316,29 @@
             return (result, labels, slots, cells, context) => {
                 switch (config) {
                     case 'single':
-                        return group.get()
+                        group.set(result)
+                        return result
                     case 'array':
+                        if (Array.isArray(result)) {
+                            for (const [i, v] of result.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
+                        }
                         return group.map(i => i.get())
                     default:
-                        return Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
+                        if (result instanceof Object) for (const [k, v] of Object.entries(result)) {
+                            if (v == undefined) continue
+                            if (k[0] === type) {
+                                const n = k.slice(1)
+                                if (group[n]) group[n].set(v)
+                            }
+                        }
+                        return Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
                 }
+            }
+        }
+
+        #parseSelectorExpression(expressionCode) {
+            return (result, labels, slots, cells, context) => {
+
             }
         }
 
