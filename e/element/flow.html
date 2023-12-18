@@ -73,7 +73,11 @@
                             this.E.env.expressionHandlers[stepExpression] ||= this.#parseSlotOrCellExpression(stepExpression.slice(1), '%')
                             break
                         case "$":
-                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSelectorExpression(stepExpression.slice(2, -1))
+                            if (stepExpression[1] === "{") {
+                                this.E.env.expressionHandlers[stepExpression] ||= this.#parseVariableExpression(stepExpression.slice(2, -1))
+                            } else if (stepExpression[1] === "(") {
+                                this.E.env.expressionHandlers[stepExpression] ||= this.#parseSelectorExpression(stepExpression.slice(2, -1))
+                            }
                             break
                         case "(":
                             this.E.env.expressionHandlers[stepExpression] ||= this.#parseTransformExpression(stepExpression)
@@ -356,14 +360,28 @@
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
                 const resolve = (rr) {
                     if (Array.isArray(rr)) {
-                        return rr.map(rrr => this.E.resolveVariables(rrr))
+                        return rr.map(rrr => this.E.resolveVariables(rrr, this))
                     } else if (rr instanceof Object) {
-                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m))))
+                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m, this))))
                     } else {
-                        return this.E.resolveVariables(rr)
+                        return this.E.resolveVariables(rr, this)
                     }
                 }
                 return resolve(r)
+            }
+        }
+
+        #parseVariableExpression(expressionCode) {
+            return (result, labels, slots, cells, context) => this.E.resolveVariables(expressionCode, this)
+        }
+
+        #parseTransformExpression(expressionCode) {
+            return (result, labels, slots, cells, context) => {
+                return await this.E.runTransform(expressionCode, result, this, {
+                    context, labels,
+                    slots: Object.fromEntries(Object.entries(slots).map(s => [s[0], s[1].get()])),
+                    cells: Object.fromEntries(Object.entries(cells).map(s => [c[0], c[1].get()]))
+                })
             }
         }
 
