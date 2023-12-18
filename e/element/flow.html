@@ -54,31 +54,29 @@
                     stepHandler
                     switch (stepExpression[0]) {
                         case '!':
-                            stepExpression = stepExpression.slice(1)
-                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseEventTargetExpression(stepExpression)
-                            stepHandler = this.E.env.expressionHandlers[stepExpression]
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseEventTargetExpression(stepExpression.slice(1))
                             break
                         case '`':
-                            stepHandler = this.#parseProxyExpression(stepExpression.slice(1, -1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseProxyExpression(stepExpression.slice(1, -1))
                             break
                         case '/':
-                            stepHandler = this.#parseRegExpExpression(stepExpression.slice(1, -1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseRegExpExpression(stepExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            stepHandler = this.#parseStringExpression(stepExpression.slice(1, -1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseStringExpression(stepExpression.slice(1, -1))
                             break
                         case "#":
-                            stepHandler = this.#parseCellExpression(stepExpression.slice(1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseCellExpression(stepExpression.slice(1))
                             break
                         case "%":
-                            stepHandler = this.#parseSlotExpression(stepExpression.slice(1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSlotExpression(stepExpression.slice(1))
                             break
                         case "$":
-                            stepHandler = this.#parseSelectorExpression(stepExpression.slice(2, -1))
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseSelectorExpression(stepExpression.slice(2, -1))
                             break
                         case "(":
-                            stepHandler = this.#parseTransformExpression(stepExpression)
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseTransformExpression(stepExpression)
                             break
                         case "{":
                         case "n":
@@ -96,14 +94,15 @@
                         case "9":
                             if (stepExpression === 'null' || stepExpression === 'true' || stepExpression === 'false'
                                 || stepExpression.match(isNumeric)) {
-                                stepHandler = this.#parseJSONExpression(stepExpression)
+                                this.E.env.expressionHandlers[stepExpression] ||= this.#parseJSONExpression(stepExpression)
                             } else {
-                                stepHandler = this.#parseRemoteExpression(stepExpression)
+                                this.E.env.expressionHandlers[stepExpression] ||= this.#parseRemoteExpression(stepExpression)
                             }
                             break
                         default:
-                            stepHandler = this.#parseRemoteExpression(stepExpression)
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseRemoteExpression(stepExpression)
                     }
+                    stepHandler = this.E.env.expressionHandlers[stepExpression]
                     if (stepHandler) steps.push([stepLabel, stepHandler, stepDefaultExpression])
                 }
                 this.#statements.push(steps)
