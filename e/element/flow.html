@@ -186,7 +186,7 @@
             return this.#slots[name]
         }
 
-        #parseContextStatement = (statementCode) => {
+        #parseContextStatement(statementCode) {
             const pairs = {}
             for (const s of statementCode.trim().slice(1, -1).trim().split(',')) {
                 let [k, v] = s.trim().split(':').map(s => s.trim())
@@ -198,7 +198,7 @@
             }, undefined]
         }
 
-        #parseTriggerExpression = (expressionCode) => {
+        #parseTriggerExpression(expressionCode) {
             switch (expressionCode[0]) {
                 case '!':
                     expressionCode = expressionCode.slice(1)
@@ -239,7 +239,7 @@
             }
         }
 
-        #parseEventTargetExpression = (expressionCode) => {
+        #parseEventTargetExpression(expressionCode) {
             const pairs = []
             for (const eventPair of expressionCode.split(',')) if (eventPair) {
                 let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
@@ -256,7 +256,33 @@
             }
         }
 
-
+        #parseProxyExpression(expressionCode) {
+            const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
+            if (!parentExpression || (childExpression === '')) return
+            let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+            parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+            const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
+            let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+            childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+            const getParentArgs = r => parentArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
+            const getChildArgs = r => childArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
+            const singleton = parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
+            return (result, labels, slots, cells, context) => {
+                if (childMethodName) {
+                    if (singleton) {
+                        if (!(singleton instanceof Object)) return
+                        if (typeof singleton[childMethodName] !== 'function') return
+                        return singleton[childMethodName](...getChildArgs(result))
+                    } else {
+                        if (!(globalThis[parentObjectName] instanceof Object)) return
+                        if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                        return globalThis[parentObjectName][childMethodName](...getChildArgs(result))
+                    }
+                } else {
+                    return singleton ? singleton(...getParentArgs(result)) : globalThis[parentObjectName](...getParentArgs(result))
+                }
+            }
+        }
 
 
     }
