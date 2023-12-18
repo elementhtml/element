@@ -239,12 +239,20 @@
         }
 
         #parseEventTargetExpression = (expressionCode) => {
-            let [eventList, ...detailValue] = expressionCode.split(' ')
-            if (detailValue) detailValue = detailValue.join(' ')
-
-
-
-
+            const pairs = []
+            for (const eventPair of expressionCode.split(',')) if (eventPair) {
+                let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
+                if (!eventTargetName) continue
+                if (!eventName) eventName = eventTargetName
+                this.E.env.eventTargets[eventTargetName] ||= new EventTarget()
+                pairs.push([eventTargetName, eventName])
+            }
+            return async (result, labels, slots, cells, context) => {
+                for (const [t, n] of pairs) {
+                    const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
+                    this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: result }))
+                }
+            }
         }
 
 
