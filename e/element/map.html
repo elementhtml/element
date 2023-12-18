@@ -15,7 +15,7 @@
         _abortController
 
         static get _flattenableProperties() {
-            return (super._flattenableProperties || []).concat(['cells', 'direction', 'lazy', 'force', 'port', 'passive', 'prevent', 'transform'])
+            return (super._flattenableProperties || []).concat(['cells', 'direction', 'lazy', 'force', 'port', 'passive', 'allow', 'transform'])
         }
 
         constructor() { super() }
@@ -101,8 +101,8 @@
         get passive() { return this.hasAttribute('passive') }
         set passive(value) { }
 
-        get prevent() { return this.hasAttribute('prevent') }
-        set prevent(value) { }
+        get allow() { return this.hasAttribute('allow') }
+        set allow(value) { }
 
         get transform() { return this.#transform }
 

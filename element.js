@@ -52,7 +52,8 @@ const ElementHTML = Object.defineProperties({}, {
             transforms: {},//keep
             ports: {},//keep            
             schemas: {},//keep            
-            variables: {}//keep
+            context: {}, //keep 
+            triggers: {}//keep
         }
     },
 

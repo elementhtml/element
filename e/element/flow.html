@@ -1,0 +1,127 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `script` {
+
+        #context = {}
+        #slots = {}
+        #src
+        #statements = []
+        #type
+
+        constructor() { super() }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
+
+        async connectedCallback() {
+            let code = this.textContent ?? ''
+            const src = this.src, type = this.type ?? 'script/flow'
+            if (src) code = [await fetch(src).then(r => r.text()), code].join('/n/n')
+            if (!code) return
+            let splitter = /\n/gm
+            if (type === 'script/flow') splitter = /\n(?!\s+>>)/gm
+            if (type === 'text/flow') splitter = /\n\s*\n/gm
+            const codeStatements = [], isNumeric = /^[0-9\.]+$/
+            for (let s of code.split(splitter)) if (s = s.trim()) if (s.slice(0, 2) !== '# ') codeStatements.push(s)
+            for (const codeStatement of codeStatements) {
+                const codeStatementSlice03 = codeStatement.slice(0, 3)
+                if (codeStatementSlice03 === '#! ') {
+                    this.#statements.push([this.#parseContextStatement(codeStatement.slice(3))])
+                    continue
+                }
+                const codeExpressions = [], steps = []
+                for (let codeExpression of codeStatement.split(' >> ')) {
+                    codeExpression = codeExpression.trim()
+                    if (!codeExpression) continue
+                    switch (codeExpression[0]) {
+                        case '!':
+                            steps.push(this.#parseTriggerExpression(codeExpression.slice(1)))
+                            break
+                        case '`':
+                            steps.push(this.#parseProxyExpression(codeExpression.slice(1, -1)))
+                            break
+                        case '/':
+                            steps.push(this.#parseRegExpExpression(codeExpression.slice(1, -1)))
+                            break
+                        case '"':
+                        case "'":
+                            steps.push(this.#parseStringExpression(codeExpression.slice(1, -1)))
+                            break
+                        case "#":
+                            steps.push(this.#parseCellExpression(codeExpression.slice(1)))
+                            break
+                        case "%":
+                            steps.push(this.#parseSlotExpression(codeExpression.slice(1)))
+                            break
+                        case "$":
+                            steps.push(this.#parseSelectorExpression(codeExpression.slice(2, -1)))
+                            break
+                        case "(":
+                            steps.push(this.#parseTransformExpression(codeExpression))
+                            break
+                        case "{":
+                        case "n":
+                        case "t":
+                        case "f":
+                        case "0":
+                        case "1":
+                        case "2":
+                        case "3":
+                        case "4":
+                        case "5":
+                        case "6":
+                        case "7":
+                        case "7":
+                        case "9":
+                            if (codeExpression === 'null' || codeExpression === 'true' || codeExpression === 'false'
+                                || codeExpression.match(isNumeric)) {
+                                steps.push(this.#parseJSONExpression(codeExpression))
+                            } else {
+                                steps.push(this.#parseRemoteExpression(codeExpression))
+                            }
+                            break
+                        default:
+                            steps.push(this.#parseRemoteExpression(codeExpression))
+                    }
+                }
+
+
+
+            }
+            let context = { ...this.E.env.context }
+            for (const statement of this.#statements) {
+                let labels = {}, result
+                for (const expression of statement) {
+                    const [label, handler, defaultValue] = expression
+                    result = (await handler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
+                    if (result == undefined) break
+                    labels[label] = result
+                }
+            }
+        }
+
+        disconnectedCallback() { }
+
+        get src() { return this.E.utils.safeGet(this, this.#src, 'src') }
+        set src(value) { this.#src = value }
+
+        get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
+        set type(value) { this.#type = value }
+
+        #parseContextStatement = (statement) => {
+            const pairs = {}
+            for (const s of statement.slice(3).trim().slice(1, -1).trim().split(',')) {
+                let [k, v] = s.trim().split(':').map(s => s.trim())
+                if (k[0] === '"' || k[0] === "'") k = k.slice(1, -1)
+                pairs[k] = v ?? k
+            }
+            return [0, (result, labels, slots, cells, context) => {
+                for (const [k, v] of pairs) context[k] = this.E.resolveVariables(v ?? k, this)
+                return context
+            }, undefined]
+        }
+
+
+
+    }
+</script>

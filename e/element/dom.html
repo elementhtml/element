@@ -56,7 +56,7 @@
                         if (this.#isRouter) { this._applyToCells(routeHandler ? routeHandler() : this.E.flatten(scope), event); return }
                         if (selector && !event.target.matches(selector)) return
                         if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
-                        if (this.prevent) event.preventDefault()
+                        if (!this.allow) event.preventDefault()
                         const value = this.E.flatten(event.target)
                         this._applyToCells([value], event)
                     }, { signal: this._abortController.signal })

@@ -133,6 +133,7 @@
                         let options = remoteMapElement.options ?? {}
                         if (typeof options === 'string') options = remoteMapElement.E.resolveVariables('${' + options + '}')
                         if (!(options instanceof Object)) return
+                        console.log('remote.html: line 136', remoteUrl, portExpression, this.port)
                         const url = remoteMapElement.E.resolveUrl(remoteMapElement.E.resolveVariables(remoteUrl, remoteMapElement), remoteMapElement)
                         if (!url) return
                         options.body = value
