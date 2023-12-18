@@ -53,7 +53,8 @@ const ElementHTML = Object.defineProperties({}, {
             ports: {},//keep            
             schemas: {},//keep            
             context: {}, //keep 
-            eventTargets: {}//keep
+            eventTargets: {},//keep
+            expressionHandlers: {}//keep
         }
     },
 

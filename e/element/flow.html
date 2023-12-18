@@ -10,7 +10,6 @@
         #slots = {}
         #src
         #statements = []
-        #expressions = {}
         #type
 
         constructor() { super() }
@@ -55,7 +54,9 @@
                     stepHandler
                     switch (stepExpression[0]) {
                         case '!':
-                            stepHandler = this.#parseEventTargetExpression(stepExpression.slice(1))
+                            stepExpression = stepExpression.slice(1)
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseEventTargetExpression(stepExpression)
+                            stepHandler = this.E.env.expressionHandlers[stepExpression]
                             break
                         case '`':
                             stepHandler = this.#parseProxyExpression(stepExpression.slice(1, -1))
@@ -240,7 +241,6 @@
         }
 
         #parseEventTargetExpression = (expressionCode) => {
-            if (this.#expressions[expressionCode]) return this.#expressions[expressionCode]
             const pairs = []
             for (const eventPair of expressionCode.split(',')) if (eventPair) {
                 let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
