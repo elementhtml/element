@@ -126,9 +126,17 @@
                     } else if (triggerTarget instanceof EventTarget) {
                         for (const eventName of eventNames) triggerTarget.addEventListener(eventName, statementProcessor)
                     } else if (Array.isArray(triggerTarget)) {
-
+                        for (const [index, valueStore] of triggerTarget.entries()) {
+                            valueStore.eventTarget.addEventListener('change', event => {
+                                statementProcessor(valueStore.get())
+                            })
+                        }
                     } else if (triggerTarget instanceof Object) {
-
+                        for (const [key, valueStore] of Object.entries(triggerTarget)) {
+                            valueStore.eventTarget.addEventListener('change', event => {
+                                statementProcessor(valueStore.get())
+                            })
+                        }
                     }
                 } else {
                     await statementProcessor()
