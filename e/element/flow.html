@@ -79,6 +79,8 @@
                             this.E.env.expressionHandlers[stepExpression] ||= this.#parseTransformExpression(stepExpression)
                             break
                         case "{":
+                            this.E.env.expressionHandlers[stepExpression] ||= this.#parseJSONExpression(stepExpression)
+                            break
                         case "n":
                         case "t":
                         case "f":
