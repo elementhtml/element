@@ -338,7 +338,13 @@
 
         #parseSelectorExpression(expressionCode) {
             return (result, labels, slots, cells, context) => {
-
+                const target = this.E.resolveScopedSelector(expressionCode, this)
+                if (Array.isArray(target)) {
+                    for (const t of target) this.E.applyData(t, result)
+                } else if (target) {
+                    this.E.applyData(target, result)
+                }
+                return result
             }
         }
 
