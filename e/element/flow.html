@@ -17,21 +17,21 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
         #loadApplication(code) {
-            const stepHandlers = this.E.env.stepHandlers, context = { ...this.E.env.context }
-            Object.freeze(context)
-            for (let line of code.split(/\n/gm)) {
-                line = line.trim()
-                if (!line) continue
+            const stepHandlers = this.E.env.stepHandlers, lines = [],
+                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context = Object.freeze({ ...this.E.env.context }) })
+            for (let line of code.split(/\n/gm)) if (line = line.trim()) {
+                line = Object.freeze(JSON.parse(line))
+                for (const labelName of line[1]) env.labels[labelName] = undefined
+                for (const slotName of line[2]) env.slots[slotName] ||= this.#getSlot(slotName)
+                for (const cellName of line[3]) env.cells[cellName] ||= this.E.getCell(cellName)
+                lines.push(line)
+            }
+            Object.seal(env.labels)
+            Object.freeze(env.slots)
+            Object.freeze(env.cells)
+            for (const statement of lines) {
+                const statementLength = statement.length
                 let value
-                const statement = JSON.parse(line), statementLength = statement.length,
-                    [steps, labels, slots, cells] = statement
-                const env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
-                for (const name of labels) env.labels[name] = undefined
-                for (const name of slots) env.slots[name] = this.#getSlot(name)
-                for (const name of cells) env.cells[name] = this.E.getCell(name)
-                Object.seal(env.labels)
-                Object.freeze(env.slots)
-                Object.freeze(env.cells)
                 for (const [index, step] of statement.entries()) {
                     const [label, handlerIndex, defaultValue] = step
                     value = (await stepHandlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
