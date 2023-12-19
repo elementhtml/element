@@ -16,17 +16,49 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
+        #loadApplication(code) {
+            const steps = this.E.env.steps, slots = this.#slots, cells = this.E.env.cells, context = { ...this.E.env.context }
+            Object.freeze(context)
+            for (let line of code.split(/\n/gm)) {
+                line = line.trim()
+                if (!line) continue
+                const labels = {}
+                let result
+                for (const stepIndex of JSON.parse(line)) {
+                    const [label, handler, defaultValue] = steps[stepIndex]
+                    result = await steps[stepIndex](result, labels, slots, cells, context)
+                    if (result == undefined) break
+                    switch (label[0]) {
+                        case '%':
+                            this.#getSlot(label.slice(1)).set(result)
+                            break
+                        case '#':
+                            this.E.getCell(label.slice(1)).set(result)
+                        default:
+                            labels[label] = result
+                    }
+                }
+            }
+
+
+
+        }
+
         async connectedCallback() {
             let code = this.textContent ?? ''
             const src = this.src, type = this.type ?? 'script/flow'
             if (src) code = [await fetch(src).then(r => r.text()), code].join('/n/n')
             if (!code) return
-            if (this.#abortController) this.#abortController.abort()
-            this.#abortController = new AbortController()
+            const codeStatements = []
             let splitter = /\n/gm
+            if (type === 'application/flow') {
+                this.#loadApplication(code)
+            }
             if (type === 'script/flow') splitter = /\n(?!\s+>>)/gm
             if (type === 'text/flow') splitter = /\n\s*\n/gm
-            const codeStatements = [], isNumeric = /^[0-9\.]+$/
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            const isNumeric = /^[0-9\.]+$/
             for (let s of code.split(splitter)) if (s = s.trim()) if (s.slice(0, 2) !== '# ') codeStatements.push(s)
             for (const codeStatement of codeStatements) {
                 const codeStatementSlice03 = codeStatement.slice(0, 3)
