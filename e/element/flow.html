@@ -26,8 +26,10 @@
                 let result
                 for (const stepIndex of JSON.parse(line)) {
                     const [label, handler, defaultValue] = steps[stepIndex]
-                    result = await steps[stepIndex](result, labels, slots, cells, context)
-                    if (result == undefined) break
+                    const slots = {}, cells = {}
+                    for (const slotName in this.#slots) slots[slotName] = this.#slots[slotName].get()
+                    for (const cellName in this.E.env.cells) cells[cellName] = this.E.env.cells[cellName].get()
+                    result = await steps[stepIndex](result, Object.freeze({ ...labels }), Object.freeze(slots), Object.freeze(cells), context)
                     switch (label[0]) {
                         case '%':
                             this.#getSlot(label.slice(1)).set(result)
@@ -37,11 +39,9 @@
                         default:
                             labels[label] = result
                     }
+                    if (result == undefined) break
                 }
             }
-
-
-
         }
 
         async connectedCallback() {
