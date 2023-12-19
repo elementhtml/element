@@ -17,31 +17,41 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
         #loadApplication(code) {
-            const steps = this.E.env.steps, slots = this.#slots, cells = this.E.env.cells, context = { ...this.E.env.context }
+            const stepHandlers = this.E.env.stepHandlers, context = { ...this.E.env.context }
             Object.freeze(context)
             for (let line of code.split(/\n/gm)) {
                 line = line.trim()
                 if (!line) continue
-                const labels = {}
-                let result
-                for (const stepIndex of JSON.parse(line)) {
-                    const [label, handler, defaultValue] = steps[stepIndex]
-                    const slots = {}, cells = {}
-                    for (const slotName in this.#slots) slots[slotName] = this.#slots[slotName].get()
-                    for (const cellName in this.E.env.cells) cells[cellName] = this.E.env.cells[cellName].get()
-                    result = await steps[stepIndex](result, Object.freeze({ ...labels }), Object.freeze(slots), Object.freeze(cells), context)
+                let value
+                const statement = JSON.parse(line), statementLength = statement.length,
+                    [steps, labels, slots, cells] = statement
+                const env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
+                for (const name of labels) env.labels[name] = undefined
+                for (const name of slots) env.slots[name] = this.#getSlot(name)
+                for (const name of cells) env.cells[name] = this.E.getCell(name)
+                Object.seal(env.labels)
+                Object.freeze(env.slots)
+                Object.freeze(env.cells)
+                for (const [index, step] of statement.entries()) {
+                    const [label, handlerIndex, defaultValue] = step
+                    value = (await stepHandlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
                     switch (label[0]) {
                         case '%':
-                            this.#getSlot(label.slice(1)).set(result)
+                            env.slots(label.slice(1)).set(result)
                             break
                         case '#':
-                            this.E.getCell(label.slice(1)).set(result)
+                            env.cells(label.slice(1)).set(result)
+                            break
                         default:
                             labels[label] = result
                     }
-                    if (result == undefined) break
+                    if (value == undefined) break
                 }
             }
+        }
+
+        #compileScript(code) {
+
         }
 
         async connectedCallback() {
@@ -51,8 +61,18 @@
             if (!code) return
             const codeStatements = []
             let splitter = /\n/gm
+            switch (type) {
+                case 'application/flow':
+                    await this.#loadApplication(code)
+                    break
+                case 'script/flow':
+                    await this.#loadApplication(await this.#compileScript(code))
+                    break
+                case 'text/flow':
+                    await this.#loadApplication(await this.#compileScript(await this.#transpileText(code)))
+                    break
+            }
             if (type === 'application/flow') {
-                this.#loadApplication(code)
             }
             if (type === 'script/flow') splitter = /\n(?!\s+>>)/gm
             if (type === 'text/flow') splitter = /\n\s*\n/gm

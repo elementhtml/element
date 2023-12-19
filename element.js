@@ -48,7 +48,7 @@ const ElementHTML = Object.defineProperties({}, {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
-            steps: [],//keep
+            stepHandlers: [],//keep
             cells: {},//keep            
             transforms: {},//keep
             ports: {},//keep            
