@@ -29,7 +29,6 @@
             this.#labelNames = Object.freeze(labelNames)
             this.#slots = Object.seal(slots)
             this.#cellNames = Object.freeze(cellNames)
-            this.#handlers = Object.freeze(handlers)
             this.#statements = Object.freeze(statements)
         }
 
@@ -40,22 +39,16 @@
                 env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
             for (const labelName of this.#labelNames) env.labels[labelName] = undefined
             for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
-            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
             Object.seal(env.labels)
             Object.freeze(env.slots)
-            for (let statement of statements) {
-                for (const labelName of statement[1]) env.labels[labelName] = undefined
-                for (const slotName of statement[2]) env.slots[slotName] ||= this.#getSlot(slotName)
-                for (const cellName of statement[3]) env.cells[cellName] ||= this.E.getCell(cellName)
-            }
-            Object.freeze(env.slots)
             Object.freeze(env.cells)
-            for (const statement of lines) {
+            for (const statement of this.#statements) {
                 const statementLength = statement.length
                 let value
                 for (const [index, step] of statement.entries()) {
-                    const [label, handlerIndex, defaultValue] = step
-                    value = (await stepHandlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
+                    const [handlerIndex, defaultValue, label = `${index}`] = step
+                    value = (await this.#handlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
                     switch (label[0]) {
                         case '%':
                             env.slots(label.slice(1)).set(result)
