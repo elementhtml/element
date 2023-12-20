@@ -6,6 +6,9 @@
     export default class extends `script` {
 
         #abortController
+        #handlers = []
+        #labelNames = []
+        #cellNames = []
         #context = {}
         #slots = {}
         #src
@@ -16,15 +19,29 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
+        async #importFromText(moduleText) {
+            const textAsModule =
+                `const E = globalThis['${this.E._globalNamespace}']; ${moduleText};`,
+                moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
+                classModule = await import(moduleAsUrl), { handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [] } = classModule
+            URL.revokeObjectURL(moduleAsUrl)
+            this.#handlers = Object.freeze(handlers)
+            this.#labelNames = Object.freeze(labelNames)
+            this.#slots = Object.seal(slots)
+            this.#cellNames = Object.freeze(cellNames)
+            this.#handlers = Object.freeze(handlers)
+            this.#statements = Object.freeze(statements)
+        }
+
         #loadApplication(code) {
-            const stepHandlers = this.E.env.stepHandlers, lines = [],
-                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context = Object.freeze({ ...this.E.env.context }) })
-            for (let line of code.split(/\n/gm)) if (line = line.trim()) {
-                line = Object.freeze(JSON.parse(line))
-                for (const labelName of line[1]) env.labels[labelName] = undefined
-                for (const slotName of line[2]) env.slots[slotName] ||= this.#getSlot(slotName)
-                for (const cellName of line[3]) env.cells[cellName] ||= this.E.getCell(cellName)
-                lines.push(line)
+            const rootNode = this.getRootNode(),
+                context = Object.freeze(rootNode instanceof ShadowRoot
+                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
+                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
+            for (let statement of statements) {
+                for (const labelName of statement[1]) env.labels[labelName] = undefined
+                for (const slotName of statement[2]) env.slots[slotName] ||= this.#getSlot(slotName)
+                for (const cellName of statement[3]) env.cells[cellName] ||= this.E.getCell(cellName)
             }
             Object.seal(env.labels)
             Object.freeze(env.slots)
@@ -63,7 +80,8 @@
             let splitter = /\n/gm
             switch (type) {
                 case 'application/flow':
-                    await this.#loadApplication(code)
+                    await this.#importFromText(code)
+                    await this.#loadApplication()
                     break
                 case 'script/flow':
                     await this.#loadApplication(await this.#compileScript(code))
