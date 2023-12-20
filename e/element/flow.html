@@ -45,7 +45,7 @@
         }
 
         #compileScript(code) {
-            const handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [],
+            const handlers = [], labelNames = new Set(), slots = {}, cellNames = new Set(), statements = [],
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
@@ -116,14 +116,16 @@
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
                                 handlerMap[handlerExpression] ||= handlers.push(this.#parseJSONExpression(stepExpression))
-                            } else {
-                                handlerMap[handlerExpression] ||= handlers.push(this.#parseRemoteExpression(stepExpression))
+                                break
                             }
-                            break
                         default:
                             handlerMap[handlerExpression] ||= handlers.push(this.#parseRemoteExpression(stepExpression))
                     }
                     steps.push([label, handlerMap[handlerExpression] - 1, defaultExpression])
+                    // labelNames = [], slots = {}, cellNames = []
+                    labelNames.add(label)
+
+
                 }
                 statements.push(steps)
             }
