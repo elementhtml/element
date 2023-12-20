@@ -1154,6 +1154,7 @@ const ElementHTML = Object.defineProperties({}, {
                         this.channel.postMessage(value)
                         this.value = value
                         cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
                     },
                     value: undefined, name
                 }

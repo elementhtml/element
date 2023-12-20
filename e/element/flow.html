@@ -38,12 +38,16 @@
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
                 env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
+            for (const labelName of this.#labelNames) env.labels[labelName] = undefined
+            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+            Object.seal(env.labels)
+            Object.freeze(env.slots)
             for (let statement of statements) {
                 for (const labelName of statement[1]) env.labels[labelName] = undefined
                 for (const slotName of statement[2]) env.slots[slotName] ||= this.#getSlot(slotName)
                 for (const cellName of statement[3]) env.cells[cellName] ||= this.E.getCell(cellName)
             }
-            Object.seal(env.labels)
             Object.freeze(env.slots)
             Object.freeze(env.cells)
             for (const statement of lines) {
@@ -254,6 +258,7 @@
                         }
                         this.value = value
                         slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
                     },
                     value: undefined, name
                 }
