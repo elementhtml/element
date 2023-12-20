@@ -23,7 +23,7 @@
                         await this.#parseApplication(code)
                         break
                     case 'text/flow':
-                        code = await this.#transpileText(code)
+                        code = await this.#readText(code)
                     case 'script/flow':
                         await this.#compileScript(code)
                 }
@@ -35,9 +35,9 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        async #parseApplication(moduleText) {
+        async #parseApplication(code) {
             const textAsModule =
-                `const E = globalThis['${this.E._globalNamespace}']; ${moduleText};`,
+                `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
                 classModule = await import(moduleAsUrl), { handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [] } = classModule
             URL.revokeObjectURL(moduleAsUrl)
@@ -45,72 +45,15 @@
         }
 
         #compileScript(code) {
+            const handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [],
+                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, directives = []
 
-        }
-
-        #transpileText(code) {
-
-        }
-
-        #loadApplication(handlers, labelNames, slots, cellNames, statements) {
-            this.#handlers = Object.freeze(handlers)
-            this.#labelNames = Object.freeze(labelNames)
-            this.#slots = Object.seal(slots)
-            this.#cellNames = Object.freeze(cellNames)
-            this.#statements = Object.freeze(statements)
-        }
-
-        #runApplication(code) {
-            const rootNode = this.getRootNode(),
-                context = Object.freeze(rootNode instanceof ShadowRoot
-                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
-                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
-            for (const labelName of this.#labelNames) env.labels[labelName] = undefined
-            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
-            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
-            Object.seal(env.labels)
-            Object.freeze(env.slots)
-            Object.freeze(env.cells)
-            for (const statement of this.#statements) {
-                const statementLength = statement.length
-                let value
-                for (const [index, step] of statement.entries()) {
-                    const [handlerIndex, defaultValue, label = `${index}`] = step
-                    value = (await this.#handlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
-                    switch (label[0]) {
-                        case '%':
-                            env.slots(label.slice(1)).set(result)
-                            break
-                        case '#':
-                            env.cells(label.slice(1)).set(result)
-                            break
-                        default:
-                            labels[label] = result
-                    }
-                    if (value == undefined) break
-                }
-            }
-        }
+            for (let s of code.split(splitter)) if (s = s.trim()) if (s.slice(0, 2) !== '# ') directives.push(s)
+            for (const directive of directives) {
+                const directiveSlice03 = directive.slice(0, 3)
 
 
-
-        async connectedCallback() {
-            await this.#runApplication()
-
-
-
-            let splitter = /\n/gm
-            if (type === 'application/flow') {
-            }
-            if (type === 'script/flow') splitter = /\n(?!\s+>>)/gm
-            if (type === 'text/flow') splitter = /\n\s*\n/gm
-            if (this.#abortController) this.#abortController.abort()
-            this.#abortController = new AbortController()
-            const isNumeric = /^[0-9\.]+$/
-            for (let s of code.split(splitter)) if (s = s.trim()) if (s.slice(0, 2) !== '# ') codeStatements.push(s)
-            for (const codeStatement of codeStatements) {
-                const codeStatementSlice03 = codeStatement.slice(0, 3)
-                if (codeStatementSlice03 === '#! ') {
+                if (directiveSlice03 === '#! ') {
                     this.#statements.push([this.#parseContextStatement(codeStatement.slice(3))])
                     continue
                 }
@@ -241,6 +184,65 @@
                     await statementProcessor()
                 }
             }
+
+
+
+
+            this.#loadApplication(handlers, labelNames, slots, cellNames, statements)
+
+        }
+
+        #readText(code) {
+            if (type === 'text/flow') splitter = /\n\s*\n/gm
+
+        }
+
+        #loadApplication(handlers, labelNames, slots, cellNames, statements) {
+            this.#handlers = Object.freeze(handlers)
+            this.#labelNames = Object.freeze(labelNames)
+            this.#slots = Object.seal(slots)
+            this.#cellNames = Object.freeze(cellNames)
+            this.#statements = Object.freeze(statements)
+        }
+
+        #runApplication(code) {
+            // if (this.#abortController) this.#abortController.abort()
+            // this.#abortController = new AbortController()
+            const rootNode = this.getRootNode(),
+                context = Object.freeze(rootNode instanceof ShadowRoot
+                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
+                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
+            for (const labelName of this.#labelNames) env.labels[labelName] = undefined
+            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
+            Object.seal(env.labels)
+            Object.freeze(env.slots)
+            Object.freeze(env.cells)
+            for (const statement of this.#statements) {
+                const statementLength = statement.length
+                let value
+                for (const [index, step] of statement.entries()) {
+                    const [handlerIndex, defaultValue, label = `${index}`] = step
+                    value = (await this.#handlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
+                    switch (label[0]) {
+                        case '%':
+                            env.slots(label.slice(1)).set(result)
+                            break
+                        case '#':
+                            env.cells(label.slice(1)).set(result)
+                            break
+                        default:
+                            labels[label] = result
+                    }
+                    if (value == undefined) break
+                }
+            }
+        }
+
+
+
+        async connectedCallback() {
+            await this.#runApplication()
         }
 
         disconnectedCallback() { }
