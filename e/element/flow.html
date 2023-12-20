@@ -35,6 +35,23 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
+        async #parseApplication(moduleText) {
+            const textAsModule =
+                `const E = globalThis['${this.E._globalNamespace}']; ${moduleText};`,
+                moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
+                classModule = await import(moduleAsUrl), { handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [] } = classModule
+            URL.revokeObjectURL(moduleAsUrl)
+            this.#loadApplication(handlers, labelNames, slots, cellNames, statements)
+        }
+
+        #compileScript(code) {
+
+        }
+
+        #transpileText(code) {
+
+        }
+
         #loadApplication(handlers, labelNames, slots, cellNames, statements) {
             this.#handlers = Object.freeze(handlers)
             this.#labelNames = Object.freeze(labelNames)
@@ -75,22 +92,7 @@
             }
         }
 
-        async #parseApplication(moduleText) {
-            const textAsModule =
-                `const E = globalThis['${this.E._globalNamespace}']; ${moduleText};`,
-                moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [] } = classModule
-            URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, labelNames, slots, cellNames, statements)
-        }
 
-        #compileScript(code) {
-
-        }
-
-        #transpileText(code) {
-
-        }
 
         async connectedCallback() {
             await this.#runApplication()
