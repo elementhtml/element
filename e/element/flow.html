@@ -7,6 +7,7 @@
 
         #abortController
         #handlers = []
+        #filters = []
         #labelNames = []
         #cellNames = []
         #context = {}
@@ -95,15 +96,16 @@
         }
 
         #compileScript(code) {
-            const handlers = [], labelNames = new Set(), slots = {}, cellNames = new Set(), statements = [],
+            const handlers = [], slots = {}, cellNames = new Set(), statements = [], filters = [],
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 2) !== '# ')) continue
-                const directiveSlice03 = directive.slice(0, 3), steps = []
+                const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
+                    const step = [] // label, handlerIndex, defaultValue, filterIndex
                     let label, handlerExpression = segment, defaultExpression
                     const labelMatch = handlerExpression.match(/^([a-z0-9]+):\s+/)
                     if (labelMatch) {
@@ -116,7 +118,8 @@
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
                     }
                     label ||= `${index}`
-                    handler
+                    step.push(label)
+                    let handler, handlerIndex, filter, filterIndex
                     switch (handlerExpression[0]) {
                         case '!':
                             handlerMap[handlerExpression] ||= handlers.push(this.#parseEventTargetExpression(handlerExpression.slice(1)))
@@ -171,79 +174,22 @@
                         default:
                             handlerMap[handlerExpression] ||= handlers.push(this.#parseRemoteExpression(stepExpression))
                     }
-                    steps.push([label, handlerMap[handlerExpression] - 1, defaultExpression])
-                    // labelNames = [], slots = {}, cellNames = []
-                    labelNames.add(label)
-
-
+                    step.push(handlerMap[handlerExpression] - 1)
+                    if (defaultExpression) step.push(defaultExpression)
+                    if (filterIndex) step.push(filterIndex)
+                    statement.labels[label] = undefined
+                    statement.steps.push(step)
                 }
-                statements.push(steps)
+                Object.seal(statement.labels)
+                Object.freeze(statement.steps)
+                Object.freeze(statement)
+                statements.push(statement)
             }
-
-
-
-
-
-
-            let context = { ...this.E.env.context }
-            for (const statement of this.#statements) {
-                const triggerExpression = statement.shift(), context = { ...context }
-                const statementProcessor = async (result) => {
-                    let labels = {}
-                    for (const step of statement) {
-                        const [label, stepHandler, defaultValue] = step
-                        result = (await stepHandler(result, labels, this.#slots, this.E.env.cells, context)) ?? defaultValue
-                        if (result == undefined) break
-                        labels[label] = result
-                    }
-                }
-                const [triggerTarget, eventNames] = triggerExpression
-                if (triggerTarget && Array.isArray(eventNames) && eventNames.length) {
-                    if (triggerTarget instanceof HTMLElement) {
-                        let [selector, eventList] = eventNames[0].split('!'), eventNames, useDefaultEvents
-                        if (eventList) {
-                            eventNames = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-                        } else {
-                            eventNames = Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click'])))
-                            useDefaultEvents = true
-                        }
-                        for (const eventName of eventNames) {
-                            triggerTarget.addEventListener(eventName, event => {
-                                if (useDefaultEvents && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
-                                if (selector && !event.target.matches(selector)) return
-                                statementProcessor(this.E.flatten(event.target))
-                            }, { signal: this.#abortController.signal })
-                        }
-                    } else if (triggerTarget instanceof EventTarget) {
-                        for (const eventName of eventNames) triggerTarget.addEventListener(eventName, statementProcessor)
-                    } else if (Array.isArray(triggerTarget)) {
-                        for (const [index, valueStore] of triggerTarget.entries()) {
-                            valueStore.eventTarget.addEventListener('change', event => {
-                                statementProcessor(valueStore.get())
-                            })
-                        }
-                    } else if (triggerTarget instanceof Object) {
-                        for (const [key, valueStore] of Object.entries(triggerTarget)) {
-                            valueStore.eventTarget.addEventListener('change', event => {
-                                statementProcessor(valueStore.get())
-                            })
-                        }
-                    }
-                } else {
-                    await statementProcessor()
-                }
-            }
-
-
-
-
             this.#loadApplication(handlers, slots, cellNames, filters, statements)
-
         }
 
         #readText(code) {
             if (type === 'text/flow') splitter = /\n\s*\n/gm
-
         }
 
 
