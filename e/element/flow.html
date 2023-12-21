@@ -97,7 +97,7 @@
 
         #compileScript(code) {
             const handlers = [], slots = {}, cellNames = new Set(), statements = [], filters = [],
-                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
+                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 2) !== '# ')) continue
@@ -122,36 +122,36 @@
                     let handler, handlerIndex, filter, filterIndex
                     switch (handlerExpression[0]) {
                         case '!':
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseEventTargetExpression(handlerExpression.slice(1)))
+                            [handler, filter] = this.#parseEventTargetExpression(handlerExpression.slice(1))
                             break
                         case '`':
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseProxyExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = handlers.push(this.#parseProxyExpression(stepExpression.slice(1, -1)))
                             break
                         case '/':
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseRegExpExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = handlers.push(this.#parseRegExpExpression(stepExpression.slice(1, -1)))
                             break
                         case '"':
                         case "'":
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseStringExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = handlers.push(this.#parseStringExpression(stepExpression.slice(1, -1)))
                             break
                         case "#":
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '#'))
+                            [handler, filter] = handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '#'))
                             break
                         case "%":
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '%'))
+                            [handler, filter] = handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '%'))
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
-                                handlerMap[handlerExpression] ||= handlers.push(this.#parseVariableExpression(stepExpression.slice(2, -1)))
+                                [handler, filter] = handlers.push(this.#parseVariableExpression(stepExpression.slice(2, -1)))
                             } else if (handlerExpression[1] === "(") {
-                                handlerMap[handlerExpression] ||= handlers.push(this.#parseSelectorExpression(stepExpression.slice(2, -1)))
+                                [handler, filter] = handlers.push(this.#parseSelectorExpression(stepExpression.slice(2, -1)))
                             }
                             break
                         case "(":
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseTransformExpression(stepExpression))
+                            [handler, filter] = handlers.push(this.#parseTransformExpression(stepExpression))
                             break
                         case "{":
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseJSONExpression(stepExpression))
+                            [handler, filter] = handlers.push(this.#parseJSONExpression(stepExpression))
                             break
                         case "n":
                         case "t":
@@ -168,13 +168,15 @@
                         case "9":
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
-                                handlerMap[handlerExpression] ||= handlers.push(this.#parseJSONExpression(stepExpression))
+                                [handler, filter] = handlers.push(this.#parseJSONExpression(stepExpression))
                                 break
                             }
                         default:
-                            handlerMap[handlerExpression] ||= handlers.push(this.#parseRemoteExpression(stepExpression))
+                            [handler, filter] = handlers.push(this.#parseRemoteExpression(stepExpression))
                     }
-                    step.push(handlerMap[handlerExpression] - 1)
+                    handlerIndex = (handlerMap[handlerExpression] ||= handlers.push(handler)) - 1
+                    if (filter) filterIndex = (filterMap[filter.toString()] ||= filters.push(filter)) - 1
+                    step.push(handlerIndex)
                     if (defaultExpression) step.push(defaultExpression)
                     if (filterIndex) step.push(filterIndex)
                     statement.labels[label] = undefined
