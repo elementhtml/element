@@ -103,7 +103,8 @@
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
-                if (!directive || (directive.slice(0, 2) !== '# ')) continue
+                if (!directive || (directive.slice(0, 2) === '# ')) continue
+                console.log('flow.html: line 108', directive.slice(0, 2))
                 const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
@@ -225,7 +226,7 @@
                     const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
                     this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: value }))
                 }
-                return result
+                return value
             }]
         }
 
