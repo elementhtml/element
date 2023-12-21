@@ -40,9 +40,9 @@
             const textAsModule =
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], labelNames = [], slots = {}, cellNames = [], statements = [] } = classModule
+                classModule = await import(moduleAsUrl), { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = classModule
             URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, labelNames, slots, cellNames, statements)
+            this.#loadApplication(handlers, slots, cellNames, filters, statements)
         }
 
         #compileScript(code) {
@@ -188,7 +188,7 @@
 
 
 
-            this.#loadApplication(handlers, labelNames, slots, cellNames, statements)
+            this.#loadApplication(handlers, slots, cellNames, filters, statements)
 
         }
 
@@ -197,12 +197,12 @@
 
         }
 
-        #loadApplication(handlers, labelNames, slots, cellNames, statements) {
+        #loadApplication(handlers = [], slots = {}, cellNames = [], filters = [], statements = []) {
+            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
             this.#slots = Object.seal(slots)
             this.#cellNames = Object.freeze(cellNames)
-            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
-            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
             this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
+            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
         }
 
         #runApplication() {
@@ -222,7 +222,7 @@
                     const [label, handlerIndex, defaultValue, filterIndex] = step
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
                         if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
-                        let detail = (await this.#handlers[handlerIndex](event.detail, Object.freeze({ ...labels }), env)) ?? defaultValue
+                        let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env)) ?? defaultValue
                         switch (label[0]) {
                             case '%':
                                 env.slots(label.slice(1)).set(detail)
