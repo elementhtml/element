@@ -125,33 +125,33 @@
                             [handler, filter] = this.#parseEventTargetExpression(handlerExpression.slice(1))
                             break
                         case '`':
-                            [handler, filter] = handlers.push(this.#parseProxyExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = this.#parseProxyExpression(stepExpression.slice(1, -1))
                             break
                         case '/':
-                            [handler, filter] = handlers.push(this.#parseRegExpExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = this.#parseRegExpExpression(stepExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            [handler, filter] = handlers.push(this.#parseStringExpression(stepExpression.slice(1, -1)))
+                            [handler, filter] = this.#parseStringExpression(stepExpression.slice(1, -1))
                             break
                         case "#":
-                            [handler, filter] = handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '#'))
+                            [handler, filter] = this.#parseSlotOrCellExpression(stepExpression.slice(1), '#')
                             break
                         case "%":
-                            [handler, filter] = handlers.push(this.#parseSlotOrCellExpression(stepExpression.slice(1), '%'))
+                            [handler, filter] = this.#parseSlotOrCellExpression(stepExpression.slice(1), '%')
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
-                                [handler, filter] = handlers.push(this.#parseVariableExpression(stepExpression.slice(2, -1)))
+                                [handler, filter] = this.#parseVariableExpression(stepExpression.slice(2, -1))
                             } else if (handlerExpression[1] === "(") {
-                                [handler, filter] = handlers.push(this.#parseSelectorExpression(stepExpression.slice(2, -1)))
+                                [handler, filter] = this.#parseSelectorExpression(stepExpression.slice(2, -1))
                             }
                             break
                         case "(":
-                            [handler, filter] = handlers.push(this.#parseTransformExpression(stepExpression))
+                            [handler, filter] = this.#parseTransformExpression(stepExpression)
                             break
                         case "{":
-                            [handler, filter] = handlers.push(this.#parseJSONExpression(stepExpression))
+                            [handler, filter] = this.#parseJSONExpression(stepExpression)
                             break
                         case "n":
                         case "t":
@@ -168,14 +168,14 @@
                         case "9":
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
-                                [handler, filter] = handlers.push(this.#parseJSONExpression(stepExpression))
+                                [handler, filter] = this.#parseJSONExpression(stepExpression)
                                 break
                             }
                         default:
-                            [handler, filter] = handlers.push(this.#parseRemoteExpression(stepExpression))
+                            [handler, filter] = this.#parseRemoteExpression(stepExpression)
                     }
-                    handlerIndex = (handlerMap[handlerExpression] ||= handlers.push(handler)) - 1
-                    if (filter) filterIndex = (filterMap[filter.toString()] ||= filters.push(filter)) - 1
+                    handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
+                    if (filter) filterIndex = (filterMap[filter.toString()] ||= (filters.push(filter)) - 1)
                     step.push(handlerIndex)
                     if (defaultExpression) step.push(defaultExpression)
                     if (filterIndex) step.push(filterIndex)
