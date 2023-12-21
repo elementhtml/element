@@ -18,23 +18,72 @@
 
         constructor() {
             super()
-            const src = this.src, type = this.type ?? 'script/flow', prepare = code => {
-                switch (type) {
-                    case 'application/flow':
-                        await this.#parseApplication(code)
-                        break
-                    case 'text/flow':
-                        code = await this.#readText(code)
-                    case 'script/flow':
-                        await this.#compileScript(code)
+            const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
+            if (type === 'application/flow' && !textContent && src) {
+                const { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = await import(src)
+                this.#loadApplication(handlers, slots, cellNames, filters, statements)
+            } else {
+                const prepare = code => {
+                    switch (type) {
+                        case 'application/flow':
+                            await this.#parseApplication(code)
+                            break
+                        case 'text/flow':
+                            code = await this.#readText(code)
+                        case 'script/flow':
+                            await this.#compileScript(code)
+                    }
                 }
+                if (src) {
+                    fetch(src).then(r => r.text()).then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
+                } else { prepare(textContent ?? '') }
             }
-            if (src) {
-                fetch(src).then(r => r.text()).then(code => prepare([code.trim(), this.textContent.trim()].join('/n/n')))
-            } else { prepare(this.textContent ?? '') }
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
+
+        #loadApplication(handlers = [], slots = {}, cellNames = [], filters = [], statements = []) {
+            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
+            this.#slots = Object.seal(slots)
+            this.#cellNames = Object.freeze(cellNames)
+            this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
+            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
+        }
+
+        #runApplication() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            const rootNode = this.getRootNode(),
+                context = Object.freeze(rootNode instanceof ShadowRoot
+                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
+                env = Object.freeze({ slots: {}, cells: {}, context })
+            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
+            Object.freeze(env.slots)
+            Object.freeze(env.cells)
+            for (const [statementIndex, statement] of this.#statements.entries()) {
+                const { labels = {}, steps = [] } = statement
+                for (const [stepIndex, step] of steps.entries()) {
+                    const [label, handlerIndex, defaultValue, filterIndex] = step
+                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
+                        if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
+                        let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env)) ?? defaultValue
+                        switch (label[0]) {
+                            case '%':
+                                env.slots(label.slice(1)).set(detail)
+                                break
+                            case '#':
+                                env.cells(label.slice(1)).set(detail)
+                                break
+                            default:
+                                labels[label] = detail
+                        }
+                        if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                    }, { signal: this.#abortController.signal })
+                }
+            }
+            this.dispatchEvent(new CustomEvent('run'))
+        }
 
         async #parseApplication(code) {
             const textAsModule =
@@ -197,48 +246,6 @@
 
         }
 
-        #loadApplication(handlers = [], slots = {}, cellNames = [], filters = [], statements = []) {
-            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
-            this.#slots = Object.seal(slots)
-            this.#cellNames = Object.freeze(cellNames)
-            this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
-            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
-        }
-
-        #runApplication() {
-            if (this.#abortController) this.#abortController.abort()
-            this.#abortController = new AbortController()
-            const rootNode = this.getRootNode(),
-                context = Object.freeze(rootNode instanceof ShadowRoot
-                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
-                env = Object.freeze({ slots: {}, cells: {}, context })
-            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
-            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
-            Object.freeze(env.slots)
-            Object.freeze(env.cells)
-            for (const [statementIndex, statement] of this.#statements.entries()) {
-                const { labels = {}, steps = [] } = statement
-                for (const [stepIndex, step] of steps.entries()) {
-                    const [label, handlerIndex, defaultValue, filterIndex] = step
-                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
-                        if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
-                        let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env)) ?? defaultValue
-                        switch (label[0]) {
-                            case '%':
-                                env.slots(label.slice(1)).set(detail)
-                                break
-                            case '#':
-                                env.cells(label.slice(1)).set(detail)
-                                break
-                            default:
-                                labels[label] = detail
-                        }
-                        if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                    }, { signal: this.#abortController.signal })
-                }
-            }
-            this.dispatchEvent(new CustomEvent('run'))
-        }
 
 
 
