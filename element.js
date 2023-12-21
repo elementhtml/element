@@ -737,7 +737,7 @@ const ElementHTML = Object.defineProperties({}, {
     serialize: {//keep
         enumerable: true, value: async function (input, sourceElement, contentType) {
             if (typeof input === 'string') return input
-            contentType ||= sourceElement.getAttribute('content-type') || sourceElement.optionsMap['Content-Type'] || sourceElement._contentType || 'application/json'
+            contentType ||= sourceElement.getAttribute('content-type') || (sourceElement?.optionsMap ?? {})['Content-Type'] || sourceElement?._contentType || 'application/json'
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
             if (contentType === 'text/html' || contentType === 'text/md') {

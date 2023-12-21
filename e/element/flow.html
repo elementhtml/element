@@ -21,18 +21,21 @@
             super()
             const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
             if (type === 'application/flow' && !textContent && src) {
-                const { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = await import(src)
-                this.#loadApplication(handlers, slots, cellNames, filters, statements)
+                import(src).then(importResult => {
+                    const { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = importResult
+                    this.#loadApplication(handlers, slots, cellNames, filters, statements)
+                })
             } else {
                 const prepare = code => {
                     switch (type) {
                         case 'application/flow':
-                            await this.#parseApplication(code)
+                            this.#parseApplication(code)
                             break
                         case 'text/flow':
-                            code = await this.#readText(code)
+                            this.#readText(code).then(code => this.#compileScript(code))
+                            break
                         case 'script/flow':
-                            await this.#compileScript(code)
+                            this.#compileScript(code)
                     }
                 }
                 if (src) {
@@ -66,7 +69,7 @@
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
                     const [label, handlerIndex, defaultValue, filterIndex] = step
-                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
+                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
                         let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env)) ?? defaultValue
                         switch (label[0]) {
@@ -125,33 +128,33 @@
                             [handler, filter] = this.#parseEventTargetExpression(handlerExpression.slice(1))
                             break
                         case '`':
-                            [handler, filter] = this.#parseProxyExpression(stepExpression.slice(1, -1))
+                            [handler, filter] = this.#parseProxyExpression(handlerExpression.slice(1, -1))
                             break
                         case '/':
-                            [handler, filter] = this.#parseRegExpExpression(stepExpression.slice(1, -1))
+                            [handler, filter] = this.#parseRegExpExpression(handlerExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            [handler, filter] = this.#parseStringExpression(stepExpression.slice(1, -1))
+                            [handler, filter] = this.#parseStringExpression(handlerExpression.slice(1, -1))
                             break
                         case "#":
-                            [handler, filter] = this.#parseSlotOrCellExpression(stepExpression.slice(1), '#')
+                            [handler, filter] = this.#parseSlotOrCellExpression(handlerExpression.slice(1), '#')
                             break
                         case "%":
-                            [handler, filter] = this.#parseSlotOrCellExpression(stepExpression.slice(1), '%')
+                            [handler, filter] = this.#parseSlotOrCellExpression(handlerExpression.slice(1), '%')
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
-                                [handler, filter] = this.#parseVariableExpression(stepExpression.slice(2, -1))
+                                [handler, filter] = this.#parseVariableExpression(handlerExpression.slice(2, -1))
                             } else if (handlerExpression[1] === "(") {
-                                [handler, filter] = this.#parseSelectorExpression(stepExpression.slice(2, -1))
+                                [handler, filter] = this.#parseSelectorExpression(handlerExpression.slice(2, -1))
                             }
                             break
                         case "(":
-                            [handler, filter] = this.#parseTransformExpression(stepExpression)
+                            [handler, filter] = this.#parseTransformExpression(handlerExpression)
                             break
                         case "{":
-                            [handler, filter] = this.#parseJSONExpression(stepExpression)
+                            [handler, filter] = this.#parseJSONExpression(handlerExpression)
                             break
                         case "n":
                         case "t":
@@ -168,11 +171,11 @@
                         case "9":
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
-                                [handler, filter] = this.#parseJSONExpression(stepExpression)
+                                [handler, filter] = this.#parseJSONExpression(handlerExpression)
                                 break
                             }
                         default:
-                            [handler, filter] = this.#parseRemoteExpression(stepExpression)
+                            [handler, filter] = this.#parseRemoteExpression(handlerExpression)
                     }
                     handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
                     if (filter) filterIndex = (filterMap[filter.toString()] ||= (filters.push(filter)) - 1)
@@ -317,7 +320,7 @@
             return [(value, labels, env) => {
                 let r
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
-                const resolve = (rr) {
+                const resolve = rr => {
                     if (Array.isArray(rr)) {
                         return rr.map(rrr => this.E.resolveVariables(rrr, this))
                     } else if (rr instanceof Object) {
@@ -335,12 +338,8 @@
         }
 
         #parseTransformExpression(expressionCode) {
-            return [(value, labels, env) => {
-                return await this.E.runTransform(expressionCode, value, this, {
-                    context, labels,
-                    slots: Object.fromEntries(Object.entries(slots).map(s => [s[0], s[1].get()])),
-                    cells: Object.fromEntries(Object.entries(cells).map(s => [c[0], c[1].get()]))
-                })
+            return [async (value, labels, env) => {
+                return await this.E.runTransform(expressionCode, value, this, { labels, ...env })
             }]
         }
 
@@ -357,14 +356,14 @@
             } else if (globalUrl.startsWith('rtc://')) {
                 // web rtc
             }
-            return [(value, labels, env) => {
+            return [async (value, labels, env) => {
                 const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
                 if (globalConnnector) return send(body)
                 const url = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
                 if (!url) return
-                const headers = context.headers ?? {}, method = context.method ?? (body ? 'POST' : 'GET')
+                const headers = env.context.headers ?? {}, method = env.context.method ?? (body ? 'POST' : 'GET')
                 if (body) {
-                    headers['content-type'] = context['content-type'] ?? headers['content-type'] ?? 'application/json'
+                    headers['content-type'] = env.context['content-type'] ?? headers['content-type'] ?? 'application/json'
                 }
                 const options = { method, headers, body }
                 return await fetch(url, options).then(r => {
@@ -413,7 +412,7 @@
                 for (const pair of expression.slice(1, -1).trim().split(',')) {
                     let [key, name] = pair.trim().split(':').map(s => s.trim())
                     if (!name) name = key
-                    pairs[key] = type === '%' ? this.#getSlot(name.trim()) : this.E.getCell(name.trim())
+                    group[key] = type === '%' ? this.#getSlot(name.trim()) : this.E.getCell(name.trim())
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
                 group = []
