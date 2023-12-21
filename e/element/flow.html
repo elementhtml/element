@@ -105,7 +105,7 @@
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
-                    const step = [] // label, handlerIndex, defaultValue, filterIndex
+                    const step = []
                     let label, handlerExpression = segment, defaultExpression
                     const labelMatch = handlerExpression.match(/^([a-z0-9]+):\s+/)
                     if (labelMatch) {
@@ -194,9 +194,6 @@
             if (type === 'text/flow') splitter = /\n\s*\n/gm
         }
 
-
-
-
         async connectedCallback() {
             await this.#runApplication()
         }
@@ -210,6 +207,182 @@
 
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
+
+        #parseEventTargetExpression(expressionCode) {
+            const pairs = []
+            for (const eventPair of expressionCode.split(',')) if (eventPair) {
+                let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
+                if (!eventTargetName) continue
+                if (!eventName) eventName = eventTargetName
+                this.E.env.eventTargets[eventTargetName] ||= new EventTarget()
+                pairs.push([eventTargetName, eventName])
+            }
+            return [async (value, labels, env) => {
+                for (const [t, n] of pairs) {
+                    const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
+                    this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: value }))
+                }
+                return result
+            }]
+        }
+
+        #parseProxyExpression(expressionCode) {
+            const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
+            if (!parentExpression || (childExpression === '')) return
+            let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+            parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+            const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
+            let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+            childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+            const getParentArgs = r => parentArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
+            const getChildArgs = r => childArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
+            const singleton = parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
+            return [(value, labels, env) => {
+                if (childMethodName) {
+                    if (singleton) {
+                        if (!(singleton instanceof Object)) return
+                        if (typeof singleton[childMethodName] !== 'function') return
+                        return singleton[childMethodName](...getChildArgs(value))
+                    } else {
+                        if (!(globalThis[parentObjectName] instanceof Object)) return
+                        if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                        return globalThis[parentObjectName][childMethodName](...getChildArgs(value))
+                    }
+                } else {
+                    return singleton ? singleton(...getParentArgs(value)) : globalThis[parentObjectName](...getParentArgs(value))
+                }
+            }]
+        }
+
+        #parseRegExpExpression(expressionCode) {
+            let [expression, substitute] = expressionCode.split(' ').map(s => s.trim())
+            if (!expression) return
+            const regex = new RegExp(expression, 'g')
+            return [(value, labels, env) => {
+                let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
+                if ((typeof result !== 'string') || (typeof instanceSubstitute !== string)) return
+                if (substitute) {
+                    return result.replace(regex, instanceSubstitute)
+                } else {
+                    const match = result.match(regex, instanceSubstitute)
+                    return match ? (match.groups ?? match[1]) : undefined
+                }
+            }]
+        }
+
+        #parseStringExpression(expressionCode) {
+            return [(value, labels, env) => expressionCode]
+        }
+
+        #parseSlotOrCellExpression(expressionCode, type) {
+            let group = this.#getSlotOrCellGroup(expressionCode, type),
+                config = Array.isArray(group) ? 'array' : ((expressionCode[0] === '{') ? 'object' : 'single')
+            if (config === 'single') group = group[0]
+            return [(value, labels, env) => {
+                switch (config) {
+                    case 'single':
+                        group.set(value)
+                        return value
+                    case 'array':
+                        if (Array.isArray(value)) {
+                            for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
+                        }
+                        return group.map(i => i.get())
+                    default:
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
+                            if (v == undefined) continue
+                            if (k[0] === type) {
+                                const n = k.slice(1)
+                                if (group[n]) group[n].set(v)
+                            }
+                        }
+                        return Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
+                }
+            }]
+        }
+
+        #parseSelectorExpression(expressionCode) {
+            return [(value, labels, env) => {
+                const target = this.E.resolveScopedSelector(expressionCode, this)
+                if (Array.isArray(target)) {
+                    for (const t of target) this.E.applyData(t, value)
+                } else if (target) {
+                    this.E.applyData(target, value)
+                }
+                return value
+            }]
+        }
+
+        #parseJSONExpression(expressionCode) {
+            return [(value, labels, env) => {
+                let r
+                try { r = JSON.parse(expressionCode) } catch (e) { return }
+                const resolve = (rr) {
+                    if (Array.isArray(rr)) {
+                        return rr.map(rrr => this.E.resolveVariables(rrr, this))
+                    } else if (rr instanceof Object) {
+                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m, this))))
+                    } else {
+                        return this.E.resolveVariables(rr, this)
+                    }
+                }
+                return resolve(r)
+            }]
+        }
+
+        #parseVariableExpression(expressionCode) {
+            return [(value, labels, env) => this.E.resolveVariables(expressionCode, this)]
+        }
+
+        #parseTransformExpression(expressionCode) {
+            return [(value, labels, env) => {
+                return await this.E.runTransform(expressionCode, value, this, {
+                    context, labels,
+                    slots: Object.fromEntries(Object.entries(slots).map(s => [s[0], s[1].get()])),
+                    cells: Object.fromEntries(Object.entries(cells).map(s => [c[0], c[1].get()]))
+                })
+            }]
+        }
+
+        #parseRemoteExpression(expressionCode) {
+            const globalUrl = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+            let globalConnnector, send
+            if (globalUrl.startsWith('wss://')) {
+                globalConnnector = new WebSocket(globalUrl)
+                send = p => globalConnnector.send(p)
+            } else if (globalUrl.startsWith('sse://')) {
+                globalConnnector = new EventSource(globalUrl)
+            } else if (globalUrl.startsWith('wt://')) {
+                // web transport
+            } else if (globalUrl.startsWith('rtc://')) {
+                // web rtc
+            }
+            return [(value, labels, env) => {
+                const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
+                if (globalConnnector) return send(body)
+                const url = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+                if (!url) return
+                const headers = context.headers ?? {}, method = context.method ?? (body ? 'POST' : 'GET')
+                if (body) {
+                    headers['content-type'] = context['content-type'] ?? headers['content-type'] ?? 'application/json'
+                }
+                const options = { method, headers, body }
+                return await fetch(url, options).then(r => {
+                    return this.E.parse(r, this).then(value => {
+                        return {
+                            ok: r.ok,
+                            status: r.status,
+                            headers: Object.fromEntries(r.headers.entries()),
+                            value
+                        }
+                    })
+                })
+            }]
+        }
+
+
+
+
 
         #getSlot(name) {
             if (!name) return
@@ -253,6 +426,9 @@
             return group
         }
 
+
+
+
         #parseTriggerExpression(expressionCode) {
             switch (expressionCode[0]) {
                 case '!':
@@ -278,177 +454,7 @@
             }
         }
 
-        #parseEventTargetExpression(expressionCode) {
-            const pairs = []
-            for (const eventPair of expressionCode.split(',')) if (eventPair) {
-                let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
-                if (!eventTargetName) continue
-                if (!eventName) eventName = eventTargetName
-                this.E.env.eventTargets[eventTargetName] ||= new EventTarget()
-                pairs.push([eventTargetName, eventName])
-            }
-            return async (result, labels, slots, cells, context) => {
-                for (const [t, n] of pairs) {
-                    const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
-                    this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: result }))
-                }
-                return result
-            }
-        }
 
-        #parseProxyExpression(expressionCode) {
-            const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
-            if (!parentExpression || (childExpression === '')) return
-            let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
-            parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
-            let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-            childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const getParentArgs = r => parentArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
-            const getChildArgs = r => childArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
-            const singleton = parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
-            return (result, labels, slots, cells, context) => {
-                if (childMethodName) {
-                    if (singleton) {
-                        if (!(singleton instanceof Object)) return
-                        if (typeof singleton[childMethodName] !== 'function') return
-                        return singleton[childMethodName](...getChildArgs(result))
-                    } else {
-                        if (!(globalThis[parentObjectName] instanceof Object)) return
-                        if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                        return globalThis[parentObjectName][childMethodName](...getChildArgs(result))
-                    }
-                } else {
-                    return singleton ? singleton(...getParentArgs(result)) : globalThis[parentObjectName](...getParentArgs(result))
-                }
-            }
-        }
-
-        #parseRegExpExpression(expressionCode) {
-            let [expression, substitute] = expressionCode.split(' ').map(s => s.trim())
-            if (!expression) return
-            const regex = new RegExp(expression, 'g')
-            return (result, labels, slots, cells, context) => {
-                let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
-                if ((typeof result !== 'string') || (typeof instanceSubstitute !== string)) return
-                if (substitute) {
-                    return result.replace(regex, instanceSubstitute)
-                } else {
-                    const match = result.match(regex, instanceSubstitute)
-                    return match ? (match.groups ?? match[1]) : undefined
-                }
-            }
-        }
-
-        #parseStringExpression(expressionCode) {
-            return (result, labels, slots, cells, context) => expressionCode
-        }
-
-        #parseSlotOrCellExpression(expressionCode, type) {
-            let group = this.#getSlotOrCellGroup(expressionCode, type),
-                config = Array.isArray(group) ? 'array' : ((expressionCode[0] === '{') ? 'object' : 'single')
-            if (config === 'single') group = group[0]
-            return (result, labels, slots, cells, context) => {
-                switch (config) {
-                    case 'single':
-                        group.set(result)
-                        return result
-                    case 'array':
-                        if (Array.isArray(result)) {
-                            for (const [i, v] of result.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
-                        }
-                        return group.map(i => i.get())
-                    default:
-                        if (result instanceof Object) for (const [k, v] of Object.entries(result)) {
-                            if (v == undefined) continue
-                            if (k[0] === type) {
-                                const n = k.slice(1)
-                                if (group[n]) group[n].set(v)
-                            }
-                        }
-                        return Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
-                }
-            }
-        }
-
-        #parseSelectorExpression(expressionCode) {
-            return (result, labels, slots, cells, context) => {
-                const target = this.E.resolveScopedSelector(expressionCode, this)
-                if (Array.isArray(target)) {
-                    for (const t of target) this.E.applyData(t, result)
-                } else if (target) {
-                    this.E.applyData(target, result)
-                }
-                return result
-            }
-        }
-
-        #parseJSONExpression(expressionCode) {
-            return (result, labels, slots, cells, context) => {
-                let r
-                try { r = JSON.parse(expressionCode) } catch (e) { return }
-                const resolve = (rr) {
-                    if (Array.isArray(rr)) {
-                        return rr.map(rrr => this.E.resolveVariables(rrr, this))
-                    } else if (rr instanceof Object) {
-                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m, this))))
-                    } else {
-                        return this.E.resolveVariables(rr, this)
-                    }
-                }
-                return resolve(r)
-            }
-        }
-
-        #parseVariableExpression(expressionCode) {
-            return (result, labels, slots, cells, context) => this.E.resolveVariables(expressionCode, this)
-        }
-
-        #parseTransformExpression(expressionCode) {
-            return (result, labels, slots, cells, context) => {
-                return await this.E.runTransform(expressionCode, result, this, {
-                    context, labels,
-                    slots: Object.fromEntries(Object.entries(slots).map(s => [s[0], s[1].get()])),
-                    cells: Object.fromEntries(Object.entries(cells).map(s => [c[0], c[1].get()]))
-                })
-            }
-        }
-
-        #parseRemoteExpression(expressionCode) {
-            const globalUrl = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
-            let globalConnnector, send
-            if (globalUrl.startsWith('wss://')) {
-                globalConnnector = new WebSocket(globalUrl)
-                send = p => globalConnnector.send(p)
-            } else if (globalUrl.startsWith('sse://')) {
-                globalConnnector = new EventSource(globalUrl)
-            } else if (globalUrl.startsWith('wt://')) {
-                // web transport
-            } else if (globalUrl.startsWith('rtc://')) {
-                // web rtc
-            }
-            return (result, labels, slots, cells, context) => {
-                const body = result == undefined ? undefined : ((typeof result == 'string') ? result : await this.E.serialize(result, this))
-                if (globalConnnector) return send(body)
-                const url = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
-                if (!url) return
-                const headers = context.headers ?? {}, method = context.method ?? (body ? 'POST' : 'GET')
-                if (body) {
-                    headers['content-type'] = context['content-type'] ?? headers['content-type'] ?? 'application/json'
-                }
-                const options = { method, headers, body }
-                return await fetch(url, options).then(r => {
-                    return this.E.parse(r, this).then(value => {
-                        return {
-                            ok: r.ok,
-                            status: r.status,
-                            headers: Object.fromEntries(r.headers.entries()),
-                            value
-                        }
-                    })
-                })
-            }
-        }
 
     }
 </script>
