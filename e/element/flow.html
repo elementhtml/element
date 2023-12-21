@@ -13,6 +13,7 @@
         #slots = {}
         #src
         #statements = []
+        #steps = new WeakMap()
         #type
 
         constructor() {
@@ -197,45 +198,47 @@
         }
 
         #loadApplication(handlers, labelNames, slots, cellNames, statements) {
-            this.#handlers = Object.freeze(handlers)
-            this.#labelNames = Object.freeze(labelNames)
+            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
+            this.#triggers = Object.freeze(triggers)//each one [eventTarget, eventName, eventFilterFunc, handleEvent]
+            this.#initializers = Object.freeze(initializers)//each one function() 
             this.#slots = Object.seal(slots)
             this.#cellNames = Object.freeze(cellNames)
-            this.#statements = Object.freeze(statements)
+            this.#statements = Object.freeze(statements) // each one an object with the keys being the labels used in that statement
         }
 
-        #runApplication(code) {
-            // if (this.#abortController) this.#abortController.abort()
-            // this.#abortController = new AbortController()
+        #runApplication() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
             const rootNode = this.getRootNode(),
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
-                env = Object.freeze({ labels: {}, slots: {}, cells: {}, context })
-            for (const labelName of this.#labelNames) env.labels[labelName] = undefined
+                env = Object.freeze({ slots: {}, cells: {}, context })
             for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
             for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
-            Object.seal(env.labels)
             Object.freeze(env.slots)
             Object.freeze(env.cells)
-            for (const statement of this.#statements) {
-                const statementLength = statement.length
-                let value
-                for (const [index, step] of statement.entries()) {
-                    const [handlerIndex, defaultValue, label = `${index}`] = step
-                    value = (await this.#handlers[handlerIndex](value, index, index ? statementLength : statement, env)) ?? defaultValue
-                    switch (label[0]) {
-                        case '%':
-                            env.slots(label.slice(1)).set(result)
-                            break
-                        case '#':
-                            env.cells(label.slice(1)).set(result)
-                            break
-                        default:
-                            labels[label] = result
-                    }
-                    if (value == undefined) break
+            for (const [statementIndex, statement] of this.#statement.entries()) {
+                const { labels = {}, steps = [] } = statement
+                for (const [stepIndex, step] of steps) {
+                    const [label, fromEventTarget, fromEventName, filterFunc, handlerIndex, stepEventTarget] = step
+                    fromEventTarget.addEventListener(fromEventName, event => {
+                        if (filterFunc && !filterFunc(event.detail, labels, env)) return
+                        let detail = this.#handlers[handlerIndex](event.detail, labels, env)
+                        switch (label[0]) {
+                            case '%':
+                                env.slots(label.slice(1)).set(result)
+                                break
+                            case '#':
+                                env.cells(label.slice(1)).set(result)
+                                break
+                            default:
+                                labels[label] = detail
+                        }
+                        if (detail != undefined) stepEventTarget.dispatchEvent(new CustomEvent('done', { detail }))
+                    }, { signal: this.#abortController.signal })
                 }
             }
+            this.dispatchEvent(new CustomEvent('run'))
         }
 
 
@@ -244,7 +247,9 @@
             await this.#runApplication()
         }
 
-        disconnectedCallback() { }
+        disconnectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+        }
 
         get src() { return this.E.utils.safeGet(this, this.#src, 'src') }
         set src(value) { this.#src = value }
