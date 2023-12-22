@@ -55,7 +55,7 @@
 
         #loadApplication(handlers = [], fieldNames = [], cellNames = [], filters = [], statements = []) {
             this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
-            this.#fields = {}
+            this.#fields ||= {}
             for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
             Object.freeze(this.#fields)
             this.#fieldNames = Object.freeze(fieldNames)
