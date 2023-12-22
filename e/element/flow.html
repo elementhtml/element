@@ -410,6 +410,7 @@
                 // web rtc
             }
             return [async (value, labels, env) => {
+                console.log('flow.html: line 413', value, labels, env)
                 const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
                 if (globalConnnector) return send(body)
                 const url = this.E.resolveUrl(this.#mergeVariables(expression, value, labels, env), this)
