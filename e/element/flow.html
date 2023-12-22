@@ -278,17 +278,20 @@
             }]
         }
 
-        #parseRegExpExpression(expressionCode) {
-            let [expression, substitute] = expressionCode.split(' ').map(s => s.trim())
+        #parseRegExpExpression(expression) {
+            let substitute;
+            [expression, substitute] = expression.split(' ').map(s => s.trim())
             if (!expression) return
-            const regex = new RegExp(expression, 'g')
+            const regex = new RegExp(expression)
             return [(value, labels, env) => {
+                console.log('flow.html: line 287', value, labels, env)
                 let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
-                if ((typeof result !== 'string') || (typeof instanceSubstitute !== string)) return
+                if (typeof value !== 'string') return
                 if (substitute) {
-                    return result.replace(regex, instanceSubstitute)
+                    return value.replace(regex, instanceSubstitute)
                 } else {
-                    const match = result.match(regex, instanceSubstitute)
+                    const match = value.match(regex)
+                    console.log('flow.html: line 294', regex, match)
                     return match ? (match.groups ?? match[1]) : undefined
                 }
             }]
