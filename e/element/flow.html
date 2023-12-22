@@ -231,10 +231,8 @@
                 }
             }
             return [async (value, labels, env, statementIndex, stepIndex) => {
-                console.log('flow.html: line 235', value, labels, env, statementIndex, stepIndex);
                 if (routerEvent === '#') {
                     window.addEventListener('hashchange', event => {
-                        console.log('flow.html: line 238', value, labels, env, statementIndex, stepIndex);
                         this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
                     })
                     return document.location.hash
