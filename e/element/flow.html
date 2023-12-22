@@ -1,6 +1,6 @@
 <style></style>
 <template>
-    <slot></slot>
+    <field></field>
 </template>
 <script>
     export default class extends `script` {
@@ -10,7 +10,8 @@
         #filters = []
         #cellNames = []
         #context = {}
-        #slots = {}
+        #fieldNames = []
+        #fields = {}
         #src
         #statements = []
         #type
@@ -18,7 +19,8 @@
         get handlers() { return this.#handlers }
         get filters() { return this.#filters }
         get cellNames() { return this.#cellNames }
-        get slots() { return this.#slots }
+        get fieldNames() { return this.#fieldNames }
+        get fields() { return this.#fields }
         get statements() { return this.#statements }
 
 
@@ -27,8 +29,8 @@
             const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
             if (type === 'application/flow' && !textContent && src) {
                 import(src).then(importResult => {
-                    const { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = importResult
-                    this.#loadApplication(handlers, slots, cellNames, filters, statements)
+                    const { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = importResult
+                    this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
                 })
             } else {
                 const prepare = code => {
@@ -51,9 +53,12 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        #loadApplication(handlers = [], slots = {}, cellNames = [], filters = [], statements = []) {
+        #loadApplication(handlers = [], fieldNames = [], cellNames = [], filters = [], statements = []) {
             this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
-            this.#slots = Object.seal(slots)
+            this.#fields = {}
+            for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
+            Object.freeze(this.#fields)
+            this.#fieldNames = Object.freeze(fieldNames)
             this.#cellNames = Object.freeze(cellNames)
             this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
             this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
@@ -65,10 +70,10 @@
             const rootNode = this.getRootNode(),
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
-                env = Object.freeze({ slots: {}, cells: {}, context })
-            for (const [slotName, slotInitValue] of Object.entries(this.#slots)) env.slots[slotName] = this.#getSlot(slotName).set(slotInitValue)
+                env = Object.freeze({ fields: {}, cells: {}, context })
+            for (const fieldName of this.#fieldNames) env.fields[fieldName] = this.#getField(fieldName)
             for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
-            Object.freeze(env.slots)
+            Object.freeze(env.fields)
             Object.freeze(env.cells)
             for (const [statementIndex, statement] of this.#statements.entries()) {
                 const { labels = {}, steps = [] } = statement
@@ -79,7 +84,7 @@
                         let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)) ?? defaultValue
                         switch (label[0]) {
                             case '%':
-                                env.slots[label.slice(1)].set(detail)
+                                env.fields[label.slice(1)].set(detail)
                                 break
                             case '#':
                                 env.cells[label.slice(1)].set(detail)
@@ -87,6 +92,7 @@
                             default:
                                 labels[label] = detail
                         }
+                        labels[`${stepIndex}`] = detail
                         if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
                     }, { signal: this.#abortController.signal })
                 }
@@ -98,13 +104,13 @@
             const textAsModule =
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], slots = {}, cellNames = [], filters = [], statements = [] } = classModule
+                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = classModule
             URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, slots, cellNames, filters, statements)
+            this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
         }
 
         #compileScript(code) {
-            const handlers = [], slots = {}, cellNames = new Set(), statements = [], filters = [],
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], filters = [],
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
@@ -129,7 +135,7 @@
                     step.push(label)
                     switch (label[0]) {
                         case '%':
-                            slots[label.slice(1)] = undefined
+                            fieldNames.add(label.slice(1))
                             break
                         case '#':
                             cellNames.add(label.slice(1))
@@ -153,10 +159,14 @@
                             [handler, filter] = this.#parseStringExpression(handlerExpression.slice(1, -1))
                             break
                         case "#":
-                            [handler, filter] = this.#parseSlotOrCellExpression(handlerExpression.slice(1), '#')
+                            let addedCellNames
+                            [handler, filter, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '#')
+                            for (const addedCellName of addedCellNames) cellNames.add(addedCellName)
                             break
                         case "%":
-                            [handler, filter] = this.#parseSlotOrCellExpression(handlerExpression.slice(1), '%')
+                            let addedFieldNames
+                            [handler, filter, addedFieldNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '%')
+                            for (const addedFieldName of addedFieldNames) fieldNames.add(addedFieldName)
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
@@ -198,6 +208,7 @@
                     if (defaultExpression) step.push(defaultExpression)
                     if (filterIndex) step.push(filterIndex)
                     statement.labels[label] = undefined
+                    statement.labels[`${index}`] = undefined
                     statement.steps.push(step)
                 }
                 Object.seal(statement.labels)
@@ -205,7 +216,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.#loadApplication(handlers, slots, Array.from(cellNames), filters, statements)
+            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), filters, statements)
         }
 
         #readText(code) {
@@ -309,11 +320,21 @@
             return [(value, labels, env) => expressionCode]
         }
 
-        #parseSlotOrCellExpression(expression, type) {
-            let group = this.#getSlotOrCellGroup(expression, type),
-                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single')
+        #parseFieldOrCellExpression(expression, type) {
+            let group = this.#getFieldOrCellGroup(expression, type),
+                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'), added = new Set()
             if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
+            switch (config) {
+                case 'single':
+                    added.add(group.name)
+                    break
+                case 'array':
+                    for (const item of group) added.add(item.name)
+                    break
+                default:
+                    for (const [name, item] of Object.entries(group)) added.add(item.name)
+            }
             return [(value, labels, env) => {
                 switch (config) {
                     case 'single':
@@ -334,7 +355,7 @@
                         }
                         return Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
                 }
-            }]
+            }, undefined, Array.from(added)]
         }
 
         #parseSelectorExpression(expressionCode) {
@@ -416,44 +437,44 @@
 
 
 
-        #getSlot(name) {
+        #getField(name) {
             if (!name) return
-            if (!this.#slots[name]) {
-                const slot = {
+            if (!this.#fields[name]) {
+                const field = {
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
                     set: function (value, force) {
                         if (this.value === value) {
-                            if (force) slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            if (force) field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                             return this
                         }
                         this.value = value
-                        slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                         return this
                     },
                     value: undefined, name
                 }
-                this.#slots[name] = slot
+                this.#fields[name] = field
             }
-            return this.#slots[name]
+            return this.#fields[name]
         }
 
-        #getSlotOrCellGroup(expression, type = '#') {
+        #getFieldOrCellGroup(expression, type = '#') {
             let group
             if ((expression[0] === '{') && expression.endsWith('}')) {
                 group = {}
                 for (const pair of expression.slice(1, -1).trim().split(',')) {
                     let [key, name] = pair.trim().split(':').map(s => s.trim())
                     if (!name) name = key
-                    group[key] = type === '%' ? this.#getSlot(name.trim()) : this.E.getCell(name.trim())
+                    group[key] = type === '%' ? this.#getField(name.trim()) : this.E.getCell(name.trim())
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
                 group = []
                 for (const t of expression.split(',')) {
-                    group.push(type === '%' ? this.#getSlot(t.trim()) : this.E.getCell(t.trim()))
+                    group.push(type === '%' ? this.#getField(t.trim()) : this.E.getCell(t.trim()))
                 }
             } else {
-                group = [(type === '%' ? this.#getSlot(expression) : this.E.getCell(expression))]
+                group = [(type === '%' ? this.#getField(expression) : this.E.getCell(expression))]
             }
             return group
         }
@@ -475,7 +496,7 @@
                 case '%':
                 case '#':
                     const targetType = expressionCode[0], expressionCode = expressionCode.slice(1).trim()
-                    return [this.#getSlotOrCellGroup(expressionCode, expressionCode[0]), ['change']]
+                    return [this.#getFieldOrCellGroup(expressionCode, expressionCode[0]), ['change']]
                 case '$':
                     let scopedSelector = expressionCode.slice(2, -1)
                     if (!scopedSelector) scopedSelector = ':|'
