@@ -263,7 +263,7 @@
                     return document.location.pathname
                 } else {
                     for (const [t, n] of pairs) {
-                        const eventName = n[0] === '$' ? this.E.resolveVariables(n) : n
+                        const eventName = n
                         this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: value }))
                     }
                     return value
@@ -279,22 +279,21 @@
             const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
             let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
             childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const getParentArgs = r => parentArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
-            const getChildArgs = r => childArgs.map(a => a === '$' ? r : this.E.resolveVariables('${' + a.trim() + '}', this))
+            const getArgs = (args, value, labels, env) => args.map(a => this.#getVariable(a.trim(), value, labels, env))
             const singleton = parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
             return [(value, labels, env) => {
                 if (childMethodName) {
                     if (singleton) {
                         if (!(singleton instanceof Object)) return
                         if (typeof singleton[childMethodName] !== 'function') return
-                        return singleton[childMethodName](...getChildArgs(value))
+                        return singleton[childMethodName](...getArgs(childArgs, value, labels, env))
                     } else {
                         if (!(globalThis[parentObjectName] instanceof Object)) return
                         if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                        return globalThis[parentObjectName][childMethodName](...getChildArgs(value))
+                        return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
                     }
                 } else {
-                    return singleton ? singleton(...getParentArgs(value)) : globalThis[parentObjectName](...getParentArgs(value))
+                    return singleton ? singleton(...getArgs(parentArgs, value, labels, env)) : globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
                 }
             }]
         }
@@ -305,7 +304,7 @@
             if (!expression) return
             const regex = new RegExp(expression)
             return [(value, labels, env) => {
-                let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
+                let instanceSubstitute = substitute ? this.#getVariable(substitute, value, labels, env) : undefined
                 if (typeof value !== 'string') return
                 if (substitute) {
                     return value.replace(regex, instanceSubstitute)
@@ -376,11 +375,11 @@
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
                 const resolve = rr => {
                     if (Array.isArray(rr)) {
-                        return rr.map(rrr => this.E.resolveVariables(rrr, this))
+                        return rr.map(rrr => this.#getVariable(rrr, value, labels, env))
                     } else if (rr instanceof Object) {
-                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.E.resolveVariables(m, this))))
+                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#getVariable(m, value, labels, env))))
                     } else {
-                        return this.E.resolveVariables(rr, this)
+                        return this.#getVariable(rr, value, labels, env)
                     }
                 }
                 return resolve(r)
@@ -388,7 +387,7 @@
         }
 
         #parseVariableExpression(expressionCode) {
-            return [(value, labels, env) => this.E.resolveVariables(expressionCode, this)]
+            return [(value, labels, env) => this.#getVariable(expressionCode, value, labels, env)]
         }
 
         #parseTransformExpression(expressionCode) {
@@ -488,11 +487,36 @@
                     return (env.cells[expression] ?? {})?.get()
                 case '~':
                     return env.context[expression]
+                case '$':
+                    expression = expression.slice(1)
+                    if (!expression) return value
                 default:
                     return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
             }
         }
 
+        #mergeVariables(expression, value, labels, env, inner) {
+            if (!expression) return
+            if (typeof expression !== 'string') return expression
+            const regExp = /\$\{(.+?)\}/g, isMatch = expression.match(regExp)
+            if (!isMatch && !inner) return expression
+            if (!inner) expression = expression.slice(2, -1)
+            if (!isMatch && inner) {
+                return this.#getVariable(expression, value, labels, env)
+            } else if (expression[0] === '[' && expression.endsWith(']')) {
+                return expression.slice(1, -1).split(',').map(s => this.#mergeVariables(s.trim(), value, labels, env, true))
+            } else if (expression[0] === '{' && expression.endsWith('}')) {
+                return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
+                    const [k, v] = s.trim().split(':').map(ss => s.trim())
+                    return [k, this.#mergeVariables(v, value, labels, env, true)]
+                }))
+            }
+            const merge = (exp) => {
+                if (exp) exp = exp.slice(2, -1)
+                return this.#getVariable(exp, value, labels, env, inner)
+            }
+            ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
+        }
 
 
 
