@@ -8,14 +8,20 @@
         #abortController
         #handlers = []
         #filters = []
-        #labelNames = []
         #cellNames = []
         #context = {}
         #slots = {}
         #src
         #statements = []
-        #steps = new WeakMap()
         #type
+
+        get abortController() { return this.#abortController }
+        get handlers() { return this.#handlers }
+        get filters() { return this.#filters }
+        get cellNames() { return this.#cellNames }
+        get slots() { return this.#slots }
+        get statements() { return this.#statements }
+
 
         constructor() {
             super()
