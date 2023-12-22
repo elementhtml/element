@@ -396,8 +396,8 @@
             }]
         }
 
-        #parseRemoteExpression(expressionCode) {
-            const globalUrl = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+        #parseRemoteExpression(expression) {
+            const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
             let globalConnnector, send
             if (globalUrl.startsWith('wss://')) {
                 globalConnnector = new WebSocket(globalUrl)
@@ -412,11 +412,11 @@
             return [async (value, labels, env) => {
                 const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
                 if (globalConnnector) return send(body)
-                const url = this.E.resolveUrl(this.E.resolveVariables(expressionCode), this)
+                const url = this.E.resolveUrl(this.#mergeVariables(expression, value, labels, env), this)
                 if (!url) return
-                const headers = env.context.headers ?? {}, method = env.context.method ?? (body ? 'POST' : 'GET')
+                const headers = this.#getVariable('$headers') ?? {}, method = this.#getVariable('$method') ?? (body ? 'POST' : 'GET')
                 if (body) {
-                    headers['content-type'] = env.context['content-type'] ?? headers['content-type'] ?? 'application/json'
+                    headers['content-type'] = this.#getVariable('$contentType') ?? headers['Content-Type'] ?? headers['content-type'] ?? 'application/json'
                 }
                 const options = { method, headers, body }
                 return await fetch(url, options).then(r => {
