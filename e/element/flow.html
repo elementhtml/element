@@ -205,7 +205,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.#loadApplication(handlers, slots, cellNames, filters, statements)
+            this.#loadApplication(handlers, slots, Array.from(cellNames), filters, statements)
         }
 
         #readText(code) {
