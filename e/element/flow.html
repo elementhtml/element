@@ -77,7 +77,6 @@
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
                         let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)) ?? defaultValue
-                        console.log('flow.html: line 80', detail)
                         switch (label[0]) {
                             case '%':
                                 env.slots[label.slice(1)].set(detail)
@@ -128,6 +127,16 @@
                     }
                     label ||= `${index}`
                     step.push(label)
+                    switch (label[0]) {
+                        case '%':
+                            slots[label.slice(1)] = undefined
+                            break
+                        case '#':
+                            cellNames.add(label.slice(1))
+                            break
+                        default:
+                            statement.labels[label] = undefined
+                    }
                     let handler, handlerIndex, filter, filterIndex
                     switch (handlerExpression[0]) {
                         case '!':
