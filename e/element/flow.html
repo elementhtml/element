@@ -479,6 +479,21 @@
             return group
         }
 
+        #getVariable(expression, value, labels, env) {
+            if (!expression) return value
+            switch (expression[0]) {
+                case '%':
+                    return (env.fields[expression] ?? {})?.get()
+                case '#':
+                    return (env.cells[expression] ?? {})?.get()
+                case '~':
+                    return env.context[expression]
+                default:
+                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
+            }
+        }
+
+
 
 
 
