@@ -115,7 +115,7 @@
                     if (!segment) continue
                     const step = []
                     let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([\#\%a-zA-Z0-9]+):\s+/)
+                    const labelMatch = handlerExpression.match(/^([a-z0-9]+):\s+/)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -425,7 +425,7 @@
                     set: function (value, force) {
                         if (this.value === value) {
                             if (force) slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                            return
+                            return this
                         }
                         this.value = value
                         slot.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
@@ -433,7 +433,7 @@
                     },
                     value: undefined, name
                 }
-                this.#slots[name] = cell
+                this.#slots[name] = slot
             }
             return this.#slots[name]
         }
