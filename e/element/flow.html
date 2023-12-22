@@ -77,12 +77,13 @@
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
                         let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)) ?? defaultValue
+                        console.log('flow.html: line 80', detail)
                         switch (label[0]) {
                             case '%':
-                                env.slots(label.slice(1)).set(detail)
+                                env.slots[label.slice(1)].set(detail)
                                 break
                             case '#':
-                                env.cells(label.slice(1)).set(detail)
+                                env.cells[label.slice(1)].set(detail)
                                 break
                             default:
                                 labels[label] = detail
@@ -115,7 +116,7 @@
                     if (!segment) continue
                     const step = []
                     let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([a-z0-9]+):\s+/)
+                    const labelMatch = handlerExpression.match(/^([\#\%a-zA-Z0-9]+):\s+/)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -284,14 +285,12 @@
             if (!expression) return
             const regex = new RegExp(expression)
             return [(value, labels, env) => {
-                console.log('flow.html: line 287', value, labels, env)
                 let instanceSubstitute = substitute ? this.E.resolveVariables(substitute, this) : undefined
                 if (typeof value !== 'string') return
                 if (substitute) {
                     return value.replace(regex, instanceSubstitute)
                 } else {
                     const match = value.match(regex)
-                    console.log('flow.html: line 294', regex, match)
                     return match ? (match.groups ?? match[1]) : undefined
                 }
             }]
@@ -301,9 +300,10 @@
             return [(value, labels, env) => expressionCode]
         }
 
-        #parseSlotOrCellExpression(expressionCode, type) {
-            let group = this.#getSlotOrCellGroup(expressionCode, type),
-                config = Array.isArray(group) ? 'array' : ((expressionCode[0] === '{') ? 'object' : 'single')
+        #parseSlotOrCellExpression(expression, type) {
+            let group = this.#getSlotOrCellGroup(expression, type),
+                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single')
+            if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
             return [(value, labels, env) => {
                 switch (config) {
