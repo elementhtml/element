@@ -598,8 +598,9 @@
                 case '$':
                     expression = expression.slice(1)
                     if (!expression) return value
-                default:
                     return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
+                default:
+                    return expression
             }
         }
 
