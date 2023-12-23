@@ -588,13 +588,55 @@
 
         #getVariable(expression, value, labels, env) {
             if (!expression) return value
+            const isNumeric = /^[0-9\.]+$/
             switch (expression[0]) {
-                case '%':
-                    return (env.fields[expression] ?? {})?.get()
-                case '#':
-                    return (env.cells[expression] ?? {})?.get()
+                case '{':
+                    if (expression.endsWith('}')) {
+                        const items = {}
+                        for (const pair of expression.slice(1, -1).split(',')) {
+                            let [key, name] = pair.trim().split(':').map(s => s.trim())
+                            items[this.#getVariable(key)] = this.#getVariable(name)
+                        }
+                        return items
+                    } else {
+                        return expression
+                    }
+                    break
+                case '[':
+                    if (expression.endsWith(']')) {
+                        const items = []
+                        for (const item of expression.slice(1, -1).split(',')) items.push(this.#getVariable(item.trim()))
+                        return items
+                    } else {
+                        return expression
+                    }
+                    break
+                case 't':
+                case 'f':
+                case 'n':
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    if (expression === 'null' || expression === 'true' || expression === 'false'
+                        || expression.match(isNumeric)) {
+                        return JSON.parse(expression)
+                    } else {
+                        return expression
+                    }
+                    break
                 case '~':
                     return env.context[expression]
+                case '#':
+                    return (env.cells[expression] ?? {})?.get()
+                case '%':
+                    return (env.fields[expression] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)
                     if (!expression) return value
