@@ -597,7 +597,9 @@
                             if (!(pair = pair.trim())) continue
                             let [key, name] = pair.split(':')
                             if (!(key = key.trim()) || !(name = name.trim())) continue
-                            items[this.#getVariable(key)] = this.#getVariable(name)
+                            key = this.#getVariable(key)
+                            if (!key || (typeof key !== 'string')) continue
+                            items[key] = this.#getVariable(name)
                         }
                         return items
                     } else {
