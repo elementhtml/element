@@ -593,8 +593,10 @@
                 case '{':
                     if (expression.endsWith('}')) {
                         const items = {}
-                        for (const pair of expression.slice(1, -1).split(',').filter(s => !!s)) {
-                            let [key, name] = pair.trim().split(':').map(s => s.trim())
+                        for (let pair of expression.slice(1, -1).split(',')) {
+                            if (!(pair = pair.trim())) continue
+                            let [key, name] = pair.split(':')
+                            if (!(key = key.trim()) || !(name = name.trim())) continue
                             items[this.#getVariable(key)] = this.#getVariable(name)
                         }
                         return items
