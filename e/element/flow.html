@@ -15,6 +15,7 @@
         #src
         #statements = []
         #type
+        #init = {}
 
         get handlers() { return this.#handlers }
         get filters() { return this.#filters }
@@ -22,6 +23,7 @@
         get fieldNames() { return this.#fieldNames }
         get fields() { return this.#fields }
         get statements() { return this.#statements }
+        get init() { return this.#init }
 
 
         constructor() {
@@ -53,7 +55,7 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        #loadApplication(handlers = [], fieldNames = [], cellNames = [], filters = [], statements = []) {
+        #loadApplication(handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [], init = {}) {
             this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
             this.#fields ||= {}
             for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
@@ -62,6 +64,7 @@
             this.#cellNames = Object.freeze(cellNames)
             this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
             this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
+            this.#init = Object.freeze(init) // key => % or # name , value => function whose return value is assigned to that field or cell
         }
 
         #runApplication() {
@@ -97,20 +100,40 @@
                     }, { signal: this.#abortController.signal })
                 }
             }
-            this.dispatchEvent(new CustomEvent('run'))
+            const promises = []
+            this.dispatchEvent(new CustomEvent('initStart'))
+            for (const [name, func] of Object.entries(this.#init)) {
+                if (typeof func !== 'function') continue
+                promises.push(Promise.resolve(func(this, env)).then(initValue => {
+                    switch (name[0]) {
+                        case '%':
+                            (env.fields[name.slice(1)] ?? {}).value = initValue
+                            break
+                        case '#':
+                            (env.cells[name.slice(1)] ?? {}).value = initValue
+                            break
+                        default:
+                            (env.fields[name] ?? env.cells[name] ?? {}).value = initValue
+                    }
+                }))
+            }
+            Promise.all(promises).then(() => {
+                this.dispatchEvent(new CustomEvent('initEnd'))
+                this.dispatchEvent(new CustomEvent('run'))
+            })
         }
 
         async #parseApplication(code) {
             const textAsModule =
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = classModule
+                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [], init = {} } = classModule
             URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
+            this.#loadApplication(handlers, fieldNames, cellNames, filters, statements, init)
         }
 
         #compileScript(code) {
-            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], filters = [],
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], filters = [], init = {},
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
@@ -216,7 +239,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), filters, statements)
+            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), filters, statements, init)
         }
 
         #readText(code) {
