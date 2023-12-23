@@ -381,7 +381,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof packageObject !== 'object') return
             let packageContents = packageObject.default ?? {}
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables']) {
+            for (const a of ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables', 'context']) {
                 if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
             }
         }
@@ -1241,7 +1241,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
                 const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
-                for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
+                // for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
                 const result = await expression.evaluate(data, bindings)
                 // console.log('line 1243', result, transform, data)

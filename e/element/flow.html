@@ -410,7 +410,6 @@
                     for (const [name, item] of Object.entries(group)) added.add(item.name)
             }
             return [(value, labels, env, statementIndex, stepIndex) => {
-                console.log('flow.html: line 413', value, labels, env, statementIndex, stepIndex)
                 let getReturnValue, items = []
                 const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
@@ -441,6 +440,8 @@
                     this.#keyedAbortControllers[eventKey] = new AbortController()
                     for (const item of items) {
                         item.eventTarget.addEventListener('change', event => {
+                            const retval = getReturnValue()
+                            console.log('flow.html: line 444', retval)
                             this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: getReturnValue() }))
                         }, { signal: this.#keyedAbortControllers[eventKey].signal })
                     }
@@ -451,7 +452,7 @@
 
         #parseSelectorExpression(expressionCode) {
             return [(value, labels, env) => {
-                const target = this.E.resolveScopedSelector(expressionCode, this)
+                const target = this.E.utils.resolveScopedSelector(expressionCode, this)
                 if (Array.isArray(target)) {
                     for (const t of target) this.E.applyData(t, value)
                 } else if (target) {
@@ -482,46 +483,67 @@
             return [(value, labels, env) => this.#getVariable(expressionCode, value, labels, env)]
         }
 
-        #parseTransformExpression(expressionCode) {
+        #parseTransformExpression(expression) {
             return [async (value, labels, env) => {
-                return await this.E.runTransform(expressionCode, value, this, { labels, ...env })
+                const fields = Object.freeze(Object.fromEntries(Object.entries(this.#fields).map(f => [f[0], f[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.E.env.cells).map(c => [c[0], c[1].get()]))),
+                    context = Object.freeze({ ...env.context })
+                return await this.E.runTransform(expression, value, this, { labels, fields, cells, context })
             }]
         }
 
         #parseRemoteExpression(expression, isInit) {
-            const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
-            let globalConnnector, send
-            if (globalUrl.startsWith('wss://')) {
-                globalConnnector = new WebSocket(globalUrl)
-                send = p => globalConnnector.send(p)
-            } else if (globalUrl.startsWith('sse://')) {
-                globalConnnector = new EventSource(globalUrl)
-            } else if (globalUrl.startsWith('wt://')) {
-                // web transport
-            } else if (globalUrl.startsWith('rtc://')) {
-                // web rtc
-            }
-            return [async (value, labels, env) => {
-                console.log('flow.html: line 413', value, labels, env)
-                const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
-                if (globalConnnector) return send(body)
-                const url = this.E.resolveUrl(this.#mergeVariables(expression, value, labels, env), this)
-                if (!url) return
-                const headers = this.#getVariable('$headers') ?? {}, method = this.#getVariable('$method') ?? (body ? 'POST' : 'GET')
-                if (body) {
-                    headers['content-type'] = this.#getVariable('$contentType') ?? headers['Content-Type'] ?? headers['content-type'] ?? 'application/json'
-                }
-                const options = { method, headers, body }
-                return await fetch(url, options).then(r => {
-                    return this.E.parse(r, this).then(value => {
-                        return {
-                            ok: r.ok,
-                            status: r.status,
-                            headers: Object.fromEntries(r.headers.entries()),
-                            value
-                        }
+            console.log('flow.html: line 491', expression, isInit)
+            // const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
+            // let globalConnnector, send
+            // if (globalUrl.startsWith('wss://')) {
+            //     globalConnnector = new WebSocket(globalUrl)
+            //     send = p => globalConnnector.send(p)
+            // } else if (globalUrl.startsWith('sse://')) {
+            //     globalConnnector = new EventSource(globalUrl)
+            // } else if (globalUrl.startsWith('wt://')) {
+            //     // web transport
+            // } else if (globalUrl.startsWith('rtc://')) {
+            //     // web rtc
+            // }
+            return [async (value, labels, env, statementIndex, stepIndex) => {
+                let url
+                if (typeof value === 'string') {
+                    url = this.#mergeVariables(expression, value, labels, env)
+                    console.log('flow.html: line 510', expression, value, url)
+                    if (!url) return
+                    return await fetch(url).then(r => {
+                        return r.text().then(value => {
+                            return {
+                                ok: r.ok,
+                                status: r.status,
+                                headers: Object.fromEntries(r.headers.entries()),
+                                value
+                            }
+                        })
                     })
-                })
+                }
+
+                // const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
+                // if (globalConnnector) return send(body)
+                // const url = this.E.resolveUrl(this.#mergeVariables(expression, value, labels, env), this)
+                // if (!url) return
+                // const headers = this.#getVariable('$headers') ?? {}, method = this.#getVariable('$method') ?? (body ? 'POST' : 'GET')
+                // if (body) {
+                //     headers['content-type'] = this.#getVariable('$contentType') ?? headers['Content-Type'] ?? headers['content-type'] ?? 'application/json'
+                // }
+                // const options = { method, headers, body }
+                // return await fetch(url, options).then(r => {
+                //     return this.E.parse(r, this).then(value => {
+                //         return {
+                //             ok: r.ok,
+                //             status: r.status,
+                //             headers: Object.fromEntries(r.headers.entries()),
+                //             value
+                //         }
+                //     })
+                // })
+
             }]
         }
 
@@ -589,11 +611,10 @@
         }
 
         #mergeVariables(expression, value, labels, env, inner) {
-            if (!expression) return
+            if (!expression) return inner ? value : undefined
             if (typeof expression !== 'string') return expression
-            const regExp = /\$\{(.+?)\}/g, isMatch = expression.match(regExp)
+            const regExp = /\$\{(.*?)\}/g, isMatch = expression.match(regExp)
             if (!isMatch && !inner) return expression
-            if (!inner) expression = expression.slice(2, -1)
             if (!isMatch && inner) {
                 return this.#getVariable(expression, value, labels, env)
             } else if (expression[0] === '[' && expression.endsWith(']')) {
@@ -606,9 +627,9 @@
             }
             const merge = (exp) => {
                 if (exp) exp = exp.slice(2, -1)
-                return this.#getVariable(exp, value, labels, env, inner)
+                return this.#mergeVariables(exp, value, labels, env, true)
             }
-            ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
+            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
         }
 
 
