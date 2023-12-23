@@ -16,6 +16,7 @@
         #statements = []
         #type
         #init = {}
+        #keyedAbortControllers = {}
 
         get handlers() { return this.#handlers }
         get filters() { return this.#filters }
@@ -304,6 +305,7 @@
 
         disconnectedCallback() {
             if (this.#abortController) this.#abortController.abort()
+            for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
         }
 
         get src() { return this.E.utils.safeGet(this, this.#src, 'src') }
@@ -328,25 +330,23 @@
             }
             return [async (value, labels, env, statementIndex, stepIndex) => {
                 if (routerEvent === '#') {
-                    window.addEventListener('hashchange', event => {
-                        this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
-                    })
+                    const eventKey = `${statementIndex}-${stepIndex}-#`
+                    if (!this.#keyedAbortControllers[eventKey]) {
+                        this.#keyedAbortControllers[eventKey] = new AbortController()
+                        window.addEventListener('hashchange', event => {
+                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
+                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
+                    }
                     return document.location.hash
                 } else if (routerEvent === '?') {
                     return document.location.search
                 } else if (routerEvent === '/') {
                     return document.location.pathname
-                } else {
-                    for (const [t, n] of pairs) {
-                        const eventName = n
-                        this.E.env.eventTargets[t].dispatchEvent(new CustomEvent(eventName, { detail: value }))
-                    }
-                    return value
                 }
             }]
         }
 
-        #parseProxyExpression(expressionCode) {
+        #parseProxyExpression(expressionCode, isInit) {
             const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
@@ -390,7 +390,7 @@
             }]
         }
 
-        #parseStringExpression(expressionCode) {
+        #parseStringExpression(expressionCode, isInit) {
             return [(value, labels, env) => expressionCode]
         }
 
@@ -409,16 +409,23 @@
                 default:
                     for (const [name, item] of Object.entries(group)) added.add(item.name)
             }
-            return [(value, labels, env) => {
+            return [(value, labels, env, statementIndex, stepIndex) => {
+                console.log('flow.html: line 413', value, labels, env, statementIndex, stepIndex)
+                let getReturnValue, items = []
+                const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
                     case 'single':
                         group.set(value)
-                        return value
+                        getReturnValue = () => group.get()
+                        items.push(group)
+                        break
                     case 'array':
                         if (Array.isArray(value)) {
                             for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
                         }
-                        return group.map(i => i.get())
+                        getReturnValue = () => group.map(i => i.get())
+                        items = group
+                        break
                     default:
                         if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
                             if (v == undefined) continue
@@ -427,8 +434,18 @@
                                 if (group[n]) group[n].set(v)
                             }
                         }
-                        return Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
+                        getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
+                        items = Object.values(group)
                 }
+                if (!this.#keyedAbortControllers[eventKey]) {
+                    this.#keyedAbortControllers[eventKey] = new AbortController()
+                    for (const item of items) {
+                        item.eventTarget.addEventListener('change', event => {
+                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: getReturnValue() }))
+                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
+                    }
+                }
+                return getReturnValue()
             }, undefined, Array.from(added)]
         }
 
@@ -444,7 +461,7 @@
             }]
         }
 
-        #parseJSONExpression(expressionCode) {
+        #parseJSONExpression(expressionCode, isInit) {
             return [(value, labels, env) => {
                 let r
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
@@ -461,7 +478,7 @@
             }]
         }
 
-        #parseVariableExpression(expressionCode) {
+        #parseVariableExpression(expressionCode, isInit) {
             return [(value, labels, env) => this.#getVariable(expressionCode, value, labels, env)]
         }
 
@@ -471,7 +488,7 @@
             }]
         }
 
-        #parseRemoteExpression(expression) {
+        #parseRemoteExpression(expression, isInit) {
             const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
             let globalConnnector, send
             if (globalUrl.startsWith('wss://')) {
