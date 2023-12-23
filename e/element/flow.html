@@ -132,12 +132,64 @@
             this.#loadApplication(handlers, fieldNames, cellNames, filters, statements, init)
         }
 
+        #parseInit(directive) {
+            if (!directive) return {}
+            const init = {}, isNumeric = /^[0-9\.]+$/
+            for (let segment of directive.split(' !! ')) {
+                segment = segment.trim()
+                if (!segment) continue // ` " ' $ ( { n t f 0-9 
+                let [label, ...expression] = segment.split(': ')
+                expression = expression.join(': ').trim()
+                label = label.trim()
+                if (!label || !expression) continue
+                switch (expression[0]) {
+                    case '`':
+                        init[label] = this.#parseProxyExpression(expression.slice(1, -1), true)
+                        break
+                    case '"':
+                    case "'":
+                        init[label] = this.#parseStringExpression(expression.slice(1, -1), true)
+                        break
+                    case "$":
+                        init[label] = this.#parseVariableExpression(expression, true)
+                        break
+                    case '{':
+                        init[label] = this.#parseJSONExpression(expression, true)
+                        break
+                    case 'n':
+                    case 't':
+                    case 'f':
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        if (expression === 'null' || expression === 'true' || expression === 'false'
+                            || expression.match(isNumeric)) {
+                            init[label] = this.#parseJSONExpression(expression, true)
+                        }
+                    default:
+                        init[label] = this.#parseRemoteExpression(expression, true)
+                }
+            }
+            return init
+        }
+
         #compileScript(code) {
             const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], filters = [], init = {},
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 2) === '# ')) continue
+                if (directive.slice(0, 3) === '#! ') {
+                    Object.assign(init, this.#parseInit(directive.slice(3).trim()))
+                    continue
+                }
                 const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
