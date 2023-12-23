@@ -479,7 +479,8 @@
         }
 
         #parseTransformExpression(expression) {
-            return [async (value, labels, env) => {
+            if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
+            return [async (value, labels, env, statementIndex, stepIndex) => {
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.#fields).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.E.env.cells).map(c => [c[0], c[1].get()]))),
                     context = Object.freeze({ ...env.context })
