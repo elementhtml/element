@@ -354,21 +354,16 @@
             const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
             let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
             childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const getArgs = (args, value, labels, env) => args.map(a => this.#getVariable(a.trim(), value, labels, env))
-            const singleton = parentIsNewable ? new globalThis[parentObjectName](...getParentArgs()) : undefined
-            return [(value, labels, env) => {
+            const getArgs = (args, value, labels, env) => args.map(a => this.#mergeVariables(a.trim(), value, labels, env))
+            if (isInit) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs())
+                : globalThis[parentObjectName](...getParentArgs())
+            return [(value, labels, env, statementIndex, stepIndex) => {
                 if (childMethodName) {
-                    if (singleton) {
-                        if (!(singleton instanceof Object)) return
-                        if (typeof singleton[childMethodName] !== 'function') return
-                        return singleton[childMethodName](...getArgs(childArgs, value, labels, env))
-                    } else {
-                        if (!(globalThis[parentObjectName] instanceof Object)) return
-                        if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                        return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
-                    }
+                    if (!(globalThis[parentObjectName] instanceof Object)) return
+                    if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
                 } else {
-                    return singleton ? singleton(...getArgs(parentArgs, value, labels, env)) : globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
+                    return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
                 }
             }]
         }
@@ -493,7 +488,6 @@
         }
 
         #parseRemoteExpression(expression, isInit) {
-            console.log('flow.html: line 491', expression, isInit)
             // const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
             // let globalConnnector, send
             // if (globalUrl.startsWith('wss://')) {
@@ -510,7 +504,6 @@
                 let url
                 if (typeof value === 'string') {
                     url = this.#mergeVariables(expression, value, labels, env)
-                    console.log('flow.html: line 510', expression, value, url)
                     if (!url) return
                     return await fetch(url).then(r => {
                         return r.text().then(value => {
