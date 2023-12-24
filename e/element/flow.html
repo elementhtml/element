@@ -43,7 +43,6 @@
         }
 
         #runApplication() {
-            if (this.id === 'index') console.log('line 73', this.handlers)
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
             const rootNode = this.getRootNode(),
