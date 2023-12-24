@@ -698,7 +698,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
-            if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
+            if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
             let text = ((input instanceof Response) ? await input.text() : response).trim()
             if (contentType === 'text/md') {
                 await this.installLibraryFromImport('remarkable', 'Remarkable', true)

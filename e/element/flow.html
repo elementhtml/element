@@ -510,7 +510,6 @@
             return async (value, labels, env, statementIndex, stepIndex) => {
                 let url = this.#mergeVariables(expression, value, labels, env)
                 if (!url) return
-                console.log('flow.html: line 514', url)
                 const options = {}
                 if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
                     if (value instanceof Object && (value.method || value.body)) {
