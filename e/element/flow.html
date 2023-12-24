@@ -7,7 +7,6 @@
 
         #abortController
         #handlers = []
-        #filters = []
         #cellNames = []
         #context = {}
         #fieldNames = []
@@ -19,7 +18,6 @@
         #keyedAbortControllers = {}
 
         get handlers() { return this.#handlers }
-        get filters() { return this.#filters }
         get cellNames() { return this.#cellNames }
         get fieldNames() { return this.#fieldNames }
         get fields() { return this.#fields }
@@ -33,20 +31,19 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        #loadApplication(handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [], init = {}) {
+        #loadApplication(handlers = [], fieldNames = [], cellNames = [], statements = [], init = {}) {
             this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
             this.#fields ||= {}
             for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
             Object.freeze(this.#fields)
             this.#fieldNames = Object.freeze(fieldNames)
             this.#cellNames = Object.freeze(cellNames)
-            this.#filters = Object.freeze(filters)//each one function(value, labels, env) => returns true/false
-            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue, filterIndex] ] }
+            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue] ] }
             this.#init = Object.freeze(init) // key => % or # name , value => function whose return value is assigned to that field or cell
         }
 
         #runApplication() {
-            if (this.id === 'register') console.log('line 73', this)
+            if (this.id === 'index') console.log('line 73', this.handlers)
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
             const rootNode = this.getRootNode(),
@@ -60,9 +57,8 @@
             for (const [statementIndex, statement] of this.#statements.entries()) {
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
-                    const [label, handlerIndex, defaultValue, filterIndex] = step
+                    const [label, handlerIndex, defaultValue] = step
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        if (this.#filters[filterIndex] && !this.#filters[filterIndex](event.detail, labels, env)) return
                         let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)) ?? this.#getVariable(defaultValue)
                         switch (label[0]) {
                             case '%':
@@ -106,9 +102,9 @@
             const textAsModule =
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [], init = {} } = classModule
+                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [], init = {} } = classModule
             URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, fieldNames, cellNames, filters, statements, init)
+            this.#loadApplication(handlers, fieldNames, cellNames, statements, init)
         }
 
         #parseInit(directive) {
@@ -160,8 +156,8 @@
         }
 
         #compileScript(code) {
-            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], filters = [], init = {},
-                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}, filterMap = {}
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], init = {},
+                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 2) === '# ')) continue
@@ -197,43 +193,43 @@
                         default:
                             statement.labels[label] = undefined
                     }
-                    let handler, handlerIndex, filter, filterIndex
+                    let handler, handlerIndex
                     switch (handlerExpression[0]) {
                         case '!':
-                            [handler, filter] = this.#parseEventTargetExpression(handlerExpression.slice(1))
+                            handler = this.#parseEventTargetExpression(handlerExpression.slice(1))
                             break
                         case '`':
-                            [handler, filter] = this.#parseProxyExpression(handlerExpression.slice(1, -1))
+                            handler = this.#parseProxyExpression(handlerExpression.slice(1, -1))
                             break
                         case '/':
-                            [handler, filter] = this.#parseRegExpExpression(handlerExpression.slice(1, -1))
+                            handler = this.#parseRegExpExpression(handlerExpression.slice(1, -1))
                             break
                         case '"':
                         case "'":
-                            [handler, filter] = this.#parseStringExpression(handlerExpression.slice(1, -1))
+                            handler = this.#parseStringExpression(handlerExpression.slice(1, -1))
                             break
                         case "#":
                             let addedCellNames
-                            [handler, filter, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '#')
+                            [handler, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '#')
                             for (const addedCellName of addedCellNames) cellNames.add(addedCellName)
                             break
                         case "%":
                             let addedFieldNames
-                            [handler, filter, addedFieldNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '%')
+                            [handler, addedFieldNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '%')
                             for (const addedFieldName of addedFieldNames) fieldNames.add(addedFieldName)
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
-                                [handler, filter] = this.#parseVariableExpression(handlerExpression.slice(2, -1))
+                                handler = this.#parseVariableExpression(handlerExpression.slice(2, -1))
                             } else if (handlerExpression[1] === "(") {
-                                [handler, filter] = this.#parseSelectorExpression(handlerExpression.slice(2, -1))
+                                handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1))
                             }
                             break
                         case "(":
-                            [handler, filter] = this.#parseTransformExpression(handlerExpression)
+                            handler = this.#parseTransformExpression(handlerExpression)
                             break
                         case "{":
-                            [handler, filter] = this.#parseJSONExpression(handlerExpression)
+                            handler = this.#parseJSONExpression(handlerExpression)
                             break
                         case "n":
                         case "t":
@@ -250,17 +246,15 @@
                         case "9":
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
-                                [handler, filter] = this.#parseJSONExpression(handlerExpression)
+                                handler = this.#parseJSONExpression(handlerExpression)
                                 break
                             }
                         default:
-                            [handler, filter] = this.#parseRemoteExpression(handlerExpression)
+                            handler = this.#parseRemoteExpression(handlerExpression)
                     }
                     handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
-                    if (filter) filterIndex = (filterMap[filter.toString()] ||= (filters.push(filter)) - 1)
                     step.push(handlerIndex)
                     if (defaultExpression) step.push(defaultExpression)
-                    if (filterIndex) step.push(filterIndex)
                     statement.labels[label] = undefined
                     statement.labels[`${index}`] = undefined
                     statement.steps.push(step)
@@ -270,7 +264,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), filters, statements, init)
+            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), statements, init)
         }
 
         #readText(code) {
@@ -281,8 +275,8 @@
             const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
             if (type === 'application/flow' && !textContent && src) {
                 import(src).then(importResult => {
-                    const { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = importResult
-                    this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
+                    const { handlers = [], fieldNames = [], cellNames = [], statements = [] } = importResult
+                    this.#loadApplication(handlers, fieldNames, cellNames, statements)
                 })
             } else {
                 const prepare = code => {
@@ -329,7 +323,7 @@
                     pairs.push([eventTargetName, eventName])
                 }
             }
-            return [async (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 if (routerEvent === '#') {
                     const eventKey = `${statementIndex}-${stepIndex}-#`
                     if (!this.#keyedAbortControllers[eventKey]) {
@@ -344,7 +338,7 @@
                 } else if (routerEvent === '/') {
                     return document.location.pathname
                 }
-            }]
+            }
         }
 
         #parseProxyExpression(expressionCode, isInit) {
@@ -358,7 +352,7 @@
             const getArgs = (args, value, labels, env) => args.map(a => this.#mergeVariables(a.trim(), value, labels, env))
             if (isInit) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs())
                 : globalThis[parentObjectName](...getParentArgs())
-            return [(value, labels, env, statementIndex, stepIndex) => {
+            return (value, labels, env, statementIndex, stepIndex) => {
                 if (childMethodName) {
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
@@ -366,7 +360,7 @@
                 } else {
                     return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
                 }
-            }]
+            }
         }
 
         #parseRegExpExpression(expression) {
@@ -374,7 +368,7 @@
             [expression, substitute] = expression.split(' ').map(s => s.trim())
             if (!expression) return
             const regex = new RegExp(expression)
-            return [(value, labels, env) => {
+            return (value, labels, env) => {
                 let instanceSubstitute = substitute ? this.#getVariable(substitute, value, labels, env) : undefined
                 if (typeof value !== 'string') return
                 if (substitute) {
@@ -383,11 +377,11 @@
                     const match = value.match(regex)
                     return match ? (match.groups ?? match[1]) : undefined
                 }
-            }]
+            }
         }
 
         #parseStringExpression(expressionCode, isInit) {
-            return [(value, labels, env) => expressionCode]
+            return (value, labels, env) => expressionCode
         }
 
         #parseFieldOrCellExpression(expression, type) {
@@ -443,16 +437,17 @@
                     }
                 }
                 return getReturnValue()
-            }, undefined, Array.from(added)]
+            }, Array.from(added)]
         }
 
         #parseSelectorExpression(expression) {
+            if (expression && (expression[0] === '#')) expression = `:|${expression}`
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
                 scope = this.E.utils.resolveScope(scopeStatement, this)
             if (!scope) return []
             let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
             if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-            return [(value, labels, env, statementIndex, stepIndex) => {
+            return (value, labels, env, statementIndex, stepIndex) => {
                 if (value != undefined) {
                     const target = this.E.utils.resolveSelector(selector, scope)
                     if (Array.isArray(target)) {
@@ -475,11 +470,11 @@
                     }
                 }
                 return value
-            }]
+            }
         }
 
         #parseJSONExpression(expressionCode, isInit) {
-            return [(value, labels, env) => {
+            return (value, labels, env) => {
                 let r
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
                 const resolve = rr => {
@@ -492,21 +487,21 @@
                     }
                 }
                 return resolve(r)
-            }]
+            }
         }
 
         #parseVariableExpression(expressionCode, isInit) {
-            return [(value, labels, env) => this.#getVariable(expressionCode, value, labels, env)]
+            return (value, labels, env) => this.#getVariable(expressionCode, value, labels, env)
         }
 
         #parseTransformExpression(expression) {
             if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-            return [async (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.#fields).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.E.env.cells).map(c => [c[0], c[1].get()]))),
                     context = Object.freeze({ ...env.context })
                 return await this.E.runTransform(expression, value, this, { labels, fields, cells, context })
-            }]
+            }
         }
 
         #parseRemoteExpression(expression, isInit) {
@@ -522,7 +517,7 @@
             // } else if (globalUrl.startsWith('rtc://')) {
             //     // web rtc
             // }
-            return [async (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 let url
                 if (typeof value === 'string') {
                     url = this.#mergeVariables(expression, value, labels, env)
@@ -559,7 +554,7 @@
                 //     })
                 // })
 
-            }]
+            }
         }
 
 
