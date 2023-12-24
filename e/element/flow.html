@@ -125,7 +125,7 @@
                         init[label] = this.#parseStringExpression(expression.slice(1, -1), true)
                         break
                     case "$":
-                        init[label] = this.#parseVariableExpression(expression, true)
+                        init[label] = this.#parseVariableExpression(expression.slice(2, -1), true)
                         break
                     case '{':
                         init[label] = this.#parseJSONExpression(expression, true)
@@ -146,6 +146,11 @@
                         if (expression === 'null' || expression === 'true' || expression === 'false'
                             || expression.match(isNumeric)) {
                             init[label] = this.#parseJSONExpression(expression, true)
+                        }
+                    case '~':
+                        if (expression.endsWith('~')) {
+                            init[label] = this.#parseRemoteExpression(expression.slice(1, -1), true)
+                            break
                         }
                     default:
                         init[label] = this.#parseRemoteExpression(expression, true)
@@ -243,6 +248,11 @@
                             if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                 || handlerExpression.match(isNumeric)) {
                                 handler = this.#parseJSONExpression(handlerExpression)
+                                break
+                            }
+                        case '~':
+                            if (handlerExpression.endsWith('~')) {
+                                handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1))
                                 break
                             }
                         default:
