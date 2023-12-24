@@ -371,7 +371,7 @@
         }
 
         #parseStringExpression(expression, isInit) {
-            return (value, labels, env, statementIndex, stepIndex) => expression
+            return (value, labels, env, statementIndex, stepIndex) => this.#mergeVariables(expression, value, labels, env)
         }
 
         #parseFieldOrCellExpression(expression, type) {
@@ -469,20 +469,8 @@
             return (value, labels, env, statementIndex, stepIndex) => retval
         }
 
-        #parseVariableExpression(expressionCode, isInit) {
-
-            // const resolve = rr => {
-            //     if (Array.isArray(rr)) {
-            //         return rr.map(rrr => this.#mergeVariables(rrr, value, labels, env))
-            //     } else if (rr instanceof Object) {
-            //         return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#mergeVariables(m, value, labels, env))))
-            //     } else {
-            //         return this.#mergeVariables(rr, value, labels, env)
-            //     }
-            // }
-            // return resolve(r)
-
-            return (value, labels, env) => this.#getVariable(expressionCode, value, labels, env)
+        #parseVariableExpression(expression, isInit) {
+            return (value, labels, env, statementIndex, stepIndex) => this.#getVariable(expression, value, labels, env)
         }
 
         #parseTransformExpression(expression) {
