@@ -846,19 +846,26 @@ const ElementHTML = Object.defineProperties({}, {
                 if (value.constructor._flattenableProperties && Array.isArray(value.constructor._flattenableProperties)) {
                     for (const p of value.constructor._flattenableProperties) result[p] = value[p]
                 }
-                if (result.tag === 'form' || result.tag === 'fieldset') {
-                    result._ = {}
-                    for (const c of value.querySelectorAll('[name]')) result._[c.getAttribute('name')] ||= this.flatten(c)._
-                } else if (result.tag === 'table') {
-                    result._ = []
-                    const rows = Array.from(value.querySelectorAll('tr')), headers = Array.from(rows.shift().querySelectorAll('th'))
-                    for (const [index, header] of headers.entries()) {
+                result._named = {}
+                for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
+                result._itemprop = {}
+                for (const c of value.querySelectorAll('[itemprop]')) result._itemprop[c.getAttribute('itemprop')] ||= this.flatten(c)._
+                result._rows = []
+                const rows = Array.from(value.querySelectorAll('tr'))
+                if (rows.length) {
+                    for (const [index, header] of Array.from(rows.shift().querySelectorAll('th')).entries()) {
                         for (const [i, row] of rows.entries()) {
-                            result._[i - 1] ||= {}
+                            result._rows[i - 1] ||= {}
                             const cell = rows[i].querySelectorAll('td')[index]
-                            result._[i - 1][header.textContent] = this.flatten(cell)._
+                            result._rows[i - 1][header.textContent] = this.flatten(cell)._
                         }
                     }
+                }
+                result._options = []
+                if (result.tag === 'form' || result.tag === 'fieldset') {
+                    result._ = result._named
+                } else if (result.tag === 'table') {
+                    result._ = result._rows
                 } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(result.tag)) {
                     if (result.tag === 'input') {
                         const type = value.getAttribute('type')
@@ -875,15 +882,15 @@ const ElementHTML = Object.defineProperties({}, {
                 } else if (result.tag === 'meta' && !value.hasAttribute('is')) {
                     result._ = value.getAttribute('content')
                 } else if (value.hasAttribute('itemscope')) {
-                    for (const c of value.querySelectorAll('[itemprop]')) result._[c.getAttribute('itemprop')] ||= this.flatten(c)._
+                    result._ = result._itemprop
                 } else {
                     result._ = innerText.trim()
                 }
-                if (result.tag === 'datalist') {
+                if (result.tag === 'select' || result.tag === 'datalist') {
                     const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
-                    result._ = []
-                    for (const opt of options) result._.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
-                    if (isObj) result._ = Object.fromEntries(result._)
+                    for (const opt of options) result._options.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
+                    if (isObj) result._options = Object.fromEntries(result._options)
+                    if (result.tag === 'datalist') result._ = result._options
                 }
             } else if (value instanceof Event) {
                 //console.log('line 834', value)

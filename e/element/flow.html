@@ -478,11 +478,11 @@
                 try { r = JSON.parse(expressionCode) } catch (e) { return }
                 const resolve = rr => {
                     if (Array.isArray(rr)) {
-                        return rr.map(rrr => this.#getVariable(rrr, value, labels, env))
+                        return rr.map(rrr => this.#mergeVariables(rrr, value, labels, env))
                     } else if (rr instanceof Object) {
-                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#getVariable(m, value, labels, env))))
+                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#mergeVariables(m, value, labels, env))))
                     } else {
-                        return this.#getVariable(rr, value, labels, env)
+                        return this.#mergeVariables(rr, value, labels, env)
                     }
                 }
                 return resolve(r)
