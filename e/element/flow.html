@@ -208,14 +208,11 @@
                             handler = this.#parseStringExpression(handlerExpression.slice(1, -1))
                             break
                         case "#":
-                            let addedCellNames
-                            [handler, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '#')
-                            for (const addedCellName of addedCellNames) cellNames.add(addedCellName)
-                            break
                         case "%":
-                            let addedFieldNames
-                            [handler, addedFieldNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), '%')
-                            for (const addedFieldName of addedFieldNames) fieldNames.add(addedFieldName)
+                            let addedNames
+                            [handler, addedNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), handlerExpression[0])
+                            const names = handlerExpression[0] === '#' ? cellNames : fieldNames
+                            for (const addedName of addedNames) names.add(addedName)
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
@@ -363,24 +360,18 @@
         }
 
         #parseRegExpExpression(expression) {
-            let substitute;
-            [expression, substitute] = expression.split(' ').map(s => s.trim())
+            expression = expression.trim()
             if (!expression) return
             const regex = new RegExp(expression)
-            return (value, labels, env) => {
-                let instanceSubstitute = substitute ? this.#getVariable(substitute, value, labels, env) : undefined
-                if (typeof value !== 'string') return
-                if (substitute) {
-                    return value.replace(regex, instanceSubstitute)
-                } else {
-                    const match = value.match(regex)
-                    return match ? (match.groups ?? match[1]) : undefined
-                }
+            return (value, labels, env, statementIndex, stepIndex) => {
+                if (typeof value !== 'string') value = `${value}`
+                const match = value.match(regex)
+                return match ? (match.groups ?? match[1]) : undefined
             }
         }
 
-        #parseStringExpression(expressionCode, isInit) {
-            return (value, labels, env) => expressionCode
+        #parseStringExpression(expression, isInit) {
+            return (value, labels, env, statementIndex, stepIndex) => expression
         }
 
         #parseFieldOrCellExpression(expression, type) {
@@ -472,24 +463,25 @@
             }
         }
 
-        #parseJSONExpression(expressionCode, isInit) {
-            return (value, labels, env) => {
-                let r
-                try { r = JSON.parse(expressionCode) } catch (e) { return }
-                const resolve = rr => {
-                    if (Array.isArray(rr)) {
-                        return rr.map(rrr => this.#mergeVariables(rrr, value, labels, env))
-                    } else if (rr instanceof Object) {
-                        return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#mergeVariables(m, value, labels, env))))
-                    } else {
-                        return this.#mergeVariables(rr, value, labels, env)
-                    }
-                }
-                return resolve(r)
+        #parseJSONExpression(expression, isInit) {
+            return (value, labels, env, statementIndex, stepIndex) => {
+                try { return JSON.parse(expression) } catch (e) { return }
             }
         }
 
         #parseVariableExpression(expressionCode, isInit) {
+
+            // const resolve = rr => {
+            //     if (Array.isArray(rr)) {
+            //         return rr.map(rrr => this.#mergeVariables(rrr, value, labels, env))
+            //     } else if (rr instanceof Object) {
+            //         return Object.fromEntries(Object.entries(rr).map(ent => ent.map(m => this.#mergeVariables(m, value, labels, env))))
+            //     } else {
+            //         return this.#mergeVariables(rr, value, labels, env)
+            //     }
+            // }
+            // return resolve(r)
+
             return (value, labels, env) => this.#getVariable(expressionCode, value, labels, env)
         }
 
