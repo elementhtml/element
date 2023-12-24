@@ -506,13 +506,13 @@
             // } else if (globalUrl.startsWith('rtc://')) {
             //     // web rtc
             // }
+            const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             return async (value, labels, env, statementIndex, stepIndex) => {
-                let url
-                if (typeof value === 'string') {
-                    url = this.#mergeVariables(expression, value, labels, env)
-                    if (!url) return
+                let url = this.#mergeVariables(expression, value, labels, env)
+                if (!url) return
+                if (expressionIncludesValueAsVariable && (typeof value === 'string')) {
                     return await fetch(url).then(r => {
-                        return r.text().then(value => {
+                        return this.E.parse(r).then(value => {
                             return {
                                 ok: r.ok,
                                 status: r.status,
@@ -521,6 +521,8 @@
                             }
                         })
                     })
+                } else if (value instanceof Object) {
+
                 }
 
                 // const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))

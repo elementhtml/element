@@ -674,7 +674,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (!typeCheck && (input instanceof Object)) return input
             input = typeCheck ? input : `${input}`
             if (!contentType) {
-                contentType = sourceElement.getAttribute('content-type') || (sourceElement.optionsMap ?? {})['Content-Type'] || sourceElement._contentType || undefined
+                contentType = sourceElement
+                    ? (sourceElement.getAttribute('content-type') || (sourceElement.optionsMap ?? {})['Content-Type'] || sourceElement._contentType || undefined) : undefined
                 if (!contentType && (input instanceof Response)) {
                     contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
                     contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
@@ -702,7 +703,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType === 'text/md') {
                 await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                 let mdOptions = { ...this.env.options.remarkable }
-                if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
+                if (sourceElement && sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                 this.env.libraries.remarkable.set(mdOptions)
                 const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]),
                     htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
