@@ -529,27 +529,6 @@
                         }
                     })
                 })
-
-                // const body = value == undefined ? undefined : ((typeof value == 'string') ? value : await this.E.serialize(value, this))
-                // if (globalConnnector) return send(body)
-                // const url = this.E.resolveUrl(this.#mergeVariables(expression, value, labels, env), this)
-                // if (!url) return
-                // const headers = this.#getVariable('$headers') ?? {}, method = this.#getVariable('$method') ?? (body ? 'POST' : 'GET')
-                // if (body) {
-                //     headers['content-type'] = this.#getVariable('$contentType') ?? headers['Content-Type'] ?? headers['content-type'] ?? 'application/json'
-                // }
-                // const options = { method, headers, body }
-                // return await fetch(url, options).then(r => {
-                //     return this.E.parse(r, this).then(value => {
-                //         return {
-                //             ok: r.ok,
-                //             status: r.status,
-                //             headers: Object.fromEntries(r.headers.entries()),
-                //             value
-                //         }
-                //     })
-                // })
-
             }
         }
 
