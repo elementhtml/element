@@ -464,9 +464,9 @@
         }
 
         #parseJSONExpression(expression, isInit) {
-            return (value, labels, env, statementIndex, stepIndex) => {
-                try { return JSON.parse(expression) } catch (e) { return }
-            }
+            let retval
+            try { retval = JSON.parse(expression) } catch (e) { }
+            return (value, labels, env, statementIndex, stepIndex) => retval
         }
 
         #parseVariableExpression(expressionCode, isInit) {
