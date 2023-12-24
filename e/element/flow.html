@@ -510,14 +510,35 @@
             return async (value, labels, env, statementIndex, stepIndex) => {
                 let url = this.#mergeVariables(expression, value, labels, env)
                 if (!url) return
+                console.log('flow.html: line 514', url)
                 const options = {}
                 if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
                     if (value instanceof Object && (value.method || value.body)) {
                         Object.assign(options, value)
-                        if (options.body && (typeof options.body !== 'string')) options.body = await this.E.serialize(options.body)
                     } else {
-                        Object.assign(options, { method: 'POST', body: typeof value === 'string' ? value : await this.E.serialize(value) })
+                        Object.assign(options, { method: 'POST', body: value })
                     }
+                    if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
+                        options.headers ||= {}
+                        options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
+                        delete options['content-type']
+                        delete options.contentType
+                        if (!options.headers['Content-Type']) {
+                            if (typeof options.body === 'string') {
+                                if (['null', 'true', 'false'].includes(options.body) || /^[0-9\.]+$/.test(options.body) || /^\s*{.*}$/.test(options.body)) {
+                                    options.headers['Content-Type'] = 'application/json'
+                                } else if (/^\w+=.+&.*$/.test(options.body)) {
+                                    options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                                } else {
+                                    const dataUrlRegex = /data:([\w/\-\.]+);/
+                                    if (dataUrlRegex.test(options.body)) options.headers['Content-Type'] = dataUrlRegex.exec(options.body)[1]
+                                }
+                            } else {
+                                options.headers['Content-Type'] = 'application/json'
+                            }
+                        }
+                    }
+                    if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, this, options.headers['Content-Type'])
                 }
                 return await fetch(url, options).then(r => {
                     return this.E.parse(r).then(value => {
