@@ -29,29 +29,6 @@
 
         constructor() {
             super()
-            const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
-            if (type === 'application/flow' && !textContent && src) {
-                import(src).then(importResult => {
-                    const { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = importResult
-                    this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
-                })
-            } else {
-                const prepare = code => {
-                    switch (type) {
-                        case 'application/flow':
-                            this.#parseApplication(code)
-                            break
-                        case 'text/flow':
-                            this.#readText(code).then(code => this.#compileScript(code))
-                            break
-                        case 'script/flow':
-                            this.#compileScript(code)
-                    }
-                }
-                if (src) {
-                    fetch(src).then(r => r.text()).then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
-                } else { prepare(textContent ?? '') }
-            }
         }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
@@ -69,6 +46,7 @@
         }
 
         #runApplication() {
+            if (this.id === 'register') console.log('line 73', this)
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
             const rootNode = this.getRootNode(),
@@ -300,6 +278,29 @@
         }
 
         async connectedCallback() {
+            const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
+            if (type === 'application/flow' && !textContent && src) {
+                import(src).then(importResult => {
+                    const { handlers = [], fieldNames = [], cellNames = [], filters = [], statements = [] } = importResult
+                    this.#loadApplication(handlers, fieldNames, cellNames, filters, statements)
+                })
+            } else {
+                const prepare = code => {
+                    switch (type) {
+                        case 'application/flow':
+                            this.#parseApplication(code)
+                            break
+                        case 'text/flow':
+                            this.#readText(code).then(code => this.#compileScript(code))
+                            break
+                        case 'script/flow':
+                            this.#compileScript(code)
+                    }
+                }
+                if (src) {
+                    fetch(src).then(r => r.text()).then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
+                } else { prepare(textContent ?? '') }
+            }
             await this.#runApplication()
         }
 
