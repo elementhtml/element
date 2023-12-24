@@ -738,7 +738,8 @@ const ElementHTML = Object.defineProperties({}, {
     serialize: {//keep
         enumerable: true, value: async function (input, sourceElement, contentType) {
             if (typeof input === 'string') return input
-            contentType ||= sourceElement.getAttribute('content-type') || (sourceElement?.optionsMap ?? {})['Content-Type'] || sourceElement?._contentType || 'application/json'
+            contentType ||= sourceElement
+                ? sourceElement.getAttribute('content-type') || (sourceElement?.optionsMap ?? {})['Content-Type'] || sourceElement?._contentType || 'application/json' : undefined
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
             if (contentType === 'text/html' || contentType === 'text/md') {
@@ -747,7 +748,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (contentType === 'text/md') {
                     await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                     let mdOptions = { ...this.env.options.remarkable }
-                    if (sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
+                    if (sourceElement && sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                     this.env.libraries.remarkable.set(mdOptions)
                     text = this.env.libraries.remarkable.render(text)
                 }
