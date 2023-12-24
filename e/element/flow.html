@@ -631,11 +631,11 @@
                     }
                     break
                 case '~':
-                    return env.context[expression]
+                    return env.context[expression.slice(1)]
                 case '#':
-                    return (env.cells[expression] ?? {})?.get()
+                    return (env.cells[expression.slice(1)] ?? {})?.get()
                 case '%':
-                    return (env.fields[expression] ?? {})?.get()
+                    return (env.fields[expression.slice(1)] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)
                     if (!expression) return value
@@ -665,34 +665,6 @@
                 return this.#mergeVariables(exp, value, labels, env, true)
             }
             return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
-        }
-
-
-
-
-        #parseTriggerExpression(expressionCode) {
-            switch (expressionCode[0]) {
-                case '!':
-                    expressionCode = expressionCode.slice(1)
-                    if (expressionCode === '#') {
-                        return [window, ['hashchange']]
-                    } else {
-                        const [eventTargetName, eventNames] = expressionCode.split(' ')
-                        this.E.env.eventTargets[eventTargetName.trim()] ||= new EventTarget()
-                        return [this.E.env.eventTargets[eventTargetName], eventNames.trim().split(',').map(s => s.trim()).filter(s => !!s)]
-                    }
-                case '%':
-                case '#':
-                    const targetType = expressionCode[0], expressionCode = expressionCode.slice(1).trim()
-                    return [this.#getFieldOrCellGroup(expressionCode, expressionCode[0]), ['change']]
-                case '$':
-                    let scopedSelector = expressionCode.slice(2, -1)
-                    if (!scopedSelector) scopedSelector = ':|'
-                    if (!scopedSelector.includes('|')) scopedSelector = `:|${scopedSelector}`
-                    const [scopeStatement, selector] = scopedSelector.split('|').map(s => s.trim()),
-                        scope = this.E.utils.resolveScope(scopeStatement, this)
-                    return [scope, [selector]]
-            }
         }
 
 
