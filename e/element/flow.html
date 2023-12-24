@@ -446,13 +446,33 @@
             }, undefined, Array.from(added)]
         }
 
-        #parseSelectorExpression(expressionCode) {
-            return [(value, labels, env) => {
-                const target = this.E.utils.resolveScopedSelector(expressionCode, this)
-                if (Array.isArray(target)) {
-                    for (const t of target) this.E.applyData(t, value)
-                } else if (target) {
-                    this.E.applyData(target, value)
+        #parseSelectorExpression(expression) {
+            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
+                scope = this.E.utils.resolveScope(scopeStatement, this)
+            if (!scope) return []
+            let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+            if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+            return [(value, labels, env, statementIndex, stepIndex) => {
+                if (value != undefined) {
+                    const target = this.E.utils.resolveSelector(selector, scope)
+                    if (Array.isArray(target)) {
+                        for (const t of target) this.E.applyData(t, value)
+                    } else if (target) {
+                        this.E.applyData(target, value)
+                    }
+                }
+                const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click']))),
+                    eventKey = `${statementIndex}-${stepIndex}`
+                if (!this.#keyedAbortControllers[eventKey]) {
+                    this.#keyedAbortControllers[eventKey] = new AbortController()
+                    for (const eventName of eventNames) {
+                        scope.addEventListener(eventName, event => {
+                            if (selector && !event.target.matches(selector)) return
+                            if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                            event.preventDefault()
+                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
+                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
+                    }
                 }
                 return value
             }]
