@@ -513,13 +513,10 @@
                 const options = {}
                 if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
                     if (value instanceof Object && (value.method || value.body)) {
-                        options = { ...value }
-                        if (options.body && (typeof options.body !== 'string')) options.body = this.E.serialize(options.body)
+                        Object.assign(options, value)
+                        if (options.body && (typeof options.body !== 'string')) options.body = await this.E.serialize(options.body)
                     } else {
-                        options = {
-                            method: 'POST',
-                            body: typeof value === 'string' ? value : this.E.serialize(value)
-                        }
+                        Object.assign(options, { method: 'POST', body: typeof value === 'string' ? value : await this.E.serialize(value) })
                     }
                 }
                 return await fetch(url, options).then(r => {

@@ -740,7 +740,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof input === 'string') return input
             contentType ||= sourceElement
                 ? sourceElement.getAttribute('content-type') || (sourceElement?.optionsMap ?? {})['Content-Type'] || sourceElement?._contentType || 'application/json' : undefined
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
+            if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
             if (contentType === 'text/html' || contentType === 'text/md') {
                 if (!(input instanceof Node)) return
