@@ -401,7 +401,6 @@
                     for (const [name, item] of Object.entries(group)) (item.type === 'field' ? addedFields : addedCells).add(item.name)
             }
             return [(value, labels, env, statementIndex, stepIndex) => {
-                console.log('flow.html: line 404', value, labels, env)
                 let getReturnValue, items = []
                 const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
@@ -678,7 +677,6 @@
                 case '#':
                     return (env.cells[expression.slice(1)] ?? {})?.get()
                 case '%':
-                    console.log('flow.html: line 670', expression, env)
                     return (env.fields[expression.slice(1)] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)
