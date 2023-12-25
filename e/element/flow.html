@@ -398,9 +398,10 @@
                     for (const item of group) (item.type === 'field' ? addedFields : addedCells).add(item.name)
                     break
                 default:
-                    for (const [name, item] of Object.entries(group)) (group.type === 'field' ? addedFields : addedCells).add(item.name)
+                    for (const [name, item] of Object.entries(group)) (item.type === 'field' ? addedFields : addedCells).add(item.name)
             }
             return [(value, labels, env, statementIndex, stepIndex) => {
+                console.log('flow.html: line 404', value, labels, env)
                 let getReturnValue, items = []
                 const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
@@ -505,6 +506,11 @@
             //     // web rtc
             // }
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+            let returnFullRequest
+            if (expression[0] === '~' && expression.endsWith('~')) {
+                returnFullRequest = true
+                expression = expression.slice(1, -1)
+            }
             return async (value, labels, env, statementIndex, stepIndex) => {
                 let url = this.#mergeVariables(expression, value, labels, env)
                 if (!url) return
@@ -539,11 +545,16 @@
                 }
                 return await fetch(url, options).then(r => {
                     return this.E.parse(r).then(value => {
-                        return {
-                            ok: r.ok,
-                            status: r.status,
-                            headers: Object.fromEntries(r.headers.entries()),
-                            value
+                        if (returnFullRequest) {
+                            const retval = {
+                                _: value,
+                                ok: r.ok,
+                                status: r.status,
+                                headers: Object.fromEntries(r.headers.entries())
+                            }
+                            return retval
+                        } else {
+                            return value
                         }
                     })
                 })
@@ -667,7 +678,7 @@
                 case '#':
                     return (env.cells[expression.slice(1)] ?? {})?.get()
                 case '%':
-                    console.log('flow.html: line 668', expression, env.fields)
+                    console.log('flow.html: line 670', expression, env)
                     return (env.fields[expression.slice(1)] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)
