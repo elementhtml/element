@@ -418,10 +418,7 @@
                     default:
                         if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
                             if (v == undefined) continue
-                            if (k[0] === type) {
-                                const n = k.slice(1)
-                                if (group[n]) group[n].set(v)
-                            }
+                            if (group[n]) group[n].set(v)
                         }
                         getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
                         items = Object.values(group)
@@ -580,20 +577,33 @@
 
         #getFieldOrCellGroup(expression, type = '#') {
             let group
+            const getFieldOrCellTarget = (name) => {
+                if (name[0] === '#') {
+                    return this.E.getCell(name.slice(1))
+                } else if (name[0] === '%') {
+                    return this.#getField(name.slice(1))
+                } else {
+                    return type === '%' ? this.#getField(name) : this.E.getCell(name)
+                }
+            }
             if ((expression[0] === '{') && expression.endsWith('}')) {
                 group = {}
                 for (const pair of expression.slice(1, -1).trim().split(',')) {
                     let [key, name] = pair.trim().split(':').map(s => s.trim())
                     if (!name) name = key
-                    group[key] = type === '%' ? this.#getField(name.trim()) : this.E.getCell(name.trim())
+                    group[key] = getFieldOrCellTarget(name)
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
                 group = []
-                for (const t of expression.split(',')) {
-                    group.push(type === '%' ? this.#getField(t.trim()) : this.E.getCell(t.trim()))
+                for (let t of expression.split(',')) {
+                    t = t.trim()
+                    if (!t) continue
+                    group.push(getFieldOrCellTarget(name))
                 }
             } else {
-                group = [(type === '%' ? this.#getField(expression) : this.E.getCell(expression))]
+                expression = expression.trim()
+                if (!expression) return
+                group = [getFieldOrCellTarget(expression)]
             }
             return group
         }
