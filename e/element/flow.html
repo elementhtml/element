@@ -252,11 +252,11 @@
                             }
                         case '~':
                             if (handlerExpression.endsWith('~')) {
-                                handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1))
+                                handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), false, !!defaultExpression)
                                 break
                             }
                         default:
-                            handler = this.#parseRemoteExpression(handlerExpression)
+                            handler = this.#parseRemoteExpression(handlerExpression, false, !!defaultExpression)
                     }
                     handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
                     step.push(handlerIndex)
@@ -491,7 +491,7 @@
             }
         }
 
-        #parseRemoteExpression(expression, isInit) {
+        #parseRemoteExpression(expression, isInit, hasDefault) {
             // const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
             // let globalConnnector, send
             // if (globalUrl.startsWith('wss://')) {
@@ -542,17 +542,21 @@
                     }
                     if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, this, options.headers['Content-Type'])
                 }
-                return await fetch(url, options).then(r => {
+                return await fetch(url, options).then(async r => {
                     if (returnFullRequest) {
                         const retval = {
-                            _: value,
+                            _: await this.E.parse(r),
                             ok: r.ok,
                             status: r.status,
                             headers: Object.fromEntries(r.headers.entries())
                         }
                         return retval
                     } else {
-                        if (r.ok) return this.E.parse(r)
+                        if (hasDefault) {
+                            if (r.ok) return this.E.parse(r)
+                        } else {
+                            return this.E.parse(r)
+                        }
                     }
                 })
             }
