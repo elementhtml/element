@@ -543,19 +543,17 @@
                     if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, this, options.headers['Content-Type'])
                 }
                 return await fetch(url, options).then(r => {
-                    return this.E.parse(r).then(value => {
-                        if (returnFullRequest) {
-                            const retval = {
-                                _: value,
-                                ok: r.ok,
-                                status: r.status,
-                                headers: Object.fromEntries(r.headers.entries())
-                            }
-                            return retval
-                        } else {
-                            return value
+                    if (returnFullRequest) {
+                        const retval = {
+                            _: value,
+                            ok: r.ok,
+                            status: r.status,
+                            headers: Object.fromEntries(r.headers.entries())
                         }
-                    })
+                        return retval
+                    } else {
+                        if (r.ok) return this.E.parse(r)
+                    }
                 })
             }
         }

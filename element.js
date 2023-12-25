@@ -530,7 +530,11 @@ const ElementHTML = Object.defineProperties({}, {
                 } else if (tag === 'object') {
                     data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
                 } else {
-                    element.textContent = (data == undefined) ? '' : data
+                    if (typeof data === 'string') {
+                        element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
+                    } else {
+                        element.textContent = (data == undefined) ? '' : data
+                    }
                 }
                 return
             }
