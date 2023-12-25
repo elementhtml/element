@@ -214,10 +214,10 @@
                             break
                         case "#":
                         case "%":
-                            let addedNames
-                            [handler, addedNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), handlerExpression[0])
-                            const names = handlerExpression[0] === '#' ? cellNames : fieldNames
-                            for (const addedName of addedNames) names.add(addedName)
+                            let addedFieldNames, addedCellNames
+                            [handler, addedFieldNames, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), handlerExpression[0])
+                            for (const addedName of addedFieldNames) fieldNames.add(addedName)
+                            for (const addedName of addedCellNames) cellNames.add(addedName)
                             break
                         case "$":
                             if (handlerExpression[1] === "{") {
@@ -386,18 +386,19 @@
 
         #parseFieldOrCellExpression(expression, type) {
             let group = this.#getFieldOrCellGroup(expression, type),
-                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'), added = new Set()
+                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
+                addedFields = new Set(), addedCells = new Set()
             if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
             switch (config) {
                 case 'single':
-                    added.add(group.name)
+                    (group.type === 'field' ? addedFields : addedCells).add(group.name)
                     break
                 case 'array':
-                    for (const item of group) added.add(item.name)
+                    for (const item of group) (item.type === 'field' ? addedFields : addedCells).add(item.name)
                     break
                 default:
-                    for (const [name, item] of Object.entries(group)) added.add(item.name)
+                    for (const [name, item] of Object.entries(group)) (group.type === 'field' ? addedFields : addedCells).add(item.name)
             }
             return [(value, labels, env, statementIndex, stepIndex) => {
                 let getReturnValue, items = []
@@ -418,7 +419,7 @@
                     default:
                         if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
                             if (v == undefined) continue
-                            if (group[n]) group[n].set(v)
+                            if (group[k]) group[k].set(v)
                         }
                         getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [`${type}${ent[0]}`, ent[1].get()]))
                         items = Object.values(group)
@@ -428,13 +429,13 @@
                     for (const item of items) {
                         item.eventTarget.addEventListener('change', event => {
                             const retval = getReturnValue()
-                            console.log('flow.html: line 444', retval)
+                            console.log('flow.html: line 431', retval)
                             this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: getReturnValue() }))
                         }, { signal: this.#keyedAbortControllers[eventKey].signal })
                     }
                 }
                 return getReturnValue()
-            }, Array.from(added)]
+            }, Array.from(addedFields), Array.from(addedCells)]
         }
 
         #parseSelectorExpression(expression) {
@@ -557,6 +558,7 @@
             if (!name) return
             if (!this.#fields[name]) {
                 const field = {
+                    type: 'field',
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
                     set: function (value, force) {
@@ -665,6 +667,7 @@
                 case '#':
                     return (env.cells[expression.slice(1)] ?? {})?.get()
                 case '%':
+                    console.log('flow.html: line 668', expression, env.fields)
                     return (env.fields[expression.slice(1)] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)

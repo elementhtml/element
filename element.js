@@ -1152,6 +1152,7 @@ const ElementHTML = Object.defineProperties({}, {
             const cells = this.env.cells
             if (!cells[name]) {
                 const cell = {
+                    type: 'cell',
                     channel: new BroadcastChannel(name),
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
