@@ -1246,6 +1246,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$stop(')) bindings.stop = v => v
                 if (transform.includes('$getCell(')) bindings.getCell = name => name ? { name, value: this.getCell(name).get() } : undefined
                 if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
+                if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
                 const date = new Date(),
                     dateMethods = ['toDateString', 'toString', 'valueOf', 'toISOString', 'toLocaleDateString', 'toLocaleString', 'toLocaleTimeString', 'toTimeString', 'toUTCString']
                 for (const dm of dateMethods) if (transform.includes(`$Date${dm}`)) bindings[`Date${dm}`] = date[dm]
