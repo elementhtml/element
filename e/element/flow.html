@@ -29,13 +29,13 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
         #loadApplication(handlers = [], fieldNames = [], cellNames = [], statements = []) {
-            this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
+            this.#handlers = Object.freeze(handlers)
             this.#fields ||= {}
             for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
             Object.freeze(this.#fields)
             this.#fieldNames = Object.freeze(fieldNames)
             this.#cellNames = Object.freeze(cellNames)
-            this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue] ] }
+            this.#statements = Object.freeze(statements)
         }
 
         #runApplication() {
@@ -182,11 +182,11 @@
                                 }
                             case '~':
                                 if (handlerExpression.endsWith('~')) {
-                                    handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), false, !!defaultExpression, statementIndex, stepIndex)
+                                    handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
                                     break
                                 }
                             default:
-                                handler = this.#parseRemoteExpression(handlerExpression, false, !!defaultExpression, statementIndex, stepIndex)
+                                handler = this.#parseRemoteExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                         }
                     }
                     handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
@@ -246,7 +246,7 @@
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
 
-        #parseRouterExpression(expression) {
+        #parseRouterExpression(expression, statementIndex, stepIndex) {
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (expression === '#') {
                     const eventKey = `${statementIndex}-${stepIndex}-#`
@@ -271,7 +271,7 @@
             }
         }
 
-        #parseEventTargetExpression(expression) {
+        #parseEventTargetExpression(expression, statementIndex, stepIndex) {
             const pairs = []
             let routerEvent
             for (const eventPair of expression.split(',')) if (eventPair) {
@@ -303,7 +303,7 @@
             }
         }
 
-        #parseProxyExpression(expressionCode) {
+        #parseProxyExpression(expressionCode, statementIndex, stepIndex) {
             const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
@@ -323,7 +323,7 @@
             }
         }
 
-        #parseRegExpExpression(expression) {
+        #parseRegExpExpression(expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
             const regex = new RegExp(expression)
@@ -334,11 +334,11 @@
             }
         }
 
-        #parseStringExpression(expression) {
+        #parseStringExpression(expression, statementIndex, stepIndex) {
             return (value, labels, env, statementIndex, stepIndex) => this.#mergeVariables(expression, value, labels, env)
         }
 
-        #parseFieldOrCellExpression(expression, type) {
+        #parseFieldOrCellExpression(expression, type, statementIndex, stepIndex) {
             let group = this.#getFieldOrCellGroup(expression, type), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
                 addedFields = new Set(), addedCells = new Set(), items = []
@@ -391,7 +391,7 @@
             }, Array.from(addedFields), Array.from(addedCells)]
         }
 
-        #parseSelectorExpression(expression) {
+        #parseSelectorExpression(expression, statementIndex, stepIndex) {
             if (expression && (expression[0] === '#')) expression = `:|${expression}`
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
                 scope = this.E.utils.resolveScope(scopeStatement, this)
@@ -424,17 +424,17 @@
             }
         }
 
-        #parseJSONExpression(expression) {
+        #parseJSONExpression(expression, statementIndex, stepIndex) {
             let retval
             try { retval = JSON.parse(expression) } catch (e) { }
             return (value, labels, env, statementIndex, stepIndex) => retval
         }
 
-        #parseVariableExpression(expression) {
+        #parseVariableExpression(expression, statementIndex, stepIndex) {
             return (value, labels, env, statementIndex, stepIndex) => this.#getVariable(expression, value, labels, env)
         }
 
-        #parseTransformExpression(expression) {
+        #parseTransformExpression(expression, statementIndex, stepIndex) {
             if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
             return async (value, labels, env, statementIndex, stepIndex) => {
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.#fields).map(f => [f[0], f[1].get()]))),
@@ -444,7 +444,7 @@
             }
         }
 
-        #parseRemoteExpression(expression, hasDefault) {
+        #parseRemoteExpression(expression, hasDefault, statementIndex, stepIndex) {
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             let returnFullRequest
             if (expression[0] === '~' && expression.endsWith('~')) {
