@@ -53,22 +53,21 @@
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
                     const [label, handlerIndex, defaultValue] = step
-                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
-                        this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex).then(detail => {
-                            detail ||= this.#getVariable(defaultValue)
-                            switch (label[0]) {
-                                case '%':
-                                    env.fields[label.slice(1)].set(detail)
-                                    break
-                                case '#':
-                                    env.cells[label.slice(1)].set(detail)
-                                    break
-                                default:
-                                    labels[label] = detail
-                            }
-                            labels[`${stepIndex}`] = detail
-                            if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                        })
+                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                        let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
+                        detail ||= this.#getVariable(defaultValue)
+                        switch (label[0]) {
+                            case '%':
+                                env.fields[label.slice(1)].set(detail)
+                                break
+                            case '#':
+                                env.cells[label.slice(1)].set(detail)
+                                break
+                            default:
+                                labels[label] = detail
+                        }
+                        labels[`${stepIndex}`] = detail
+                        if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
                     }, { signal: this.#abortController.signal })
                 }
             }
