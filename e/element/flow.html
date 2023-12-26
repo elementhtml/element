@@ -88,7 +88,7 @@
             let statementIndex = -1
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
-                if (!directive || (directive.slice(0, 2) === '# ')) continue
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
                 const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
                 statementIndex = statementIndex + 1
                 let stepIndex = -1
@@ -128,9 +128,6 @@
                         handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
                     } else {
                         switch (handlerExpression[0]) {
-                            case '!':
-                                handler = this.#parseEventTargetExpression(handlerExpression.slice(1), statementIndex, stepIndex)
-                                break
                             case '`':
                                 handler = this.#parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                 break
@@ -247,15 +244,13 @@
         set type(value) { this.#type = value }
 
         #parseRouterExpression(expression, statementIndex, stepIndex) {
+            const eventKey = `${statementIndex}-${stepIndex}`
+            this.#keyedAbortControllers[eventKey] = new AbortController()
+            window.addEventListener('hashchange', event => {
+                this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
+            }, { signal: this.#keyedAbortControllers[eventKey].signal })
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (expression === '#') {
-                    const eventKey = `${statementIndex}-${stepIndex}-#`
-                    if (!this.#keyedAbortControllers[eventKey]) {
-                        this.#keyedAbortControllers[eventKey] = new AbortController()
-                        window.addEventListener('hashchange', event => {
-                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
-                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
-                    }
                     if (value != undefined && (typeof value === 'string')) document.location.hash = value
                     return document.location.hash
                 } else if (expression === '?') {
@@ -267,38 +262,6 @@
                 } else if (expression === ':') {
                     if (value != undefined && (typeof value === 'string')) document.location = value
                     return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
-                }
-            }
-        }
-
-        #parseEventTargetExpression(expression, statementIndex, stepIndex) {
-            const pairs = []
-            let routerEvent
-            for (const eventPair of expression.split(',')) if (eventPair) {
-                let [eventTargetName, eventName] = eventPair.trim().split(':').map(s => s.trim())
-                if (!eventTargetName) continue
-                if (!eventName) eventName = eventTargetName
-                if (eventTargetName === '#' || eventTargetName === '?' || eventTargetName === '/') {
-                    routerEvent = eventTargetName
-                } else {
-                    this.E.env.eventTargets[eventTargetName] ||= new EventTarget()
-                    pairs.push([eventTargetName, eventName])
-                }
-            }
-            return async (value, labels, env, statementIndex, stepIndex) => {
-                if (routerEvent === '#') {
-                    const eventKey = `${statementIndex}-${stepIndex}-#`
-                    if (!this.#keyedAbortControllers[eventKey]) {
-                        this.#keyedAbortControllers[eventKey] = new AbortController()
-                        window.addEventListener('hashchange', event => {
-                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
-                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
-                    }
-                    return document.location.hash
-                } else if (routerEvent === '?') {
-                    return document.location.search
-                } else if (routerEvent === '/') {
-                    return document.location.pathname
                 }
             }
         }
@@ -360,8 +323,15 @@
                     getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
                     items = Object.values(group)
             }
+            const eventKey = `${statementIndex}-${stepIndex}`
+            this.#keyedAbortControllers[eventKey] = new AbortController()
+            for (const item of items) {
+                item.eventTarget.addEventListener('change', event => {
+                    const retval = getReturnValue()
+                    if (retval != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
+                }, { signal: this.#keyedAbortControllers[eventKey].signal })
+            }
             return [(value, labels, env, statementIndex, stepIndex) => {
-                const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
                     case 'single':
                         group.set(value)
@@ -377,16 +347,6 @@
                             if (group[k]) group[k].set(v)
                         }
                 }
-                if (!this.#keyedAbortControllers[eventKey]) {
-                    this.#keyedAbortControllers[eventKey] = new AbortController()
-                    for (const item of items) {
-                        item.eventTarget.addEventListener('change', event => {
-                            const retval = getReturnValue()
-                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: getReturnValue() }))
-                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
-                    }
-                }
-                // console.log('flow.html: line 468', getReturnValue())
                 return getReturnValue()
             }, Array.from(addedFields), Array.from(addedCells)]
         }
@@ -398,6 +358,17 @@
             if (!scope) return []
             let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
             if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+            const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click']))),
+                eventKey = `${statementIndex}-${stepIndex}`
+            this.#keyedAbortControllers[eventKey] = new AbortController()
+            for (const eventName of eventNames) {
+                scope.addEventListener(eventName, event => {
+                    if (selector && !event.target.matches(selector)) return
+                    if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                    event.preventDefault()
+                    this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
+                }, { signal: this.#keyedAbortControllers[eventKey].signal })
+            }
             return (value, labels, env, statementIndex, stepIndex) => {
                 if (value != undefined) {
                     const target = this.E.utils.resolveSelector(selector, scope)
@@ -405,19 +376,6 @@
                         for (const t of target) this.E.applyData(t, value)
                     } else if (target) {
                         this.E.applyData(target, value)
-                    }
-                }
-                const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click']))),
-                    eventKey = `${statementIndex}-${stepIndex}`
-                if (!this.#keyedAbortControllers[eventKey]) {
-                    this.#keyedAbortControllers[eventKey] = new AbortController()
-                    for (const eventName of eventNames) {
-                        scope.addEventListener(eventName, event => {
-                            if (selector && !event.target.matches(selector)) return
-                            if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
-                            event.preventDefault()
-                            this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
-                        }, { signal: this.#keyedAbortControllers[eventKey].signal })
                     }
                 }
                 return value
