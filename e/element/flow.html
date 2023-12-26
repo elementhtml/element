@@ -14,7 +14,6 @@
         #src
         #statements = []
         #type
-        #init = {}
         #keyedAbortControllers = {}
 
         get handlers() { return this.#handlers }
@@ -22,8 +21,6 @@
         get fieldNames() { return this.#fieldNames }
         get fields() { return this.#fields }
         get statements() { return this.#statements }
-        get init() { return this.#init }
-
 
         constructor() {
             super()
@@ -31,7 +28,7 @@
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        #loadApplication(handlers = [], fieldNames = [], cellNames = [], statements = [], init = {}) {
+        #loadApplication(handlers = [], fieldNames = [], cellNames = [], statements = []) {
             this.#handlers = Object.freeze(handlers)//each one function(value, labels, env) => returns value
             this.#fields ||= {}
             for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
@@ -39,7 +36,6 @@
             this.#fieldNames = Object.freeze(fieldNames)
             this.#cellNames = Object.freeze(cellNames)
             this.#statements = Object.freeze(statements) // { labels = {}, steps = [ [label, handlerIndex, defaultValue] ] }
-            this.#init = Object.freeze(init) // key => % or # name , value => function whose return value is assigned to that field or cell
         }
 
         #runApplication() {
@@ -74,102 +70,28 @@
                     }, { signal: this.#abortController.signal })
                 }
             }
-            const promises = []
-            this.dispatchEvent(new CustomEvent('initStart'))
-            for (const [name, func] of Object.entries(this.#init)) {
-                if (typeof func !== 'function') continue
-                promises.push(Promise.resolve(func(this, env)).then(initValue => {
-                    switch (name[0]) {
-                        case '%':
-                            (env.fields[name.slice(1)] ?? {}).value = initValue
-                            break
-                        case '#':
-                            (env.cells[name.slice(1)] ?? {}).value = initValue
-                            break
-                        default:
-                            (env.fields[name] ?? env.cells[name] ?? {}).value = initValue
-                    }
-                }))
-            }
-            Promise.all(promises).then(() => {
-                this.dispatchEvent(new CustomEvent('initEnd'))
-                this.dispatchEvent(new CustomEvent('run'))
-            })
+            this.dispatchEvent(new CustomEvent('run'))
         }
 
         async #parseApplication(code) {
             const textAsModule =
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [], init = {} } = classModule
+                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [] } = classModule
             URL.revokeObjectURL(moduleAsUrl)
-            this.#loadApplication(handlers, fieldNames, cellNames, statements, init)
-        }
-
-        #parseInit(directive) {
-            if (!directive) return {}
-            const init = {}, isNumeric = /^[0-9\.]+$/
-            for (let segment of directive.split(' !! ')) {
-                segment = segment.trim()
-                if (!segment) continue // ` " ' $ ( { n t f 0-9 
-                let [label, ...expression] = segment.split(': ')
-                expression = expression.join(': ').trim()
-                label = label.trim()
-                if (!label || !expression) continue
-                switch (expression[0]) {
-                    case '`':
-                        init[label] = this.#parseProxyExpression(expression.slice(1, -1), true)
-                        break
-                    case '"':
-                    case "'":
-                        init[label] = this.#parseStringExpression(expression.slice(1, -1), true)
-                        break
-                    case "$":
-                        init[label] = this.#parseVariableExpression(expression.slice(2, -1), true)
-                        break
-                    case '{':
-                        init[label] = this.#parseJSONExpression(expression, true)
-                        break
-                    case 'n':
-                    case 't':
-                    case 'f':
-                    case '0':
-                    case '1':
-                    case '2':
-                    case '3':
-                    case '4':
-                    case '5':
-                    case '6':
-                    case '7':
-                    case '8':
-                    case '9':
-                        if (expression === 'null' || expression === 'true' || expression === 'false'
-                            || expression.match(isNumeric)) {
-                            init[label] = this.#parseJSONExpression(expression, true)
-                        }
-                    case '~':
-                        if (expression.endsWith('~')) {
-                            init[label] = this.#parseRemoteExpression(expression.slice(1, -1), true)
-                            break
-                        }
-                    default:
-                        init[label] = this.#parseRemoteExpression(expression, true)
-                }
-            }
-            return init
+            this.#loadApplication(handlers, fieldNames, cellNames, statements)
         }
 
         #compileScript(code) {
-            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], init = {},
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [],
                 splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
+            let statementIndex = -1
             for (let directive of code.split(splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 2) === '# ')) continue
-                if (directive.slice(0, 3) === '#! ') {
-                    Object.assign(init, this.#parseInit(directive.slice(3).trim()))
-                    continue
-                }
                 const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
+                statementIndex = statementIndex + 1
+                let stepIndex = -1
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
@@ -201,42 +123,44 @@
                             if (ln) statement.labels[label] = undefined
                     }
                     let handler, handlerIndex
+                    stepIndex = stepIndex + 1
                     if ((handlerExpression === '#') || (handlerExpression === '?') || (handlerExpression === '/') || (handlerExpression === ':')) {
-                        handler = this.#parseRouterExpression(handlerExpression)
+                        handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
                     } else {
                         switch (handlerExpression[0]) {
                             case '!':
-                                handler = this.#parseEventTargetExpression(handlerExpression.slice(1))
+                                handler = this.#parseEventTargetExpression(handlerExpression.slice(1), statementIndex, stepIndex)
                                 break
                             case '`':
-                                handler = this.#parseProxyExpression(handlerExpression.slice(1, -1))
+                                handler = this.#parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                 break
                             case '/':
-                                handler = this.#parseRegExpExpression(handlerExpression.slice(1, -1))
+                                handler = this.#parseRegExpExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                 break
                             case '"':
                             case "'":
-                                handler = this.#parseStringExpression(handlerExpression.slice(1, -1))
+                                handler = this.#parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                 break
                             case "#":
                             case "%":
                                 let addedFieldNames, addedCellNames
-                                [handler, addedFieldNames, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1), handlerExpression[0])
+                                [handler, addedFieldNames, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1),
+                                    handlerExpression[0], statementIndex, stepIndex)
                                 for (const addedName of addedFieldNames) fieldNames.add(addedName)
                                 for (const addedName of addedCellNames) cellNames.add(addedName)
                                 break
                             case "$":
                                 if (handlerExpression[1] === "{") {
-                                    handler = this.#parseVariableExpression(handlerExpression.slice(2, -1))
+                                    handler = this.#parseVariableExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
                                 } else if (handlerExpression[1] === "(") {
-                                    handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1))
+                                    handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
                                 }
                                 break
                             case "(":
-                                handler = this.#parseTransformExpression(handlerExpression)
+                                handler = this.#parseTransformExpression(handlerExpression, statementIndex, stepIndex)
                                 break
                             case "{":
-                                handler = this.#parseJSONExpression(handlerExpression)
+                                handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                 break
                             case "n":
                             case "t":
@@ -253,16 +177,16 @@
                             case "9":
                                 if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
                                     || handlerExpression.match(isNumeric)) {
-                                    handler = this.#parseJSONExpression(handlerExpression)
+                                    handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 }
                             case '~':
                                 if (handlerExpression.endsWith('~')) {
-                                    handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), false, !!defaultExpression)
+                                    handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), false, !!defaultExpression, statementIndex, stepIndex)
                                     break
                                 }
                             default:
-                                handler = this.#parseRemoteExpression(handlerExpression, false, !!defaultExpression)
+                                handler = this.#parseRemoteExpression(handlerExpression, false, !!defaultExpression, statementIndex, stepIndex)
                         }
                     }
                     handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
@@ -277,7 +201,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), statements, init)
+            this.#loadApplication(handlers, Array.from(fieldNames), Array.from(cellNames), statements)
         }
 
         #readText(code) {
@@ -322,7 +246,7 @@
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
 
-        #parseRouterExpression(expression, isInit) {
+        #parseRouterExpression(expression) {
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (expression === '#') {
                     const eventKey = `${statementIndex}-${stepIndex}-#`
@@ -379,7 +303,7 @@
             }
         }
 
-        #parseProxyExpression(expressionCode, isInit) {
+        #parseProxyExpression(expressionCode) {
             const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
@@ -388,8 +312,6 @@
             let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
             childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             const getArgs = (args, value, labels, env) => args.map(a => this.#mergeVariables(a.trim(), value, labels, env))
-            if (isInit) return parentIsNewable ? new globalThis[parentObjectName](...getParentArgs())
-                : globalThis[parentObjectName](...getParentArgs())
             return (value, labels, env, statementIndex, stepIndex) => {
                 if (childMethodName) {
                     if (!(globalThis[parentObjectName] instanceof Object)) return
@@ -412,49 +334,48 @@
             }
         }
 
-        #parseStringExpression(expression, isInit) {
+        #parseStringExpression(expression) {
             return (value, labels, env, statementIndex, stepIndex) => this.#mergeVariables(expression, value, labels, env)
         }
 
         #parseFieldOrCellExpression(expression, type) {
-            let group = this.#getFieldOrCellGroup(expression, type),
+            let group = this.#getFieldOrCellGroup(expression, type), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
-                addedFields = new Set(), addedCells = new Set()
+                addedFields = new Set(), addedCells = new Set(), items = []
             if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
             switch (config) {
                 case 'single':
                     (group.type === 'field' ? addedFields : addedCells).add(group.name)
+                    getReturnValue = () => group.get()
+                    items.push(group)
                     break
                 case 'array':
                     for (const item of group) (item.type === 'field' ? addedFields : addedCells).add(item.name)
+                    getReturnValue = () => group.map(i => i.get())
+                    items = group
                     break
                 default:
                     for (const [name, item] of Object.entries(group)) (item.type === 'field' ? addedFields : addedCells).add(item.name)
+                    getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
+                    items = Object.values(group)
             }
             return [(value, labels, env, statementIndex, stepIndex) => {
-                let getReturnValue, items = []
                 const eventKey = `${statementIndex}-${stepIndex}-${type}`
                 switch (config) {
                     case 'single':
                         group.set(value)
-                        getReturnValue = () => group.get()
-                        items.push(group)
                         break
                     case 'array':
                         if (Array.isArray(value)) {
                             for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
                         }
-                        getReturnValue = () => group.map(i => i.get())
-                        items = group
                         break
                     default:
                         if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
                             if (v == undefined) continue
                             if (group[k]) group[k].set(v)
                         }
-                        getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
-                        items = Object.values(group)
                 }
                 if (!this.#keyedAbortControllers[eventKey]) {
                     this.#keyedAbortControllers[eventKey] = new AbortController()
@@ -465,6 +386,7 @@
                         }, { signal: this.#keyedAbortControllers[eventKey].signal })
                     }
                 }
+                // console.log('flow.html: line 468', getReturnValue())
                 return getReturnValue()
             }, Array.from(addedFields), Array.from(addedCells)]
         }
@@ -502,13 +424,13 @@
             }
         }
 
-        #parseJSONExpression(expression, isInit) {
+        #parseJSONExpression(expression) {
             let retval
             try { retval = JSON.parse(expression) } catch (e) { }
             return (value, labels, env, statementIndex, stepIndex) => retval
         }
 
-        #parseVariableExpression(expression, isInit) {
+        #parseVariableExpression(expression) {
             return (value, labels, env, statementIndex, stepIndex) => this.#getVariable(expression, value, labels, env)
         }
 
@@ -522,19 +444,7 @@
             }
         }
 
-        #parseRemoteExpression(expression, isInit, hasDefault) {
-            // const globalUrl = this.E.resolveUrl(this.#mergeVariables(expression, "", {}, this.E.env.context ?? {}), this)
-            // let globalConnnector, send
-            // if (globalUrl.startsWith('wss://')) {
-            //     globalConnnector = new WebSocket(globalUrl)
-            //     send = p => globalConnnector.send(p)
-            // } else if (globalUrl.startsWith('sse://')) {
-            //     globalConnnector = new EventSource(globalUrl)
-            // } else if (globalUrl.startsWith('wt://')) {
-            //     // web transport
-            // } else if (globalUrl.startsWith('rtc://')) {
-            //     // web rtc
-            // }
+        #parseRemoteExpression(expression, hasDefault) {
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             let returnFullRequest
             if (expression[0] === '~' && expression.endsWith('~')) {
