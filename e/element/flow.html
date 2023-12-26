@@ -53,20 +53,22 @@
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
                     const [label, handlerIndex, defaultValue] = step
-                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = (await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)) ?? this.#getVariable(defaultValue)
-                        switch (label[0]) {
-                            case '%':
-                                env.fields[label.slice(1)].set(detail)
-                                break
-                            case '#':
-                                env.cells[label.slice(1)].set(detail)
-                                break
-                            default:
-                                labels[label] = detail
-                        }
-                        labels[`${stepIndex}`] = detail
-                        if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', event => {
+                        this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex).then(detail => {
+                            detail ||= this.#getVariable(defaultValue)
+                            switch (label[0]) {
+                                case '%':
+                                    env.fields[label.slice(1)].set(detail)
+                                    break
+                                case '#':
+                                    env.cells[label.slice(1)].set(detail)
+                                    break
+                                default:
+                                    labels[label] = detail
+                            }
+                            labels[`${stepIndex}`] = detail
+                            if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                        })
                     }, { signal: this.#abortController.signal })
                 }
             }
@@ -78,8 +80,8 @@
                 `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
                 classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [] } = classModule
-            URL.revokeObjectURL(moduleAsUrl)
             this.#loadApplication(handlers, fieldNames, cellNames, statements)
+            URL.revokeObjectURL(moduleAsUrl)
         }
 
         #compileScript(code) {
@@ -205,7 +207,7 @@
             if (type === 'text/flow') splitter = /\n\s*\n/gm
         }
 
-        async connectedCallback() {
+        connectedCallback() {
             const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
             if (type === 'application/flow' && !textContent && src) {
                 import(src).then(importResult => {
@@ -229,7 +231,7 @@
                     fetch(src).then(r => r.text()).then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
                 } else { prepare(textContent ?? '') }
             }
-            await this.#runApplication()
+            this.#runApplication()
         }
 
         disconnectedCallback() {
@@ -275,7 +277,7 @@
             let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
             childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             const getArgs = (args, value, labels, env) => args.map(a => this.#mergeVariables(a.trim(), value, labels, env))
-            return (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 if (childMethodName) {
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
@@ -290,7 +292,7 @@
             expression = expression.trim()
             if (!expression) return
             const regex = new RegExp(expression)
-            return (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(regex)
                 return match ? (match.groups ?? match[1]) : undefined
@@ -298,7 +300,7 @@
         }
 
         #parseStringExpression(expression, statementIndex, stepIndex) {
-            return (value, labels, env, statementIndex, stepIndex) => this.#mergeVariables(expression, value, labels, env)
+            return async (value, labels, env, statementIndex, stepIndex) => this.#mergeVariables(expression, value, labels, env)
         }
 
         #parseFieldOrCellExpression(expression, type, statementIndex, stepIndex) {
@@ -331,7 +333,7 @@
                     if (retval != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
                 }, { signal: this.#keyedAbortControllers[eventKey].signal })
             }
-            return [(value, labels, env, statementIndex, stepIndex) => {
+            return [async (value, labels, env, statementIndex, stepIndex) => {
                 switch (config) {
                     case 'single':
                         group.set(value)
@@ -369,7 +371,7 @@
                     this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
                 }, { signal: this.#keyedAbortControllers[eventKey].signal })
             }
-            return (value, labels, env, statementIndex, stepIndex) => {
+            return async (value, labels, env, statementIndex, stepIndex) => {
                 if (value != undefined) {
                     const target = this.E.utils.resolveSelector(selector, scope)
                     if (Array.isArray(target)) {
@@ -385,11 +387,11 @@
         #parseJSONExpression(expression, statementIndex, stepIndex) {
             let retval
             try { retval = JSON.parse(expression) } catch (e) { }
-            return (value, labels, env, statementIndex, stepIndex) => retval
+            return async (value, labels, env, statementIndex, stepIndex) => retval
         }
 
         #parseVariableExpression(expression, statementIndex, stepIndex) {
-            return (value, labels, env, statementIndex, stepIndex) => this.#getVariable(expression, value, labels, env)
+            return async (value, labels, env, statementIndex, stepIndex) => this.#getVariable(expression, value, labels, env)
         }
 
         #parseTransformExpression(expression, statementIndex, stepIndex) {
@@ -398,7 +400,7 @@
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.#fields).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.E.env.cells).map(c => [c[0], c[1].get()]))),
                     context = Object.freeze({ ...env.context })
-                return await this.E.runTransform(expression, value, this, { labels, fields, cells, context })
+                return this.E.runTransform(expression, value, this, { labels, fields, cells, context })
             }
         }
 
@@ -441,7 +443,7 @@
                     }
                     if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, this, options.headers['Content-Type'])
                 }
-                return await fetch(url, options).then(async r => {
+                return fetch(url, options).then(r => {
                     if (returnFullRequest) {
                         return r
                         // const retval = {
