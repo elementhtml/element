@@ -1258,7 +1258,6 @@ const ElementHTML = Object.defineProperties({}, {
                 // for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
                 const result = await expression.evaluate(data, bindings)
-                // console.log('line 1243', result, transform, data)
                 return result
             } catch (e) {
                 console.log('line 1175', e, element)
