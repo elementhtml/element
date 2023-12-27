@@ -304,7 +304,6 @@
         }
 
         #parseFieldOrCellExpression(expression, type, statementIndex, stepIndex) {
-            console.log('flow.html: line 306', expression)
             let group = this.#getFieldOrCellGroup(expression, type), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
                 addedFields = new Set(), addedCells = new Set(), items = []
