@@ -333,6 +333,7 @@
                 }, { signal: this.#keyedAbortControllers[eventKey].signal })
             }
             return [async (value, labels, env, statementIndex, stepIndex) => {
+                if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
                         group.set(value)
