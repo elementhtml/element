@@ -898,6 +898,11 @@ const ElementHTML = Object.defineProperties({}, {
                     if (isObj) result._options = Object.fromEntries(result._options)
                     if (result.tag === 'datalist') result._ = result._options
                 }
+                result._closest = {
+                    id: value.closest('[id]')?.id,
+                    name: value.closest('[name]')?.name,
+                    class: value.closest('[class]')?.getAttribute('class'),
+                }
             } else if (value instanceof Event) {
                 //console.log('line 834', value)
                 result = compile(
@@ -921,6 +926,10 @@ const ElementHTML = Object.defineProperties({}, {
                 result = compile(['dropEffect', 'effectAllowed', 'types'])
             } else if (value instanceof FormData) {
                 result = Object.fromEntries(value.entries())
+            } else if (value instanceof Request) {
+                // something
+            } else if (value instanceof Response) {
+                // something
             } else if (value instanceof Object) {
                 result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 result = key ? result[key] : result
@@ -1262,7 +1271,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const result = await expression.evaluate(data, bindings)
                 return result
             } catch (e) {
-                console.log('line 1175', e, element)
+                console.log('line 1265', e, transform, data, element)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }

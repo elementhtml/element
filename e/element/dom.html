@@ -91,7 +91,8 @@
                 return
             }
             let targets = this.E.utils.resolveSelector(selector, scope)
-            const transform = this.transform, seek = (transform.includes('$seek(')) ? ((t, qs) => qs ? this.E.flatten(this.E.utils.resolveScopedSelector(qs, t) ?? {}) : this.E.flatten(t)) : undefined
+            const transform = this.transform,
+                seek = (transform.includes('$seek(')) ? ((t, qs) => qs ? this.E.flatten(this.E.utils.resolveScopedSelector(qs, t) ?? {}) : this.E.flatten(t)) : undefined
             if (!Array.isArray(targets)) targets = [targets]
             for (const target of targets) this.E.runTransform(transform, value, this, { cell: { value, name: cell.name, [countLabel]: counter }, event: this.E.flatten(event), seek: seek ? seek.bind(this, target) : undefined, target: this.E.flatten(target) })
                 .then(data => this.E.applyData(target, data))
