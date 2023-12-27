@@ -419,7 +419,7 @@
                 if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
                     if (value instanceof Object && (value.method || value.body)) {
                         Object.assign(options, value)
-                    } else {
+                    } else if (value) {
                         Object.assign(options, { method: 'POST', body: value })
                     }
                     if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
