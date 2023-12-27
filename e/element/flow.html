@@ -158,6 +158,7 @@
                                 handler = this.#parseTransformExpression(handlerExpression, statementIndex, stepIndex)
                                 break
                             case "{":
+                            case "[":
                                 handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                 break
                             case "n":
@@ -303,6 +304,7 @@
         }
 
         #parseFieldOrCellExpression(expression, type, statementIndex, stepIndex) {
+            console.log('flow.html: line 306', expression)
             let group = this.#getFieldOrCellGroup(expression, type), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
                 addedFields = new Set(), addedCells = new Set(), items = []
@@ -511,10 +513,10 @@
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
                 group = []
-                for (let t of expression.split(',')) {
+                for (let t of expression.slice(1, -1).split(',')) {
                     t = t.trim()
                     if (!t) continue
-                    group.push(getFieldOrCellTarget(name))
+                    group.push(getFieldOrCellTarget(t))
                 }
             } else {
                 expression = expression.trim()
