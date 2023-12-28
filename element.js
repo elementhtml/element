@@ -1170,7 +1170,9 @@ const ElementHTML = Object.defineProperties({}, {
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
                     set: function (value, force) {
-                        if (this.value === value) {
+                        let isSame = this.value === value
+                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                        if (isSame) {
                             if (force) cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                             return
                         }
