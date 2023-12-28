@@ -55,7 +55,7 @@
                     const [label, handlerIndex, defaultValue] = step
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
-                        detail ||= this.#getVariable(defaultValue)
+                        if (detail == undefined) detail = this.#getVariable(defaultValue)
                         switch (label[0]) {
                             case '%':
                                 env.fields[label.slice(1)].set(detail)
