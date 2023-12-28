@@ -317,12 +317,18 @@
                     break
                 case 'array':
                     for (const item of group) (item.type === 'field' ? addedFields : addedCells).add(item.name)
-                    getReturnValue = () => group.map(i => i.get())
+                    getReturnValue = () => {
+                        const r = group.map(i => i.get())
+                        return r.some(rr => rr == undefined) ? undefined : r
+                    }
                     items = group
                     break
                 default:
                     for (const [name, item] of Object.entries(group)) (item.type === 'field' ? addedFields : addedCells).add(item.name)
-                    getReturnValue = () => Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
+                    getReturnValue = () => {
+                        const r = Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
+                        return Object.values(r).every(rr => rr == undefined) ? undefined : r
+                    }
                     items = Object.values(group)
             }
             const eventKey = `${statementIndex}-${stepIndex}`
@@ -341,7 +347,9 @@
                         break
                     case 'array':
                         if (Array.isArray(value)) {
-                            for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i].set(v)
+                            for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) {
+                                group[i].set(v)
+                            }
                         }
                         break
                     default:
