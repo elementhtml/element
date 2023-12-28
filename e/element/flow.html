@@ -98,7 +98,7 @@
                     if (!segment) continue
                     const step = []
                     let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([a-z0-9]+):\s+/)
+                    const labelMatch = handlerExpression.match(/^([\%\#a-z0-9]+):\s+/)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -262,7 +262,25 @@
                     if (value != undefined && (typeof value === 'string')) document.location.pathname = value
                     return document.location.pathname
                 } else if (expression === ':') {
-                    if (value != undefined && (typeof value === 'string')) document.location = value
+                    if (typeof value === 'string') {
+                        document.location = value
+                    } else if (value instanceof Object) {
+                        for (const [k, v] of Object.entries(value)) {
+                            if (k.includes('(') && k.endsWith(')')) {
+                                let funcName = k.trim().slice(0, -2).trim()
+                                if (funcName === 'assign') {
+                                    document.location.assign(v)
+                                } else if (funcName === 'reload') {
+                                    document.location.reload()
+                                } else if (funcName === 'replace') {
+                                    document.location.replace()
+                                }
+                            } else if (typeof v === 'string') {
+                                document.location[k] = v
+                                break
+                            }
+                        }
+                    }
                     return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
                 }
             }
