@@ -98,7 +98,7 @@
                     if (!segment) continue
                     const step = []
                     let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([\%\#a-z0-9]+):\s+/)
+                    const labelMatch = handlerExpression.match(/^([\%\#a-zA-Z0-9]+):\s+/)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
