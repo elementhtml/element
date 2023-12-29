@@ -703,7 +703,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!contentType.includes('/')) contentType = `application/${contentType}`
             if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
             if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
-            let text = ((input instanceof Response) ? await input.text() : response).trim()
+            let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/md') {
                 await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                 let mdOptions = { ...this.env.options.remarkable }
@@ -1259,6 +1259,21 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
                 if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
                 if (transform.includes('$queryString(')) bindings.queryString = v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : ""
+                if (transform.includes('$markdown2Html(')) {
+                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
+                    let mdOptions = { ...this.env.options.remarkable }
+                    this.env.libraries.remarkable.set(mdOptions)
+                    bindings.markdown2Html = (text) => {
+                        const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]),
+                            htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
+                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+                        for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
+                        text = this.env.libraries.remarkable.render(text)
+                        for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
+                        return text
+                    }
+                }
                 const date = new Date(),
                     dateMethods = ['toDateString', 'toString', 'valueOf', 'toISOString', 'toLocaleDateString', 'toLocaleString', 'toLocaleTimeString', 'toTimeString', 'toUTCString']
                 for (const dm of dateMethods) if (transform.includes(`$Date${dm}`)) bindings[`Date${dm}`] = date[dm]
