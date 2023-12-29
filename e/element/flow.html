@@ -419,7 +419,10 @@
             this.#keyedAbortControllers[eventKey] = new AbortController()
             for (const eventName of eventNames) {
                 scope.addEventListener(eventName, event => {
-                    if (selector && !event.target.matches(selector)) return
+                    if (selector.endsWith('}') && selector.includes('{')) {
+                        const target = this.E.utils.resolveSelector(selector, scope)
+                        if (!target || (Array.isArray(target) && !target.length)) return
+                    } else if (selector && !event.target.matches(selector)) { return }
                     if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                     event.preventDefault()
                     this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
