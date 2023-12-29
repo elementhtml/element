@@ -299,8 +299,8 @@
             }
         }
 
-        #parseProxyExpression(expressionCode, statementIndex, stepIndex) {
-            const [parentExpression, childExpression] = expressionCode.split('.').map(s => s.trim())
+        #parseProxyExpression(expression, statementIndex, stepIndex) {
+            const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
             parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
@@ -309,6 +309,7 @@
             childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             const getArgs = (args, value, labels, env) => args.map(a => this.#mergeVariables(a.trim(), value, labels, env))
             return async (value, labels, env, statementIndex, stepIndex) => {
+                console.log('flow.html: line 312', value, expression)
                 if (childMethodName) {
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
