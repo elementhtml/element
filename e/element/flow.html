@@ -52,16 +52,22 @@
             for (const [statementIndex, statement] of this.#statements.entries()) {
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
-                    const [label, handlerIndex, defaultValue] = step
+                    const [labelItem, handlerIndex, defaultValue] = step
+                    let label, labelMode
+                    if (Array.isArray(labelItem)) {
+                        [label, labelMode] = label
+                    } else {
+                        label = labelItem
+                    }
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
                         if (detail == undefined) detail = this.#getVariable(defaultValue)
                         switch (label[0]) {
                             case '%':
-                                env.fields[label.slice(1)].set(detail)
+                                env.fields[label.slice(1)].set(detail, labelMode)
                                 break
                             case '#':
-                                env.cells[label.slice(1)].set(detail)
+                                env.cells[label.slice(1)].set(detail, labelMode)
                                 break
                             default:
                                 labels[label] = detail
@@ -98,7 +104,7 @@
                     if (!segment) continue
                     const step = []
                     let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([\%\#a-zA-Z0-9]+):\s+/)
+                    const labelMatch = handlerExpression.match(/^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -109,10 +115,17 @@
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
                     }
                     label ||= `${index}`
-                    step.push(label)
+                    const labelModeFlag = label[label.length - 1],
+                        labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                    if (labelMode) {
+                        label = label.slice(0, -1).trim()
+                        step.push([label, labelMode])
+                    } else {
+                        step.push(label)
+                    }
                     switch (label[0]) {
                         case '%':
-                            const fn = label.slice(1).trim()
+                            let fn = label.slice(1).trim()
                             if (fn) fieldNames.add(label.slice(1))
                             break
                         case '#':
@@ -502,15 +515,15 @@
                     type: 'field',
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
-                    set: function (value, force) {
+                    set: function (value, labelMode) {
                         let isSame = this.value === value
                         if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
                         if (isSame) {
-                            if (force) field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                             return this
                         }
                         this.value = value
-                        field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                         return this
                     },
                     value: undefined, name

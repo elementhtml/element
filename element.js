@@ -1169,16 +1169,16 @@ const ElementHTML = Object.defineProperties({}, {
                     channel: new BroadcastChannel(name),
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
-                    set: function (value, force) {
+                    set: function (value, labelMode) {
                         let isSame = this.value === value
                         if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
                         if (isSame) {
-                            if (force) cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            if (labelMode === 'force') cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                             return
                         }
                         this.channel.postMessage(value)
                         this.value = value
-                        cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        if (labelMode !== 'silent') cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                         return this
                     },
                     value: undefined, name
