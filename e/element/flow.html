@@ -340,6 +340,7 @@
                 addedFields = new Set(), addedCells = new Set(), items = []
             if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
+            if (expression === '{feed!, pagination}') console.log('flow.html: line 338', group, config)
             switch (config) {
                 case 'single':
                     const [fieldOrCell, mode] = group;
@@ -529,6 +530,7 @@
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
                     set: function (value, labelMode) {
+                        if (this.name === 'feed') console.log('flow.html: line 532', value, labelMode)
                         let isSame = this.value === value
                         if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
                         if (isSame) {
@@ -565,6 +567,9 @@
                 for (const pair of expression.slice(1, -1).trim().split(',')) {
                     let [key, name] = pair.trim().split(':').map(s => s.trim())
                     if (!name) name = key
+                    const keyEndsWith = key[key.length - 1]
+                    if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
+                    if (expression.includes('!')) console.log('flow.html: line 572', key, name)
                     group[key] = getFieldOrCellTarget(name)
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
