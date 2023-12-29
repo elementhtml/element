@@ -530,7 +530,6 @@
                     eventTarget: new EventTarget(),
                     get: function () { return this.value },
                     set: function (value, labelMode) {
-                        if (this.name === 'feed') console.log('flow.html: line 532', value, labelMode)
                         let isSame = this.value === value
                         if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
                         if (isSame) {
@@ -569,7 +568,6 @@
                     if (!name) name = key
                     const keyEndsWith = key[key.length - 1]
                     if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                    if (expression.includes('!')) console.log('flow.html: line 572', key, name)
                     group[key] = getFieldOrCellTarget(name)
                 }
             } else if ((expression[0] === '[') && expression.endsWith(']')) {
