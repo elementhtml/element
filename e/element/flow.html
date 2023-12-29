@@ -342,22 +342,29 @@
             if (config === 'single') group = group[0]
             switch (config) {
                 case 'single':
-                    (group.type === 'field' ? addedFields : addedCells).add(group.name)
-                    getReturnValue = () => group.get()
+                    const [fieldOrCell, mode] = group;
+                    (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                    getReturnValue = () => fieldOrCell.get()
                     items.push(group)
                     break
                 case 'array':
-                    for (const item of group) (item.type === 'field' ? addedFields : addedCells).add(item.name)
+                    for (const item of group) {
+                        const [fieldOrCell, mode] = item;
+                        (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                    }
                     getReturnValue = () => {
-                        const r = group.map(i => i.get())
+                        const r = group.map(i => i[0].get())
                         return r.some(rr => rr == undefined) ? undefined : r
                     }
                     items = group
                     break
                 default:
-                    for (const [name, item] of Object.entries(group)) (item.type === 'field' ? addedFields : addedCells).add(item.name)
+                    for (const [name, item] of Object.entries(group)) {
+                        const [fieldOrCell, mode] = item;
+                        (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                    }
                     getReturnValue = () => {
-                        const r = Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1].get()]))
+                        const r = Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1][0].get()]))
                         return Object.values(r).every(rr => rr == undefined) ? undefined : r
                     }
                     items = Object.values(group)
@@ -365,7 +372,8 @@
             const eventKey = `${statementIndex}-${stepIndex}`
             this.#keyedAbortControllers[eventKey] = new AbortController()
             for (const item of items) {
-                item.eventTarget.addEventListener('change', event => {
+                const [fieldOrCell, mode] = item;
+                fieldOrCell.eventTarget.addEventListener('change', event => {
                     const retval = getReturnValue()
                     if (retval != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
                 }, { signal: this.#keyedAbortControllers[eventKey].signal })
@@ -374,19 +382,24 @@
                 if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
-                        group.set(value)
+                        const [fieldOrCell, mode] = group
+                        fieldOrCell.set(value, mode)
                         break
                     case 'array':
                         if (Array.isArray(value)) {
                             for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) {
-                                group[i].set(v)
+                                const [fieldOrCell, mode] = group[i]
+                                fieldOrCell.set(v, mode)
                             }
                         }
                         break
                     default:
                         if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
                             if (v == undefined) continue
-                            if (group[k]) group[k].set(v)
+                            if (group[k]) {
+                                const [fieldOrCell, mode] = group[k]
+                                fieldOrCell.set(v, mode)
+                            }
                         }
                 }
                 return getReturnValue()
@@ -536,12 +549,15 @@
         #getFieldOrCellGroup(expression, type = '#') {
             let group
             const getFieldOrCellTarget = (name) => {
+                const modeFlag = name[name.length - 1],
+                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
+                if (mode) name = name.slice(0, -1).trim()
                 if (name[0] === '#') {
-                    return this.E.getCell(name.slice(1))
+                    return [this.E.getCell(name.slice(1)), mode]
                 } else if (name[0] === '%') {
-                    return this.#getField(name.slice(1))
+                    return [this.#getField(name.slice(1)), mode]
                 } else {
-                    return type === '%' ? this.#getField(name) : this.E.getCell(name)
+                    return [type === '%' ? this.#getField(name) : this.E.getCell(name), mode]
                 }
             }
             if ((expression[0] === '{') && expression.endsWith('}')) {
