@@ -113,6 +113,10 @@
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
+                        if (defaultExpression && defaultExpression[0] === '#') {
+                            const cn = defaultExpression.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                        }
                     }
                     label ||= `${index}`
                     const labelModeFlag = label[label.length - 1],
@@ -643,7 +647,7 @@
                         || expression.match(isNumeric)) {
                         return JSON.parse(expression)
                     } else {
-                        return expression
+                        return labels[expression] ?? expression
                     }
                     break
                 case '~':
@@ -657,7 +661,7 @@
                     if (!expression) return value
                     return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
                 default:
-                    return labels[expression]
+                    return labels[expression] ?? expression
             }
         }
 
