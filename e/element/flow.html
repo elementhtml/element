@@ -326,7 +326,11 @@
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(regex)
-                return match ? (match.groups ?? match[1]) : undefined
+                if (match?.groups) {
+                    return Object.fromEntries(Object.entries(match.groups))
+                } else {
+                    return match ? match[1] : undefined
+                }
             }
         }
 
