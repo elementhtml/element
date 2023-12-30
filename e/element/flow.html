@@ -61,7 +61,7 @@
                     }
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
-                        if (detail == undefined) detail = this.#getVariable(defaultValue)
+                        if (detail == undefined) detail = this.#getVariable(defaultValue, undefined, labels, env)
                         switch (label[0]) {
                             case '%':
                                 env.fields[label.slice(1)].set(detail, labelMode)
@@ -608,9 +608,9 @@
                             if (!(pair = pair.trim())) continue
                             let [key, name] = pair.split(':')
                             if (!(key = key.trim()) || !(name = name.trim())) continue
-                            key = this.#getVariable(key)
+                            key = this.#getVariable(key, value, labels, env)
                             if (!key || (typeof key !== 'string')) continue
-                            items[key] = this.#getVariable(name)
+                            items[key] = this.#getVariable(name, value, labels, env)
                         }
                         return items
                     } else {
@@ -620,7 +620,7 @@
                 case '[':
                     if (expression.endsWith(']')) {
                         const items = []
-                        for (const item of expression.slice(1, -1).split(',')) items.push(this.#getVariable(item.trim()))
+                        for (const item of expression.slice(1, -1).split(',')) items.push(this.#getVariable(item.trim(), value, labels, env))
                         return items
                     } else {
                         return expression
