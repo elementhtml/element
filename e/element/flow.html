@@ -417,15 +417,17 @@
             const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click']))),
                 eventKey = `${statementIndex}-${stepIndex}`
             this.#keyedAbortControllers[eventKey] = new AbortController()
-            for (const eventName of eventNames) {
+            for (let eventName of eventNames) {
+                let keepDefault = eventName.endsWith('+')
+                if (keepDefault) eventName = eventName.slice(0, -1)
                 scope.addEventListener(eventName, event => {
                     if (selector.endsWith('}') && selector.includes('{')) {
                         const target = this.E.utils.resolveSelector(selector, scope)
                         if (!target || (Array.isArray(target) && !target.length)) return
                     } else if (selector && !event.target.matches(selector)) { return }
                     if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
-                    event.preventDefault()
-                    this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target) }))
+                    if (!keepDefault) event.preventDefault()
+                    this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target, undefined, event) }))
                 }, { signal: this.#keyedAbortControllers[eventKey].signal })
             }
             return async (value, labels, env, statementIndex, stepIndex) => {

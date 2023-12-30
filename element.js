@@ -812,7 +812,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     flatten: {//keep
-        enumerable: true, value: function (value, key) {
+        enumerable: true, value: function (value, key, event) {
             let result
             const compile = (plain, complex = []) => {
                 return {
@@ -903,6 +903,7 @@ const ElementHTML = Object.defineProperties({}, {
                     name: value.closest('[name]')?.name,
                     class: value.closest('[class]')?.getAttribute('class'),
                 }
+                if (event instanceof Event) result._event = this.flatten(event)
             } else if (value instanceof Event) {
                 //console.log('line 834', value)
                 result = compile(
