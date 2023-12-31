@@ -8,7 +8,6 @@
         #abortController
         #handlers = []
         #cellNames = []
-        #context = {}
         #fieldNames = []
         #fields = {}
         #src
@@ -16,11 +15,13 @@
         #type
         #keyedAbortControllers = {}
 
+        get abortController() { return this.#abortController }
         get handlers() { return this.#handlers }
         get cellNames() { return this.#cellNames }
         get fieldNames() { return this.#fieldNames }
         get fields() { return this.#fields }
         get statements() { return this.#statements }
+        get keyedAbortControllers() { return this.#keyedAbortControllers }
 
         constructor() {
             super()
