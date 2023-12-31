@@ -303,7 +303,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof packageObject !== 'object') return
             let packageContents = packageObject.default ?? {}
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of ['gateways', 'modes', 'options', 'proxies', 'sources', 'variables', 'context']) {
+            for (const a of ['gateways', 'options', 'sources', 'context']) {
                 if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
             }
         }
@@ -1238,7 +1238,7 @@ if (metaOptions.packages) {
     }
 }
 let expose = metaOptions.Expose ?? metaOptions.expose ?? (('Expose' in metaOptions) || ('expose' in metaOptions))
-if (expose) await ElementHTML.Expose(expose)
+if (expose != undefined) await ElementHTML.Expose(expose)
 if (('Load' in metaOptions) || ('load' in metaOptions)) await ElementHTML.load()
 
 export { ElementHTML }
