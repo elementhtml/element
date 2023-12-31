@@ -5,5 +5,29 @@
 <script>
     export default class extends `./flow` {
 
+        connectedCallback() {
+            const textContent = this.textContent.trim(), src = this.src
+            if (src) {
+                textContent ? fetch(src).then(r => r.text()).then(code => this.#parse([code.trim(), textContent ?? ''].join('/n/n')))
+                    .then(() => this.run())
+                    : import(src).then(importResult => {
+                        const { handlers = [], fieldNames = [], cellNames = [], statements = [] } = importResult
+                        this.load(handlers, fieldNames, cellNames, statements)
+                        this.run()
+                    })
+            } else {
+                this.#parse(textContent ?? '').then(() => this.run())
+            }
+        }
+
+        async #parse(code) {
+            const textAsModule =
+                `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
+                moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
+                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [] } = classModule
+            this.load(handlers, fieldNames, cellNames, statements)
+            URL.revokeObjectURL(moduleAsUrl)
+        }
+
     }
 </script>

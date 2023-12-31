@@ -3,7 +3,21 @@
     <field></field>
 </template>
 <script>
-    export default class extends `./flow` {
+    export default class extends `./flowscript` {
+
+        connectedCallback() {
+            const textContent = this.textContent.trim(), src = this.src,
+                prepare = code => this.#readText(code).then(code => this.compile(code))
+            if (src) {
+                fetch(src).then(r => r.text())
+                    .then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
+                    .then(() => this.run())
+            } else { prepare(textContent ?? '').then(() => this.run()) }
+        }
+
+        async #readText(code) {
+            if (type === 'text/flow') splitter = /\n\s*\n/gm
+        }
 
     }
 </script>

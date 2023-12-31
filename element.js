@@ -1,10 +1,9 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '0.9.7' },//keep
+    version: { enumerable: true, value: '0.9.8' },//keep
 
     env: {
         enumerable: true, value: {
-            eDataset: new EventTarget(),//re-check
             gateways: {//keep
                 ipfs: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
@@ -16,9 +15,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             libraries: {},//keep
-            router: new EventTarget(),//keep
             map: new WeakMap(),//re-check
-            modes: {//re-check
+            modes: {//re-check - only really used in resolveUrl 
                 element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
                 theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js',
                 publish: 'publish/manifest.json', pod: 'pod/db.js'
@@ -43,55 +41,23 @@ const ElementHTML = Object.defineProperties({}, {
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                     'selected', 'slot', 'tagName', 'textContent', 'title']//keep
             },
-            proxies: {},//re-check
             sources: {//keep
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
-            stepHandlers: [],//keep
             cells: {},//keep
             transforms: {},//keep
-            ports: {},//keep            
             schemas: {},//keep            
-            context: {}, //keep 
-            eventTargets: {},//keep
-            expressionHandlers: {}//keep
+            context: {} //keep 
         }
     },
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
-            getContentType: {//discard candidate
-                enumerable: true, value: function (element, src) {
-                    let contentType = (this.optionsMap ?? {})['Content-Type'] || (this.optionsMap ?? {})['content-type'] || element.getAttribute('content-type') || element._contentType || undefined
-                    if (src) {
-                        contentType ||= src.endsWith('.js') ? 'application/javascript' : undefined
-                        contentType ||= src.endsWith('.mjs') ? 'application/javascript' : undefined
-                        contentType ||= src.endsWith('.wasm') ? 'application/wasm' : undefined
-                        contentType ||= 'application/javascript'
-                    }
-                    if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
-                    return contentType
-                }
-            },
             getCustomTag: {//keep
                 enumerable: true, value: function (element) {
                     return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                         || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-                }
-            },
-            getVariableResult: {//re-check
-                enumerable: true, value: function (modVar, args, element) {
-                    let result
-                    if (typeof modVar === 'string') {
-                        result = modVar
-                        for (let [i, v] of args.entries()) {
-                            let [marker, merger] = (v.includes('=') ? v.split('=').map(s => s.trim()) : [i, v])
-                                .map(tk => this.resolveMergeToken(tk, element))
-                            result = result.replace(new RegExp(marker, 'g'), merger)
-                        }
-                    } else if (typeof modVar === 'function') { result = modVar(...args.map(a => this.resolveMergeToken(a, element))) }
-                    return result
                 }
             },
             getWasm: {//keep
@@ -108,7 +74,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             parseObjectAttribute: {//keep
                 enumerable: true, value: function (value, element) {
-                    let retval = ElementHTML.resolveVariables(value, element)
+                    let retval = ElementHTML.getVariable(value, value, {}, { context: {} }) // revisit this
                     if (typeof retval === 'string') {
                         if (retval[0] === '?') retval = decodeURIComponent(retval).slice(1)
                         if ((retval[0] === '{') && (retval.slice(-1) === '}')) {
@@ -122,7 +88,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (obj[k] instanceof Object) {
                                 recurse(obj[k])
                             } else if (typeof obj[k] === 'string') {
-                                obj[k] = ElementHTML.resolveVariables(obj[k], element)
+                                obj[k] = ElementHTML.getVariable(obj[k], obj[k], {}, { context: {} }) // revisit this
                             }
                         }
                     }
@@ -161,29 +127,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             },
-            resolveGlobal: {//discard candidate
-                enumerable: true, value: function (bindStatement, element) {
-                    const statement = bindStatement.trim().match(/([A-Za-z]+)?(\(([^)]*)\))?/).slice(1, 3).map(v => v ||= '').map(v => v.slice(v[0] === '(' ? 1 : 0, v.endsWith(')') ? -1 : v.length).split(',').map(ss => ss.trim()).filter(sss => sss))
-                    if (!(statement[0] ?? []).length || !window[statement[0][0]]) return
-                    statement[1] ||= []
-                    if (statement[1].length && (typeof window[statement[0][0]] !== 'function')) return
-                    statement[1].map(a => element.E.getVariable(a, element))
-                    const globalObject = (typeof window[statement[0][0]] === 'function' && window[statement[0][0]].prototype) ? (new window[statement[0][0]](...statement[1])) : window[statement[0][0]]
-                    return globalObject
-                }
-            },
-            resolveMergeToken: {//re-check
-                enumerable: true, value: function (token, element) {
-                    if (!token) return '$0'
-                    if (typeof token === 'number') return `$${token}`
-                    if (token[0] === '.') return element[token.slice(1)]
-                    if (token[0] === '@') return element.getAttribute(token.slice(1))
-                    if (token === '_') return ElementHTML.getValue(element)
-                    if ((token[0] === '`') && token.endsWith('`')) return token.slice(1, -1)
-                    return element ? element.dataset[token] : token
-                }
-            },
-            resolveMeta: {//re-check
+            resolveMeta: {//re-check - only used in legacy custom element tag resolution
                 enumerable: true, value: function (element, is, name) {
                     let metaElement
                     const rootNode = element.shadowRoot || element.getRootNode()
@@ -269,7 +213,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
                 }
             },
-            splitOnce: {//re-check
+            splitOnce: {//re-check - only used in resolveUrl
                 enumerable: true, value: function (str, delimiter) {
                     let r
                     str.split(delimiter).some((e, i, a) => r = a.length <= 2 ? (a) : [a[0], a.slice(1).join(delimiter)])
@@ -309,22 +253,6 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 this.env.modes = newModes
-                window.addEventListener('hashchange', event => this.env.router.dispatchEvent(new CustomEvent('change')))
-                for (const [k, v] of Object.entries(document.location)) if (typeof document.location[k] !== 'function') {
-                    Object.defineProperty(this.env.router, k, {
-                        enumerable: true,
-                        get: () => document.location[k], set: (v) => document.location[k] = v
-                    })
-                }
-                Object.defineProperty(this.env.router, 'value', { enumerable: true, get: () => this.flatten(document.location) })
-                Object.defineProperty(this.env.router, 'assign', { enumerable: true, value: (url) => document.location.assign(url) })
-                Object.defineProperty(this.env.router, 'reload', {
-                    enumerable: true, value: (forceGet) => {
-                        console.log('line 319')
-                        document.location.reload(forceGet)
-                    }
-                })
-                Object.defineProperty(this.env.router, 'replace', { enumerable: true, value: (url) => document.location.replace(url) })
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
                 Object.freeze(this.env.modes)
@@ -344,12 +272,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (addedNodeMatches === 'title') [property, value] = ['title', addedNode.textContent]
                 if (addedNodeMatches === 'meta') [property, value] = [addedNode.getAttribute('name'), addedNode.getAttribute('content')]
                 if (!addedNodeMatches) return
-                let oldValue = this.env.eDataset[property]
-                this.env.eDataset[property] = value
-                this._dispatchPropertyEvent(this.env.eDataset, 'change', property, {
-                    property: property, value: value, oldValue: oldValue, sanitizedValue: value,
-                    validatedValue: value, sanitizerDetails: undefined, validatorDetails: undefined
-                })
             }
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) for (const addedNode of (record.addedNodes || [])) {
@@ -381,138 +303,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof packageObject !== 'object') return
             let packageContents = packageObject.default ?? {}
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of ['eDataset', 'gateways', 'modes', 'options', 'proxies', 'sources', 'variables', 'context']) {
+            for (const a of ['gateways', 'modes', 'options', 'proxies', 'sources', 'variables', 'context']) {
                 if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
             }
         }
     },
 
-    _: {//re-check
-        enumerable: true, value: function (element, value, silent) {
-            return (value === undefined) ? this.getValue(element) : this.setValue(element, value, undefined, silent)
-        }
-    },
-    $: {//re-check
-        enumerable: true, value: async function (element, data, flag, transform, silent) {
-            return await this.sinkData(element, data, flag, transform, undefined, undefined, undefined, undefined, silent)
-        }
-    },
-    getValue: {//re-check
-        enumerable: true, value: function (element, useDataset = 'auto') {
-            if (!(element instanceof HTMLElement)) return
-            const preGetValue = (this.env.map.get(element) ?? {})['preGetValue']
-            if (preGetValue) element = typeof preGetValue === 'function' ? preGetValue(element, useDataset) : preGetValue
-            const ret = (v) => {
-                const postGetValue = (this.env.map.get(element) ?? {})['postGetValue']
-                if (postGetValue) v = typeof postGetValue === 'function' ? postGetValue(v, element, useDataset) : postGetValue
-                return v
-            }
-            if ('value' in element) {
-                return element.value
-            } else if (element.hasAttribute('itemscope')) {
-                const value = {}, parseElementForValues = (el) => {
-                    if (!el) return
-                    const scopeTo = el.hasAttribute('id') ? 'id' : 'itemscope'
-                    for (const propElement of el.querySelectorAll('[itemprop]')) if (propElement.parentElement.closest(`[${scopeTo}]`) === el) {
-                        const propName = propElement.getAttribute('itemprop'), propValue = this.getValue(propElement)
-                        if (Object.keys(value).includes(propName)) {
-                            if (!Array.isArray(value[propName])) value[propName] = [value[propName]]
-                            value[propName].push(propValue)
-                        } else { value[propName] = propValue }
-                    }
-                }
-                if (element.hasAttribute('itemref')) {
-                    const rootNode = element.getRootNode()
-                    for (const ref of element.getAttribute('itemref').split(' ')) parseElementForValues(rootNode.getElementById(ref))
-                } else { parseElementForValues(element) }
-            } else if (element.eDataset) {
-                const valueProxy = element._ || element.__
-                if (valueProxy) return element.eDataset[valueProxy]
-                const retval = Object.assign({}, element.eDataset)
-                for (const k of Object.keys(retval)) if (k.includes('__')) {
-                    const unsafeProperty = k.replaceAll('__', '-')
-                    retval[unsafeProperty] = retval[k]
-                    delete retval[k]
-                }
-                return ret(retval)
-            } else {
-                if (useDataset === 'auto') useDataset = !!Object.keys(element.dataset).length
-                if (useDataset) return ret({ ...element.dataset })
-                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-                if (tag === 'meta') return ret(element.getAttribute('content'))
-                if (['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].includes(tag)) return ret(new URL(element.getAttribute('src'), element.getRootNode().baseURI).href)
-                if (['a', 'area', 'link'].includes(tag)) return ret(new URL(element.getAttribute('href'), element.getRootNode().baseURI).href)
-                if (tag === 'object') return ret(new URL(element.getAttribute('data'), element.getRootNode().baseURI).href)
-                if (['data', 'meter', 'input', 'select', 'textarea'].includes(tag)) return ret(element.value)
-                if (tag === 'time') return ret(element.getAttribute('datetime'))
-                if (['form', 'fieldset'].includes(tag)) return ret(Object.fromEntries(Array.from(element.querySelectorAll('[name]')).map(f => [f.getAttribute('name'), this.getValue(f)])))
-                return ret(element.textContent)
-            }
-        }
-    },
-    setValue: {//re-check
-        enumerable: true, value: function (element, value, scopeNode, silent = undefined) {
-            if (!(element instanceof HTMLElement)) return
-            const preSetValue = (this.env.map.get(element) ?? {})['preSetValue']
-            if (preSetValue) value = typeof preSetValue === 'function' ? preSetValue(value, element, scopeNode) : preSetValue
-            const close = () => {
-                const postSetValue = (this.env.map.get(element) ?? {})['postSetValue']
-                if (postSetValue) element = typeof postSetValue === 'function' ? postSetValue(element, value, scopeNode) : postSetValue
-                if (!silent) element.dispatchEvent(new CustomEvent('change', { detail: { value, scopeNode } }))
-                return element
-            }, tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-            if (value instanceof Object) {
-                if (element.hasAttribute('itemscope')) {
-                    for (const [propName, propValue] of Object.entries(value)) {
-                        let propElement
-                        if (element.hasAttribute('itemref')) {
-                            const rootNode = element.getRootNode()
-                            for (const ref of element.getAttribute('itemref').split(' ')) if (propElement ||= rootNode.getElementById(ref)?.querySelector(`[itemprop="${propName}"]`)) break
-                        } else { propElement = element.querySelector(`[itemprop="${propName}"]`) }
-                        if (propElement) this.setValue(propElement, propValue)
-                    }
-                } else if (Array.isArray(value) && element.hasAttribute('itemprop')) {
-                    const elementProp = element.getAttribute('itemprop')
-                    scopeNode ||= element.parentElement.closest('[itemscope]')
-                    if (!scopeNode) return
-                    const propSiblings = Array.from(scopeNode.querySelectorAll(`[itemprop="${elementProp}"]`)),
-                        propTemplate = propSiblings[0].cloneNode(true), propTemplateDisplay = propTemplate.style.getPropertyValue('display')
-                    for (const [i, v] in Array.entries(value)) {
-                        if (i in propSiblings && (this.setValue(propSiblings[i], v) || true)) continue
-                        const newSibling = propTemplate.cloneNode(true)
-                        newSibling.style.setProperty('display', none)
-                        propSiblings[propSiblings.length - 1].after(newSibling)
-                        this.setValue(newSibling, v)
-                        propTemplateDisplay ? newSibling.style.setProperty('display', propTemplateDisplay) : newSibling.style.removeProperty('display')
-                        propSiblings[i] = newSibling
-                    }
-                    for (const propSibling of propSiblings.slice(value.length)) propSibling.remove()
-                } else if (['form', 'fieldset'].includes(tag)) {
-                    for (const [k, v] of Object.entries(value)) {
-                        const f = element.querySelector(`[name="${k}"]`)
-                        if (f) this.setValue(f, v)
-                    }
-                } else {
-                    Object.assign((element.eDataset || element.dataset), value)
-                }
-            } else {
-                if (element.eDataset instanceof Object && element._) {
-                    element.eDataset[element._] = value
-                    if (value === undefined) delete element.eDataset[element._]
-                } else {
-                    const attrMethod = value === undefined ? 'removeAttribute' : 'setAttribute'
-                    if (tag === 'meta') { element[attrMethod]('content', value); return close() }
-                    if (['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].includes(tag)) { element[attrMethod]('src', value); return close() }
-                    if (['a', 'area', 'link'].includes(tag)) { element[attrMethod]('href', value); return close() }
-                    if (tag === 'object') { element[attrMethod]('data', value); return close() }
-                    if (['data', 'meter', 'input', 'select', 'textarea'].includes(tag)) { element.value = (value ?? ''); return close() }
-                    if (tag === 'time') { element[attrMethod]('datetime', value); return close() }
-                    element.textContent = value
-                }
-            }
-            return close()
-        }
-    },
     applyData: {//keep
         enumerable: true, value: async function (element, data, silent) {
             if (!(element instanceof HTMLElement)) return
@@ -666,7 +462,7 @@ const ElementHTML = Object.defineProperties({}, {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariables('${' + a.trim() + '}', element)) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
                 return element[funcName](...argsRest, ...(Array.isArray(arg) ? arg : [arg]))
             }
         }
@@ -781,36 +577,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    compileRequestOptions: {//discard candidate
-        enumerable: true, value: async function (body, element, optionsMap, serializer, defaultContentType = 'application/json') {
-            let requestOptions = optionsMap ?? element?.optionsMap ?? {}
-            if (requestOptions.$ && typeof requestOptions.$ === 'string' && requestOptions.$.startsWith('$')) {
-                let variableValue = this.getVariable(requestOptions.$, element)
-                if (variableValue && (variableValue instanceof Object)) {
-                    requestOptions.headers = { ...(variableValue.headers ?? {}), ...(requestOptions.headers ?? {}) }
-                    requestOptions = { ...variableValue, ...requestOptions }
-                }
-            }
-            let headers = requestOptions.headers ?? {}, contentType = headers['Content-Type'] ?? headers['content-type'] ?? headers.contentType
-            for (const [k, v] of Object.entries(element.dataset)) if (k.startsWith('eHeader')) headers[k.slice(7)] = v
-            contentType ||= element.getAttribute('content-type') || element._contentType
-            requestOptions.headers = headers
-            if (!contentType && body) contentType ||= defaultContentType
-            if (contentType) {
-                requestOptions.headers['Content-Type'] = contentType
-                delete requestOptions.headers['content-type']
-                delete requestOptions.headers.contentType
-            }
-            if (body instanceof Object) {
-                serializer ||= element?.serializer ?? this.serialize
-                requestOptions.body = await serializer(body, element, contentType)
-            } else if (body) {
-                requestOptions.method ||= 'POST'
-                requestOptions.body = `${body}`
-            }
-            return requestOptions
-        }
-    },
     flatten: {//keep
         enumerable: true, value: function (value, key, event) {
             let result
@@ -930,7 +696,12 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (value instanceof Request) {
                 // something
             } else if (value instanceof Response) {
-                // something
+                return {
+                    _: this.E.parse(value),
+                    ok: value.ok,
+                    status: value.status,
+                    headers: Object.fromEntries(value.headers.entries())
+                }
             } else if (value instanceof Object) {
                 result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 result = key ? result[key] : result
@@ -943,26 +714,6 @@ const ElementHTML = Object.defineProperties({}, {
             const inheritance = [id]
             while (id && this.extends[id]) inheritance.push(id = this.extends[id])
             return inheritance
-        }
-    },
-    hydrate: {//keep
-        enumerable: true, value: function (jsonString) {
-            let elementMap
-            try { elementMap = JSON.parse(jsonString) } catch (e) { return }
-            if (!(elementMap instanceof Object)) return
-            if (!elementMap.tagName) return
-            element = document.createElement(elementMap.tagName)
-            for (const [k, v] of Object.entries(elementMap)) {
-                if (k === 'tagName') continue
-                if (k.startsWith('@')) {
-                    element.setAttribute(k.slice(1), v)
-                } else if (k === 'style') {
-                    if (v instanceof Object) for (const [p, s] of Object.entries(v)) element.style.setProperty(p, s)
-                } else if (k === 'value') {
-                    try { element.value = v } catch (e) { }
-                } else { element[k] = v }
-            }
-            return element
         }
     },
     installLibraryFromSrc: {//keep
@@ -1011,153 +762,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    getVariable: {//re-check
-        enumerable: true, value: function (variableRef, element) {
-            if (!variableRef) return
-            let variableName = variableRef.slice(1), variableValue = variableRef
-            if (element && variableName && variableRef[0] === '@') {
-                return element.getAttribute(variableName)
-            } else if (element && variableName && variableRef[0] === '.' && !variableRef.includes('/')) {
-                return element[variableName]
-            } else if (variableName && variableRef[0] === '$') {
-                if (variableName.includes('.')) {
-                    let variableNameSplit = variableName.split('.')
-                    variableValue = this.env.variables[variableNameSplit.shift()]
-                    if (!(variableValue instanceof Object)) return variableValue
-                    for (const part of variableNameSplit) {
-                        variableValue = variableValue[part]
-                        if (!(variableValue instanceof Object)) break
-                    }
-                } else { variableValue = this.env.variables[variableName] }
-                if (element && variableName.includes('(') && variableName.endsWith(')')) {
-                    let [variablePartName, ...argsRest] = mm.split('(')
-                    args = argsRest.join('(').slice(0, -1).split(',').map(s => s.trim())
-                    variableValue = this.utils.getVariableResult(variableValue, args, element)
-                }
-            }
-            return variableValue
-        }
-    },
-    mergeVariables: {//discard candidate
-        enumerable: true, value: function (statement, element) {
-            if (!statement) return
-            for (const expression of statement.matchAll(/\{(?<variableExpression>.+?)\}/g)) {
-                let { variableExpression } = (expression?.groups ?? {})
-                if (!variableExpression) continue
-                let variableRef = variableExpression, args = [element]
-                if (variableExpression.includes('(')) {
-                    let [variablePartName, ...argsRest] = variableExpression.split('(')
-                    args.push(argsRest.join('(').slice(0, -1).split(',').map(s => this.getVariable(s.trim(), element)))
-                    variableRef = variablePartName
-                }
-                let variableResult = this.getVariable(variableRef, element)
-                if (typeof variableResult === 'function') variableResult = variableResult(...args)
-                variableResult ||= ''
-                if (typeof variableResult !== 'string') variableResult = JSON.stringify(variableResult)
-                statement = statement.replaceAll(`{${variableExpression}}`, variableResult)
-            }
-            return statement
-        }
-    },
-    resolveVariables: {//keep
-        enumerable: true, value: function (statement, element) {
-            if (!statement) return
-            if (typeof statement !== 'string') return statement
-            const regExp = /\$\{(.+?)\}/g, isMatch = statement.match(regExp)
-            if (!isMatch) return statement
-            if (statement[2] === '[' && statement.endsWith(']}')) {
-                return statement.slice(3, -2).split(',').map(s => this.resolveVariables(s.trim(), element))
-            } else if (statement[2] === '{' && statement.endsWith('}}')) {
-                return Object.fromEntries(statement.slice(3, -2).split(',').map(s => {
-                    const [k, v] = s.trim().split(':').map(ss => s.trim())
-                    return [k, this.resolveVariables(v, element)]
-                }))
-            }
-            const merge = (expression) => {
-                if (expression) expression = expression.slice(2, -1)
-                if (!expression) return element ? this.flatten(element) : undefined
-                let [varName, ...args] = expression.split('(').map(s => s.trim()), varValue
-                if (!varName) return element ? this.flatten(element) : undefined
-                switch (varName[0]) {
-                    case '"':
-                    case "'":
-                        varValue = varName.slice(1, -1)
-                        break
-                    case '&':
-                        varValue = element.classList.contains(varName.slice(1))
-                        break
-                    case '^':
-                        varValue = element.style.getPropertyValue(varName.slice(1))
-                        break
-                    case '@':
-                        varValue = element.getAttribute(varName.slice(1))
-                        if (varValue === '') varValue = true
-                        break
-                    case '.':
-                        if (varName === '.') {
-                            varValue = element.textContent
-                            if (varValue.includes('<') && varValue.includes('>')) {
-                                varValue = element.innerHTML
-                            }
-                        } else if (varName === '..') {
-                            varValue = element.textContent
-                        } else if (varName === '...') {
-                            varValue = element.innerText
-                        }
-                        break
-                    case '<':
-                        if (varName === '<>') {
-                            varValue = element.innerHTML
-                        } else {
-                            varName = varName.slice(1, -1)
-                            varValue = (varName[0] === '%')
-                                ? this.getValue(this.utils.resolveScopedSelector(varName.slice(1, -1), element))
-                                : this.getValue(this.utils.resolveSelector(varName, element))
-                        }
-                        break
-                    case '`':
-                        let [nestedScopedSelector, ...nestedVariableNames] = varName.slice(1).split('`')
-                        nestedVariableNames = nestedVariableNames.join('`')
-                        const nestedElement = this.utils.resolveScopedSelector(nestedScopedSelector, element)
-                        if (nestedElement) varValue = this.resolveVariables('${' + nestedVariableNames + '}', nestedElement)
-                        break
-                    default:
-                        if (varName === '#') {
-                            varValue = element.id
-                        } else {
-                            let getFrom = element, isCell
-                            if (varName[0] === '#') {
-                                getFrom = this.env.cells
-                                varName = varName.slice(1)
-                                isCell = true
-                            } else if (varName[0] === '~') {
-                                getFrom = this.env.variables
-                                varName = varName.slice(1)
-                            }
-                            if (varName.includes('.')) {
-                                let varNameSplit = varName.split('.').map(s => s.trim())
-                                varValue = getFrom[varNameSplit.shift()]
-                                if (isCell) varValue = varValue.value
-                                if (!(varValue instanceof Function) && (varValue instanceof Object)) for (const part of varNameSplit) {
-                                    varValue = varValue[part]
-                                    if (!(varValue instanceof Object) || (varValue instanceof Function)) break
-                                }
-                            } else { varValue = getFrom[varName] }
-                        }
-                }
-                if (expression.includes('(') && expression.endsWith(')')) {
-                    if (typeof varValue === 'function') {
-                        args = args.join('(').slice(0, -1).split(',').map(s => s.trim()).map(a => this.resolveVariables('${' + a + '}', element))
-                        varValue = varValue(...args)
-                    } else {
-                        varValue = undefined
-                    }
-                }
-                return varValue
-            }
-            return ((isMatch.length === 1) && (isMatch[0] === statement)) ? merge(statement) : statement.replace(regExp, merge)
-        }
-    },
 
 
     getCell: {//keep
@@ -1195,6 +799,145 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+
+    getFieldOrCellGroup: {//keep
+        enumerable: true, value: function (expression, type = '#', element) {
+            let group
+            const getFieldOrCellTarget = (name) => {
+                const modeFlag = name[name.length - 1],
+                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
+                if (mode) name = name.slice(0, -1).trim()
+                if (name[0] === '#') {
+                    return [this.getCell(name.slice(1)), mode]
+                } else if (name[0] === '%') {
+                    return [element.getField(name.slice(1)), mode]
+                } else {
+                    return [type === '%' ? element.getField(name) : this.getCell(name), mode]
+                }
+            }
+            if ((expression[0] === '{') && expression.endsWith('}')) {
+                group = {}
+                for (const pair of expression.slice(1, -1).trim().split(',')) {
+                    let [key, name] = pair.trim().split(':').map(s => s.trim())
+                    if (!name) name = key
+                    const keyEndsWith = key[key.length - 1]
+                    if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
+                    group[key] = getFieldOrCellTarget(name)
+                }
+            } else if ((expression[0] === '[') && expression.endsWith(']')) {
+                group = []
+                for (let t of expression.slice(1, -1).split(',')) {
+                    t = t.trim()
+                    if (!t) continue
+                    group.push(getFieldOrCellTarget(t))
+                }
+            } else {
+                expression = expression.trim()
+                if (!expression) return
+                group = [getFieldOrCellTarget(expression)]
+            }
+            return group
+        }
+    },
+
+    getVariable: {//keep
+        enumerable: true, value: function (expression, value, labels, env) {
+            if (!expression) return value
+            const isNumeric = /^[0-9\.]+$/
+            switch (expression[0]) {
+                case '"':
+                case "'":
+                    return expression.slice(1, -1)
+                case '{':
+                    if (expression.endsWith('}')) {
+                        const items = {}
+                        for (let pair of expression.slice(1, -1).split(',')) {
+                            if (!(pair = pair.trim())) continue
+                            let [key, name] = pair.split(':')
+                            if (!(key = key.trim()) || !(name = name.trim())) continue
+                            key = this.getVariable(key, value, labels, env)
+                            if (!key || (typeof key !== 'string')) continue
+                            items[key] = this.getVariable(name, value, labels, env)
+                        }
+                        return items
+                    } else {
+                        return expression
+                    }
+                    break
+                case '[':
+                    if (expression.endsWith(']')) {
+                        const items = []
+                        for (const item of expression.slice(1, -1).split(',')) items.push(this.getVariable(item.trim(), value, labels, env))
+                        return items
+                    } else {
+                        return expression
+                    }
+                    break
+                case 't':
+                case 'f':
+                case 'n':
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    if (expression === 'null' || expression === 'true' || expression === 'false'
+                        || expression.match(isNumeric)) {
+                        return JSON.parse(expression)
+                    } else {
+                        return labels[expression] ?? expression
+                    }
+                    break
+                case '~':
+                    return env.context[expression.slice(1)]
+                case '#':
+                    return (env.cells[expression.slice(1)] ?? {})?.get()
+                case '%':
+                    return (env.fields[expression.slice(1)] ?? {})?.get()
+                case '$':
+                    expression = expression.slice(1)
+                    if (!expression) return value
+                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
+                default:
+                    return labels[expression] ?? expression
+            }
+        }
+    },
+
+    mergeVariables: {//keep
+        enumerable: true, value: function (expression, value, labels, env, inner) {
+            if (!expression) return inner ? value : undefined
+            if (typeof expression !== 'string') return expression
+            const regExp = /\$\{(.*?)\}/g, isMatch = expression.match(regExp)
+            if (!isMatch && !inner) return expression
+            if (!isMatch && inner) {
+                return this.getVariable(expression, value, labels, env)
+            } else if (expression[0] === '[' && expression.endsWith(']')) {
+                return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
+            } else if (expression[0] === '{' && expression.endsWith('}')) {
+                return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
+                    const [k, v] = s.trim().split(':').map(ss => s.trim())
+                    return [k, this.mergeVariables(v, value, labels, env, true)]
+                }))
+            }
+            const merge = (exp) => {
+                if (exp) exp = exp.slice(2, -1)
+                return this.mergeVariables(exp, value, labels, env, true)
+            }
+            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
+        }
+    },
+
+
+
+
+
+
     resolveUrl: {//keep
         enumerable: true, value: function (value, element) {
             if (!element) {
@@ -1204,7 +947,6 @@ const ElementHTML = Object.defineProperties({}, {
                     value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
                 }
                 if (typeof value !== 'string') return value
-                for (const [k, v] of Object.entries(this.env.proxies)) if (value.startsWith(k)) value = value.replace(k, v)
                 return value
             } else if (value.includes(':') && !value.includes('://')) {
                 let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
@@ -1455,156 +1197,8 @@ const ElementHTML = Object.defineProperties({}, {
                 constructor() {
                     super()
                     const $this = this
-                    if ($this.constructor.eJs || $this.constructor.eCss) {//re-check
-                        const addSrcToDocument = (querySelectorTemplate, src, tagName, srcAttrName, appendTo, otherAttrs = []) => {
-                            if (document.querySelector(querySelectorTemplate.replace(/\$E/g, src))) return
-                            const tag = appendTo.appendChild(document.createElement(tagName))
-                            tag.setAttribute(srcAttrName, src)
-                            for (const a of otherAttrs) tag.setAttribute(...a)
-                        }
-                        if ($this.constructor.eCss && Array.isArray($this.constructor.eCss)) for (const src of $this.constructor.eCss) addSrcToDocument('link[rel="stylesheet"][href="$E"]', src, 'link', 'href', document.head, [['rel', 'stylesheet']])
-                        if ($this.constructor.eJs && Array.isArray($this.constructor.eJs)) for (const src of $this.constructor.eJs) addSrcToDocument('script[src="$E"]', src, 'script', 'src', document.body)
-                    }
-                    if ($this.constructor.eMjs && ($this.constructor.eMjs instanceof Object)) {//re-check
-                        for (const moduleName in $this.constructor.eMjs) {
-                            if ($this.constructor.eMjs[moduleName].module) continue
-                            if (!$this.constructor.eMjs[moduleName].src) { $this.constructor.eMjs[moduleName] = false; continue }
-                            const { src, importObject } = $this.constructor.eMjs[moduleName]
-                            $this.constructor.eMjs[moduleName].module = true
-                            import(src).then(importResult => {
-                                if (importObject) {
-                                    $this.constructor.eMjs[moduleName].module = {}
-                                    for (const importName in importObject) $this.constructor.eMjs[moduleName].module[importName] = importResult[importName]
-                                } else { $this.constructor.eMjs[moduleName].module = importResult }
-                            }).catch(e => $this.constructor.eMjs[moduleName].module = false)
-                        }
-                    }
-                    if ($this.constructor.eWasm && ($this.constructor.eWasm instanceof Object)) {//re-check
-                        for (const moduleName in $this.constructor.eWasm) {
-                            if ($this.constructor.eWasm[moduleName].module || $this.constructor.eWasm[moduleName].instance || !($this.constructor.eWasm[moduleName] instanceof Object)) continue
-                            if (!$this.constructor.eWasm[moduleName].src) { $this.constructor.eWasm[moduleName] = false; continue }
-                            const { src, importObject } = $this.constructor.eWasm[moduleName]
-                            $this.constructor.eWasm[moduleName] = true
-                            WebAssembly.instantiateStreaming(fetch(ElementHTML.resolveUrl(src)), importObject).then(importResult =>
-                                $this.constructor.eWasm[moduleName] = importResult
-                            ).catch(e => $this.constructor.eWasm[moduleName] = false)
-                        }
-                    }
                     Object.defineProperties($this, {
                         E: { enumerable: false, value: ElementHTML },//keep
-                        eContext: { enumerable: false, value: {} },//discard candidate
-                        eDataset: {//discard candidate
-                            enumerable: false, value: new Proxy($this.dataset, {
-                                has(target, property) {
-                                    const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetHas']
-                                    if (override) return typeof override === 'function' ? override($this, target, property) : override
-                                    switch (property[0]) {
-                                        case '@':
-                                            return $this.hasAttribute(property.slice(1))
-                                        case '.':
-                                            return property.slice(1) in $this
-                                        case '`':
-                                            const [qs, p] = property.slice(1).split('`')
-                                            if (!qs) return false
-                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
-                                            if (!el) return false
-                                            if (!p) return true
-                                            return p[0] === '@' ? el.hasAttribute(p.slice(1))
-                                                : (p[0] === '.' ? (p.slice(1) in el)
-                                                    : p.includes('-') ? (p.replaceAll('-', '__') in el) : (p in el))
-                                        default:
-                                            return property.includes('-') ? (property.replaceAll('-', '__') in target) : (property in target)
-                                    }
-                                },
-                                get(target, property, receiver) {
-                                    const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetGet']
-                                    if (override) return typeof override === 'function' ? override($this, target, property, receiver) : override
-                                    switch (property[0]) {
-                                        case '@':
-                                            return $this.getAttribute(property.slice(1))
-                                        case '.':
-                                            return $this[property.slice(1)]
-                                        case '`':
-                                            const [qs, p] = property.slice(1).split('`')
-                                            if (!qs) return false
-                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
-                                            if (!el) return false
-                                            if (!p) return true
-                                            return p[0] === '@' ? el.getAttribute(p.slice(1))
-                                                : (p[0] === '.' ? el[p.slice(1)]
-                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p])
-                                        default:
-                                            return property.includes('-') ? target[property.replaceAll('-', '__')] : target[property]
-                                    }
-                                },
-                                set(target, property, value, receiver) {
-                                    const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetSet']
-                                    if (override) return typeof override === 'function' ? override($this, target, property, value, receiver) : override
-                                    switch (property[0]) {
-                                        case '@':
-                                            if (value === null || value === undefined) {
-                                                return $this.removeAttribute(property.slice(1)) ?? true
-                                            } else { return $this.setAttribute(property.slice(1), value) ?? true }
-                                        case '.':
-                                            if (value === null || value === undefined) {
-                                                return delete $this[property.slice(1)] ?? true
-                                            } else { return ($this[property.slice(1)] = value) ?? true }
-                                        case '`':
-                                            const [qs, p] = property.slice(1).split('`')
-                                            if (!qs) return
-                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
-                                            if (!el) return true
-                                            if (!p) return this.setValue(el, value) ?? true
-                                            return (p[0] === '@' ? el.setAttribute(p.slice(1), value)
-                                                : (p[0] === '.' ? el[p.slice(1)] = value
-                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : el[p] = value)) ?? true
-                                        default:
-                                            let oldValue
-                                            if (property.includes('-')) {
-                                                const safeProperty = property.replaceAll('-', '__')
-                                                oldValue = target[safeProperty]
-                                                target[safeProperty] = value
-                                            } else {
-                                                oldValue = target[property]
-                                                target[property] = value
-                                            }
-                                            ElementHTML._dispatchPropertyEvent($this, 'change', property, { property: property, value: value, oldValue: oldValue })
-                                            return value
-                                    }
-                                },
-                                deleteProperty(target, property) {
-                                    const override = (ElementHTML.env.map.get($this) ?? {})['eDatasetDeleteProperty']
-                                    if (override) return typeof override === 'function' ? override($this, target, property) : override
-                                    switch (property[0]) {
-                                        case '@':
-                                            return $this.removeAttribute(property.slice(1)) ?? true
-                                        case '.':
-                                            return delete $this[property.slice(1)]
-                                        case '`':
-                                            const [qs, p] = property.slice(1).split('`')
-                                            if (!qs) return
-                                            const el = qs[0] === '~' ? $this.shadowRoot.querySelector(qs.slice(1)) : $this.querySelector(qs)
-                                            if (!el) return
-                                            if (!p) return el.remove()
-                                            return (p[0] === '@' ? el.removeAttribute(p.slice(1))
-                                                : (p[0] === '.' ? delete el[p.slice(1)]
-                                                    : p.includes('-') ? el[p.replaceAll('-', '__')] : delete el[p])) ?? true
-                                        default:
-                                            let retval, oldValue
-                                            if (property.includes('-')) {
-                                                const safeProperty = property.replaceAll('-', '__')
-                                                oldValue = target[safeProperty]
-                                                retval = delete target[safeProperty]
-                                            } else {
-                                                oldValue = target[property]
-                                                retval = delete target[property]
-                                            }
-                                            ElementHTML._dispatchPropertyEvent($this, 'deleteProperty', property, { property: property, value: undefined, oldValue: oldValue })
-                                            return retval
-                                    }
-                                }
-                            })
-                        }
                     })
                     try {
                         $this.shadowRoot || $this.attachShadow({ mode: 'open' })
@@ -1626,8 +1220,6 @@ const ElementHTML = Object.defineProperties({}, {
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
-                set _(value) { this.#_ = value }//re-check
-                get _() { return this.#_ }//re-check
             }
         }
     }

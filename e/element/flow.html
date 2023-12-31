@@ -23,16 +23,12 @@
         get statements() { return this.#statements }
         get keyedAbortControllers() { return this.#keyedAbortControllers }
 
-        constructor() {
-            super()
-        }
-
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
         load(handlers = [], fieldNames = [], cellNames = [], statements = []) {
             this.#handlers = Object.freeze(handlers)
             this.#fields ||= {}
-            for (const fieldName of fieldNames) this.#fields[fieldName] = this.#getField(fieldName)
+            for (const fieldName of fieldNames) this.#fields[fieldName] = this.getField(fieldName)
             Object.freeze(this.#fields)
             this.#fieldNames = Object.freeze(fieldNames)
             this.#cellNames = Object.freeze(cellNames)
@@ -46,7 +42,7 @@
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
                 env = Object.freeze({ fields: {}, cells: {}, context })
-            for (const fieldName of this.#fieldNames) env.fields[fieldName] = this.#getField(fieldName)
+            for (const fieldName of this.#fieldNames) env.fields[fieldName] = this.getField(fieldName)
             for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
             Object.freeze(env.fields)
             Object.freeze(env.cells)
@@ -62,7 +58,7 @@
                     }
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
-                        if (detail == undefined) detail = this.#getVariable(defaultValue, undefined, labels, env)
+                        if (detail == undefined) detail = this.E.getVariable(defaultValue, undefined, labels, env)
                         switch (label[0]) {
                             case '%':
                                 env.fields[label.slice(1)].set(detail, labelMode)
@@ -81,48 +77,6 @@
             this.dispatchEvent(new CustomEvent('run'))
         }
 
-        async #parseApplication(code) {
-            const textAsModule =
-                `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
-                moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
-                classModule = await import(moduleAsUrl), { handlers = [], fieldNames = [], cellNames = [], statements = [] } = classModule
-            this.#loadApplication(handlers, fieldNames, cellNames, statements)
-            URL.revokeObjectURL(moduleAsUrl)
-        }
-
-        #readText(code) {
-            if (type === 'text/flow') splitter = /\n\s*\n/gm
-        }
-
-        connectedCallback() {
-            console.log('flow.html: line 98')
-            // const textContent = this.textContent.trim(), src = this.src, type = this.type ?? 'script/flow'
-            // if (type === 'application/flow' && !textContent && src) {
-            //     import(src).then(importResult => {
-            //         const { handlers = [], fieldNames = [], cellNames = [], statements = [] } = importResult
-            //         this.#loadApplication(handlers, fieldNames, cellNames, statements)
-            //     })
-            // } else {
-            //     const prepare = code => {
-            //         switch (type) {
-            //             case 'application/flow':
-            //                 this.#parseApplication(code)
-            //                 break
-            //             case 'text/flow':
-            //                 this.#readText(code).then(code => this.#compileScript(code))
-            //                 break
-            //             case 'script/flow':
-            //                 this.#compileScript(code)
-            //         }
-            //     }
-            //     if (src) {
-            //         fetch(src).then(r => r.text()).then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
-            //     } else { prepare(textContent ?? '') }
-            // }
-            // this.#runApplication()
-            console.log('flow.html: line 123')
-        }
-
         disconnectedCallback() {
             if (this.#abortController) this.#abortController.abort()
             for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
@@ -134,11 +88,7 @@
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
 
-
-
-
-
-        #getField(name) {
+        getField(name) {
             if (!name) return
             if (!this.#fields[name]) {
                 const field = {
@@ -162,135 +112,6 @@
             }
             return this.#fields[name]
         }
-
-        #getFieldOrCellGroup(expression, type = '#') {
-            let group
-            const getFieldOrCellTarget = (name) => {
-                const modeFlag = name[name.length - 1],
-                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
-                if (mode) name = name.slice(0, -1).trim()
-                if (name[0] === '#') {
-                    return [this.E.getCell(name.slice(1)), mode]
-                } else if (name[0] === '%') {
-                    return [this.#getField(name.slice(1)), mode]
-                } else {
-                    return [type === '%' ? this.#getField(name) : this.E.getCell(name), mode]
-                }
-            }
-            if ((expression[0] === '{') && expression.endsWith('}')) {
-                group = {}
-                for (const pair of expression.slice(1, -1).trim().split(',')) {
-                    let [key, name] = pair.trim().split(':').map(s => s.trim())
-                    if (!name) name = key
-                    const keyEndsWith = key[key.length - 1]
-                    if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                    group[key] = getFieldOrCellTarget(name)
-                }
-            } else if ((expression[0] === '[') && expression.endsWith(']')) {
-                group = []
-                for (let t of expression.slice(1, -1).split(',')) {
-                    t = t.trim()
-                    if (!t) continue
-                    group.push(getFieldOrCellTarget(t))
-                }
-            } else {
-                expression = expression.trim()
-                if (!expression) return
-                group = [getFieldOrCellTarget(expression)]
-            }
-            return group
-        }
-
-        #getVariable(expression, value, labels, env) {
-            if (!expression) return value
-            const isNumeric = /^[0-9\.]+$/
-            switch (expression[0]) {
-                case '"':
-                case "'":
-                    return expression.slice(1, -1)
-                case '{':
-                    if (expression.endsWith('}')) {
-                        const items = {}
-                        for (let pair of expression.slice(1, -1).split(',')) {
-                            if (!(pair = pair.trim())) continue
-                            let [key, name] = pair.split(':')
-                            if (!(key = key.trim()) || !(name = name.trim())) continue
-                            key = this.#getVariable(key, value, labels, env)
-                            if (!key || (typeof key !== 'string')) continue
-                            items[key] = this.#getVariable(name, value, labels, env)
-                        }
-                        return items
-                    } else {
-                        return expression
-                    }
-                    break
-                case '[':
-                    if (expression.endsWith(']')) {
-                        const items = []
-                        for (const item of expression.slice(1, -1).split(',')) items.push(this.#getVariable(item.trim(), value, labels, env))
-                        return items
-                    } else {
-                        return expression
-                    }
-                    break
-                case 't':
-                case 'f':
-                case 'n':
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
-                    if (expression === 'null' || expression === 'true' || expression === 'false'
-                        || expression.match(isNumeric)) {
-                        return JSON.parse(expression)
-                    } else {
-                        return labels[expression] ?? expression
-                    }
-                    break
-                case '~':
-                    return env.context[expression.slice(1)]
-                case '#':
-                    return (env.cells[expression.slice(1)] ?? {})?.get()
-                case '%':
-                    return (env.fields[expression.slice(1)] ?? {})?.get()
-                case '$':
-                    expression = expression.slice(1)
-                    if (!expression) return value
-                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
-                default:
-                    return labels[expression] ?? expression
-            }
-        }
-
-        #mergeVariables(expression, value, labels, env, inner) {
-            if (!expression) return inner ? value : undefined
-            if (typeof expression !== 'string') return expression
-            const regExp = /\$\{(.*?)\}/g, isMatch = expression.match(regExp)
-            if (!isMatch && !inner) return expression
-            if (!isMatch && inner) {
-                return this.#getVariable(expression, value, labels, env)
-            } else if (expression[0] === '[' && expression.endsWith(']')) {
-                return expression.slice(1, -1).split(',').map(s => this.#mergeVariables(s.trim(), value, labels, env, true))
-            } else if (expression[0] === '{' && expression.endsWith('}')) {
-                return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
-                    const [k, v] = s.trim().split(':').map(ss => s.trim())
-                    return [k, this.#mergeVariables(v, value, labels, env, true)]
-                }))
-            }
-            const merge = (exp) => {
-                if (exp) exp = exp.slice(2, -1)
-                return this.#mergeVariables(exp, value, labels, env, true)
-            }
-            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
-        }
-
-
 
     }
 </script>
