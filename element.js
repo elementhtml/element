@@ -84,14 +84,12 @@ const ElementHTML = Object.defineProperties({}, {
                         worker = new Worker(workerURL)
                     URL.revokeObjectURL(workerURL)
                     const p = []
-                    for (const [transform, bindings] of Object.entries(init)) {
+                    for (let [transform, bindings] of Object.entries(init)) {
                         const abortController = new AbortController()
                         p.push(new Promise(r => worker.addEventListener('message', event => {
-                            if (event.data.id === transform) {
-                                r()
-                                abortController.abort()
-                            }
+                            if (event.data.id === transform) abortController.abort() || r()
                         }, { signal: abortController.signal })))
+                        if ((transform[0] === '`') && transform.endsWith('`')) transform = '`' + this.resolveUrl(transform.slice(1, -1).trim()) + '`'
                         worker.postMessage({ id: transform, op: 'load', payload: { transform, bindings } })
                     }
                     await Promise.all(p)
