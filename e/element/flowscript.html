@@ -6,14 +6,11 @@
     export default class extends `./flow` {
 
         connectedCallback() {
-            const textContent = this.textContent.trim(), src = this.src
-            if (src) {
-                fetch(src).then(r => r.text()).then(code => this.compile([code.trim(), textContent ?? ''].join('/n/n')))
-                    .then(() => this.run())
-            } else {
-                this.compile(textContent ?? '')
-                this.run()
-            }
+            const src = this.src
+            Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
+                .then(script => this.compile(script))
+                .then((app) => this.load(app.handlers, app.fieldNames, app.cellNames, app.statements))
+                .then(() => this.run())
         }
 
         compile(code) {
@@ -144,7 +141,7 @@
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            this.load(handlers, Array.from(fieldNames), Array.from(cellNames), statements)
+            return { handlers, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
 
         #parseRouterExpression(expression, statementIndex, stepIndex) {
