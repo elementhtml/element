@@ -66,6 +66,7 @@
                             if (ln) statement.labels[label] = undefined
                     }
                     let handler, handlerIndex
+                    const handlerSignature = handlerExpression
                     stepIndex = stepIndex + 1
                     if ((handlerExpression === '#') || (handlerExpression === '?') || (handlerExpression === '/') || (handlerExpression === ':')) {
                         handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
@@ -122,15 +123,12 @@
                                     break
                                 }
                             case '~':
-                                if (handlerExpression.endsWith('~')) {
-                                    handler = this.#parseRemoteExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
-                                    break
-                                }
+                                if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                             default:
                                 handler = this.#parseRemoteExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                         }
                     }
-                    handlerIndex = (handlerMap[handlerExpression] ||= (handlers.push(handler)) - 1)
+                    handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
                     step.push(handlerIndex)
                     if (defaultExpression) step.push(defaultExpression)
                     statement.labels[label] = undefined
@@ -148,40 +146,43 @@
         #parseRouterExpression(expression, statementIndex, stepIndex) {
             const eventKey = `${statementIndex}-${stepIndex}`
             this.keyedAbortControllers[eventKey] = new AbortController()
-            window.addEventListener('hashchange', event => {
-                this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
-            }, { signal: this.keyedAbortControllers[eventKey].signal })
+            if (expression === '#') {
+                window.addEventListener('hashchange', event => {
+                    this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash }))
+                }, { signal: this.keyedAbortControllers[eventKey].signal })
+            }
             return async (value, labels, env, statementIndex, stepIndex) => {
-                if (expression === '#') {
-                    if (value != undefined && (typeof value === 'string')) document.location.hash = value
-                    return document.location.hash
-                } else if (expression === '?') {
-                    if (value != undefined && (typeof value === 'string')) document.location.search = value
-                    return document.location.search
-                } else if (expression === '/') {
-                    if (value != undefined && (typeof value === 'string')) document.location.pathname = value
-                    return document.location.pathname
-                } else if (expression === ':') {
-                    if (typeof value === 'string') {
-                        document.location = value
-                    } else if (value instanceof Object) {
-                        for (const [k, v] of Object.entries(value)) {
-                            if (k.includes('(') && k.endsWith(')')) {
-                                let funcName = k.trim().slice(0, -2).trim()
-                                if (funcName === 'assign') {
-                                    document.location.assign(v)
-                                } else if (funcName === 'reload') {
-                                    document.location.reload()
-                                } else if (funcName === 'replace') {
-                                    document.location.replace()
+                let prop
+                switch (expression) {
+                    case '#':
+                        prop = 'hash'
+                    case '?':
+                        prop = 'search'
+                    case '/':
+                        prop = 'pathname'
+                        if (value != undefined && (typeof value === 'string')) document.location[prop] = value
+                        return document.location[prop]
+                    case ':':
+                        if (typeof value === 'string') {
+                            document.location = value
+                        } else if (value instanceof Object) {
+                            for (const [k, v] of Object.entries(value)) {
+                                if (k.includes('(') && k.endsWith(')')) {
+                                    let funcName = k.trim().slice(0, -2).trim()
+                                    if (funcName === 'assign') {
+                                        document.location.assign(v)
+                                    } else if (funcName === 'reload') {
+                                        document.location.reload()
+                                    } else if (funcName === 'replace') {
+                                        document.location.replace()
+                                    }
+                                } else if (typeof v === 'string') {
+                                    document.location[k] = v
+                                    break
                                 }
-                            } else if (typeof v === 'string') {
-                                document.location[k] = v
-                                break
                             }
                         }
-                    }
-                    return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
+                        return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
                 }
             }
         }
@@ -213,11 +214,7 @@
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(regex)
-                if (match?.groups) {
-                    return Object.fromEntries(Object.entries(match.groups))
-                } else {
-                    return match ? match[1] : undefined
-                }
+                return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             }
         }
 
@@ -231,17 +228,16 @@
                 addedFields = new Set(), addedCells = new Set(), items = []
             if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
             if (config === 'single') group = group[0]
-            if (expression === '{feed!, pagination}') console.log('flow.html: line 338', group, config)
             switch (config) {
                 case 'single':
-                    const [fieldOrCell, mode] = group;
+                    const fieldOrCell = group[0];
                     (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
                     getReturnValue = () => fieldOrCell.get()
                     items.push(group)
                     break
                 case 'array':
                     for (const item of group) {
-                        const [fieldOrCell, mode] = item;
+                        const fieldOrCell = item[0];
                         (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
                     }
                     getReturnValue = () => {
@@ -252,7 +248,7 @@
                     break
                 default:
                     for (const [name, item] of Object.entries(group)) {
-                        const [fieldOrCell, mode] = item;
+                        const fieldOrCell = item[0];
                         (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
                     }
                     getReturnValue = () => {
@@ -264,7 +260,7 @@
             const eventKey = `${statementIndex}-${stepIndex}`
             this.keyedAbortControllers[eventKey] = new AbortController()
             for (const item of items) {
-                const [fieldOrCell, mode] = item;
+                const fieldOrCell = item[0]
                 fieldOrCell.eventTarget.addEventListener('change', event => {
                     const retval = getReturnValue()
                     if (retval != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
