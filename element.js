@@ -79,9 +79,11 @@ const ElementHTML = Object.defineProperties({}, {
                                 for (const entry of Object.entries(bindings)) expressions[transformKey].assign(...entry)
                             },
                             evaluate: (payload) => {
-
+                                let { data, transform, bindings } = payload
+                                return expressions[transform].evaluate(data, bindings)
                             }
                         }
+                    ops.resolveUrl = this.resolveUrl
                     URL.revokeObjectURL(workerURL)
                     worker.postMessage(ops, [ops])
                     const p = []
