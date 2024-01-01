@@ -6,17 +6,15 @@
     export default class extends `./flowscript` {
 
         connectedCallback() {
-            const textContent = this.textContent.trim(), src = this.src,
-                prepare = code => this.#readText(code).then(code => this.compile(code))
-            if (src) {
-                fetch(src).then(r => r.text())
-                    .then(code => prepare([code.trim(), textContent ?? ''].join('/n/n')))
-                    .then(() => this.run())
-            } else { prepare(textContent ?? '').then(() => this.run()) }
+            const src = this.src
+            Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
+                .then(text => this.#readText(text.trim())).then(script => this.compile(script))
+                .then((app) => this.load(app.handlers, app.fieldNames, app.cellNames, app.statements))
+                .then(() => this.run())
         }
 
-        async #readText(code) {
-            if (type === 'text/flow') splitter = /\n\s*\n/gm
+        async #readText(text) {
+            const splitter = /\n\s*\n/gm
         }
 
     }
