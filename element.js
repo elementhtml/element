@@ -41,16 +41,62 @@ const ElementHTML = Object.defineProperties({}, {
                     'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                     'selected', 'slot', 'tagName', 'textContent', 'title']//keep
             },
-            sources: {//keep
-                jsonata: 'https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js',
+            schemas: {}, //keep
+            sources: {//keep  
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
             cells: {},//keep
+            tagSpaces: {}, //keep
             transforms: {},//keep
             schemas: {},//keep            
-            context: {} //keep 
+            context: {}, //keep 
+            workers: {}
         }
     },
+
+    loaders: {
+        enumerable: true, value: Object.defineProperties({}, {
+            jsonata: {
+                enumerable: true, value: async function (init) {
+                    const workerCode = `
+                        importScripts('https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
+                        const transforms = {}
+                        let ops
+                        onmessage = (message) => {
+                            if (!ops) return postMessage(!!(ops = message.data))
+                            const { id, op, payload } = message.data, result = ops[op](payload)
+                            postMessage({ id, result })
+                        }
+                    `, blob = new Blob([workerCode], { type: 'application/javascript' }), workerURL = URL.createObjectURL(blob),
+                        worker = new Worker(workerURL), ops = {
+                            load: () => {
+
+                            },
+                            evaluate: () => {
+
+                            }
+                        }
+                    URL.revokeObjectURL(workerURL)
+                    worker.postMessage(ops, [ops])
+                    const p = []
+                    for (const [transformKey, payload] of Object.entries(init)) {
+                        const abortController = new AbortController()
+                        p.push(new Promise(r => worker.addEventListener('message', event => {
+                            if (message.data.id === transformKey) {
+                                r()
+                                abortController.abort()
+                            }
+                        }, { signal: abortController.signal })))
+                        worker.postMessage({ id: transformKey, op: 'load', payload })
+                    }
+                    await Promise.all(p)
+                    return worker
+                }
+            }
+        })
+    },
+
+
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
@@ -973,6 +1019,12 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    loadTransform: {//keep
+        enumerable: true, value: async function (transform, variableMap = {}) {
+
+        }
+    },
+
     runTransform: {//keep
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
@@ -984,7 +1036,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!transform) return data
             try {
-                await this.installLibraryFromSrc('jsonata')
+                // this.env.workers.jsonata.postMessage({ transform, data })
+                this.env.libraries.jsonata ||= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                 this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
                 expression ||= this.env.transforms[transformKey][1]
                 const bindings = {}
@@ -1026,7 +1079,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
                 const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
-                // for (const [k, v] of Object.entries(this.env.variables)) if (transform.includes(`$${k}`)) bindings[k] = v
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
                 const result = await expression.evaluate(data, bindings)
                 return result

@@ -32,7 +32,7 @@
         get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
         set type(value) { this.#type = value }
 
-        load(app) {
+        async load(app) {
             this.#handlers = Object.freeze(app.handlers ?? [])
             this.#fields ||= {}
             for (const fieldName of app.fieldNames) this.#fields[fieldName] = this.getField(fieldName)
@@ -40,6 +40,11 @@
             this.#fieldNames = Object.freeze(app.fieldNames ?? [])
             this.#cellNames = Object.freeze(app.cellNames ?? [])
             this.#statements = Object.freeze(app.statements ?? [])
+            const p = []
+            for (const [workerName, workerInit] in Object.entries(app.workers ?? {})) {
+                p.push(this.E.loaders[workerName](workerInit).then(worker => this.E.env.workers[workerName] = worker))
+            }
+            await Promise.all(p)
         }
 
         run() {
