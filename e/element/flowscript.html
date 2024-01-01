@@ -15,25 +15,26 @@
 
         compile(code) {
             const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [],
-                splitter = /\n(?!\s+>>)/gm, isNumeric = /^[0-9\.]+$/, handlerMap = {}
+                handlerMap = {}, labelRegExp = /^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
+                defaultValueRegExp = /\s+\?\?\s+(.+)\s*$/
             let statementIndex = -1
-            for (let directive of code.split(splitter)) {
+            for (let directive of code.split(/\n(?!\s+>>)/gm)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                const statement = { labels: {}, steps: [] }, directiveSlice03 = directive.slice(0, 3)
                 statementIndex = statementIndex + 1
+                const statement = { labels: {}, steps: [] }
                 let stepIndex = -1
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
                     const step = []
-                    let label, handlerExpression = segment, defaultExpression
-                    const labelMatch = handlerExpression.match(/^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/)
+                    let handlerExpression = segment, label, defaultExpression
+                    const labelMatch = handlerExpression.match(labelRegExp)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
                     }
-                    const defaultExpressionMatch = handlerExpression.match(/\s+\?\?\s+(.+)\s*$/)
+                    const defaultExpressionMatch = handlerExpression.match(defaultValueRegExp)
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
@@ -116,7 +117,7 @@
                             case "7":
                             case "9":
                                 if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
-                                    || handlerExpression.match(isNumeric)) {
+                                    || handlerExpression.match(/^[0-9\.]+$/)) {
                                     handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 }
