@@ -61,36 +61,33 @@ const ElementHTML = Object.defineProperties({}, {
                     const workerCode = `
                         importScripts('https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
                         const transforms = {}, expressions = {}
-                        let ops
-                        onmessage = (message) => {
-                            if (!ops) return postMessage(!!(ops = message.data))
+                        onmessage = async (message) => {
                             const { id, op, payload } = message.data
-                            Promise.resolve(ops[op](payload)).then(result => postMessage({ id, result }))
-                        }
-                    `, blob = new Blob([workerCode], { type: 'application/javascript' }), workerURL = URL.createObjectURL(blob),
-                        worker = new Worker(workerURL), ops = {
-                            load: async payload => {
-                                let { transform, bindings } = payload
-                                const transformKey = transform
-                                if ((transformKey[0] === '`') && transformKey.endsWith('`')) {
-                                    transform = transforms[transformKey] ||= await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text().trim())
-                                }
-                                expressions[transformKey] ||= jsonata(transform)
-                                for (const entry of Object.entries(bindings)) expressions[transformKey].assign(...entry)
-                            },
-                            evaluate: (payload) => {
-                                let { data, transform, bindings } = payload
-                                return expressions[transform].evaluate(data, bindings)
+                            let { data, transform, bindings } = payload
+                            switch (op) {
+                                case 'load':
+                                    const transformKey = transform
+                                    if ((transformKey[0] === '\`') && transformKey.endsWith('\`')) {
+                                        transform = transforms[transformKey] ||= await fetch(transformKey.slice(1, -1).trim()).then(r => r.text().trim())
+                                    }
+                                    expressions[transformKey] ||= jsonata(transform)
+                                    for (const entry of Object.entries(bindings)) expressions[transformKey].assign(...entry)    
+                                    postMessage({ id })
+                                break
+                                case 'evaluate':
+                                    const result = expressions[transform].evaluate(data, bindings)    
+                                    postMessage({ id, result })
+                                break
                             }
                         }
-                    ops.resolveUrl = this.resolveUrl
+                    `, blob = new Blob([workerCode], { type: 'application/javascript' }), workerURL = URL.createObjectURL(blob),
+                        worker = new Worker(workerURL)
                     URL.revokeObjectURL(workerURL)
-                    worker.postMessage(ops, [ops])
                     const p = []
                     for (const [transform, bindings] of Object.entries(init)) {
                         const abortController = new AbortController()
                         p.push(new Promise(r => worker.addEventListener('message', event => {
-                            if (message.data.id === transform) {
+                            if (event.data.id === transform) {
                                 r()
                                 abortController.abort()
                             }
