@@ -8,9 +8,7 @@
         connectedCallback() {
             const src = this.src
             Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
-                .then(script => this.compile(script))
-                .then((app) => this.load(app.handlers, app.fieldNames, app.cellNames, app.statements))
-                .then(() => this.run())
+                .then(script => this.compile(script)).then((app) => this.load(app)).then(() => this.run())
         }
 
         compile(code) {
@@ -399,5 +397,6 @@
                 })
             }
         }
+
     }
 </script>

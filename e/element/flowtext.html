@@ -9,8 +9,7 @@
             const src = this.src
             Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
                 .then(text => this.#readText(text.trim())).then(script => this.compile(script))
-                .then((app) => this.load(app.handlers, app.fieldNames, app.cellNames, app.statements))
-                .then(() => this.run())
+                .then((app) => this.load(app)).then(() => this.run())
         }
 
         async #readText(text) {

@@ -6,33 +6,40 @@
     export default class extends `script` {
 
         #abortController
-        #handlers = []
         #cellNames = []
-        #fieldNames = []
         #fields = {}
+        #fieldNames = []
+        #handlers = []
+        #keyedAbortControllers = {}
         #src
         #statements = []
         #type
-        #keyedAbortControllers = {}
 
-        get abortController() { return this.#abortController }
-        get handlers() { return this.#handlers }
-        get cellNames() { return this.#cellNames }
-        get fieldNames() { return this.#fieldNames }
-        get fields() { return this.#fields }
-        get statements() { return this.#statements }
-        get keyedAbortControllers() { return this.#keyedAbortControllers }
+        disconnectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+            for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
+        }
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
 
-        load(handlers = [], fieldNames = [], cellNames = [], statements = []) {
-            this.#handlers = Object.freeze(handlers)
+        get fields() { return this.#fields }
+
+        get keyedAbortControllers() { return this.#keyedAbortControllers }
+
+        get src() { return this.E.utils.safeGet(this, this.#src, 'src') }
+        set src(value) { this.#src = value }
+
+        get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
+        set type(value) { this.#type = value }
+
+        load(app) {
+            this.#handlers = Object.freeze(app.handlers ?? [])
             this.#fields ||= {}
-            for (const fieldName of fieldNames) this.#fields[fieldName] = this.getField(fieldName)
+            for (const fieldName of app.fieldNames) this.#fields[fieldName] = this.getField(fieldName)
             Object.freeze(this.#fields)
-            this.#fieldNames = Object.freeze(fieldNames)
-            this.#cellNames = Object.freeze(cellNames)
-            this.#statements = Object.freeze(statements)
+            this.#fieldNames = Object.freeze(app.fieldNames ?? [])
+            this.#cellNames = Object.freeze(app.cellNames ?? [])
+            this.#statements = Object.freeze(app.statements ?? [])
         }
 
         run() {
@@ -50,12 +57,7 @@
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
                     const [labelItem, handlerIndex, defaultValue] = step
-                    let label, labelMode
-                    if (Array.isArray(labelItem)) {
-                        [label, labelMode] = label
-                    } else {
-                        label = labelItem
-                    }
+                    let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
                         if (detail == undefined) detail = this.E.getVariable(defaultValue, undefined, labels, env)
@@ -76,17 +78,6 @@
             }
             this.dispatchEvent(new CustomEvent('run'))
         }
-
-        disconnectedCallback() {
-            if (this.#abortController) this.#abortController.abort()
-            for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
-        }
-
-        get src() { return this.E.utils.safeGet(this, this.#src, 'src') }
-        set src(value) { this.#src = value }
-
-        get type() { return this.E.utils.safeGet(this, this.#type, 'type') }
-        set type(value) { this.#type = value }
 
         getField(name) {
             if (!name) return

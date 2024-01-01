@@ -14,7 +14,7 @@
                         Object.freeze(statement.steps)
                         Object.freeze(statement)
                     }
-                    this.load(app.handlers, app.fieldNames, app.cellNames, app.statements)
+                    this.load(app)
                 })
                 .then(() => this.run())
         }
