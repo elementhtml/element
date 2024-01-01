@@ -60,34 +60,40 @@ const ElementHTML = Object.defineProperties({}, {
                 enumerable: true, value: async function (init) {
                     const workerCode = `
                         importScripts('https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                        const transforms = {}
+                        const transforms = {}, expressions = {}
                         let ops
                         onmessage = (message) => {
                             if (!ops) return postMessage(!!(ops = message.data))
-                            const { id, op, payload } = message.data, result = ops[op](payload)
-                            postMessage({ id, result })
+                            const { id, op, payload } = message.data
+                            Promise.resolve(ops[op](payload)).then(result => postMessage({ id, result }))
                         }
                     `, blob = new Blob([workerCode], { type: 'application/javascript' }), workerURL = URL.createObjectURL(blob),
                         worker = new Worker(workerURL), ops = {
-                            load: () => {
-
+                            load: async payload => {
+                                let { transform, bindings } = payload
+                                const transformKey = transform
+                                if ((transformKey[0] === '`') && transformKey.endsWith('`')) {
+                                    transform = transforms[transformKey] ||= await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text().trim())
+                                }
+                                expressions[transformKey] ||= jsonata(transform)
+                                for (const entry of Object.entries(bindings)) expressions[transformKey].assign(...entry)
                             },
-                            evaluate: () => {
+                            evaluate: (payload) => {
 
                             }
                         }
                     URL.revokeObjectURL(workerURL)
                     worker.postMessage(ops, [ops])
                     const p = []
-                    for (const [transformKey, payload] of Object.entries(init)) {
+                    for (const [transform, bindings] of Object.entries(init)) {
                         const abortController = new AbortController()
                         p.push(new Promise(r => worker.addEventListener('message', event => {
-                            if (message.data.id === transformKey) {
+                            if (message.data.id === transform) {
                                 r()
                                 abortController.abort()
                             }
                         }, { signal: abortController.signal })))
-                        worker.postMessage({ id: transformKey, op: 'load', payload })
+                        worker.postMessage({ id: transform, op: 'load', payload: { transform, bindings } })
                     }
                     await Promise.all(p)
                     return worker
