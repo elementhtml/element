@@ -1,7 +1,5 @@
 const ElementHTML = Object.defineProperties({}, {
-
     version: { enumerable: true, value: '0.9.8' },
-
     sys: {
         enumerable: false, value: {
             defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
@@ -12,11 +10,12 @@ const ElementHTML = Object.defineProperties({}, {
                 tagMatch: /^[a-z0-9\-]+/g,
                 idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
+                isNumeric: /^[0-9\.]+$/,
+                hasVariable: /\$\{(.*?)\}/g
             }
         }
     },
-
     env: {
         enumerable: true, value: {
             gateways: {
@@ -48,7 +47,6 @@ const ElementHTML = Object.defineProperties({}, {
             context: {}
         }
     },
-
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
             getCustomTag: {
@@ -90,9 +88,7 @@ const ElementHTML = Object.defineProperties({}, {
                             prop ||= 'head'
                             root = element.getRootNode()
                             return (root instanceof ShadowRoot) ? root : document[prop]
-                        case '*':
-                        case ':root':
-                        case ':host':
+                        case '*': case ':root': case ':host':
                             scope = element.getRootNode()
                             if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
                             return (scope === document) ? document.documentElement : scope
@@ -163,7 +159,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         })
     },
-
     load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
@@ -190,7 +185,6 @@ const ElementHTML = Object.defineProperties({}, {
             observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
         }
     },
-
     Expose: {
         enumerable: true, value: function (name = 'E') {
             if (!(name && typeof name === 'string')) name = 'E'
@@ -206,7 +200,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const a of Object.keys(this.env)) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
         }
     },
-
     runElementMethod: {
         enumerable: true, value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
@@ -217,7 +210,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     applyData: {
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
@@ -282,8 +274,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
                         v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
                         continue
-                    case '.':
-                    case '<':
+                    case '.': case '<':
                         if (!v) { element.replaceChildren(); continue }
                         switch (k) {
                             case '<>':
@@ -334,7 +325,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         },
     },
-
     applyDataWithTemplate: {
         enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
@@ -365,7 +355,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const n of nodesToApply) this.applyData(...n)
         }
     },
-
     parse: {
         enumerable: true, value: async function (input, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
@@ -451,7 +440,6 @@ const ElementHTML = Object.defineProperties({}, {
             return JSON.stringify(input)
         }
     },
-
     flatten: {
         enumerable: true, value: function (value, key, event) {
             const compile = (plain, complex = []) => {
@@ -581,7 +569,6 @@ const ElementHTML = Object.defineProperties({}, {
             return inheritance
         }
     },
-
     mdDefaultHelper: {
         enumerable: true, value: function (text, direction = 'parse') {
             if (!this.env.libraries.md) return
@@ -616,7 +603,6 @@ const ElementHTML = Object.defineProperties({}, {
             return this.mdDefaultHelper.bind(this)
         }
     },
-
     getCell: {
         enumerable: true, value: function (name) {
             if (!name) return
@@ -650,8 +636,6 @@ const ElementHTML = Object.defineProperties({}, {
             return this.env.cells[name]
         }
     },
-
-
     getFieldOrCellGroup: {
         enumerable: true, value: function (expression, type = '#', element) {
             let group
@@ -694,14 +678,11 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-    getVariable: {//keep
+    getVariable: {
         enumerable: true, value: function (expression, value, labels, env) {
             if (!expression) return value
-            const isNumeric = /^[0-9\.]+$/
             switch (expression[0]) {
-                case '"':
-                case "'":
+                case '"': case "'":
                     return expression.slice(1, -1)
                 case '{':
                     if (expression.endsWith('}')) {
@@ -715,39 +696,23 @@ const ElementHTML = Object.defineProperties({}, {
                             items[key] = this.getVariable(name, value, labels, env)
                         }
                         return items
-                    } else {
-                        return expression
                     }
-                    break
+                    return expression
                 case '[':
                     if (expression.endsWith(']')) {
                         const items = []
                         for (const item of expression.slice(1, -1).split(',')) items.push(this.getVariable(item.trim(), value, labels, env))
                         return items
-                    } else {
-                        return expression
                     }
-                    break
-                case 't':
-                case 'f':
-                case 'n':
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
-                    if (expression === 'null' || expression === 'true' || expression === 'false'
-                        || expression.match(isNumeric)) {
-                        return JSON.parse(expression)
-                    } else {
-                        return labels[expression] ?? expression
+                    return expression
+                case 't': case 'f': case 'n': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+                    switch (expression) {
+                        case 'null': case 'true': case 'false':
+                            return JSON.parse(expression)
+                        default:
+                            if (expression.match(this.sys.regexp.isNumeric)) return JSON.parse(expression)
+                            return labels[expression] ?? expression
                     }
-                    break
                 case '~':
                     return env.context[expression.slice(1)]
                 case '#':
@@ -757,43 +722,28 @@ const ElementHTML = Object.defineProperties({}, {
                 case '$':
                     expression = expression.slice(1)
                     if (!expression) return value
-                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
+                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression] ?? expression
                 default:
                     return labels[expression] ?? expression
             }
         }
     },
-
-    mergeVariables: {//keep
+    mergeVariables: {
         enumerable: true, value: function (expression, value, labels, env, inner) {
             if (!expression) return inner ? value : undefined
             if (typeof expression !== 'string') return expression
-            const regExp = /\$\{(.*?)\}/g, isMatch = expression.match(regExp)
-            if (!isMatch && !inner) return expression
-            if (!isMatch && inner) {
-                return this.getVariable(expression, value, labels, env)
-            } else if (expression[0] === '[' && expression.endsWith(']')) {
-                return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
-            } else if (expression[0] === '{' && expression.endsWith('}')) {
-                return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
-                    const [k, v] = s.trim().split(':').map(ss => s.trim())
-                    return [k, this.mergeVariables(v, value, labels, env, true)]
-                }))
-            }
-            const merge = (exp) => {
-                if (exp) exp = exp.slice(2, -1)
-                return this.mergeVariables(exp, value, labels, env, true)
-            }
-            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(regExp, merge)
+            const isMatch = expression.match(this.sys.regexp.hasVariable)
+            if (!isMatch) return inner ? this.getVariable(expression, value, labels, env) : expression
+            if (expression[0] === '[') return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
+            if (expression[0] === '{') return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
+                const [k, v] = s.trim().split(':').map(ss => s.trim())
+                return [k, this.mergeVariables(v, value, labels, env, true)]
+            }))
+            const merge = exp => this.mergeVariables(exp.slice(2, -1), value, labels, env, true)
+            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(this.sys.regexp.hasVariable, merge)
         }
     },
-
-
-
-
-
-
-    resolveUrl: {//keep
+    resolveUrl: {
         enumerable: true, value: function (value, element) {
             if (typeof value !== 'string') return value
             if (value.startsWith('https://') || value.startsWith('http://')) return value
@@ -804,8 +754,7 @@ const ElementHTML = Object.defineProperties({}, {
             return new URL(value, document.baseURI).href
         }
     },
-
-    runTransform: {//keep
+    runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
             const transformKey = transform
@@ -820,12 +769,10 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
                 expression ||= this.env.transforms[transformKey][1]
                 const bindings = {}
-
                 if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
                 if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
                 if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
                 if (transform.includes('$queryString(')) bindings.queryString = v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : ""
-
                 if (transform.includes('$is(')) {
                     bindings.is = (schemaName, data) => {
                         const schemaHandler = this.env.schemas[schemaName]
@@ -834,54 +781,47 @@ const ElementHTML = Object.defineProperties({}, {
                         return { valid, errors }
                     }
                 }
-
                 if (transform.includes('$markdown2Html(')) {
                     this.env.helpers.md ||= await this.installMdDefaultHelper()
                     bindings.markdown2Html = text => this.env.helpers.md(text)
                 }
-
                 if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
-
                 if (element && transform.includes('$this')) bindings.this = this.flatten(element)
                 if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
                 if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
                 const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
-
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
-
                 const result = await expression.evaluate(data, bindings)
                 return result
             } catch (e) {
-                console.log('line 1265', e, transform, data, element)
+                console.log('line 832', e, transform, data, element)
                 const errors = element?.errors ?? this.env.options.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
             }
         }
     },
-    sortByInheritance: {//keep
+    sortByInheritance: {
         enumerable: true, value: function (idList) {
             return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
                 ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
                 .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
         }
     },
-
-    classes: { value: {} },//keep
-    constructors: { value: {} },//keep
-    extends: { value: {} },//keep
-    files: { value: {} },//keep
-    ids: { value: {} },//keep
+    classes: { value: {} },
+    constructors: { value: {} },
+    extends: { value: {} },
+    files: { value: {} },
+    ids: { value: {} },
     _observer: { enumerable: false, writable: true, value: undefined },
-    scripts: { value: {} },//keep
-    styles: { value: {} },//keep
+    scripts: { value: {} },
+    styles: { value: {} },
     _styles: { value: {} },
-    tags: { value: {} },//keep
-    templates: { value: {} },//keep
+    tags: { value: {} },
+    templates: { value: {} },
     _templates: { value: {} },
-
-    activateTag: {//keep
+    activateTag: {
         value: async function (tag, element, forceReload = false) {
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
             const id = this.getTagId(tag);
@@ -892,7 +832,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    encapsulateNative: {//keep
+    encapsulateNative: {
         value: function () {
             const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
                 'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
@@ -962,14 +902,14 @@ const ElementHTML = Object.defineProperties({}, {
             return true
         }
     },
-    stackStyles: {//keep
+    stackStyles: {
         value: function (id) {
             if (typeof this._styles[id] === 'string') return this._styles[id]
             this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
             return this._styles[id]
         }
     },
-    stackTemplates: {//keep
+    stackTemplates: {
         value: function (id) {
             if (typeof this._templates[id] === 'string') return this._templates[id]
             if (typeof this.templates[id] === 'string') {
@@ -988,7 +928,9 @@ const ElementHTML = Object.defineProperties({}, {
                                 target = template.content.querySelector(slotName.slice(1, -1))
                             } else if (slotName) {
                                 target = template.content.querySelector(`slot[name="${slotName}"]`)
-                            } else { target = template.content.querySelector('slot:not([name])') }
+                            } else {
+                                target = template.content.querySelector('slot:not([name])')
+                            }
                             if (target) target.replaceWith(...t.content.cloneNode(true).childNodes)
                             t.remove()
                         }
@@ -1001,42 +943,28 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-    _dispatchPropertyEvent: {//re-check
-        value: function (element, eventNamePrefix, property, eventDetail) {
-            eventDetail = { detail: { property: property, ...eventDetail } }
-            element.dispatchEvent(new CustomEvent(eventNamePrefix, eventDetail))
-            element.dispatchEvent(new CustomEvent(`${eventNamePrefix}-${property}`, eventDetail))
-        }
-    },
-
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
             return class extends baseClass {
-                #_
                 constructor() {
                     super()
-                    const $this = this
-                    Object.defineProperties($this, {
+                    Object.defineProperties(this, {
                         E: { enumerable: false, value: ElementHTML },//keep
                     })
                     try {
-                        $this.shadowRoot || $this.attachShadow({ mode: 'open' })
-                        $this.shadowRoot.textContent = ''
-                        $this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
+                        this.shadowRoot || this.attachShadow({ mode: 'open' })
+                        this.shadowRoot.textContent = ''
+                        this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
                         const templateNode = document.createElement('template')
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
-                        $this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                        window.requestAnimationFrame(() => {
-                            this.dispatchEvent(new CustomEvent('ready'))
-                            this.readyCallback()
-                        })
+                        this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                        window.requestAnimationFrame(() => this.readyCallback())
                     } catch (e) { }
                 }
                 static get observedAttributes() { return ['_'] }
                 static get _flattenableProperties() { return this.observedAttributes }
                 static E = ElementHTML
-                async connectedCallback() { this.dispatchEvent(new CustomEvent('connected')) }
+                async connectedCallback() { }
                 async readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
@@ -1044,21 +972,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     }
 })
-
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
     const imports = importmap.imports ?? {}, importPromises = []
-    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) {
-        if (!p) continue
-        if ((typeof imports[p] === 'string') && imports[p].includes('/')) importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
-    }
+    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/'))
+        importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
     await Promise.all(importPromises)
     for (const p of importPromises) await ElementHTML.ImportPackage(p)
 }
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load()
-
 export { ElementHTML }
