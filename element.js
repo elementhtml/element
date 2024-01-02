@@ -617,18 +617,10 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
-
-
-
-
-
-    getCell: {//keep
+    getCell: {
         enumerable: true, value: function (name) {
             if (!name) return
-            const cells = this.env.cells
-            if (!cells[name]) {
+            if (!this.env.cells[name]) {
                 const cell = {
                     type: 'cell',
                     channel: new BroadcastChannel(name),
@@ -653,50 +645,53 @@ const ElementHTML = Object.defineProperties({}, {
                     cell.value = event.data
                     cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: event.data }))
                 })
-                cells[name] = cell
+                this.env.cells[name] = cell
             }
-            return cells[name]
+            return this.env.cells[name]
         }
     },
 
 
-    getFieldOrCellGroup: {//keep
+    getFieldOrCellGroup: {
         enumerable: true, value: function (expression, type = '#', element) {
             let group
             const getFieldOrCellTarget = (name) => {
                 const modeFlag = name[name.length - 1],
                     mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
                 if (mode) name = name.slice(0, -1).trim()
-                if (name[0] === '#') {
-                    return [this.getCell(name.slice(1)), mode]
-                } else if (name[0] === '%') {
-                    return [element.getField(name.slice(1)), mode]
-                } else {
-                    return [type === '%' ? element.getField(name) : this.getCell(name), mode]
+                switch (name[0]) {
+                    case '#':
+                        return [this.getCell(name.slice(1)), mode]
+                    case '%':
+                        return [element.getField(name.slice(1)), mode]
+                    default:
+                        return [type === '%' ? element.getField(name) : this.getCell(name), mode]
                 }
             }
-            if ((expression[0] === '{') && expression.endsWith('}')) {
-                group = {}
-                for (const pair of expression.slice(1, -1).trim().split(',')) {
-                    let [key, name] = pair.trim().split(':').map(s => s.trim())
-                    if (!name) name = key
-                    const keyEndsWith = key[key.length - 1]
-                    if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                    group[key] = getFieldOrCellTarget(name)
-                }
-            } else if ((expression[0] === '[') && expression.endsWith(']')) {
-                group = []
-                for (let t of expression.slice(1, -1).split(',')) {
-                    t = t.trim()
-                    if (!t) continue
-                    group.push(getFieldOrCellTarget(t))
-                }
-            } else {
-                expression = expression.trim()
-                if (!expression) return
-                group = [getFieldOrCellTarget(expression)]
+            switch (expression[0]) {
+                case '{':
+                    group = {}
+                    for (const pair of expression.slice(1, -1).trim().split(',')) {
+                        let [key, name] = pair.trim().split(':').map(s => s.trim())
+                        if (!name) name = key
+                        const keyEndsWith = key[key.length - 1]
+                        if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
+                        group[key] = getFieldOrCellTarget(name)
+                    }
+                    return group
+                case '[':
+                    group = []
+                    for (let t of expression.slice(1, -1).split(',')) {
+                        t = t.trim()
+                        if (!t) continue
+                        group.push(getFieldOrCellTarget(t))
+                    }
+                    return group
+                default:
+                    expression = expression.trim()
+                    if (!expression) return
+                    return [getFieldOrCellTarget(expression)]
             }
-            return group
         }
     },
 
