@@ -150,14 +150,15 @@
                 }, { signal: this.keyedAbortControllers[eventKey].signal })
             }
             return async (value, labels, env, statementIndex, stepIndex) => {
+                console.log('flowscript.html: line 153', expression, value)
                 let prop
                 switch (expression) {
                     case '#':
-                        prop = 'hash'
+                        prop ||= 'hash'
                     case '?':
-                        prop = 'search'
+                        prop ||= 'search'
                     case '/':
-                        prop = 'pathname'
+                        prop ||= 'pathname'
                         if (value != undefined && (typeof value === 'string')) document.location[prop] = value
                         return document.location[prop]
                     case ':':
