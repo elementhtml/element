@@ -4,6 +4,10 @@ const ElementHTML = Object.defineProperties({}, {
 
     sys: {
         enumerable: false, value: {
+            regexp: {
+                htmlBlocks: /<html>\n+.*\n+<\/html>/g,
+                htmlSpans: /<html>.*<\/html>/g
+            }
 
         }
     },
@@ -21,6 +25,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
                 }
             },
+            helpers: {},//keep
             libraries: {},//keep
             options: {
                 ajv: {
@@ -31,7 +36,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 errors: 'hide',
                 remarkable: { html: true },
-                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },
                 defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }
             },
             schemas: {}, //keep
@@ -450,17 +454,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/md') {
-                await this.installLibraryFromImport('remarkable', 'Remarkable', true)
-                let mdOptions = { ...this.env.options.remarkable }
-                this.env.libraries.remarkable.set(mdOptions)
-                const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]),
-                    htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
-                for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                text = this.env.libraries.remarkable.render(text)
-                for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                return text
+                this.env.helpers.md ||= await this.installMdDefaultHelper()
+                return this.env.helpers.md(text, 'parse', this)
             }
             if (contentType && contentType.includes('form')) {
                 return Object.fromEntries((new URLSearchParams(text)).entries())
@@ -494,10 +489,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!(input instanceof Node)) return
                 let text = input?.outerHTML ?? input.textContent
                 if (contentType === 'text/md') {
-                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
-                    let mdOptions = { ...this.env.options.remarkable }
-                    this.env.libraries.remarkable.set(mdOptions)
-                    text = this.env.libraries.remarkable.render(text)
+                    this.env.helpers.md ||= await this.installMdDefaultHelper()
+                    return this.env.helpers.md(text, 'serialize', this)
                 }
                 return text
             }
@@ -661,51 +654,46 @@ const ElementHTML = Object.defineProperties({}, {
             return inheritance
         }
     },
-    installLibraryFromSrc: {//keep
-        enumerable: true, value: async function (label, src, global) {
-            if (!src && label && this.env.sources[label]) src = this.env.sources[label]
-            label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
-            global ||= label
-            if (!this.env.libraries[label] && !document.querySelector(`script[src="${src}"]`)) {
-                const scriptTag = document.createElement('script')
-                scriptTag.setAttribute('src', src)
-                document.head.append(scriptTag)
-                await this.utils.waitUntil(() => window[global])
-                this.env.libraries[label] = window[global]
-            }
-            await this.utils.waitUntil(() => this.env.libraries[label])
+
+    mdDefaultHelper: {
+        enumerable: true, value: function (text, direction = 'parse') {
+            if (!this.env.libraries.md) return
+            const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
+                htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
+            for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+            for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
+            text = this.env.libraries.md.render(text)
+            for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+            for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
+            return text
         }
     },
-    installLibraryFromImport: {//keep
-        enumerable: true, value: async function (label, importName, doNew, src, cb, cbOptions = []) {
-            if (!src && label && this.env.sources[label]) src = this.env.sources[label]
-            label ||= src.split('/').pop().split('@')[0].replace('.min.js', '').replace('.js', '')
-            importName ||= label
-            if (!this.env.libraries[label]) {
-                let moduleImport = await import(src), importToInstall
-                if (importName in moduleImport) importToInstall = moduleImport[importName]
-                if (!importToInstall) return
-                this.env.libraries[label] = doNew ? new importToInstall() : importToInstall
-                if (typeof cb === 'function') {
-                    await cb(...cbOptions)
-                } else if (label === 'remarkable') {
-                    const plugin = (md, options) => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }), parser = (md, options) => {
-                        return (state) => {
-                            let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
-                            while (++i < tokens.length) {
-                                const token = tokens[i]
-                                for (const child of (token.children ?? [])) {
-                                    if (child.type !== 'text') return
-                                    if (exp.test(child.content)) child.type = 'htmltag'
-                                }
+    installMdDefaultHelper: {
+        enumerable: true, value: async function (label, importName, doNew, src) {
+            this.env.libraries.md ||= (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable,
+                plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
+                parser = md => {
+                    return (state) => {
+                        let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
+                        while (++i < tokens.length) {
+                            const token = tokens[i]
+                            for (const child of (token.children ?? [])) {
+                                if (child.type !== 'text') return
+                                if (exp.test(child.content)) child.type = 'htmltag'
                             }
                         }
                     }
-                    this.env.libraries.remarkable.use(plugin)
                 }
-            }
+            this.env.libraries.md.use(plugin)
+            this.env.libraries.md.set(this.env.options.md)
+            return this.mdDefaultHelper.bind(this)
         }
     },
+
+
+
+
+
 
 
 
@@ -926,19 +914,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
 
                 if (transform.includes('$markdown2Html(')) {
-                    await this.installLibraryFromImport('remarkable', 'Remarkable', true)
-                    let mdOptions = { ...this.env.options.remarkable }
-                    this.env.libraries.remarkable.set(mdOptions)
-                    bindings.markdown2Html = (text) => {
-                        const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]),
-                            htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
-                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                        for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                        text = this.env.libraries.remarkable.render(text)
-                        for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                        for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                        return text
-                    }
+                    this.env.helpers.md ||= await this.installMdDefaultHelper()
+                    bindings.markdown2Html = text => this.env.helpers.md(text)
                 }
 
                 if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
