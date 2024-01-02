@@ -505,29 +505,33 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 result._options = []
-                if (result.tag === 'form' || result.tag === 'fieldset') {
-                    result._ = result._named
-                } else if (result.tag === 'table') {
-                    result._ = result._rows
-                } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(result.tag)) {
-                    if (result.tag === 'input') {
-                        const type = value.getAttribute('type')
-                        if (type === 'checkbox') {
-                            result._ = value.checked
-                        } else if (type === 'radio') {
-                            result._ = value.selected
-                        } else { result._ = value.value }
-                    } else {
-                        result._ = value.value
-                    }
-                } else if (result.tag === 'time') {
-                    result._ = value.getAttribute('datetime')
-                } else if (result.tag === 'meta' && !value.hasAttribute('is')) {
-                    result._ = value.getAttribute('content')
-                } else if (value.hasAttribute('itemscope')) {
-                    result._ = result._itemprop
-                } else {
-                    result._ = innerText.trim()
+                switch (result.tag) {
+                    case 'form': case 'fieldset':
+                        result._ = result._named
+                        break
+                    case 'table':
+                        result._ = result._rows
+                        break
+                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
+                        if (result.tag === 'input') {
+                            const type = value.getAttribute('type')
+                            if (type === 'checkbox') {
+                                result._ = value.checked
+                            } else if (type === 'radio') {
+                                result._ = value.selected
+                            } else { result._ = value.value }
+                        } else {
+                            result._ = value.value
+                        }
+                        break
+                    case 'time':
+                        result._ = value.getAttribute('datetime')
+                        break
+                    case 'meta':
+                        result._ = value.getAttribute('content')
+                        break
+                    default:
+                        result._ = value.hasAttribute('itemscope') ? result._itemprop : innerText.trim()
                 }
                 if (result.tag === 'select' || result.tag === 'datalist') {
                     const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
