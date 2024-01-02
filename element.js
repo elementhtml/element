@@ -51,7 +51,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
-            getCustomTag: {//keep
+            getCustomTag: {
                 enumerable: true, value: function (element) {
                     return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                         || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
@@ -77,85 +77,49 @@ const ElementHTML = Object.defineProperties({}, {
                     if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
                 }
             },
-            resolveForElement: {//discard candidate
-                enumerable: true, value: function (element, tagName, conditions = {}, searchBody = false, equals = {}, startsWith = {}, includes = {}) {
-                    let resolved
-                    const testNode = (node, useConditions = false) => {
-                        if (useConditions) for (const [attrName, testValue] of Object.entries(conditions)) if (node.getAttribute(attrName) != testValue) return
-                        for (const [attrName, testValue] of Object.entries(equals)) if (node.getAttribute(attrName) == testValue) return node
-                        for (const [attrName, testValue] of Object.entries(startsWith)) if (node.getAttribute(attrName).startsWith(testValue)) return node
-                        for (const [attrName, testValue] of Object.entries(includes)) if (` ${node.getAttribute(attrName)} `.includes(testValue)) return node
-                        if (!Object.keys(equals).length && !Object.keys(startsWith).length && !Object.keys(includes).length) return node
-                    }, query = Object.keys(conditions).length ? `${tagName}[${Object.entries(conditions).map(e => e[0] + '="' + e[1] + '"').join('][')}]` : tagName
-                    for (const m of element.querySelectorAll(query)) if (resolved = testNode(m)) break
-                    if (resolved) return resolved
-                    const rootNode = element.shadowRoot || element.getRootNode()
-                    if (rootNode instanceof ShadowRoot) {
-                        for (const m of rootNode.querySelectorAll(query)) if (resolved = testNode(m)) break
-                        return resolved || this.resolveForElement(rootNode.host.getRootNode(), tagName, conditions, searchBody, equals, startsWith, includes)
-                    } else {
-                        for (const m of document.head.getElementsByTagName(tagName)) if (resolved = testNode(m, true)) break
-                        if (searchBody) for (const m of document.body.querySelectorAll(query)) if (resolved = testNode(m)) break
-                        return resolved
-                    }
-                }
-            },
-            resolveMeta: {//re-check - only used in legacy custom element tag resolution
-                enumerable: true, value: function (element, is, name) {
-                    let metaElement
-                    const rootNode = element.shadowRoot || element.getRootNode()
-                    return name ? rootNode.querySelector(`meta[is="${is}"][name="${name}"]`) : rootNode.querySelector(`meta[is="${is}"]`)
-                }
-            },
-            resolveScope: {//keep
+            resolveScope: {
                 enumerable: true, value: function (scopeStatement, element) {
                     if (!scopeStatement) return element.parentElement
-                    let scope
-                    if (scopeStatement === '$') {
-                        scope = element
-                    } else if (scopeStatement === ':') {
-                        const root = element.getRootNode()
-                        scope = (root instanceof ShadowRoot) ? root : document.body
-                    } else if (scopeStatement === '~') {
-                        const root = element.getRootNode()
-                        scope = (root instanceof ShadowRoot) ? root : document.head
-                    } else if (scopeStatement === '*') {
-                        scope = element.getRootNode()
-                        if (scope === document) scope = document.documentElement
-                    } else if (scopeStatement.startsWith('#')) {
-                        scope = document.documentElement
-                    } else if (scopeStatement === ':root') {
-                        scope = element.getRootNode()
-                        if (scope === document) scope = document.documentElement
-                    } else if (scopeStatement === ':host') {
-                        scope = element.getRootNode()
-                        if (scope instanceof ShadowRoot) scope = scope.host
-                        if (scope === document) scope = document.documentElement
-                    } else if (scopeStatement === ':document') {
-                        scope = document.documentElement
-                    } else if (scopeStatement === ':body') {
-                        scope = document.body
-                    } else if (scopeStatement === ':head') {
-                        scope = document.head
-                    } else { scope = element.closest(scopeStatement) }
-                    return scope
-                }
-            },
-            resolveSelector: {//keep
-                enumerable: true, value: function (selector, scope) {
-                    let selected
-                    if (!selector) {
-                        selected = scope
-                    } else if (selector.includes('{') && selector.endsWith('}')) {
-                        let [selectorStem, sig] = selector.split('{')
-                        selected = this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
-                    } else {
-                        selected = scope.querySelector(selector)
+                    let scope, root, prop
+                    switch (scopeStatement) {
+                        case '$':
+                            return element
+                        case ':':
+                            prop = 'body'
+                        case '~':
+                            prop ||= 'head'
+                            root = element.getRootNode()
+                            return (root instanceof ShadowRoot) ? root : document[prop]
+                        case '*':
+                        case ':root':
+                        case ':host':
+                            scope = element.getRootNode()
+                            if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
+                            return (scope === document) ? document.documentElement : scope
+                        case ':document':
+                            prop = 'documentElement'
+                        case ':body':
+                            prop ||= 'body'
+                        case ':head':
+                            prop ||= 'head'
+                            return document[prop]
+                        default:
+                            if (scopeStatement.startsWith('#')) return document.documentElement
+                            return element.closest(scopeStatement)
                     }
-                    return selected
                 }
             },
-            resolveScopedSelector: {//keep
+            resolveSelector: {
+                enumerable: true, value: function (selector, scope) {
+                    if (!selector) return scope
+                    if (selector.includes('{') && selector.endsWith('}')) {
+                        let [selectorStem, sig] = selector.split('{')
+                        return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
+                    }
+                    return scope.querySelector(selector)
+                }
+            },
+            resolveScopedSelector: {
                 enumerable: true, value: function (scopedSelector, element) {
                     let scope = element, selector = scopedSelector
                     if (selector.startsWith('#')) selector = `:document|${selector}`
@@ -177,7 +141,7 @@ const ElementHTML = Object.defineProperties({}, {
                     } else { return privateValue }
                 }
             },
-            sliceAndStep: {//keep
+            sliceAndStep: {
                 enumerable: true, value: function (sig, list) {
                     let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
                     if (end === 0) end = list.length
@@ -186,12 +150,12 @@ const ElementHTML = Object.defineProperties({}, {
                     return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
                 }
             },
-            wait: {//keep
+            wait: {
                 enumerable: true, value: async function (ms) {
-                    return new Promise((resolve) => setTimeout(resolve, ms))
+                    return new Promise(resolve => setTimeout(resolve, ms))
                 }
             },
-            waitUntil: {//keep
+            waitUntil: {
                 enumerable: true, value: async function (cb, ms = 100, max = 100) {
                     let count = 0
                     while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
@@ -239,12 +203,17 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of Object.keys(this.env)) {
-                if (packageContents[a] instanceof Object) {
-                    Object.assign(this.env[a], packageContents[a])
-                } else {
-                    this.env[a] = packageContents[a]
-                }
+            for (const a of Object.keys(this.env)) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
+        }
+    },
+
+    runElementMethod: {
+        enumerable: true, value: function (statement, arg, element) {
+            let [funcName, ...argsRest] = statement.split('(')
+            if (typeof element[funcName] === 'function') {
+                argsRest = argsRest.join('(').slice(0, -1)
+                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
+                return element[funcName](...argsRest, ...(Array.from(arg)))
             }
         }
     },
@@ -352,11 +321,11 @@ const ElementHTML = Object.defineProperties({}, {
                                 setProperty(k.slice(1), v, element)
                         }
                     case '`':
-                        let nestingTargets = this.utils.resolveScopedSelector(k.slice(1, -1), element)
-                        if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
+                        let nestingTargets = Array.from(this.utils.resolveScopedSelector(k.slice(1, -1), element) ?? [])
                         await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
                         continue
                     case '~':
+
                         this.env.variables[k.slice(1)] = v
                         continue
                     default:
@@ -366,7 +335,7 @@ const ElementHTML = Object.defineProperties({}, {
         },
     },
 
-    applyDataWithTemplate: {//keep
+    applyDataWithTemplate: {
         enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
@@ -394,17 +363,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else { nodesToApply.push([buildNode(useNode), data]) }
             element[insertPosition](...nodesToApply.map(n => n[0]))
             for (const n of nodesToApply) this.applyData(...n)
-        }
-    },
-
-    runElementMethod: {//keep
-        enumerable: true, value: function (statement, arg, element) {
-            let [funcName, ...argsRest] = statement.split('(')
-            if (typeof element[funcName] === 'function') {
-                argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
-                return element[funcName](...argsRest, ...(Array.isArray(arg) ? arg : [arg]))
-            }
         }
     },
 
@@ -973,7 +931,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [tag, id] in Object.entries(this.ids)) {
                 if (tag.includes('-')) continue
                 if (!this.tags[id]) { this.tags[id] = tag; continue }
-                if (!Array.isArray(this.tags[id])) this.tags[id] = Array.of(this.tags[id])
+                this.tags[id] = Array.from(this.tags[id])
                 this.tags[id].push(tag)
             }
             const classNames = Object.values(this.ids)
