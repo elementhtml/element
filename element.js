@@ -2,6 +2,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '0.9.8' },//keep
 
+    sys: {
+        enumerable: false, value: {
+
+        }
+    },
+
+
     env: {
         enumerable: true, value: {
             gateways: {//keep
@@ -15,33 +22,24 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             libraries: {},//keep
-            map: new WeakMap(),//re-check
             options: {
-                ajv: {//re-check
+                ajv: {
                     enumerable: true, value: {
                         allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
                         strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                     }
                 },
-                errors: 'hide',//keep
-                remarkable: {//keep
-                    html: true
-                },
-                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },//keep
-                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },//keep
-                elementPropertiesToFlatten: ['baseURI', 'checked', 'childElementCount', 'className',
-                    'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
-                    'id', 'innerHTML', 'innerText', 'lang', 'localName', 'name', 'namespaceURI',
-                    'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
-                    'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                    'selected', 'slot', 'tagName', 'textContent', 'title']//keep
+                errors: 'hide',
+                remarkable: { html: true },
+                security: { allowTemplateUseScripts: false, allowTemplateUseCustom: [] },
+                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }
             },
             schemas: {}, //keep
             sources: {//keep  
                 remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
             },
             cells: {},//keep
-            tagSpaces: {}, //keep
+            namespaces: {}, //keep
             transforms: {},//keep
             schemas: {},//keep            
             context: {} //keep 
@@ -202,7 +200,7 @@ const ElementHTML = Object.defineProperties({}, {
         })
     },
 
-    load: {//keep
+    load: {
         enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
                 if (this._globalNamespace) return
@@ -212,7 +210,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
                 Object.freeze(this.env.options.security)
-                Object.freeze(this.env.proxies)
                 Object.freeze(this.env.sources)
                 this.encapsulateNative()
             }
@@ -541,8 +538,6 @@ const ElementHTML = Object.defineProperties({}, {
             } else if (Array.isArray(value)) {
                 result = value.map(e => this.flatten(e, key))
             } else if (value instanceof HTMLElement) {
-                const override = (this.env.map.get(value) ?? {})['eFlatten']
-                if (override) return typeof override === 'function' ? override(value) : override
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
                     style = Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1] && (parseInt(ent[0]) != ent[0]))),
                     innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
