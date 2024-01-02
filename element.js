@@ -16,11 +16,6 @@ const ElementHTML = Object.defineProperties({}, {
             },
             libraries: {},//keep
             map: new WeakMap(),//re-check
-            modes: {//re-check - only really used in resolveUrl 
-                element: 'element/element.html', content: 'content/content.html', data: 'data/data.json',
-                theme: 'theme/theme.css', schema: 'schema/schema.schema.json', plugin: 'plugin/plugin.js',
-                publish: 'publish/manifest.json', pod: 'pod/db.js'
-            },
             options: {
                 ajv: {//re-check
                     enumerable: true, value: {
@@ -49,55 +44,10 @@ const ElementHTML = Object.defineProperties({}, {
             tagSpaces: {}, //keep
             transforms: {},//keep
             schemas: {},//keep            
-            context: {}, //keep 
-            workers: {}
+            context: {} //keep 
         }
     },
 
-    loaders: {
-        enumerable: true, value: Object.defineProperties({}, {
-            jsonata: {
-                enumerable: true, value: async function (init) {
-                    const workerCode = `
-                        importScripts('https://cdn.jsdelivr.net/npm/jsonata/jsonata.min.js')
-                        const transforms = {}, expressions = {}
-                        onmessage = async (message) => {
-                            const { id, op, payload } = message.data
-                            let { data, transform, bindings } = payload
-                            switch (op) {
-                                case 'load':
-                                    const transformKey = transform
-                                    if ((transformKey[0] === '\`') && transformKey.endsWith('\`')) {
-                                        transform = transforms[transformKey] ||= await fetch(transformKey.slice(1, -1).trim()).then(r => r.text().trim())
-                                    }
-                                    expressions[transformKey] ||= jsonata(transform)
-                                    for (const entry of Object.entries(bindings)) expressions[transformKey].assign(...entry)    
-                                    postMessage({ id })
-                                break
-                                case 'evaluate':
-                                    const result = expressions[transform].evaluate(data, bindings)    
-                                    postMessage({ id, result })
-                                break
-                            }
-                        }
-                    `, blob = new Blob([workerCode], { type: 'application/javascript' }), workerURL = URL.createObjectURL(blob),
-                        worker = new Worker(workerURL)
-                    URL.revokeObjectURL(workerURL)
-                    const p = []
-                    for (let [transform, bindings] of Object.entries(init)) {
-                        const abortController = new AbortController()
-                        p.push(new Promise(r => worker.addEventListener('message', event => {
-                            if (event.data.id === transform) abortController.abort() || r()
-                        }, { signal: abortController.signal })))
-                        if ((transform[0] === '`') && transform.endsWith('`')) transform = '`' + this.resolveUrl(transform.slice(1, -1).trim()) + '`'
-                        worker.postMessage({ id: transform, op: 'load', payload: { transform, bindings } })
-                    }
-                    await Promise.all(p)
-                    return worker
-                }
-            }
-        })
-    },
 
 
 
@@ -119,30 +69,6 @@ const ElementHTML = Object.defineProperties({}, {
                 enumerable: true, value: async function (cb, timeout) {
                     const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0))
                     return idle(cb, { timeout })
-                }
-            },
-            parseObjectAttribute: {//keep
-                enumerable: true, value: function (value, element) {
-                    let retval = ElementHTML.getVariable(value, value, {}, { context: {} }) // revisit this
-                    if (typeof retval === 'string') {
-                        if (retval[0] === '?') retval = decodeURIComponent(retval).slice(1)
-                        if ((retval[0] === '{') && (retval.slice(-1) === '}')) {
-                            try { retval = JSON.parse(retval) } catch (e) { console.log('line 114', e) }
-                        } else {
-                            try { retval = Object.fromEntries((new URLSearchParams(retval)).entries()) } catch (e) { }
-                        }
-                    }
-                    const recurse = (obj) => {
-                        for (const k in obj) {
-                            if (obj[k] instanceof Object) {
-                                recurse(obj[k])
-                            } else if (typeof obj[k] === 'string') {
-                                obj[k] = ElementHTML.getVariable(obj[k], obj[k], {}, { context: {} }) // revisit this
-                            }
-                        }
-                    }
-                    if (retval instanceof Object) recurse(retval)
-                    return retval
                 }
             },
             processError: {//keep
@@ -262,13 +188,6 @@ const ElementHTML = Object.defineProperties({}, {
                     return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
                 }
             },
-            splitOnce: {//re-check - only used in resolveUrl
-                enumerable: true, value: function (str, delimiter) {
-                    let r
-                    str.split(delimiter).some((e, i, a) => r = a.length <= 2 ? (a) : [a[0], a.slice(1).join(delimiter)])
-                    return r
-                }
-            },
             wait: {//keep
                 enumerable: true, value: async function (ms) {
                     return new Promise((resolve) => setTimeout(resolve, ms))
@@ -290,21 +209,8 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.defineProperty(this, '_globalNamespace', { value: crypto.randomUUID() })
                 Object.defineProperty(window, this._globalNamespace, { value: ElementHTML })
                 this.env.ElementHTML = this
-                const newModes = {}
-                for (const [mode, signature] of Object.entries(this.env.modes)) {
-                    let [path, pointer, ...suffix] = signature.split('/').map(s => s.split('.')).flat()
-                    suffix = suffix.join('.')
-                    Object.defineProperty(newModes, mode, {
-                        enumerable: true, value: Object.defineProperties({}, {
-                            path: { enumerable: true, value: path },
-                            pointer: { enumerable: true, value: pointer }, suffix: { enumerable: true, value: suffix }
-                        })
-                    })
-                }
-                this.env.modes = newModes
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
-                Object.freeze(this.env.modes)
                 Object.freeze(this.env.options.security)
                 Object.freeze(this.env.proxies)
                 Object.freeze(this.env.sources)
@@ -340,21 +246,18 @@ const ElementHTML = Object.defineProperties({}, {
             this.env.options.errors = mode
         }
     },
-    Expose: {//keep
-        enumerable: true, value: function (globalName = 'E') {
-            if (typeof globalName !== 'string') globalName = 'E'
-            if (!globalName) globalName = 'E'
-            if (globalName && !window[globalName]) window[globalName] = this
+    Expose: {
+        enumerable: true, value: function (name = 'E') {
+            if (!(name && typeof name === 'string')) name = 'E'
+            window[name] ||= this
         }
     },
-    ImportPackage: {//keep
+    ImportPackage: {
         enumerable: true, value: async function (packageObject) {
-            if (typeof packageObject !== 'object') return
-            let packageContents = packageObject.default ?? {}
+            let packageContents = packageObject?.default ?? {}
+            if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of ['gateways', 'options', 'sources', 'context']) {
-                if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
-            }
+            for (const a of Object.keys(this.env)) if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
         }
     },
 
@@ -552,7 +455,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType === 'text/md') {
                 await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                 let mdOptions = { ...this.env.options.remarkable }
-                if (sourceElement && sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                 this.env.libraries.remarkable.set(mdOptions)
                 const htmlBlocks = (text.match(new RegExp('<html>\\n+.*\\n+</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b]),
                     htmlSpans = (text.match(new RegExp('<html>.*</html>', 'g')) ?? []).map(b => [crypto.randomUUID(), b])
@@ -597,7 +499,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (contentType === 'text/md') {
                     await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                     let mdOptions = { ...this.env.options.remarkable }
-                    if (sourceElement && sourceElement.hasAttribute('md')) mdOptions = { ...mdOptions, ...Object.fromEntries((this.utils.parseObjectAttribute(sourceElement.getAttribute('md'), sourceElement) || {}).entries()) }
                     this.env.libraries.remarkable.set(mdOptions)
                     text = this.env.libraries.remarkable.render(text)
                 }
@@ -989,42 +890,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveUrl: {//keep
         enumerable: true, value: function (value, element) {
-            if (!element) {
-                if (!value.includes('://')) return value
-                if (!value.startsWith('http://') && !value.startsWith('https://')) {
-                    const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-                    value = typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
-                }
-                if (typeof value !== 'string') return value
-                return value
-            } else if (value.includes(':') && !value.includes('://')) {
-                let [routerName, routerPointer] = this.utils.splitOnce(value, ':'), router = this.utils.resolveMeta(element, 'e-router', routerName)
-                if ((routerPointer.startsWith('/') || routerPointer.startsWith('?') || routerPointer.startsWith('#'))) {
-                    const map = { '/': document.location.pathname.slice(1), '#': document.location.hash.slice(1), '?': document.location.search.slice(1) }
-                    if (routerPointer[0] === '?' && (routerPointer === '[') && (routerPointer.slice(-1) === ']')) {
-                        routerPointer = (new URLSearchParams(map[routerPointer[0]])).get(routerPointer.slice(2, -1))
-                    } else {
-                        if (routerPointer === routerPointer[0]) {
-                            routerPointer = map[routerPointer[0]]
-                        } else {
-                            try {
-                                routerPointer = map[routerPointer[0]].match(new RegExp(routerPointer.slice(1)))[0]
-                            } catch (e) { routerPointer = undefined }
-                        }
-                    }
-                }
-                const rewriteRules = element.rewriteRules
-                if (routerPointer && rewriteRules.length) for (const [rx, p] of rewriteRules) if ((rx instanceof RegExp) && routerPointer.match(rx)) return this.resolveUrl(p, element)
-                return router ? router[element._mode](routerPointer) : this.resolveUrl(new URL(`${element._mode}/${routerPointer || this.env.modes[element._mode].pointer}.${this.env.modes[element._mode].suffix}`, element.baseURI).href)
-            } else if (value.includes('/')) {
-                return this.resolveUrl(new URL(value, element.baseURI).href)
-            } else { return this.resolveUrl(new URL(`${element._mode}/${value}.${this.env.modes[element._mode].suffix}`, element.baseURI).href) }
-        }
-    },
-
-    loadTransform: {//keep
-        enumerable: true, value: async function (transform, variableMap = {}) {
-
+            if (typeof value !== 'string') return value
+            if (value.startsWith('https://') || value.startsWith('http://')) return value
+            if (value.includes('://')) {
+                const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
+                return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
+            }
+            return new URL(value, document.baseURI).href
         }
     },
 
@@ -1039,11 +911,16 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!transform) return data
             try {
-                // this.env.workers.jsonata.postMessage({ transform, data })
                 this.env.libraries.jsonata ||= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                 this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
                 expression ||= this.env.transforms[transformKey][1]
                 const bindings = {}
+
+                if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
+                if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
+                if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
+                if (transform.includes('$queryString(')) bindings.queryString = v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : ""
+
                 if (transform.includes('$is(')) {
                     bindings.is = (schemaName, data) => {
                         const schemaHandler = this.env.schemas[schemaName]
@@ -1052,12 +929,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return { valid, errors }
                     }
                 }
-                if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
-                if (transform.includes('$stop(')) bindings.stop = v => v
-                if (transform.includes('$getCell(')) bindings.getCell = name => name ? { name, value: this.getCell(name).get() } : undefined
-                if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
-                if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
-                if (transform.includes('$queryString(')) bindings.queryString = v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : ""
+
                 if (transform.includes('$markdown2Html(')) {
                     await this.installLibraryFromImport('remarkable', 'Remarkable', true)
                     let mdOptions = { ...this.env.options.remarkable }
@@ -1073,16 +945,17 @@ const ElementHTML = Object.defineProperties({}, {
                         return text
                     }
                 }
-                const date = new Date(),
-                    dateMethods = ['toDateString', 'toString', 'valueOf', 'toISOString', 'toLocaleDateString', 'toLocaleString', 'toLocaleTimeString', 'toTimeString', 'toUTCString']
-                for (const dm of dateMethods) if (transform.includes(`$Date${dm}`)) bindings[`Date${dm}`] = date[dm]
+
                 if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+
                 if (element && transform.includes('$this')) bindings.this = this.flatten(element)
                 if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
                 if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
                 const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
                 for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
+
                 for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
+
                 const result = await expression.evaluate(data, bindings)
                 return result
             } catch (e) {
@@ -1280,20 +1153,20 @@ const ElementHTML = Object.defineProperties({}, {
     }
 })
 
-let metaUrl = new URL(import.meta.url), metaOptions = (ElementHTML.utils.parseObjectAttribute(metaUrl.search) || {})
-if (metaOptions.packages) {
+const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
+if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
-    const imports = importmap.imports ?? {}
-    for (const p of metaOptions.packages.split(',').map(s => s.trim())) {
+    const imports = importmap.imports ?? {}, importPromises = []
+    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) {
         if (!p) continue
-        if ((typeof imports[p] === 'string') && imports[p].includes('/')) p = ElementHTML.resolveUrl(imports[p])
-        await ElementHTML.ImportPackage(await import(p))
+        if ((typeof imports[p] === 'string') && imports[p].includes('/')) importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
     }
+    await Promise.all(importPromises)
+    for (const p of importPromises) await ElementHTML.ImportPackage(p)
 }
-let expose = metaOptions.Expose ?? metaOptions.expose ?? (('Expose' in metaOptions) || ('expose' in metaOptions))
-if (expose != undefined) await ElementHTML.Expose(expose)
-if (('Load' in metaOptions) || ('load' in metaOptions)) await ElementHTML.load()
+if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
+if (metaOptions.has('load')) await ElementHTML.load()
 
 export { ElementHTML }

@@ -40,11 +40,11 @@
             this.#fieldNames = Object.freeze(app.fieldNames ?? [])
             this.#cellNames = Object.freeze(app.cellNames ?? [])
             this.#statements = Object.freeze(app.statements ?? [])
-            const p = []
-            for (const [workerName, workerInit] of Object.entries(app.workers ?? {})) {
-                p.push(this.E.loaders[workerName](workerInit).then(worker => this.E.env.workers[workerName] = worker))
-            }
-            await Promise.all(p)
+            // const p = []
+            // for (const [workerName, workerInit] of Object.entries(app.workers ?? {})) {
+            //     p.push(this.E.loaders[workerName](workerInit).then(worker => this.E.env.workers[workerName] = worker))
+            // }
+            // await Promise.all(p)
         }
 
         run() {
