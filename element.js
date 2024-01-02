@@ -1,5 +1,5 @@
 const ElementHTML = Object.defineProperties({}, {
-    version: { enumerable: true, value: '0.9.8' },
+    version: { enumerable: true, value: '0.9.9' },
     sys: {
         enumerable: false, value: {
             defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
@@ -12,7 +12,10 @@ const ElementHTML = Object.defineProperties({}, {
                 classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
                 isNumeric: /^[0-9\.]+$/,
-                hasVariable: /\$\{(.*?)\}/g
+                hasVariable: /\$\{(.*?)\}/g,
+                isJSONObject: /^\s*{.*}$/,
+                isFormString: /^\w+=.+&.*$/,
+                isDataUrl: /data:([\w/\-\.]+);/
             }
         }
     },
@@ -125,16 +128,6 @@ const ElementHTML = Object.defineProperties({}, {
                         selector = selectorStatement
                     }
                     return this.resolveSelector(selector, scope)
-                }
-            },
-            safeGet: {//keep
-                enumerable: true, value: function (element, privateValue, attrName, propName) {
-                    propName ||= attrName
-                    const attr = element.getAttribute(attrName)
-                    if (privateValue !== attr) {
-                        element[propName] = attr
-                        return attr
-                    } else { return privateValue }
                 }
             },
             sliceAndStep: {

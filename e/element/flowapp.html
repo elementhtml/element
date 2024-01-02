@@ -15,8 +15,7 @@
                         Object.freeze(statement)
                     }
                     this.load(app)
-                })
-                .then(() => this.run())
+                }).then(() => this.run())
         }
 
         async #parse(code) {

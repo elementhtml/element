@@ -5,6 +5,10 @@
 <script>
     export default class extends `./flow` {
 
+        static labelRegExp = /^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/
+        static defaultValueRegExp = /\s+\?\?\s+(.+)\s*$/
+        static splitter = /\n(?!\s+>>)/gm
+
         connectedCallback() {
             const src = this.src
             Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
@@ -12,11 +16,9 @@
         }
 
         compile(code) {
-            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [],
-                handlerMap = {}, labelRegExp = /^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
-                defaultValueRegExp = /\s+\?\?\s+(.+)\s*$/
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}
             let statementIndex = -1
-            for (let directive of code.split(/\n(?!\s+>>)/gm)) {
+            for (let directive of code.split(this.constructor.splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 3) === '|* ')) continue
                 statementIndex = statementIndex + 1
@@ -27,16 +29,16 @@
                     if (!segment) continue
                     const step = []
                     let handlerExpression = segment, label, defaultExpression
-                    const labelMatch = handlerExpression.match(labelRegExp)
+                    const labelMatch = handlerExpression.match(this.constructor.labelRegExp)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
                     }
-                    const defaultExpressionMatch = handlerExpression.match(defaultValueRegExp)
+                    const defaultExpressionMatch = handlerExpression.match(this.constructor.defaultValueRegExp)
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                        if (defaultExpression && defaultExpression[0] === '#') {
+                        if (defaultExpression[0] === '#') {
                             const cn = defaultExpression.slice(1).trim()
                             if (cn) cellNames.add(cn)
                         }
@@ -53,78 +55,68 @@
                     switch (label[0]) {
                         case '%':
                             let fn = label.slice(1).trim()
-                            if (fn) fieldNames.add(label.slice(1))
+                            if (fn) fieldNames.add(fn)
                             break
                         case '#':
                             const cn = label.slice(1).trim()
-                            if (cn) cellNames.add(label.slice(1))
+                            if (cn) cellNames.add(cn)
                             break
                         default:
                             const ln = label.trim()
-                            if (ln) statement.labels[label] = undefined
+                            if (ln) statement.labels[ln] = undefined
                     }
                     let handler, handlerIndex
                     const handlerSignature = handlerExpression
                     stepIndex = stepIndex + 1
-                    if ((handlerExpression === '#') || (handlerExpression === '?') || (handlerExpression === '/') || (handlerExpression === ':')) {
-                        handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
-                    } else {
-                        switch (handlerExpression[0]) {
-                            case '`':
-                                handler = this.#parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
-                                break
-                            case '/':
-                                handler = this.#parseRegExpExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
-                                break
-                            case '"':
-                            case "'":
-                                handler = this.#parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
-                                break
-                            case "#":
-                            case "%":
-                                let addedFieldNames, addedCellNames
-                                [handler, addedFieldNames, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1),
-                                    handlerExpression[0], statementIndex, stepIndex)
-                                for (const addedName of addedFieldNames) fieldNames.add(addedName)
-                                for (const addedName of addedCellNames) cellNames.add(addedName)
-                                break
-                            case "$":
-                                if (handlerExpression[1] === "{") {
-                                    handler = this.#parseVariableExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
-                                } else if (handlerExpression[1] === "(") {
-                                    handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
-                                }
-                                break
-                            case "(":
-                                handler = this.#parseTransformExpression(handlerExpression, statementIndex, stepIndex)
-                                break
-                            case "{":
-                            case "[":
-                                handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
-                                break
-                            case "n":
-                            case "t":
-                            case "f":
-                            case "0":
-                            case "1":
-                            case "2":
-                            case "3":
-                            case "4":
-                            case "5":
-                            case "6":
-                            case "7":
-                            case "7":
-                            case "9":
-                                if (handlerExpression === 'null' || handlerExpression === 'true' || handlerExpression === 'false'
-                                    || handlerExpression.match(/^[0-9\.]+$/)) {
+                    switch (handlerExpression) {
+                        case '#': case '?': case '/': case ':':
+                            handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
+                            break
+                        default:
+                            switch (handlerExpression[0]) {
+                                case '`':
+                                    handler = this.#parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case '/':
+                                    handler = this.#parseRegExpExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case '"': case "'":
+                                    handler = this.#parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case "#": case "%":
+                                    let addedFieldNames, addedCellNames
+                                    [handler, addedFieldNames, addedCellNames] = this.#parseFieldOrCellExpression(handlerExpression.slice(1),
+                                        handlerExpression[0], statementIndex, stepIndex)
+                                    for (const addedName of addedFieldNames) fieldNames.add(addedName)
+                                    for (const addedName of addedCellNames) cellNames.add(addedName)
+                                    break
+                                case "$":
+                                    if (handlerExpression[1] === "{") {
+                                        handler = this.#parseVariableExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
+                                    } else if (handlerExpression[1] === "(") {
+                                        handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
+                                    }
+                                    break
+                                case "(":
+                                    handler = this.#parseTransformExpression(handlerExpression, statementIndex, stepIndex)
+                                    break
+                                case "{": case "[":
                                     handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     break
-                                }
-                            case '~':
-                                if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
-                            default:
-                                handler = this.#parseRemoteExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
-                        }
+                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
+                                    let t
+                                    switch (handlerExpression) {
+                                        case 'null': case 'true': case 'false':
+                                            t = true
+                                        default:
+                                            if (t || handlerExpression.match(this.E.sys.regexp.isNumeric)) handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
+                                    }
+                                    break
+                                case '~':
+                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
+                                default:
+                                    handler = this.#parseRemoteExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                            }
                     }
                     handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
                     step.push(handlerIndex)
@@ -161,24 +153,21 @@
                         if (value != undefined && (typeof value === 'string')) document.location[prop] = value
                         return document.location[prop]
                     case ':':
-                        if (typeof value === 'string') {
-                            document.location = value
-                        } else if (value instanceof Object) {
-                            for (const [k, v] of Object.entries(value)) {
-                                if (k.includes('(') && k.endsWith(')')) {
-                                    let funcName = k.trim().slice(0, -2).trim()
-                                    if (funcName === 'assign') {
-                                        document.location.assign(v)
-                                    } else if (funcName === 'reload') {
-                                        document.location.reload()
-                                    } else if (funcName === 'replace') {
-                                        document.location.replace()
+                        switch (typeof value) {
+                            case 'string':
+                                document.location = value
+                                break
+                            case 'object':
+                                if (!value) break
+                                for (const [k, v] of Object.entries(value)) {
+                                    if (k.endsWith(')') && k.includes('(')) {
+                                        let funcName = k.trim().slice(0, -2).trim()
+                                        document.location[funcName](funcName === 'assign' ? v : undefined)
+                                    } else if (typeof v === 'string') {
+                                        document.location[k] = v
+                                        break
                                     }
-                                } else if (typeof v === 'string') {
-                                    document.location[k] = v
-                                    break
                                 }
-                            }
                         }
                         return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
                 }
@@ -361,11 +350,7 @@
                 if (!url) return
                 const options = {}
                 if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
-                    if (value instanceof Object && (value.method || value.body)) {
-                        Object.assign(options, value)
-                    } else if (value) {
-                        Object.assign(options, { method: 'POST', body: value })
-                    }
+                    Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
                     if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
                         options.headers ||= {}
                         options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
@@ -373,13 +358,12 @@
                         delete options.contentType
                         if (!options.headers['Content-Type']) {
                             if (typeof options.body === 'string') {
-                                if (['null', 'true', 'false'].includes(options.body) || /^[0-9\.]+$/.test(options.body) || /^\s*{.*}$/.test(options.body)) {
+                                if (['null', 'true', 'false'].includes(options.body) || this.E.sys.regexp.isNumeric.test(options.body) || this.E.sys.regexp.isJSONObject.test(options.body)) {
                                     options.headers['Content-Type'] = 'application/json'
-                                } else if (/^\w+=.+&.*$/.test(options.body)) {
+                                } else if (this.E.sys.regexp.isFormString.test(options.body)) {
                                     options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-                                } else {
-                                    const dataUrlRegex = /data:([\w/\-\.]+);/
-                                    if (dataUrlRegex.test(options.body)) options.headers['Content-Type'] = dataUrlRegex.exec(options.body)[1]
+                                } else if (this.E.sys.regexp.isDataUrl.test(options.body)) {
+                                    options.headers['Content-Type'] = this.E.sys.regexp.isDataUrl.exec(options.body)[1]
                                 }
                             } else {
                                 options.headers['Content-Type'] = 'application/json'
