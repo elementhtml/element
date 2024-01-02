@@ -1,21 +1,20 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '0.9.8' },//keep
+    version: { enumerable: true, value: '0.9.8' },
 
     sys: {
         enumerable: false, value: {
             regexp: {
+                extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
                 htmlBlocks: /<html>\n+.*\n+<\/html>/g,
                 htmlSpans: /<html>.*<\/html>/g
             }
-
         }
     },
 
-
     env: {
         enumerable: true, value: {
-            gateways: {//keep
+            gateways: {
                 ipfs: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
                     return `https://${cid}.ipfs.dweb.link/${path.join('/')}}`
@@ -25,8 +24,8 @@ const ElementHTML = Object.defineProperties({}, {
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
                 }
             },
-            helpers: {},//keep
-            libraries: {},//keep
+            helpers: {},
+            libraries: {},
             options: {
                 ajv: {
                     enumerable: true, value: {
@@ -34,21 +33,17 @@ const ElementHTML = Object.defineProperties({}, {
                         strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                     }
                 },
-                errors: 'hide',
                 remarkable: { html: true },
                 defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }
             },
-            schemas: {}, //keep
-            cells: {},//keep
-            namespaces: {}, //keep
-            transforms: {},//keep
-            schemas: {},//keep            
-            context: {} //keep 
+            schemas: {},
+            cells: {},
+            namespaces: {},
+            transforms: {},
+            schemas: {},
+            context: {}
         }
     },
-
-
-
 
     utils: {
         enumerable: true, value: Object.defineProperties({}, {
@@ -228,16 +223,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Errors: {//keep
-        enumerable: true, value: function (mode = 'hide') {
-            mode = ['throw', 'show', 'hide'].includes(mode) ? mode : 'hide'
-            this.env.options.errors = mode
-        }
-    },
     Expose: {
         enumerable: true, value: function (name = 'E') {
             if (!(name && typeof name === 'string')) name = 'E'
             window[name] ||= this
+            this.env.errors = true
         }
     },
     ImportPackage: {
@@ -245,7 +235,13 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of Object.keys(this.env)) if (packageContents[a] instanceof Object) Object.assign(this.env[a], packageContents[a])
+            for (const a of Object.keys(this.env)) {
+                if (packageContents[a] instanceof Object) {
+                    Object.assign(this.env[a], packageContents[a])
+                } else {
+                    this.env[a] = packageContents[a]
+                }
+            }
         }
     },
 
@@ -634,7 +630,7 @@ const ElementHTML = Object.defineProperties({}, {
             return result
         }
     },
-    getInheritance: {//keep
+    getInheritance: {
         enumerable: true, value: function (id = 'HTMLElement') {
             const inheritance = [id]
             while (id && this.extends[id]) inheritance.push(id = this.extends[id])
@@ -926,7 +922,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     sortByInheritance: {//keep
-        enumerable: true, writable: false, value: function (idList) {
+        enumerable: true, value: function (idList) {
             return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
                 ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
                 .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
@@ -949,7 +945,7 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {//keep
         value: async function (tag, element, forceReload = false) {
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
-            const id = await this.getTagId(tag, element);
+            const id = this.getTagId(tag);
             [this.ids[tag], this.tags[id]] = [id, tag]
             const loadResult = await this.loadTagAssetsFromId(id, forceReload)
             if (!loadResult) return
@@ -986,16 +982,16 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getTagId: {//keep
-        value: async function (tag, element) {
+    getTagId: {
+        value: function (tag) {
             if (this.ids[tag]) return this.ids[tag]
-            const [routerName, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
-            let tagRouter = this.utils.resolveMeta(element, 'e-router', routerName)
-            return await tagRouter?.element(pointer) || (new URL(`./${(routerName)}/element/${pointer}.html`,
-                routerName === 'e' ? import.meta.url : element.baseURI)).href
+            const [namespace, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
+            if (namespace === 'e') return (new URL(`./e/element/${pointer}.html`, import.meta.url)).href
+            if (!this.env.namespaces[namespace]) return
+            return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
         }
     },
-    loadTagAssetsFromId: {//keep
+    loadTagAssetsFromId: {
         value: async function (id, forceReload = false) {
             if (!id || !id.includes('://')) return
             if (!forceReload && this.files[id]) return true
@@ -1005,20 +1001,18 @@ const ElementHTML = Object.defineProperties({}, {
             this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
             this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>') + 10, this.files[id].indexOf('</template>')).trim()
             this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>') + 8, this.files[id].indexOf('</script>')).trim()
-            const extendsRegExp = /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, ElementHTML = this
-            let extendsId = this.scripts[id].match(extendsRegExp)?.groups?.extends || 'HTMLElement'
-            if (extendsId) {
-                if (extendsId.startsWith('e-')) {
-                    extendsId = await this.getTagId(extendsId)
-                } else if (extendsId.includes('/')) {
-                    if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
-                    if (!extendsId.endsWith('.html')) extendsId += '.html'
-                }
-                this.extends[id] = extendsId
-                this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
-                if (!this.files[extendsId] && extendsId.includes('/')) return
+            const ElementHTML = this
+            let extendsId = this.scripts[id].match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
+            if (extendsId.startsWith('e-')) {
+                extendsId = this.getTagId(extendsId)
+            } else if (extendsId.includes('/')) {
+                if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
+                if (!extendsId.endsWith('.html')) extendsId += '.html'
             }
-            const sanitizedScript = this.scripts[id].replace(extendsRegExp, `class extends ElementHTML.constructors['${extendsId}'] {`),
+            this.extends[id] = extendsId
+            this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
+            if (!this.files[extendsId] && extendsId.includes('/')) return
+            const sanitizedScript = this.scripts[id].replace(this.sys.regexp.extends, `class extends ElementHTML.constructors['${extendsId}'] {`),
                 sanitizedScriptAsModule = `const ElementHTML = globalThis['${this._globalNamespace}']; export default ${sanitizedScript}`,
                 sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
                 classModule = await import(sanitizedScriptAsUrl)
