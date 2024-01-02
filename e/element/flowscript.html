@@ -299,7 +299,7 @@
             if (!scope) return []
             let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
             if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-            const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.env.options.defaultEventTypes).concat(['click']))),
+            const eventNames = eventList ?? Array.from(new Set(Object.values(this.E.sys.defaultEventTypes).concat(['click']))),
                 eventKey = `${statementIndex}-${stepIndex}`
             this.keyedAbortControllers[eventKey] = new AbortController()
             for (let eventName of eventNames) {
@@ -310,7 +310,7 @@
                         const target = this.E.utils.resolveSelector(selector, scope)
                         if (!target || (Array.isArray(target) && !target.length)) return
                     } else if (selector && !event.target.matches(selector)) { return }
-                    if (!eventList && (event.type !== (this.E.env.options.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                    if (!eventList && (event.type !== (this.E.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
                     if (!keepDefault) event.preventDefault()
                     this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target, undefined, event) }))
                 }, { signal: this.keyedAbortControllers[eventKey].signal })

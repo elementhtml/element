@@ -4,10 +4,15 @@ const ElementHTML = Object.defineProperties({}, {
 
     sys: {
         enumerable: false, value: {
+            defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
             regexp: {
                 extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
                 htmlBlocks: /<html>\n+.*\n+<\/html>/g,
-                htmlSpans: /<html>.*<\/html>/g
+                htmlSpans: /<html>.*<\/html>/g,
+                tagMatch: /^[a-z0-9\-]+/g,
+                idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
+                classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g
             }
         }
     },
@@ -34,7 +39,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 },
                 remarkable: { html: true },
-                defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }
             },
             schemas: {},
             cells: {},
@@ -245,116 +249,116 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    applyData: {//keep
-        enumerable: true, value: async function (element, data, silent) {
+    applyData: {
+        enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
             if (data === null) return
-            if (!(data instanceof Object)) {
-                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-                if (tag === 'meta') {
-                    data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                } else if (['data', 'meter', 'input', 'select', 'textarea'].includes(tag)) {
-                    element.value = data
-                } else if (['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].includes(tag)) {
-                    data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
-                } else if (['area', 'link'].includes(tag)) {
-                    data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
-                } else if (tag === 'object') {
-                    data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
-                } else {
-                    if (typeof data === 'string') {
-                        element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
-                    } else {
-                        element.textContent = (data == undefined) ? '' : data
-                    }
+            const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+            if (typeof data !== 'object') {
+                switch (tag) {
+                    case 'meta':
+                        return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
+                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
+                        return element.value = data
+                    case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
+                        return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
+                    case 'area': case 'link':
+                        return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
+                    case 'object':
+                        return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
+                    default:
+                        if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
+                        return element.textContent = (data == undefined) ? '' : data
                 }
-                return
             }
             const setProperty = (k, v, element) => {
                 if (k.includes('(') && k.endsWith(')')) {
-                    if (v != undefined) {
-                        this.runElementMethod(k, v, element)
-                    }
-                } else {
-                    if (v === undefined) {
-                        delete element[k]
-                    } else { element[k] = v }
+                    return v != undefined ? this.runElementMethod(k, v, element) : undefined
+                } else if (v === undefined) {
+                    return delete element[k]
                 }
+                element[k] = v
             }
             for (const [k, v] of Object.entries(data)) {
                 if (!k) continue
                 switch (k[0]) {
                     case '#':
                         if (k === '#') element.setAttribute('id', v)
-                        break
+                        continue
                     case '&':
                         const className = k.slice(1)
                         if (!className) continue
                         element.classList.toggle(className, v)
-                        break
+                        continue
                     case '^':
                         const styleRule = k.slice(1)
                         if (!styleRule) continue
-                        if (v === null) {
-                            element.style.removeProperty(styleRule)
-                        } else {
-                            element.style.setProperty(styleRule, v)
-                        }
-                        break
+                        element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
+                        continue
                     case '@':
-                        if (v === null) {
-                            element.removeAttribute(k.slice(1))
-                        } else if ((v === true) || (v === false)) {
-                            element.toggleAttribute(k.slice(1), v)
-                        } else { element.setAttribute(k.slice(1), v) }
-                        break
+                        const kSlice1 = k.slice(1)
+                        switch (v) {
+                            case true: case false:
+                                element.toggleAttribute(kSlice1, v)
+                                continue
+                            case null:
+                                element.removeAttribute(kSlice1)
+                                continue
+                            default:
+                                element.setAttribute(kSlice1, v)
+                                continue
+                        }
                     case '!':
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = this.env.options.defaultEventTypes[element.tagName.toLowerCase()] ?? 'click'
-                        if (v === null) {
-                            element.addEventListener(eventName, event => event.preventDefault(), { once: true })
-                        } else {
-                            element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
-                        }
-                        break
+                        if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
+                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        continue
                     case '.':
                     case '<':
                         if (!v) { element.replaceChildren(); continue }
-                        if (k === '<>') {
-                            element.innerHTML = v
-                        } else if (k[0] === '<' && k.slice(-1) === '>') {
-                            const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
-                            let renderExpression = k.slice(1, -1), insertSelector,
-                                posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
-                            if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
-                            if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
-                                const useTemplate = this.utils.resolveScopedSelector(renderExpression.slice(1, -1), element)
-                                if (useTemplate) this.applyDataWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
-                            } else {
-                                const tagMatch = renderExpression.match(/^[a-z0-9\-]+/g) ?? [],
-                                    idMatch = renderExpression.match(/(\#[a-zA-Z0-9\-]+)+/g) ?? [], classMatch = renderExpression.match(/(\.[a-zA-Z0-9\-]+)+/g) ?? [],
-                                    attrMatch = renderExpression.match(/\[[a-zA-Z0-9\-\= ]+\]/g) ?? []
-                                this.applyDataWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
-                                    (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
-                                    Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
-                                )
-                            }
-                        } else if (k === '.') {
-                            element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
-                        } else if (k === '..') {
-                            element.textContent = v
-                        } else if (k === '...') {
-                            element.innerText = v
-                        } else { setProperty(k.slice(1), v, element) }
-                        break
+                        switch (k) {
+                            case '<>':
+                                element.innerHTML = v
+                                continue
+                            case '.':
+                                element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
+                                continue
+                            case '..':
+                                element.textContent = v
+                                continue
+                            case '...':
+                                element.innerText = v
+                                continue
+                            default:
+                                if (k[0] === '<' && k.slice(-1) === '>') {
+                                    const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
+                                    let renderExpression = k.slice(1, -1), insertSelector,
+                                        posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
+                                    if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
+                                    if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
+                                        const useTemplate = this.utils.resolveScopedSelector(renderExpression.slice(1, -1), element)
+                                        if (useTemplate) this.applyDataWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
+                                        continue
+                                    }
+                                    const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
+                                        idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
+                                        attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
+                                    this.applyDataWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
+                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
+                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
+                                    )
+                                    continue
+                                }
+                                setProperty(k.slice(1), v, element)
+                        }
                     case '`':
                         let nestingTargets = this.utils.resolveScopedSelector(k.slice(1, -1), element)
                         if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
-                        await Promise.all(nestingTargets.map(t => this.applyData(t, v, silent)))
-                        break
+                        await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
+                        continue
                     case '~':
                         this.env.variables[k.slice(1)] = v
-                        break
+                        continue
                     default:
                         setProperty(k, v, element)
                 }
