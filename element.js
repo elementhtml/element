@@ -321,7 +321,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 setProperty(k.slice(1), v, element)
                         }
                     case '`':
-                        let nestingTargets = Array.from(this.utils.resolveScopedSelector(k.slice(1, -1), element) ?? [])
+                        let nestingTargets = Array.of(this.utils.resolveScopedSelector(k.slice(1, -1), element) ?? [])
                         await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
                         continue
                     case '~':
@@ -366,14 +366,12 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    parse: {//keep
-        enumerable: true, value: async function (input, sourceElement, contentType) {
+    parse: {
+        enumerable: true, value: async function (input, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
             if (!typeCheck && (input instanceof Object)) return input
             input = typeCheck ? input : `${input}`
             if (!contentType) {
-                contentType = sourceElement
-                    ? (sourceElement.getAttribute('content-type') || (sourceElement.optionsMap ?? {})['Content-Type'] || sourceElement._contentType || undefined) : undefined
                 if (!contentType && (input instanceof Response)) {
                     contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
                     contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
@@ -398,15 +396,11 @@ const ElementHTML = Object.defineProperties({}, {
             if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
             if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
             let text = ((input instanceof Response) ? await input.text() : input).trim()
+            if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
+            if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
             if (contentType === 'text/md') {
                 this.env.helpers.md ||= await this.installMdDefaultHelper()
                 return this.env.helpers.md(text, 'parse', this)
-            }
-            if (contentType && contentType.includes('form')) {
-                return Object.fromEntries((new URLSearchParams(text)).entries())
-            }
-            if (contentType === 'text/css') {
-                return await (new CSSStyleSheet()).replace(text)
             }
             if (contentType === 'application/hjson') {
                 this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
@@ -423,11 +417,9 @@ const ElementHTML = Object.defineProperties({}, {
             return text
         }
     },
-    serialize: {//keep
-        enumerable: true, value: async function (input, sourceElement, contentType) {
+    serialize: {
+        enumerable: true, value: async function (input, contentType) {
             if (typeof input === 'string') return input
-            contentType ||= sourceElement
-                ? sourceElement.getAttribute('content-type') || (sourceElement?.optionsMap ?? {})['Content-Type'] || sourceElement?._contentType || 'application/json' : undefined
             if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
             if (contentType === 'text/html' || contentType === 'text/md') {
@@ -439,9 +431,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return text
             }
-            if (contentType && contentType.includes('form')) {
-                return (new URLSearchParams(input)).toString()
-            }
+            if (contentType && contentType.includes('form')) return (new URLSearchParams(input)).toString()
             if (contentType === 'text/css') {
                 if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
                 if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
@@ -462,20 +452,18 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    flatten: {//keep
+    flatten: {
         enumerable: true, value: function (value, key, event) {
-            let result
             const compile = (plain, complex = []) => {
                 return {
                     ...Object.fromEntries(plain.filter(p => value[p] !== undefined).map(p => ([p, value[p]]))),
                     ...Object.fromEntries(complex.filter(p => value[p] !== undefined).map(p => ([p, this.flatten(value[p])])))
                 }
             }
-            if (!(value instanceof Object)) {
-                result = value
-            } else if (Array.isArray(value)) {
-                result = value.map(e => this.flatten(e, key))
-            } else if (value instanceof HTMLElement) {
+            if (typeof value !== 'object') return value
+            if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
+            if (value instanceof HTMLElement) {
+                let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
                     style = Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1] && (parseInt(ent[0]) != ent[0]))),
                     innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
@@ -553,9 +541,10 @@ const ElementHTML = Object.defineProperties({}, {
                     class: value.closest('[class]')?.getAttribute('class'),
                 }
                 if (event instanceof Event) result._event = this.flatten(event)
-            } else if (value instanceof Event) {
-                //console.log('line 834', value)
-                result = compile(
+                return result
+            }
+            if (value instanceof Event) {
+                return compile(
                     ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
                         'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
                         'acceleration', 'accelerationIncludingGravity', 'interval', 'rotationRate',
@@ -570,26 +559,15 @@ const ElementHTML = Object.defineProperties({}, {
                     ],
                     ['currentTarget', 'target', 'data', 'clipboardData', 'detail', 'dataTransfer', 'relatedTarget', 'formData', 'submitter']
                 )
-            } else if (value instanceof Blob) {
-                result = compile(['size', 'type'])
-            } else if (value instanceof DataTransfer) {
-                result = compile(['dropEffect', 'effectAllowed', 'types'])
-            } else if (value instanceof FormData) {
-                result = Object.fromEntries(value.entries())
-            } else if (value instanceof Request) {
-                // something
-            } else if (value instanceof Response) {
-                return {
-                    _: this.E.parse(value),
-                    ok: value.ok,
-                    status: value.status,
-                    headers: Object.fromEntries(value.headers.entries())
-                }
-            } else if (value instanceof Object) {
-                result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
-                result = key ? result[key] : result
             }
-            return result
+            if (value instanceof Blob) return compile(['size', 'type'])
+            if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
+            if (value instanceof FormData) return Object.fromEntries(value.entries())
+            if (value instanceof Response) return { _: this.E.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
+            if (value instanceof Object) {
+                let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
+                return key ? result[key] : result
+            }
         }
     },
     getInheritance: {
