@@ -39,9 +39,6 @@ const ElementHTML = Object.defineProperties({}, {
                 defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }
             },
             schemas: {}, //keep
-            sources: {//keep  
-                remarkable: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm'
-            },
             cells: {},//keep
             namespaces: {}, //keep
             transforms: {},//keep
@@ -213,7 +210,6 @@ const ElementHTML = Object.defineProperties({}, {
                 this.env.ElementHTML = this
                 Object.freeze(this.env)
                 Object.freeze(this.env.gateways)
-                Object.freeze(this.env.options.security)
                 Object.freeze(this.env.sources)
                 this.encapsulateNative()
             }
@@ -221,23 +217,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (rootElement && !rootElement.shadowRoot) return
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this
-            for (const element of domTraverser.call(domRoot, '*')) if (this.utils.getCustomTag(element)) await this.load(element)
-            const parseHeadMeta = (addedNode) => {
-                const addedNodeMatches = addedNode.matches('title') ? 'title' : (addedNode.matches('meta[content][name]') ? 'meta' : false)
-                let property, value
-                if (addedNodeMatches === 'title') [property, value] = ['title', addedNode.textContent]
-                if (addedNodeMatches === 'meta') [property, value] = [addedNode.getAttribute('name'), addedNode.getAttribute('content')]
-                if (!addedNodeMatches) return
-            }
+            for (const element of domTraverser.call(domRoot, '*')) if (this.utils.getCustomTag(element)) this.load(element)
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) for (const addedNode of (record.addedNodes || [])) {
-                    if (this.utils.getCustomTag(addedNode)) await this.load(addedNode)
-                    if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.utils.getCustomTag(n)) await this.load(n)
-                    if (addedNode.parentElement === document.head) parseHeadMeta(addedNode)
+                    if (this.utils.getCustomTag(addedNode)) this.load(addedNode)
+                    if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.utils.getCustomTag(n)) this.load(n)
                 }
             })
             observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
-            if (!rootElement) for (const metaElement of document.head.children) parseHeadMeta(metaElement)
         }
     },
 
