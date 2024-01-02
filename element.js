@@ -670,8 +670,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     installMdDefaultHelper: {
         enumerable: true, value: async function (label, importName, doNew, src) {
-            this.env.libraries.md ||= (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable,
-                plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
+            this.env.libraries.md ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
+            const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
                 parser = md => {
                     return (state) => {
                         let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
