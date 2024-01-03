@@ -23,6 +23,7 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         enumerable: false, value: {
             cells: {},
+            regexp: {}
         }
     },
     env: {
@@ -38,9 +39,6 @@ const ElementHTML = Object.defineProperties({}, {
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
                 }
             },
-            helpers: {},
-            libraries: {},
-            namespaces: {},
             options: {
                 ajv: {
                     enumerable: true, value: {
@@ -51,6 +49,10 @@ const ElementHTML = Object.defineProperties({}, {
                 md: { html: true },
             },
             regexp: {},
+
+            helpers: {},
+            libraries: {},
+            namespaces: {},
             schemas: {},
             transforms: {}
         }
@@ -68,7 +70,7 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a of Object.keys(this.env)) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
+            for (const a in this.env) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
         }
     },
 
@@ -765,7 +767,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return result
             } catch (e) {
                 console.log('line 832', e, transform, data, element)
-                const errors = element?.errors ?? this.env.options.errors
+                const errors = element?.errors ?? this.env.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
             }

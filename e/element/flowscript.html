@@ -197,10 +197,10 @@
         #parseRegExpExpression(expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
-            this.E.env.regexp[expression] ||= new RegExp(expression)
+            this.E.app.regexp[expression] ||= this.E.env.regexp[expression] ?? new RegExp(expression)
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
-                const match = value.match(this.E.env.regexp[expression])
+                const match = value.match(this.E.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             }
         }
