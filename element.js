@@ -26,7 +26,8 @@ const ElementHTML = Object.defineProperties({}, {
             helpers: {},
             libraries: {},
             regexp: {},
-            transforms: {}
+            transforms: {},
+            types: {}
         }
     },
     env: {
@@ -42,20 +43,14 @@ const ElementHTML = Object.defineProperties({}, {
                     return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
                 }
             },
-            options: {
-                ajv: {
-                    allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
-                    strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
-                },
-                jsonata: {
-                    helpers: {
-                        'md': 'text/markdown'
-                    }
-                },
-            },
-            regexp: {},
-            transforms: {},
             helpers: {
+                'application/schema+json': function (value, typeName) {
+                    if (!this.app.types[typeName]) return
+                    let valid, errors
+                    valid = this.app.types[typeName].validate(value)
+                    if (!valid) errors = this.app.types[typeName].errors(value)
+                    return { valid, errors }
+                },
                 'application/x-jsonata': function (text) {
                     let expression = this.app.libraries['application/x-jsonata'](text)
                     if (text.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
@@ -64,14 +59,6 @@ const ElementHTML = Object.defineProperties({}, {
                         v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
                     if (text.includes('$queryString(')) expression.registerFunction('queryString',
                         v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    if (text.includes('$is(')) {
-                        expression.registerFunction('is', (schemaName, data) => {
-                            const schemaHandler = this.env.types[schemaName]
-                            if (typeof schemaHandler !== 'function') return false
-                            const [valid, errors] = schemaHandler(data)
-                            return { valid, errors }
-                        })
-                    }
                     for (const [helperAlias, helperName] of Object.entries(this.env.options.jsonata?.helpers ?? {})) {
                         if (text.includes(`$${helperAlias}(`)) expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
                     }
@@ -90,6 +77,15 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             loaders: {
+                'application/schema+json': async function () {
+                    this.app.libraries['application/schema+json'] = (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
+                    await Promise.all(Object.entries(this.env.types).map(async entry => {
+                        let [typeName, typeSchema] = entry
+                        if (typeof typeSchema === 'string') typeSchema = await fetch(typeSchema).then(r => r.json())
+                        this.app.types[typeName] = new this.app.libraries['application/schema+json'](typeSchema)
+                        await this.app.types[typeName].deref()
+                    }))
+                },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                     await Promise.all(Object.entries(this.env.options.jsonata?.helpers).map(entry => this.loadHelper(entry[1])))
@@ -115,6 +111,20 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: {},
+            options: {
+                ajv: {
+                    allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
+                    strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
+                },
+                jsonata: {
+                    helpers: {
+                        'md': 'text/markdown',
+                        'is': 'application/schema+json'
+                    }
+                },
+            },
+            regexp: {},
+            transforms: {},
             types: {}
         }
     },
