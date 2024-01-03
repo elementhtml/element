@@ -1,26 +1,33 @@
 const ElementHTML = Object.defineProperties({}, {
     version: { enumerable: true, value: '0.9.9' },
     sys: {
-        enumerable: false, value: {
-            defaultEventTypes: { input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' },
-            regexp: {
+        enumerable: false, value: Object.freeze({
+            defaultEventTypes: Object.freeze({ input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }),
+            regexp: Object.freeze({
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
+                classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
                 extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
+                hasVariable: /\$\{(.*?)\}/g,
                 htmlBlocks: /<html>\n+.*\n+<\/html>/g,
                 htmlSpans: /<html>.*<\/html>/g,
-                tagMatch: /^[a-z0-9\-]+/g,
                 idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
-                isNumeric: /^[0-9\.]+$/,
-                hasVariable: /\$\{(.*?)\}/g,
-                isJSONObject: /^\s*{.*}$/,
+                isDataUrl: /data:([\w/\-\.]+);/,
                 isFormString: /^\w+=.+&.*$/,
-                isDataUrl: /data:([\w/\-\.]+);/
-            }
+                isJSONObject: /^\s*{.*}$/,
+                isNumeric: /^[0-9\.]+$/,
+                isTag: /(<([^>]+)>)/gi,
+                tagMatch: /^[a-z0-9\-]+/g
+            })
+        })
+    },
+    app: {
+        enumerable: false, value: {
+            cells: {},
         }
     },
     env: {
         enumerable: true, value: {
+            context: {},
             gateways: {
                 ipfs: (hostpath, E) => {
                     const [cid, ...path] = hostpath.split('/')
@@ -33,6 +40,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             helpers: {},
             libraries: {},
+            namespaces: {},
             options: {
                 ajv: {
                     enumerable: true, value: {
@@ -40,144 +48,14 @@ const ElementHTML = Object.defineProperties({}, {
                         strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
                     }
                 },
-                remarkable: { html: true },
+                md: { html: true },
             },
+            regexp: {},
             schemas: {},
-            cells: {},
-            namespaces: {},
-            transforms: {},
-            schemas: {},
-            context: {}
+            transforms: {}
         }
     },
-    utils: {
-        enumerable: true, value: Object.defineProperties({}, {
-            getCustomTag: {
-                enumerable: true, value: function (element) {
-                    return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
-                        || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-                }
-            },
-            getWasm: {//keep
-                enumerable: true, value: async function (req, options) {
-                    if (typeof req === 'string') req = fetch(req, options)
-                    return await WebAssembly.instantiateStreaming(req)
-                }
-            },
-            idleCallback: {//keep
-                enumerable: true, value: async function (cb, timeout) {
-                    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 0))
-                    return idle(cb, { timeout })
-                }
-            },
-            processError: {//keep
-                enumerable: true, value: function (name, message, element, cause, detail = {}) {
-                    detail = { ...detail, ...{ name, message, element, cause } }
-                    if (element) element.dispatchEvent(new CustomEvent(`${name}Error`, { detail }))
-                    let errors = element?.errors ?? this.env.options.errors
-                    if (errors === 'throw') { throw new Error(message, { cause: detail }); return } else if (errors === 'hide') { return }
-                }
-            },
-            resolveScope: {
-                enumerable: true, value: function (scopeStatement, element) {
-                    if (!scopeStatement) return element.parentElement
-                    let scope, root, prop
-                    switch (scopeStatement) {
-                        case '$':
-                            return element
-                        case ':':
-                            prop = 'body'
-                        case '~':
-                            prop ||= 'head'
-                            root = element.getRootNode()
-                            return (root instanceof ShadowRoot) ? root : document[prop]
-                        case '*': case ':root': case ':host':
-                            scope = element.getRootNode()
-                            if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
-                            return (scope === document) ? document.documentElement : scope
-                        case ':document':
-                            prop = 'documentElement'
-                        case ':body':
-                            prop ||= 'body'
-                        case ':head':
-                            prop ||= 'head'
-                            return document[prop]
-                        default:
-                            if (scopeStatement.startsWith('#')) return document.documentElement
-                            return element.closest(scopeStatement)
-                    }
-                }
-            },
-            resolveSelector: {
-                enumerable: true, value: function (selector, scope) {
-                    if (!selector) return scope
-                    if (selector.includes('{') && selector.endsWith('}')) {
-                        let [selectorStem, sig] = selector.split('{')
-                        return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
-                    }
-                    return scope.querySelector(selector)
-                }
-            },
-            resolveScopedSelector: {
-                enumerable: true, value: function (scopedSelector, element) {
-                    let scope = element, selector = scopedSelector
-                    if (selector.startsWith('#')) selector = `:document|${selector}`
-                    if (selector.includes('|')) {
-                        const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
-                        scope = this.resolveScope(scopeStatement, element)
-                        selector = selectorStatement
-                    }
-                    return this.resolveSelector(selector, scope)
-                }
-            },
-            sliceAndStep: {
-                enumerable: true, value: function (sig, list) {
-                    let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
-                    if (end === 0) end = list.length
-                    list = list.slice(start, end)
-                    if (!step) return list
-                    return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
-                }
-            },
-            wait: {
-                enumerable: true, value: async function (ms) {
-                    return new Promise(resolve => setTimeout(resolve, ms))
-                }
-            },
-            waitUntil: {
-                enumerable: true, value: async function (cb, ms = 100, max = 100) {
-                    let count = 0
-                    while ((count <= max) && !cb()) { await ElementHTML.utils.wait(ms); count = count + 1 }
-                }
-            }
-        })
-    },
-    load: {
-        enumerable: true, value: async function (rootElement = undefined) {
-            if (!rootElement) {
-                if (this._globalNamespace) return
-                Object.defineProperty(this, '_globalNamespace', { value: crypto.randomUUID() })
-                Object.defineProperty(window, this._globalNamespace, { value: ElementHTML })
-                this.env.ElementHTML = this
-                Object.freeze(this.env)
-                Object.freeze(this.env.gateways)
-                Object.freeze(this.env.sources)
-                this.encapsulateNative()
-            }
-            rootElement && await this.activateTag(this.utils.getCustomTag(rootElement), rootElement)
-            if (rootElement && !rootElement.shadowRoot) return
-            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
-                observerRoot = rootElement || this
-            for (const element of domTraverser.call(domRoot, '*')) if (this.utils.getCustomTag(element)) this.load(element)
-            observerRoot._observer ||= new MutationObserver(async records => {
-                for (const record of records) for (const addedNode of (record.addedNodes || [])) {
-                    if (this.utils.getCustomTag(addedNode)) this.load(addedNode)
-                    if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.utils.getCustomTag(n)) this.load(n)
-                }
-            })
-            observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
-        }
-    },
+
     Expose: {
         enumerable: true, value: function (name = 'E') {
             if (!(name && typeof name === 'string')) name = 'E'
@@ -191,6 +69,104 @@ const ElementHTML = Object.defineProperties({}, {
             if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
             for (const a of Object.keys(this.env)) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
+        }
+    },
+
+    load: {
+        enumerable: true, value: async function (rootElement = undefined) {
+            if (!rootElement) {
+                if (this.app._globalNamespace) return
+                this.app._globalNamespace = crypto.randomUUID()
+                Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
+                this.env.ElementHTML = this
+                // for (const a in this.env) Object.freeze(this.env[a])
+                Object.freeze(this.env)
+                Object.freeze(this)
+                this.encapsulateNative()
+            }
+            rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
+            if (rootElement && !rootElement.shadowRoot) return
+            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
+                observerRoot = rootElement || this.app
+            for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) this.load(element)
+            observerRoot._observer ||= new MutationObserver(async records => {
+                for (const record of records) for (const addedNode of (record.addedNodes || [])) {
+                    if (this.getCustomTag(addedNode)) this.load(addedNode)
+                    if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
+                }
+            })
+            observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
+            Object.freeze(this.app)
+        }
+    },
+
+
+
+    getCustomTag: {
+        enumerable: true, value: function (element) {
+            return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
+                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    resolveScope: {
+        enumerable: true, value: function (scopeStatement, element) {
+            if (!scopeStatement) return element.parentElement
+            let scope, root, prop
+            switch (scopeStatement) {
+                case '$':
+                    return element
+                case ':':
+                    prop = 'body'
+                case '~':
+                    prop ||= 'head'
+                    root = element.getRootNode()
+                    return (root instanceof ShadowRoot) ? root : document[prop]
+                case '*': case ':root': case ':host':
+                    scope = element.getRootNode()
+                    if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
+                    return (scope === document) ? document.documentElement : scope
+                case ':document':
+                    prop = 'documentElement'
+                case ':body':
+                    prop ||= 'body'
+                case ':head':
+                    prop ||= 'head'
+                    return document[prop]
+                default:
+                    if (scopeStatement.startsWith('#')) return document.documentElement
+                    return element.closest(scopeStatement)
+            }
+        }
+    },
+    resolveSelector: {
+        enumerable: true, value: function (selector, scope) {
+            if (!selector) return scope
+            if (selector.includes('{') && selector.endsWith('}')) {
+                let [selectorStem, sig] = selector.split('{')
+                return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
+            }
+            return scope.querySelector(selector)
+        }
+    },
+    resolveScopedSelector: {
+        enumerable: true, value: function (scopedSelector, element) {
+            let scope = element, selector = scopedSelector
+            if (selector.startsWith('#')) selector = `:document|${selector}`
+            if (selector.includes('|')) {
+                const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
+                scope = this.resolveScope(scopeStatement, element)
+                selector = selectorStatement
+            }
+            return this.resolveSelector(selector, scope)
+        }
+    },
+    sliceAndStep: {
+        enumerable: true, value: function (sig, list) {
+            let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
+            if (end === 0) end = list.length
+            list = list.slice(start, end)
+            if (!step) return list
+            return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
         }
     },
     runElementMethod: {
@@ -289,7 +265,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
                                     if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
-                                        const useTemplate = this.utils.resolveScopedSelector(renderExpression.slice(1, -1), element)
+                                        const useTemplate = this.resolveScopedSelector(renderExpression.slice(1, -1), element)
                                         if (useTemplate) this.applyDataWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
                                         continue
                                     }
@@ -305,7 +281,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 setProperty(k.slice(1), v, element)
                         }
                     case '`':
-                        let nestingTargets = Array.of(this.utils.resolveScopedSelector(k.slice(1, -1), element) ?? [])
+                        let nestingTargets = Array.of(this.resolveScopedSelector(k.slice(1, -1), element) ?? [])
                         await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
                         continue
                     case '~':
@@ -581,12 +557,12 @@ const ElementHTML = Object.defineProperties({}, {
             const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
                 parser = md => {
                     return (state) => {
-                        let tokens = state.tokens, i = -1, exp = new RegExp('(<([^>]+)>)', 'gi')
+                        let tokens = state.tokens, i = -1
                         while (++i < tokens.length) {
                             const token = tokens[i]
                             for (const child of (token.children ?? [])) {
                                 if (child.type !== 'text') return
-                                if (exp.test(child.content)) child.type = 'htmltag'
+                                if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
                             }
                         }
                     }
@@ -599,7 +575,7 @@ const ElementHTML = Object.defineProperties({}, {
     getCell: {
         enumerable: true, value: function (name) {
             if (!name) return
-            if (!this.env.cells[name]) {
+            if (!this.app.cells[name]) {
                 const cell = {
                     type: 'cell',
                     channel: new BroadcastChannel(name),
@@ -624,9 +600,9 @@ const ElementHTML = Object.defineProperties({}, {
                     cell.value = event.data
                     cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: event.data }))
                 })
-                this.env.cells[name] = cell
+                this.app.cells[name] = cell
             }
-            return this.env.cells[name]
+            return this.app.cells[name]
         }
     },
     getFieldOrCellGroup: {
@@ -778,7 +754,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.helpers.md ||= await this.installMdDefaultHelper()
                     bindings.markdown2Html = text => this.env.helpers.md(text)
                 }
-                if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.utils.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+                if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (element && transform.includes('$this')) bindings.this = this.flatten(element)
                 if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
                 if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
@@ -885,7 +861,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
             if (!this.files[extendsId] && extendsId.includes('/')) return
             const sanitizedScript = this.scripts[id].replace(this.sys.regexp.extends, `class extends ElementHTML.constructors['${extendsId}'] {`),
-                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this._globalNamespace}']; export default ${sanitizedScript}`,
+                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${sanitizedScript}`,
                 sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
                 classModule = await import(sanitizedScriptAsUrl)
             URL.revokeObjectURL(sanitizedScriptAsUrl)
@@ -971,8 +947,9 @@ if (metaOptions.has('packages')) {
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
     const imports = importmap.imports ?? {}, importPromises = []
-    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/'))
+    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/')) {
         importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
+    }
     await Promise.all(importPromises)
     for (const p of importPromises) await ElementHTML.ImportPackage(p)
 }

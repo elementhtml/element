@@ -197,10 +197,10 @@
         #parseRegExpExpression(expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
-            const regex = new RegExp(expression)
+            this.E.env.regexp[expression] ||= new RegExp(expression)
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
-                const match = value.match(regex)
+                const match = value.match(this.E.env.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             }
         }
@@ -284,7 +284,7 @@
         #parseSelectorExpression(expression, statementIndex, stepIndex) {
             if (expression && (expression[0] === '#')) expression = `:|${expression}`
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
-                scope = this.E.utils.resolveScope(scopeStatement, this)
+                scope = this.E.resolveScope(scopeStatement, this)
             if (!scope) return []
             let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
             if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
@@ -296,7 +296,7 @@
                 if (keepDefault) eventName = eventName.slice(0, -1)
                 scope.addEventListener(eventName, event => {
                     if (selector.endsWith('}') && selector.includes('{')) {
-                        const target = this.E.utils.resolveSelector(selector, scope)
+                        const target = this.E.resolveSelector(selector, scope)
                         if (!target || (Array.isArray(target) && !target.length)) return
                     } else if (selector && !event.target.matches(selector)) { return }
                     if (!eventList && (event.type !== (this.E.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
@@ -306,7 +306,7 @@
             }
             return async (value, labels, env, statementIndex, stepIndex) => {
                 if (value != undefined) {
-                    const target = this.E.utils.resolveSelector(selector, scope)
+                    const target = this.E.resolveSelector(selector, scope)
                     if (Array.isArray(target)) {
                         for (const t of target) this.E.applyData(t, value)
                     } else if (target) {
@@ -332,7 +332,7 @@
             const bindings = {}
             return async (value, labels, env, statementIndex, stepIndex) => {
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.fields).map(f => [f[0], f[1].get()]))),
-                    cells = Object.freeze(Object.fromEntries(Object.entries(this.E.env.cells).map(c => [c[0], c[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.E.app.cells).map(c => [c[0], c[1].get()]))),
                     context = Object.freeze({ ...env.context })
                 return this.E.runTransform(expression, value, this, { labels, fields, cells, context })
             }

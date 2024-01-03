@@ -20,7 +20,7 @@
 
         async #parse(code) {
             const textAsModule =
-                `const E = globalThis['${this.E._globalNamespace}']; ${code};`,
+                `const E = globalThis['${this.E.app._globalNamespace}']; ${code};`,
                 moduleAsUrl = URL.createObjectURL(new Blob([textAsModule], { type: 'text/javascript' })),
                 classModule = await import(moduleAsUrl)
             URL.revokeObjectURL(moduleAsUrl)
