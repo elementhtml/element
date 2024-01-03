@@ -50,12 +50,12 @@ const ElementHTML = Object.defineProperties({}, {
                 md: { html: true },
             },
             regexp: {},
+            transforms: {},
 
             helpers: {},
             libraries: {},
             namespaces: {},
-            schemas: {},
-            transforms: {}
+            schemas: {}
         }
     },
 
