@@ -129,20 +129,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    loadHelper: {
-        enumerable: true, value: async function (name) {
-            if (typeof this.app.helpers[name] === 'function') return
-            if (typeof this.env.helpers[name] !== 'function') return
-            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
-            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
-        }
-    },
-    useHelper: {
-        enumerable: true, value: function (name, ...args) {
-            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
-        }
-    },
-
     Expose: {
         enumerable: true, value: function (name = 'E') {
             if (!(name && typeof name === 'string')) name = 'E'
@@ -166,7 +152,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.app._globalNamespace = crypto.randomUUID()
                 Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
                 this.env.ElementHTML = this
-                // for (const a in this.env) Object.freeze(this.env[a])
+                for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
                 this.encapsulateNative()
@@ -187,6 +173,20 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+
+    loadHelper: {
+        enumerable: true, value: async function (name) {
+            if (typeof this.app.helpers[name] === 'function') return
+            if (typeof this.env.helpers[name] !== 'function') return
+            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
+            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
+        }
+    },
+    useHelper: {
+        enumerable: true, value: function (name, ...args) {
+            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
+        }
+    },
 
 
     getCustomTag: {
