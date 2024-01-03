@@ -719,7 +719,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    _observer: { enumerable: false, writable: true, value: undefined },
     _styles: { value: {} },
     _templates: { value: {} },
     classes: { value: {} },
