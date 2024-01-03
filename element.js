@@ -23,7 +23,8 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         enumerable: false, value: {
             cells: {},
-            regexp: {}
+            regexp: {},
+            transforms: {}
         }
     },
     env: {
@@ -730,14 +731,13 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform) transform = transform.trim()
             const transformKey = transform
             let expression
-            if ((transformKey[0] === '`') && transformKey.endsWith('`')) {
-                [transform, expression] = this.env.transforms[transformKey] ?? [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
-            }
+            if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey] ?? [transformKey, this.env.transforms[transformKey]]
+                ?? [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
             if (!transform) return data
             try {
                 this.env.libraries.jsonata ||= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                if (!this.env.transforms[transformKey]) {
-                    expression = this.env.libraries.jsonata(transform)
+                if (!this.app.transforms[transformKey]) {
+                    expression ||= this.env.transforms[transformKey] ?? this.env.libraries.jsonata(transform)
                     if (transform.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
                     if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
                     if (transform.includes('$form(')) expression.registerFunction('form',
@@ -756,9 +756,9 @@ const ElementHTML = Object.defineProperties({}, {
                         this.env.helpers.md ||= await this.installMdDefaultHelper()
                         expression.registerFunction('markdown2Html', text => this.env.helpers.md(text))
                     }
-                    this.env.transforms[transformKey] = [transform, expression]
+                    this.app.transforms[transformKey] = [transform, expression]
                 }
-                expression ||= this.env.transforms[transformKey][1]
+                expression ||= this.app.transforms[transformKey][1]
                 const bindings = {}
                 if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (element && transform.includes('$this')) bindings.this = this.flatten(element)
