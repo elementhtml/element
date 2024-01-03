@@ -61,7 +61,7 @@ const ElementHTML = Object.defineProperties({}, {
                         v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
                     if (text.includes('$queryString(')) expression.registerFunction('queryString',
                         v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    for (const [helperAlias, helperName] of Object.entries(this.env.options.jsonata?.helpers ?? {})) {
+                    for (const [helperAlias, helperName] of Object.entries(this.env.options?.jsonata?.helpers ?? {})) {
                         if (text.includes(`$${helperAlias}(`)) expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
                     }
                     return expression
@@ -90,7 +90,7 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                    await Promise.all(Object.entries(this.env.options.jsonata?.helpers).map(entry => this.loadHelper(entry[1])))
+                    await Promise.all(Object.entries(this.env.options?.jsonata?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
                 'text/markdown': async function () {
                     if (this.app.libraries['text/markdown']) return
@@ -113,18 +113,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: {},
-            options: {
-                ajv: {
-                    allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
-                    strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
-                },
-                jsonata: {
-                    helpers: {
-                        'md': 'text/markdown',
-                        'is': 'application/schema+json'
-                    }
-                },
-            },
+            options: {},
             regexp: {},
             transforms: {},
             types: {}
@@ -153,8 +142,14 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.app._globalNamespace) return
                 this.app._globalNamespace = crypto.randomUUID()
                 Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
-                this.env.ElementHTML = this
+                if (Object.keys(this.env.types).length) {
+                    this.env.options ||= {}
+                    this.env.options.jsonata ||= {}
+                    this.env.options.jsonata.helpers ||= {}
+                    this.env.options.jsonata.helpers.is = 'application/schema+json'
+                }
                 for (const a in this.env) Object.freeze(this.env[a])
+                this.env.ElementHTML = this
                 Object.freeze(this.env)
                 Object.freeze(this)
                 this.encapsulateNative()
