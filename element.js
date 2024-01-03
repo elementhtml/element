@@ -23,6 +23,8 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         enumerable: false, value: {
             cells: {},
+            helpers: {},
+            libraries: {},
             regexp: {},
             transforms: {}
         }
@@ -42,20 +44,92 @@ const ElementHTML = Object.defineProperties({}, {
             },
             options: {
                 ajv: {
-                    enumerable: true, value: {
-                        allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
-                        strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
+                    allErrors: true, verbose: true, validateSchema: 'log', coerceTypes: true,
+                    strictSchema: false, strictTypes: false, strictTuples: false, allowUnionTypes: true, allowMatchingProperties: true
+                },
+                jsonata: {
+                    helpers: {
+                        'md': 'text/markdown'
                     }
                 },
-                md: { html: true },
             },
             regexp: {},
             transforms: {},
-
-            helpers: {},
-            libraries: {},
+            helpers: {
+                'application/x-jsonata': function (text) {
+                    let expression = this.app.libraries['application/x-jsonata'](text)
+                    if (text.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
+                    if (text.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
+                    if (text.includes('$form(')) expression.registerFunction('form',
+                        v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
+                    if (text.includes('$queryString(')) expression.registerFunction('queryString',
+                        v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
+                    if (text.includes('$is(')) {
+                        expression.registerFunction('is', (schemaName, data) => {
+                            const schemaHandler = this.env.types[schemaName]
+                            if (typeof schemaHandler !== 'function') return false
+                            const [valid, errors] = schemaHandler(data)
+                            return { valid, errors }
+                        })
+                    }
+                    for (const [helperAlias, helperName] of Object.entries(this.env.options.jsonata?.helpers ?? {})) {
+                        if (text.includes(`$${helperAlias}(`)) expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
+                    }
+                    return expression
+                },
+                'text/markdown': function (text, serialize) {
+                    if (!this.app.libraries['text/markdown']) return
+                    const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
+                        htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
+                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+                    for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
+                    text = this.app.libraries['text/markdown'].render(text)
+                    for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
+                    return text
+                }
+            },
+            loaders: {
+                'application/x-jsonata': async function () {
+                    this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
+                    await Promise.all(Object.entries(this.env.options.jsonata?.helpers).map(entry => this.loadHelper(entry[1])))
+                },
+                'text/markdown': async function () {
+                    if (this.app.libraries['text/markdown']) return
+                    this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
+                    const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
+                        parser = md => {
+                            return (state) => {
+                                let tokens = state.tokens, i = -1
+                                while (++i < tokens.length) {
+                                    const token = tokens[i]
+                                    for (const child of (token.children ?? [])) {
+                                        if (child.type !== 'text') return
+                                        if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
+                                    }
+                                }
+                            }
+                        }
+                    this.app.libraries['text/markdown'].use(plugin)
+                    this.app.libraries['text/markdown'].set({ html: true })
+                }
+            },
             namespaces: {},
-            schemas: {}
+            types: {}
+        }
+    },
+
+    loadHelper: {
+        enumerable: true, value: async function (name) {
+            if (typeof this.app.helpers[name] === 'function') return
+            if (typeof this.env.helpers[name] !== 'function') return
+            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
+            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
+        }
+    },
+    useHelper: {
+        enumerable: true, value: function (name, ...args) {
+            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
         }
     },
 
@@ -336,7 +410,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!contentType && (input instanceof Response)) {
                     contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
                     contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
-                    contentType ||= input.url.endsWith('.md') ? 'text/md' : undefined
+                    contentType ||= input.url.endsWith('.md') ? 'text/markdown' : undefined
                     contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
                     contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
                     contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
@@ -359,23 +433,8 @@ const ElementHTML = Object.defineProperties({}, {
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-            if (contentType === 'text/md') {
-                this.env.helpers.md ||= await this.installMdDefaultHelper()
-                return this.env.helpers.md(text, 'parse', this)
-            }
-            if (contentType === 'application/hjson') {
-                this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.env.libraries.hjson.parse(text)
-            }
-            if (contentType.includes('yaml')) {
-                this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.env.libraries.yaml.parse(text)
-            }
-            if (contentType === 'text/csv') {
-                this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
-                return this.env.libraries.papaparse.parse(text, { dynamicTyping: true }).data
-            }
-            return text
+            await this.loadHelper(contentType)
+            return this.useHelper(contentType, text) ?? text
         }
     },
     serialize: {
@@ -383,33 +442,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof input === 'string') return input
             if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
-            if (contentType === 'text/html' || contentType === 'text/md') {
-                if (!(input instanceof Node)) return
-                let text = input?.outerHTML ?? input.textContent
-                if (contentType === 'text/md') {
-                    this.env.helpers.md ||= await this.installMdDefaultHelper()
-                    return this.env.helpers.md(text, 'serialize', this)
-                }
-                return text
-            }
+            if ((input instanceof HTMLElement) && (contentType === 'text/html' || contentType === 'text/markdown')) input = input.outerHTML
             if (contentType && contentType.includes('form')) return (new URLSearchParams(input)).toString()
             if (contentType === 'text/css') {
-                if (input instanceof Node) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
+                if (input instanceof HTMLElement) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
                 if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
             }
-            if (contentType === 'application/hjson') {
-                this.env.libraries.hjson ||= await import('https://cdn.jsdelivr.net/npm/hjson@3.2.2/+esm')
-                return this.env.libraries.hjson.stringify(input)
-            }
-            if (contentType && contentType.includes('yaml')) {
-                this.env.libraries.yaml ||= await import('https://cdn.jsdelivr.net/npm/yaml@2.3.2/+esm')
-                return this.env.libraries.yaml.stringify(input)
-            }
-            if (contentType === 'text/csv' || contentType === 'text/tsv') {
-                this.env.libraries.papaparse ||= (await import('https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm')).default
-                return this.env.libraries.papaparse.unparse(input)
-            }
-            return JSON.stringify(input)
+            await this.loadHelper(contentType)
+            return this.useHelper(contentType, text, true) ?? JSON.stringify(input)
         }
     },
     flatten: {
@@ -539,40 +579,6 @@ const ElementHTML = Object.defineProperties({}, {
             const inheritance = [id]
             while (id && this.extends[id]) inheritance.push(id = this.extends[id])
             return inheritance
-        }
-    },
-    mdDefaultHelper: {
-        enumerable: true, value: function (text, direction = 'parse') {
-            if (!this.env.libraries.md) return
-            const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
-                htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
-            for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-            for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-            text = this.env.libraries.md.render(text)
-            for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-            for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-            return text
-        }
-    },
-    installMdDefaultHelper: {
-        enumerable: true, value: async function (label, importName, doNew, src) {
-            this.env.libraries.md ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
-            const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
-                parser = md => {
-                    return (state) => {
-                        let tokens = state.tokens, i = -1
-                        while (++i < tokens.length) {
-                            const token = tokens[i]
-                            for (const child of (token.children ?? [])) {
-                                if (child.type !== 'text') return
-                                if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
-                            }
-                        }
-                    }
-                }
-            this.env.libraries.md.use(plugin)
-            this.env.libraries.md.set(this.env.options.md)
-            return this.mdDefaultHelper.bind(this)
         }
     },
     getCell: {
@@ -734,47 +740,25 @@ const ElementHTML = Object.defineProperties({}, {
             if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey] ?? [transformKey, this.env.transforms[transformKey]]
                 ?? [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
             if (!transform) return data
-            try {
-                this.env.libraries.jsonata ||= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                if (!this.app.transforms[transformKey]) {
-                    expression ||= this.env.transforms[transformKey] ?? this.env.libraries.jsonata(transform)
-                    if (transform.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
-                    if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
-                    if (transform.includes('$form(')) expression.registerFunction('form',
-                        v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
-                    if (transform.includes('$queryString(')) expression.registerFunction('queryString',
-                        v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    if (transform.includes('$is(')) {
-                        expression.registerFunction('is', (schemaName, data) => {
-                            const schemaHandler = this.env.schemas[schemaName]
-                            if (typeof schemaHandler !== 'function') return false
-                            const [valid, errors] = schemaHandler(data)
-                            return { valid, errors }
-                        })
-                    }
-                    if (transform.includes('$markdown2Html(')) {
-                        this.env.helpers.md ||= await this.installMdDefaultHelper()
-                        expression.registerFunction('markdown2Html', text => this.env.helpers.md(text))
-                    }
-                    this.app.transforms[transformKey] = [transform, expression]
+            if (!this.app.transforms[transformKey]) {
+                expression ||= this.env.transforms[transformKey]
+                if (!expression) {
+                    await this.loadHelper('application/x-jsonata')
+                    expression = this.useHelper('application/x-jsonata', transform)
                 }
-                expression ||= this.app.transforms[transformKey][1]
-                const bindings = {}
-                if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
-                if (element && transform.includes('$this')) bindings.this = this.flatten(element)
-                if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
-                if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
-                const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
-                for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
-                for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
-                const result = await expression.evaluate(data, bindings)
-                return result
-            } catch (e) {
-                console.log('line 773', e, transform, data, element)
-                const errors = element?.errors ?? this.env.errors
-                if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
-                if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
+                this.app.transforms[transformKey] = [transform, expression]
             }
+            expression ||= this.app.transforms[transformKey][1]
+            const bindings = {}
+            if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+            if (element && transform.includes('$this')) bindings.this = this.flatten(element)
+            if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
+            if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
+            const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
+            for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
+            for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
+            const result = await expression.evaluate(data, bindings)
+            return result
         }
     },
     sortByInheritance: {
