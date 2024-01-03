@@ -1,5 +1,7 @@
 const ElementHTML = Object.defineProperties({}, {
+
     version: { enumerable: true, value: '0.9.9' },
+
     sys: {
         enumerable: false, value: Object.freeze({
             defaultEventTypes: Object.freeze({ input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }),
@@ -173,99 +175,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-    loadHelper: {
-        enumerable: true, value: async function (name) {
-            if (typeof this.app.helpers[name] === 'function') return
-            if (typeof this.env.helpers[name] !== 'function') return
-            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
-            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
-        }
-    },
-    useHelper: {
-        enumerable: true, value: function (name, ...args) {
-            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
-        }
-    },
-
-
-    getCustomTag: {
-        enumerable: true, value: function (element) {
-            return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
-                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
-        }
-    },
-    resolveScope: {
-        enumerable: true, value: function (scopeStatement, element) {
-            if (!scopeStatement) return element.parentElement
-            let scope, root, prop
-            switch (scopeStatement) {
-                case '$':
-                    return element
-                case ':':
-                    prop = 'body'
-                case '~':
-                    prop ||= 'head'
-                    root = element.getRootNode()
-                    return (root instanceof ShadowRoot) ? root : document[prop]
-                case '*': case ':root': case ':host':
-                    scope = element.getRootNode()
-                    if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
-                    return (scope === document) ? document.documentElement : scope
-                case ':document':
-                    prop = 'documentElement'
-                case ':body':
-                    prop ||= 'body'
-                case ':head':
-                    prop ||= 'head'
-                    return document[prop]
-                default:
-                    if (scopeStatement.startsWith('#')) return document.documentElement
-                    return element.closest(scopeStatement)
-            }
-        }
-    },
-    resolveSelector: {
-        enumerable: true, value: function (selector, scope) {
-            if (!selector) return scope
-            if (selector.includes('{') && selector.endsWith('}')) {
-                let [selectorStem, sig] = selector.split('{')
-                return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
-            }
-            return scope.querySelector(selector)
-        }
-    },
-    resolveScopedSelector: {
-        enumerable: true, value: function (scopedSelector, element) {
-            let scope = element, selector = scopedSelector
-            if (selector.startsWith('#')) selector = `:document|${selector}`
-            if (selector.includes('|')) {
-                const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
-                scope = this.resolveScope(scopeStatement, element)
-                selector = selectorStatement
-            }
-            return this.resolveSelector(selector, scope)
-        }
-    },
-    sliceAndStep: {
-        enumerable: true, value: function (sig, list) {
-            let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
-            if (end === 0) end = list.length
-            list = list.slice(start, end)
-            if (!step) return list
-            return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
-        }
-    },
-    runElementMethod: {
-        enumerable: true, value: function (statement, arg, element) {
-            let [funcName, ...argsRest] = statement.split('(')
-            if (typeof element[funcName] === 'function') {
-                argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
-                return element[funcName](...argsRest, ...(Array.from(arg)))
-            }
-        }
-    },
     applyData: {
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
@@ -381,87 +290,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         },
     },
-    applyDataWithTemplate: {
-        enumerable: true, value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
-            if (insertSelector) element = element.querySelector(insertSelector)
-            if (!element) return
-            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
-            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
-            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
-            insertPosition ||= 'replaceChildren'
-            let useNode
-            if (tag instanceof HTMLTemplateElement) {
-                useNode = tag.content.cloneNode(true).firstElementChild
-            } else if (tag instanceof HTMLElement) {
-                useNode = tag.cloneNode(true)
-            } else if (typeof tag === 'string') {
-                useNode = document.createElement(tag)
-            } else { return }
-            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
-            const buildNode = node => {
-                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
-                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
-                return node
-            }
-            let nodesToApply = []
-            if (Array.isArray(data)) {
-                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
-            } else { nodesToApply.push([buildNode(useNode), data]) }
-            element[insertPosition](...nodesToApply.map(n => n[0]))
-            for (const n of nodesToApply) this.applyData(...n)
-        }
-    },
-    parse: {
-        enumerable: true, value: async function (input, contentType) {
-            const typeCheck = (input instanceof Response) || (typeof input === 'text')
-            if (!typeCheck && (input instanceof Object)) return input
-            input = typeCheck ? input : `${input}`
-            if (!contentType) {
-                if (!contentType && (input instanceof Response)) {
-                    contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
-                    contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
-                    contentType ||= input.url.endsWith('.md') ? 'text/markdown' : undefined
-                    contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
-                    contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
-                    contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
-                    contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
-                    contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
-                    const serverContentType = input.headers.get('Content-Type')
-                    if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
-                } else if (contentType && contentType.includes('json')) {
-                    contentType = 'application/json'
-                } else if (contentType && contentType.includes('yaml')) {
-                    contentType = 'application/x-yaml'
-                } else if (contentType && contentType.includes('csv')) {
-                    contentType = 'text/csv'
-                }
-                contentType ||= 'application/json'
-            }
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
-            if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
-            if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
-            let text = ((input instanceof Response) ? await input.text() : input).trim()
-            if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
-            if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-            await this.loadHelper(contentType)
-            return this.useHelper(contentType, text) ?? text
-        }
-    },
-    serialize: {
-        enumerable: true, value: async function (input, contentType) {
-            if (typeof input === 'string') return input
-            if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
-            if (contentType === 'application/json') return JSON.stringify(input)
-            if ((input instanceof HTMLElement) && (contentType === 'text/html' || contentType === 'text/markdown')) input = input.outerHTML
-            if (contentType && contentType.includes('form')) return (new URLSearchParams(input)).toString()
-            if (contentType === 'text/css') {
-                if (input instanceof HTMLElement) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
-                if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
-            }
-            await this.loadHelper(contentType)
-            return this.useHelper(contentType, text, true) ?? JSON.stringify(input)
-        }
-    },
     flatten: {
         enumerable: true, value: function (value, key, event) {
             const compile = (plain, complex = []) => {
@@ -496,8 +324,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if ('selected' in value) result.selected = value.selected
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
-                if (value.constructor._flattenableProperties && Array.isArray(value.constructor._flattenableProperties)) {
-                    for (const p of value.constructor._flattenableProperties) result[p] = value[p]
+                if (value.constructor.E_FlattenableProperties && Array.isArray(value.constructor.E_FlattenableProperties)) {
+                    for (const p of value.constructor.E_FlattenableProperties) result[p] = value[p]
                 }
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
@@ -582,13 +410,6 @@ const ElementHTML = Object.defineProperties({}, {
                 let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 return key ? result[key] : result
             }
-        }
-    },
-    getInheritance: {
-        enumerable: true, value: function (id = 'HTMLElement') {
-            const inheritance = [id]
-            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
-            return inheritance
         }
     },
     getCell: {
@@ -716,6 +537,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    loadHelper: {
+        enumerable: true, value: async function (name) {
+            if (typeof this.app.helpers[name] === 'function') return
+            if (typeof this.env.helpers[name] !== 'function') return
+            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
+            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
+        }
+    },
     mergeVariables: {
         enumerable: true, value: function (expression, value, labels, env, inner) {
             if (!expression) return inner ? value : undefined
@@ -731,6 +560,94 @@ const ElementHTML = Object.defineProperties({}, {
             return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(this.sys.regexp.hasVariable, merge)
         }
     },
+    parse: {
+        enumerable: true, value: async function (input, contentType) {
+            const typeCheck = (input instanceof Response) || (typeof input === 'text')
+            if (!typeCheck && (input instanceof Object)) return input
+            input = typeCheck ? input : `${input}`
+            if (!contentType) {
+                if (!contentType && (input instanceof Response)) {
+                    contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
+                    contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
+                    contentType ||= input.url.endsWith('.md') ? 'text/markdown' : undefined
+                    contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
+                    contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
+                    contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
+                    contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
+                    contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
+                    const serverContentType = input.headers.get('Content-Type')
+                    if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
+                } else if (contentType && contentType.includes('json')) {
+                    contentType = 'application/json'
+                } else if (contentType && contentType.includes('yaml')) {
+                    contentType = 'application/x-yaml'
+                } else if (contentType && contentType.includes('csv')) {
+                    contentType = 'text/csv'
+                }
+                contentType ||= 'application/json'
+            }
+            if (!contentType.includes('/')) contentType = `application/${contentType}`
+            if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
+            if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
+            let text = ((input instanceof Response) ? await input.text() : input).trim()
+            if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
+            if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
+            await this.loadHelper(contentType)
+            return this.useHelper(contentType, text) ?? text
+        }
+    },
+    resolveScope: {
+        enumerable: true, value: function (scopeStatement, element) {
+            if (!scopeStatement) return element.parentElement
+            let scope, root, prop
+            switch (scopeStatement) {
+                case '$':
+                    return element
+                case ':':
+                    prop = 'body'
+                case '~':
+                    prop ||= 'head'
+                    root = element.getRootNode()
+                    return (root instanceof ShadowRoot) ? root : document[prop]
+                case '*': case ':root': case ':host':
+                    scope = element.getRootNode()
+                    if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
+                    return (scope === document) ? document.documentElement : scope
+                case ':document':
+                    prop = 'documentElement'
+                case ':body':
+                    prop ||= 'body'
+                case ':head':
+                    prop ||= 'head'
+                    return document[prop]
+                default:
+                    if (scopeStatement.startsWith('#')) return document.documentElement
+                    return element.closest(scopeStatement)
+            }
+        }
+    },
+    resolveScopedSelector: {
+        enumerable: true, value: function (scopedSelector, element) {
+            let scope = element, selector = scopedSelector
+            if (selector.startsWith('#')) selector = `:document|${selector}`
+            if (selector.includes('|')) {
+                const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
+                scope = this.resolveScope(scopeStatement, element)
+                selector = selectorStatement
+            }
+            return this.resolveSelector(selector, scope)
+        }
+    },
+    resolveSelector: {
+        enumerable: true, value: function (selector, scope) {
+            if (!selector) return scope
+            if (selector.includes('{') && selector.endsWith('}')) {
+                let [selectorStem, sig] = selector.split('{')
+                return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
+            }
+            return scope.querySelector(selector)
+        }
+    },
     resolveUrl: {
         enumerable: true, value: function (value, element) {
             if (typeof value !== 'string') return value
@@ -740,6 +657,16 @@ const ElementHTML = Object.defineProperties({}, {
                 return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
             }
             return new URL(value, document.baseURI).href
+        }
+    },
+    runElementMethod: {
+        enumerable: true, value: function (statement, arg, element) {
+            let [funcName, ...argsRest] = statement.split('(')
+            if (typeof element[funcName] === 'function') {
+                argsRest = argsRest.join('(').slice(0, -1)
+                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
+                return element[funcName](...argsRest, ...(Array.from(arg)))
+            }
         }
     },
     runTransform: {
@@ -771,25 +698,40 @@ const ElementHTML = Object.defineProperties({}, {
             return result
         }
     },
-    sortByInheritance: {
-        enumerable: true, value: function (idList) {
-            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
-                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
-                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
+    serialize: {
+        enumerable: true, value: async function (input, contentType) {
+            if (typeof input === 'string') return input
+            if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
+            if (contentType === 'application/json') return JSON.stringify(input)
+            if ((input instanceof HTMLElement) && (contentType === 'text/html' || contentType === 'text/markdown')) input = input.outerHTML
+            if (contentType && contentType.includes('form')) return (new URLSearchParams(input)).toString()
+            if (contentType === 'text/css') {
+                if (input instanceof HTMLElement) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
+                if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
+            }
+            await this.loadHelper(contentType)
+            return this.useHelper(contentType, text, true) ?? JSON.stringify(input)
         }
     },
+    useHelper: {
+        enumerable: true, value: function (name, ...args) {
+            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
+        }
+    },
+
+    _observer: { enumerable: false, writable: true, value: undefined },
+    _styles: { value: {} },
+    _templates: { value: {} },
     classes: { value: {} },
     constructors: { value: {} },
     extends: { value: {} },
     files: { value: {} },
     ids: { value: {} },
-    _observer: { enumerable: false, writable: true, value: undefined },
     scripts: { value: {} },
     styles: { value: {} },
-    _styles: { value: {} },
     tags: { value: {} },
     templates: { value: {} },
-    _templates: { value: {} },
+
     activateTag: {
         value: async function (tag, element, forceReload = false) {
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
@@ -799,6 +741,36 @@ const ElementHTML = Object.defineProperties({}, {
             if (!loadResult) return
             const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+        }
+    },
+    applyDataWithTemplate: {
+        value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
+            if (insertSelector) element = element.querySelector(insertSelector)
+            if (!element) return
+            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
+            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
+            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
+            insertPosition ||= 'replaceChildren'
+            let useNode
+            if (tag instanceof HTMLTemplateElement) {
+                useNode = tag.content.cloneNode(true).firstElementChild
+            } else if (tag instanceof HTMLElement) {
+                useNode = tag.cloneNode(true)
+            } else if (typeof tag === 'string') {
+                useNode = document.createElement(tag)
+            } else { return }
+            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
+            const buildNode = node => {
+                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
+                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
+                return node
+            }
+            let nodesToApply = []
+            if (Array.isArray(data)) {
+                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
+            } else { nodesToApply.push([buildNode(useNode), data]) }
+            element[insertPosition](...nodesToApply.map(n => n[0]))
+            for (const n of nodesToApply) this.applyData(...n)
         }
     },
     encapsulateNative: {
@@ -828,6 +800,19 @@ const ElementHTML = Object.defineProperties({}, {
                 this.classes[id] = globalThis[this.ids[id]]
                 this.constructors[id] = this._base(this.classes[id])
             }
+        }
+    },
+    getCustomTag: {
+        value: function (element) {
+            return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
+                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    getInheritance: {
+        value: function (id = 'HTMLElement') {
+            const inheritance = [id]
+            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
+            return inheritance
         }
     },
     getTagId: {
@@ -871,6 +856,22 @@ const ElementHTML = Object.defineProperties({}, {
             return true
         }
     },
+    sliceAndStep: {
+        value: function (sig, list) {
+            let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
+            if (end === 0) end = list.length
+            list = list.slice(start, end)
+            if (!step) return list
+            return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
+        }
+    },
+    sortByInheritance: {
+        value: function (idList) {
+            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
+                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
+                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
+        }
+    },
     stackStyles: {
         value: function (id) {
             if (typeof this._styles[id] === 'string') return this._styles[id]
@@ -912,34 +913,34 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
             return class extends baseClass {
                 constructor() {
                     super()
-                    Object.defineProperties(this, {
-                        E: { enumerable: false, value: ElementHTML },//keep
-                    })
+                    Object.defineProperty(this, 'E', { value: ElementHTML })
                     try {
-                        this.shadowRoot || this.attachShadow({ mode: 'open' })
+                        this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
                         this.shadowRoot.textContent = ''
                         this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
                         const templateNode = document.createElement('template')
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                        window.requestAnimationFrame(() => this.readyCallback())
+                        window.requestAnimationFrame(() => this.E_ReadyCallback())
                     } catch (e) { }
                 }
-                static get observedAttributes() { return ['_'] }
-                static get _flattenableProperties() { return this.observedAttributes }
+                static get observedAttributes() { return [] }
+                static get E_FlattenableProperties() { return this.observedAttributes }
                 static E = ElementHTML
                 async connectedCallback() { }
-                async readyCallback() { }
+                async E_ReadyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
             }
         }
     }
+
 })
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
 if (metaOptions.has('packages')) {
