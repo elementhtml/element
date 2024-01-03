@@ -731,31 +731,35 @@ const ElementHTML = Object.defineProperties({}, {
             const transformKey = transform
             let expression
             if ((transformKey[0] === '`') && transformKey.endsWith('`')) {
-                transform = this.env.transforms[transformKey] ? this.env.transforms[transformKey][0] : await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text())
-                expression = this.env.transforms[transformKey] ? this.env.transforms[transformKey][1] : undefined
+                [transform, expression] = this.env.transforms[transformKey] ?? [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
             }
             if (!transform) return data
             try {
                 this.env.libraries.jsonata ||= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                this.env.transforms[transformKey] ||= [transform, this.env.libraries.jsonata(transform)]
+                if (!this.env.transforms[transformKey]) {
+                    expression = this.env.libraries.jsonata(transform)
+                    if (transform.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
+                    if (transform.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
+                    if (transform.includes('$form(')) expression.registerFunction('form',
+                        v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
+                    if (transform.includes('$queryString(')) expression.registerFunction('queryString',
+                        v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
+                    if (transform.includes('$is(')) {
+                        expression.registerFunction('is', (schemaName, data) => {
+                            const schemaHandler = this.env.schemas[schemaName]
+                            if (typeof schemaHandler !== 'function') return false
+                            const [valid, errors] = schemaHandler(data)
+                            return { valid, errors }
+                        })
+                    }
+                    if (transform.includes('$markdown2Html(')) {
+                        this.env.helpers.md ||= await this.installMdDefaultHelper()
+                        expression.registerFunction('markdown2Html', text => this.env.helpers.md(text))
+                    }
+                    this.env.transforms[transformKey] = [transform, expression]
+                }
                 expression ||= this.env.transforms[transformKey][1]
                 const bindings = {}
-                if (transform.includes('$console(')) bindings.console = (...m) => console.log(...m)
-                if (transform.includes('$uuid()')) bindings.uuid = () => crypto.randomUUID()
-                if (transform.includes('$form(')) bindings.form = v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {}
-                if (transform.includes('$queryString(')) bindings.queryString = v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : ""
-                if (transform.includes('$is(')) {
-                    bindings.is = (schemaName, data) => {
-                        const schemaHandler = this.env.schemas[schemaName]
-                        if (typeof schemaHandler !== 'function') return false
-                        const [valid, errors] = schemaHandler(data)
-                        return { valid, errors }
-                    }
-                }
-                if (transform.includes('$markdown2Html(')) {
-                    this.env.helpers.md ||= await this.installMdDefaultHelper()
-                    bindings.markdown2Html = text => this.env.helpers.md(text)
-                }
                 if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (element && transform.includes('$this')) bindings.this = this.flatten(element)
                 if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
@@ -766,7 +770,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const result = await expression.evaluate(data, bindings)
                 return result
             } catch (e) {
-                console.log('line 832', e, transform, data, element)
+                console.log('line 773', e, transform, data, element)
                 const errors = element?.errors ?? this.env.errors
                 if (element) element.dispatchEvent(new CustomEvent('error', { detail: { type: 'runTransform', message: e, input: { transform, data, variableMap } } }))
                 if (errors === 'throw') { throw new Error(e); return } else if (errors === 'hide') { return }
