@@ -179,18 +179,25 @@
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
             parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const parentIsNewable = parentExpression.includes('(') && parentExpression.endsWith(')')
-            let [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-            childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             const getArgs = (args, value, labels, env) => args.map(a => this.E.mergeVariables(a.trim(), value, labels, env))
+            let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
+            if (useHelper) {
+                parentObjectName = parentObjectName.slice(1)
+            } else {
+                [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+                childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+            }
             return async (value, labels, env, statementIndex, stepIndex) => {
+                if (useHelper) {
+                    await this.E.loadHelper(parentObjectName)
+                    return Promise.resolve(this.E.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
+                }
                 if (childMethodName) {
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
                     return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
-                } else {
-                    return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
                 }
+                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
             }
         }
 
