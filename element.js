@@ -669,8 +669,9 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform) transform = transform.trim()
             const transformKey = transform
             let expression
-            if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey] ?? [transformKey, this.env.transforms[transformKey]]
-                ?? [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
+            if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey] ??
+                (this.env.transforms[transformKey] ? [transformKey, this.env.transforms[transformKey]]
+                    : [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined])
             if (!transform) return data
             if (!this.app.transforms[transformKey]) {
                 expression ||= this.env.transforms[transformKey]
