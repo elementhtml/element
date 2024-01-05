@@ -377,7 +377,7 @@
                             }
                         }
                     }
-                    if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, this, options.headers['Content-Type'])
+                    if (options.body && typeof options.body !== 'string') options.body = await this.E.serialize(options.body, options.headers['Content-Type'])
                 }
                 return fetch(url, options).then(r => {
                     if (returnFullRequest) {
