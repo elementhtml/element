@@ -1,3 +1,0 @@
-"Label One","Label Two","Label Three"
-"x","y","z" 
-a,b,c
