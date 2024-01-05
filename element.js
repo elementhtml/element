@@ -132,7 +132,7 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
-            for (const a in this.env) packageContents[a] instanceof Object ? Object.assign(this.env[a], packageContents[a]) : this.env[a] = packageContents[a]
+            for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') Object.assign(this.env[a], packageContents[a])
         }
     },
 
@@ -149,7 +149,6 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.options.jsonata.helpers.is = 'application/schema+json'
                 }
                 for (const a in this.env) Object.freeze(this.env[a])
-                this.env.ElementHTML = this
                 Object.freeze(this.env)
                 Object.freeze(this)
                 this.encapsulateNative()
@@ -939,7 +938,7 @@ const ElementHTML = Object.defineProperties({}, {
 })
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
 if (metaOptions.has('packages')) {
-    const importmapElement = document.head.querySelector('script[type="importmap]')
+    const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
     const imports = importmap.imports ?? {}, importPromises = []
@@ -947,7 +946,7 @@ if (metaOptions.has('packages')) {
         importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
     }
     await Promise.all(importPromises)
-    for (const p of importPromises) await ElementHTML.ImportPackage(p)
+    for (const p of importPromises) await ElementHTML.ImportPackage(await p)
 }
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load()
