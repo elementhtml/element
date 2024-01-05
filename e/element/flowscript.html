@@ -356,7 +356,7 @@
                 let url = this.E.mergeVariables(expression, value, labels, env)
                 if (!url) return
                 const options = {}
-                if (!(expressionIncludesValueAsVariable && (typeof value === 'string'))) {
+                if (!((value == undefined) || (expressionIncludesValueAsVariable && typeof value === 'string'))) {
                     Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
                     if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
                         options.headers ||= {}
