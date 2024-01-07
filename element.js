@@ -3,7 +3,7 @@ const ElementHTML = Object.defineProperties({}, {
     version: { enumerable: true, value: '1.0.5' },
 
     sys: {
-        enumerable: false, value: Object.freeze({
+        value: Object.freeze({
             defaultEventTypes: Object.freeze({ input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }),
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
@@ -23,7 +23,7 @@ const ElementHTML = Object.defineProperties({}, {
         })
     },
     app: {
-        enumerable: false, value: {
+        value: {
             cells: {},
             helpers: {},
             libraries: {},
