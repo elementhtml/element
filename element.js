@@ -686,6 +686,10 @@ const ElementHTML = Object.defineProperties({}, {
             if (element && transform.includes('$this')) bindings.this = this.flatten(element)
             if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
             if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
+            if (element && transform.includes('$documentElement')) bindings.document = this.flatten(document.documentElement)
+            if (element && transform.includes('$document')) bindings.document = this.flatten(document)
+            if (element && transform.includes('$body')) bindings.body = this.flatten(document.body)
+            if (element && transform.includes('$head')) bindings.head = this.flatten(document.head)
             const nearby = ['parentElement', 'nextElementSibling', 'previousElementSibling']
             for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
