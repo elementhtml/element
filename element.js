@@ -686,7 +686,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (element && transform.includes('$this')) bindings.this = this.flatten(element)
             if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
             if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
-            const nearby = ['parentElement', 'firstElementChild', 'lastElementChild', 'nextElementSibling', 'previousElementSibling']
+            const nearby = ['parentElement', 'nextElementSibling', 'previousElementSibling']
             for (const p of nearby) if (element && transform.includes(`$${p}`)) bindings[p] = this.flatten(element[p])
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
             const result = await expression.evaluate(data, bindings)
