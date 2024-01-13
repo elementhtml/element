@@ -275,8 +275,6 @@ const ElementHTML = Object.defineProperties({}, {
                         await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
                         continue
                     case '~':
-
-                        this.env.variables[k.slice(1)] = v
                         continue
                     default:
                         setProperty(k, v, element)
