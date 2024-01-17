@@ -13,5 +13,6 @@
 [Discord](https://discord.gg/mxgTJ9Y3SP)
 
 ## Sponsor
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Q5Q6QVCYE)
-
+<a href="https://opencollective.com/elementhtml/contribute" target="_blank">
+  <img src="https://opencollective.com/elementhtml/contribute/button@2x.png?color=blue" width=300 />
+</a>
