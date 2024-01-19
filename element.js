@@ -131,7 +131,6 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (packageObject) {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
-            if ((typeof packageObject.loader === 'function')) packageContents = await packageObject.loader(packageObject.bootstrap ?? {})
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') Object.assign(this.env[a], packageContents[a])
         }
     },
