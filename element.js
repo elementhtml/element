@@ -397,7 +397,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Blob) return compile(['size', 'type'])
             if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
             if (value instanceof FormData) return Object.fromEntries(value.entries())
-            if (value instanceof Response) return { _: this.E.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
+            if (value instanceof Response) return { body: this.E.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
             if (value instanceof Object) {
                 let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 return key ? result[key] : result
