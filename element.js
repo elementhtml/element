@@ -725,7 +725,7 @@ const ElementHTML = Object.defineProperties({}, {
     templates: { value: {} },
 
     activateTag: {
-        value: async function (tag, element, forceReload = false) {
+        value: async function (tag, forceReload = false) {
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
             const id = this.getTagId(tag);
             [this.ids[tag], this.tags[id]] = [id, tag]
