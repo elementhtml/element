@@ -201,6 +201,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [k, v] of Object.entries(data)) {
                 if (!k) continue
                 switch (k[0]) {
+                    // add in $property syntax for setting dataset values
                     case '#':
                         if (k === '#') element.setAttribute('id', v)
                         continue
@@ -215,6 +216,7 @@ const ElementHTML = Object.defineProperties({}, {
                         element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
                         continue
                     case '@':
+                        // add in {"@": "name"} support here
                         const kSlice1 = k.slice(1)
                         switch (v) {
                             case true: case false:
@@ -640,7 +642,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveUrl: {
-        enumerable: true, value: function (value, element) {
+        enumerable: true, value: function (value) {
             if (typeof value !== 'string') return value
             if (value.startsWith('https://') || value.startsWith('http://')) return value
             if (value.includes('://')) {
