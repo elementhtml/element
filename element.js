@@ -563,10 +563,13 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [k, v] of Object.entries(data)) {
                 if (!k) continue
                 switch (k[0]) {
-                    // add in $property syntax for setting dataset values
                     case '#':
-                        if (k === '#') element.setAttribute('id', v)
-                        continue
+                        if (k === '#') { element.setAttribute('id', v); continue }
+                        if (k.charCodeAt(1) >= 65 && k.charCodeAt(1) <= 90) {
+                            element[`aria${k.slice(1)}`] = v
+                        } else {
+                            element.setAttribute(`aria-${k.slice(1)}`, v)
+                        }
                     case '&':
                         const className = k.slice(1)
                         if (!className) continue
@@ -578,18 +581,26 @@ const ElementHTML = Object.defineProperties({}, {
                         element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
                         continue
                     case '@':
-                        // add in {"@": "name"} support here
-                        const kSlice1 = k.slice(1)
                         switch (v) {
                             case true: case false:
-                                element.toggleAttribute(kSlice1, v)
+                                element.toggleAttribute(k.slice(1) || 'name', v)
                                 continue
-                            case null:
-                                element.removeAttribute(kSlice1)
+                            case null: case undefined:
+                                element.removeAttribute(k.slice(1) || 'name')
                                 continue
                             default:
-                                element.setAttribute(kSlice1, v)
+                                element.setAttribute(k.slice(1) || 'name', v)
                                 continue
+                        }
+
+                    case '$':
+                        if (k === '$') {
+                            element.value = v
+                            continue
+                        } else if (v == undefined) {
+                            delete element.dataset[k.slice(1)]
+                        } else {
+                            element.dataset[k.slice(1)] = v
                         }
                     case '!':
                         let eventName = k.slice(1)
