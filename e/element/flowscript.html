@@ -110,6 +110,11 @@
                                             if (t || handlerExpression.match(this.E.sys.regexp.isNumeric)) handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     }
                                     break
+                                case "_":
+                                    if (handlerExpression.endsWith('_')) {
+                                        handler = this.#parseWaitExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                        break
+                                    }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
@@ -385,6 +390,35 @@
                         return this.E.parse(r)
                     }
                 })
+            }
+        }
+
+        #parseWaitExpression(expression, hasDefault, statementIndex, stepIndex) {
+            return async (value, labels, env, statementIndex, stepIndex) => {
+                const useExpression = this.E.mergeVariables(expression, value, labels, env)
+                let ms = 0, [mainWait, override] = useExpression.split('(')
+                override = (override == null) ? value : this.E.getVariable(override.slice(0, -1).trim(), value, labels, env)
+                if (mainWait === 'frame') {
+                    await new Promise(resolve => window.requestAnimationFrame(resolve))
+                    return override
+                } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
+                    const [, timeout] = mainWait.split(':')
+                    await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
+                    return override
+                } else if (mainWait[0] === '+') {
+                    ms = Date.now() + (parseInt(mainWait.slice(1)) || 0)
+                } else if (this.E.sys.regexp.isNumeric.test(mainWait)) {
+                    ms = (parseInt(mainWait) || 0) - Date.now()
+                } else {
+                    let mainWaitSplit = mainWait.split(':').map(s => s.trim())
+                    if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.E.sys.regexp.isNumeric.test(s))) {
+                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`) - Date.now()
+                    } else {
+                        ms = Date.parse(mainWait) - Date.now()
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, ms))
+                return override
             }
         }
 
