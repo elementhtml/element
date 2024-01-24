@@ -113,7 +113,7 @@
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    handler = this.#parseRemoteExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                                    handler = this.#parseNetworkExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                             }
                     }
                     handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
@@ -343,7 +343,7 @@
             }
         }
 
-        #parseRemoteExpression(expression, hasDefault, statementIndex, stepIndex) {
+        #parseNetworkExpression(expression, hasDefault, statementIndex, stepIndex) {
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             let returnFullRequest
             if (expression[0] === '~' && expression.endsWith('~')) {
