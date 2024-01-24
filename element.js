@@ -132,42 +132,46 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             for (const a of ['gateways', 'helpers', 'loaders']) {
-                if (typeof packageContents[a] === 'string') {
-                    const importUrl = this.resolveUrl(packageContents[a], packageUrl)
-                    let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
-                    packageContents[a] = {}
-                    for (const aa in exports) if (typeof exports[aa] === 'function') packageContents[a][aa] = exports[aa]
-                }
+                if (typeof packageContents[a] !== 'string') continue
+                const importUrl = this.resolveUrl(packageContents[a], packageUrl)
+                let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl)))?.instance?.exports : (await import(importUrl))
+                packageContents[a] = {}
+                if (!exports || (typeof exports !== 'object')) continue
+                for (const aa in exports) if (typeof exports[aa] === 'function') packageContents[a][aa] = exports[aa]
             }
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
-                if (a === 'options') {
-                    for (const aa in (packageContents.options ?? {})) {
-                        if (this.env.options[aa] && typeof this.env.options[aa] === 'object') {
-                            for (const aaa in packageContents.options[aa]) {
-                                if (this.env.options[aa][aaa] && typeof this.env.options[aa][aaa] === 'object') {
-                                    Object.assign(this.env.options[aa][aaa], packageContents.options[aa][aaa])
-                                } else {
-                                    this.env.options[aa][aaa] = packageContents.options[aa][aaa] && typeof packageContents.options[aa][aaa] === 'object'
-                                        ? { ...packageContents.options[aa][aaa] } : packageContents.options[aa][aaa]
+                switch (a) {
+                    case 'options':
+                        for (const aa in (packageContents.options ?? {})) {
+                            if (this.env.options[aa] && typeof this.env.options[aa] === 'object') {
+                                for (const aaa in packageContents.options[aa]) {
+                                    if (this.env.options[aa][aaa] && typeof this.env.options[aa][aaa] === 'object') {
+                                        Object.assign(this.env.options[aa][aaa], packageContents.options[aa][aaa])
+                                    } else {
+                                        this.env.options[aa][aaa] = packageContents.options[aa][aaa] && typeof packageContents.options[aa][aaa] === 'object'
+                                            ? { ...packageContents.options[aa][aaa] } : packageContents.options[aa][aaa]
+                                    }
                                 }
+                            } else {
+                                this.env.options[aa] = packageContents.options[aa] && typeof packageContents.options[aa] === 'object' ? { ...packageContents.options[aa] } : packageContents.options[aa]
                             }
-                        } else {
-                            this.env.options[aa] = packageContents.options[aa] && typeof packageContents.options[aa] === 'object' ? { ...packageContents.options[aa] } : packageContents.options[aa]
                         }
-                    }
-                } else if (a === 'gateways' || a === 'helpers' || a === 'loaders') {
-                    for (const aa in packageContents[a]) {
-                        if (!packageContents[a][aa]) continue
-                        if (typeof packageContents[a][aa] === 'function') {
-                            this.env[a][aa] = packageContents[a][aa]
-                        } else if (typeof packageContents[a][aa] === 'string') {
-                            const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl)
-                            let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
-                            this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
+                        break
+                    case 'gateways': case 'helpers': case 'loaders':
+                        for (const aa in packageContents[a]) {
+                            switch (typeof packageContents[a][aa]) {
+                                case 'function':
+                                    this.env[a][aa] = packageContents[a][aa]
+                                    break
+                                case `string`:
+                                    const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl)
+                                    let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
+                                    this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
+                            }
                         }
-                    }
-                } else {
-                    Object.assign(this.env[a], packageContents[a])
+                        break
+                    default:
+                        Object.assign(this.env[a], packageContents[a])
                 }
             }
         }
