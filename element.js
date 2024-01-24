@@ -1,6 +1,6 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '1.0.5' },
+    version: { enumerable: true, value: '1.1.0' },
 
     sys: {
         value: Object.freeze({
@@ -131,7 +131,35 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (packageObject) {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
-            for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') Object.assign(this.env[a], packageContents[a])
+            for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
+                if (a === 'options') {
+                    for (const aa in (packageContents.options ?? {})) {
+                        if (this.env.options[aa] && typeof this.env.options[aa] === 'object') {
+                            for (const aaa in packageContents.options[aa]) {
+                                if (this.env.options[aa][aaa] && typeof this.env.options[aa][aaa] === 'object') {
+                                    Object.assign(this.env.options[aa][aaa], packageContents.options[aa][aaa])
+                                } else {
+                                    this.env.options[aa][aaa] = packageContents.options[aa][aaa] && typeof packageContents.options[aa][aaa] === 'object'
+                                        ? { ...packageContents.options[aa][aaa] } : packageContents.options[aa][aaa]
+                                }
+                            }
+                        } else {
+                            this.env.options[aa] = packageContents.options[aa] && typeof packageContents.options[aa] === 'object' ? { ...packageContents.options[aa] } : packageContents.options[aa]
+                        }
+                    }
+                } else if (a === 'gateways' || a === 'helpers' || a === 'loaders') {
+                    for (const aa in packageContents[a]) {
+                        if (!packageContents[a][aa]) continue
+                        if (typeof packageContents[a][aa] === 'function') {
+
+                        } else if (typeof packageContents[a][aa] === 'string') {
+
+                        }
+                    }
+                } else {
+                    Object.assign(this.env[a], packageContents[a])
+                }
+            }
         }
     },
 
@@ -168,121 +196,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    applyData: {
-        enumerable: true, value: async function (element, data) {
-            if (!(element instanceof HTMLElement)) return
-            if (data === null) return
-            const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-            if (typeof data !== 'object') {
-                switch (tag) {
-                    case 'meta':
-                        return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
-                        return element.value = data
-                    case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
-                        return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
-                    case 'area': case 'link':
-                        return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
-                    case 'object':
-                        return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
-                    default:
-                        if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
-                        return element.textContent = (data == undefined) ? '' : data
-                }
-            }
-            const setProperty = (k, v, element) => {
-                if (k.includes('(') && k.endsWith(')')) {
-                    return v != undefined ? this.runElementMethod(k, v, element) : undefined
-                } else if (v === undefined) {
-                    return delete element[k]
-                }
-                element[k] = v
-            }
-            for (const [k, v] of Object.entries(data)) {
-                if (!k) continue
-                switch (k[0]) {
-                    // add in $property syntax for setting dataset values
-                    case '#':
-                        if (k === '#') element.setAttribute('id', v)
-                        continue
-                    case '&':
-                        const className = k.slice(1)
-                        if (!className) continue
-                        element.classList.toggle(className, v)
-                        continue
-                    case '^':
-                        const styleRule = k.slice(1)
-                        if (!styleRule) continue
-                        element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
-                        continue
-                    case '@':
-                        // add in {"@": "name"} support here
-                        const kSlice1 = k.slice(1)
-                        switch (v) {
-                            case true: case false:
-                                element.toggleAttribute(kSlice1, v)
-                                continue
-                            case null:
-                                element.removeAttribute(kSlice1)
-                                continue
-                            default:
-                                element.setAttribute(kSlice1, v)
-                                continue
-                        }
-                    case '!':
-                        let eventName = k.slice(1)
-                        if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
-                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
-                        continue
-                    case '.': case '<':
-                        if (!v) { element.replaceChildren(); continue }
-                        switch (k) {
-                            case '<>':
-                                element.innerHTML = v
-                                continue
-                            case '.':
-                                element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
-                                continue
-                            case '..':
-                                element.textContent = v
-                                continue
-                            case '...':
-                                element.innerText = v
-                                continue
-                            default:
-                                if (k[0] === '<' && k.slice(-1) === '>') {
-                                    const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
-                                    let renderExpression = k.slice(1, -1), insertSelector,
-                                        posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
-                                    if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
-                                    if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
-                                        const useTemplate = this.resolveScopedSelector(renderExpression.slice(1, -1), element)
-                                        if (useTemplate) this.applyDataWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
-                                        continue
-                                    }
-                                    const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
-                                        idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
-                                        attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
-                                    this.applyDataWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
-                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
-                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
-                                    )
-                                    continue
-                                }
-                                setProperty(k.slice(1), v, element)
-                        }
-                    case '`':
-                        let nestingTargets = Array.of(this.resolveScopedSelector(k.slice(1, -1), element) ?? [])
-                        await Promise.all(nestingTargets.map(t => this.applyData(t, v)))
-                        continue
-                    case '~':
-                        continue
-                    default:
-                        setProperty(k, v, element)
-                }
-            }
-        },
-    },
     flatten: {
         enumerable: true, value: function (value, key, event) {
             const compile = (plain, complex = []) => {
@@ -589,6 +502,121 @@ const ElementHTML = Object.defineProperties({}, {
             return this.useHelper(contentType, text) ?? text
         }
     },
+    render: {
+        enumerable: true, value: async function (element, data) {
+            if (!(element instanceof HTMLElement)) return
+            if (data === null) return
+            const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+            if (typeof data !== 'object') {
+                switch (tag) {
+                    case 'meta':
+                        return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
+                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
+                        return element.value = data
+                    case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
+                        return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
+                    case 'area': case 'link':
+                        return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
+                    case 'object':
+                        return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
+                    default:
+                        if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
+                        return element.textContent = (data == undefined) ? '' : data
+                }
+            }
+            const setProperty = (k, v, element) => {
+                if (k.includes('(') && k.endsWith(')')) {
+                    return v != undefined ? this.runElementMethod(k, v, element) : undefined
+                } else if (v === undefined) {
+                    return delete element[k]
+                }
+                element[k] = v
+            }
+            for (const [k, v] of Object.entries(data)) {
+                if (!k) continue
+                switch (k[0]) {
+                    // add in $property syntax for setting dataset values
+                    case '#':
+                        if (k === '#') element.setAttribute('id', v)
+                        continue
+                    case '&':
+                        const className = k.slice(1)
+                        if (!className) continue
+                        element.classList.toggle(className, v)
+                        continue
+                    case '^':
+                        const styleRule = k.slice(1)
+                        if (!styleRule) continue
+                        element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
+                        continue
+                    case '@':
+                        // add in {"@": "name"} support here
+                        const kSlice1 = k.slice(1)
+                        switch (v) {
+                            case true: case false:
+                                element.toggleAttribute(kSlice1, v)
+                                continue
+                            case null:
+                                element.removeAttribute(kSlice1)
+                                continue
+                            default:
+                                element.setAttribute(kSlice1, v)
+                                continue
+                        }
+                    case '!':
+                        let eventName = k.slice(1)
+                        if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
+                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        continue
+                    case '.': case '<':
+                        if (!v) { element.replaceChildren(); continue }
+                        switch (k) {
+                            case '<>':
+                                element.innerHTML = v
+                                continue
+                            case '.':
+                                element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
+                                continue
+                            case '..':
+                                element.textContent = v
+                                continue
+                            case '...':
+                                element.innerText = v
+                                continue
+                            default:
+                                if (k[0] === '<' && k.slice(-1) === '>') {
+                                    const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
+                                    let renderExpression = k.slice(1, -1), insertSelector,
+                                        posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
+                                    if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
+                                    if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
+                                        const useTemplate = this.resolveScopedSelector(renderExpression.slice(1, -1), element)
+                                        if (useTemplate) this.renderWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
+                                        continue
+                                    }
+                                    const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
+                                        idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
+                                        attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
+                                    this.renderWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
+                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
+                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
+                                    )
+                                    continue
+                                }
+                                setProperty(k.slice(1), v, element)
+                        }
+                    case '`':
+                        let nestingTargets = Array.of(this.resolveScopedSelector(k.slice(1, -1), element) ?? [])
+                        await Promise.all(nestingTargets.map(t => this.render(t, v)))
+                        continue
+                    case '~':
+                        continue
+                    default:
+                        setProperty(k, v, element)
+                }
+            }
+        },
+    },
     resolveScope: {
         enumerable: true, value: function (scopeStatement, element) {
             if (!scopeStatement) return element.parentElement
@@ -735,7 +763,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    applyDataWithTemplate: {
+    renderWithTemplate: {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
@@ -762,7 +790,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
             } else { nodesToApply.push([buildNode(useNode), data]) }
             element[insertPosition](...nodesToApply.map(n => n[0]))
-            for (const n of nodesToApply) this.applyData(...n)
+            for (const n of nodesToApply) this.render(...n)
         }
     },
     encapsulateNative: {

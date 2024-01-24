@@ -313,9 +313,9 @@
                 if (value != undefined) {
                     const target = this.E.resolveSelector(selector, scope)
                     if (Array.isArray(target)) {
-                        for (const t of target) this.E.applyData(t, value)
+                        for (const t of target) this.E.render(t, value)
                     } else if (target) {
-                        this.E.applyData(target, value)
+                        this.E.render(target, value)
                     }
                 }
                 return value
