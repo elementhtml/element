@@ -4,7 +4,11 @@ const ElementHTML = Object.defineProperties({}, {
 
     sys: {
         value: Object.freeze({
-            defaultEventTypes: Object.freeze({ input: 'change', meta: 'change', textarea: 'change', select: 'change', form: 'submit' }),
+            defaultEventTypes: Object.freeze({
+                input: 'change', meta: 'change', textarea: 'change', select: 'change', search: 'change',
+                img: 'load', body: 'load', iframe: 'load', embed: 'load', link: 'load', script: 'load', style: 'load', object: 'load', track: 'load',
+                audio: 'loadeddata', video: 'loadeddata', slot: 'slotchange', details: 'toggle', dialog: 'close', form: 'submit'
+            }),
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
                 classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
