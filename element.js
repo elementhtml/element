@@ -379,10 +379,10 @@ const ElementHTML = Object.defineProperties({}, {
             return this.app.cells[name]
         }
     },
-    getFieldOrCellGroup: {
+    getStateGroup: {
         enumerable: true, value: function (expression, type = '#', element) {
             let group
-            const getFieldOrCellTarget = (name) => {
+            const getStateTarget = (name) => {
                 const modeFlag = name[name.length - 1],
                     mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
                 if (mode) name = name.slice(0, -1).trim()
@@ -403,7 +403,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!name) name = key
                         const keyEndsWith = key[key.length - 1]
                         if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                        group[key] = getFieldOrCellTarget(name)
+                        group[key] = getStateTarget(name)
                     }
                     return group
                 case '[':
@@ -411,13 +411,13 @@ const ElementHTML = Object.defineProperties({}, {
                     for (let t of expression.slice(1, -1).split(',')) {
                         t = t.trim()
                         if (!t) continue
-                        group.push(getFieldOrCellTarget(t))
+                        group.push(getStateTarget(t))
                     }
                     return group
                 default:
                     expression = expression.trim()
                     if (!expression) return
-                    return [getFieldOrCellTarget(expression)]
+                    return [getStateTarget(expression)]
             }
         }
     },
