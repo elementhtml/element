@@ -32,6 +32,7 @@ const ElementHTML = Object.defineProperties({}, {
             helpers: {},
             libraries: {},
             regexp: {},
+            templates: {},
             transforms: {},
             types: {}
         }
@@ -119,6 +120,7 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: {},
             options: {},
             regexp: {},
+            templates: {},
             transforms: {},
             types: {}
         }
@@ -174,6 +176,14 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
+                    case 'templates':
+                        for (const key in packageContents.templates) {
+                            if ((typeof packageContents.templates[key] === 'string') && (packageContents.templates[key][0] === '`' && packageContents.templates[key].slice(-1) === '`')) {
+                                this.env.templates[key] = [packageContents.templates[key].slice(1, -1), packageUrl]
+                            } else {
+                                this.env.templates[key] = packageContents.templates[key]
+                            }
+                        }
                     default:
                         Object.assign(this.env[a], packageContents[a])
                 }
@@ -608,7 +618,33 @@ const ElementHTML = Object.defineProperties({}, {
                                         posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
                                     if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
-                                        const useTemplate = this.resolveScopedSelector(renderExpression.slice(1, -1), element)
+                                        renderExpression = renderExpression.slice(1, -1)
+                                        let useTemplate
+                                        if (renderExpression[0] === '`' && renderExpression.slice(-1) === '`') {
+                                            renderExpression = renderExpression.slice(1, -1)
+                                            if (this.app.templates[renderExpression] && (this.app.templates[renderExpression] instanceof HTMLTemplateElement)) {
+                                            } else if (this.env.templates[renderExpression]) {
+                                                const envTemplate = this.env.templates[renderExpression]
+                                                this.app.templates[renderExpression] = document.createElement('template')
+                                                if (envTemplate instanceof HTMLTemplateElement) {
+                                                    this.app.templates[renderExpression].innerHTML = envTemplate.innerHTML
+                                                } else if (typeof envTemplate === 'string') {
+                                                    if (envTemplate[0] === '`' && envTemplate.slice(-1) === '`') {
+                                                        this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(envTemplate.slice(1, -1)))).text()
+                                                    } else {
+                                                        this.app.templates[renderExpression].innerHTML = envTemplate
+                                                    }
+                                                } else if (Array.isArray(envTemplate)) {
+                                                    this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(...envTemplate))).text()
+                                                }
+                                            } else {
+                                                this.app.templates[renderExpression] = document.createElement('template')
+                                                this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(renderExpression))).text()
+                                            }
+                                            useTemplate = this.app.templates[renderExpression]
+                                        } else {
+                                            useTemplate = this.resolveScopedSelector(renderExpression, element)
+                                        }
                                         if (useTemplate) this.renderWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
                                         continue
                                     }
