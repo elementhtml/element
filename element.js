@@ -128,9 +128,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ImportPackage: {
-        enumerable: true, value: async function (packageObject) {
+        enumerable: true, value: async function (packageObject, packageUrl) {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
+            for (const a of ['gateways', 'helpers', 'loaders']) {
+                if (typeof packageContents[a] === 'string') {
+                    const importUrl = this.resolveUrl(packageContents[a], packageUrl)
+                    let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
+                    packageContents[a] = {}
+                    for (const aa in exports) if (typeof exports[aa] === 'function') packageContents[a][aa] = exports[aa]
+                }
+            }
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
                 if (a === 'options') {
                     for (const aa in (packageContents.options ?? {})) {
@@ -151,9 +159,11 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const aa in packageContents[a]) {
                         if (!packageContents[a][aa]) continue
                         if (typeof packageContents[a][aa] === 'function') {
-
+                            this.env[a][aa] = packageContents[a][aa]
                         } else if (typeof packageContents[a][aa] === 'string') {
-
+                            const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl)
+                            let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
+                            this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                         }
                     }
                 } else {
@@ -670,14 +680,14 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveUrl: {
-        enumerable: true, value: function (value) {
+        enumerable: true, value: function (value, base) {
             if (typeof value !== 'string') return value
             if (value.startsWith('https://') || value.startsWith('http://')) return value
             if (value.includes('://')) {
                 const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
                 return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
             }
-            return new URL(value, document.baseURI).href
+            return new URL(value, base ?? document.baseURI).href
         }
     },
     runElementMethod: {
@@ -967,12 +977,13 @@ if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
-    const imports = importmap.imports ?? {}, importPromises = []
+    const imports = importmap.imports ?? {}, importPromises = {}
     for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/')) {
-        importPromises.push(import(ElementHTML.resolveUrl(imports[p])))
+        const importUrl = ElementHTML.resolveUrl(imports[p])
+        importPromises[importUrl] = import(importUrl)
     }
-    await Promise.all(importPromises)
-    for (const p of importPromises) await ElementHTML.ImportPackage(await p)
+    await Promise.all(Object.values(importPromises))
+    for (const u in importPromises) await ElementHTML.ImportPackage(await importPromises[u], u)
 }
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load()
