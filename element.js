@@ -465,9 +465,9 @@ const ElementHTML = Object.defineProperties({}, {
                 case '$':
                     expression = expression.slice(1)
                     if (!expression) return value
-                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression] ?? expression
+                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
                 default:
-                    return labels[expression] ?? expression
+                    return labels[expression]
             }
         }
     },
