@@ -5,36 +5,19 @@ const ElementHTML = Object.defineProperties({}, {
     sys: {
         value: Object.freeze({
             defaultEventTypes: Object.freeze({
-                input: 'change', meta: 'change', textarea: 'change', select: 'change', search: 'change',
-                img: 'load', body: 'load', iframe: 'load', embed: 'load', link: 'load', script: 'load', style: 'load', object: 'load', track: 'load',
-                audio: 'loadeddata', video: 'loadeddata', slot: 'slotchange', details: 'toggle', dialog: 'close', form: 'submit'
+                audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
+                meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
             regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g,
-                classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
-                extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
-                hasVariable: /\$\{(.*?)\}/g,
-                htmlBlocks: /<html>\n+.*\n+<\/html>/g,
-                htmlSpans: /<html>.*<\/html>/g,
-                idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                isDataUrl: /data:([\w/\-\.]+);/,
-                isFormString: /^\w+=.+&.*$/,
-                isJSONObject: /^\s*{.*}$/,
-                isNumeric: /^[0-9\.]+$/,
-                isTag: /(<([^>]+)>)/gi,
-                tagMatch: /^[a-z0-9\-]+/g
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
+                hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
+                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, tagMatch: /^[a-z0-9\-]+/g
             })
         })
     },
     app: {
         value: {
-            cells: {},
-            helpers: {},
-            libraries: {},
-            regexp: {},
-            templates: {},
-            transforms: {},
-            types: {}
+            cells: {}, helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
     env: {
@@ -117,12 +100,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {},
-            options: {},
-            regexp: {},
-            templates: {},
-            transforms: {},
-            types: {}
+            namespaces: {}, options: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
 
@@ -246,8 +224,7 @@ const ElementHTML = Object.defineProperties({}, {
                 result = {
                     ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
                     ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
-                        'clientHeight', 'clientLeft', 'clientTop', 'clientWidth',
-                        'id', 'lang', 'localName', 'name', 'namespaceURI',
+                        'clientHeight', 'clientLeft', 'clientTop', 'clientWidth', 'id', 'lang', 'localName', 'name', 'namespaceURI',
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                         'selected', 'slot', 'tagName', 'title'], []))),
@@ -290,12 +267,16 @@ const ElementHTML = Object.defineProperties({}, {
                         break
                     case 'data': case 'meter': case 'input': case 'select': case 'textarea':
                         if (result.tag === 'input') {
-                            const type = value.getAttribute('type')
-                            if (type === 'checkbox') {
-                                result._ = value.checked
-                            } else if (type === 'radio') {
-                                result._ = value.selected
-                            } else { result._ = value.value }
+                            switch (value.getAttribute('type')) {
+                                case 'checkbox':
+                                    result._ = value.checked
+                                    break
+                                case 'radio':
+                                    result._ = value.selected
+                                    break
+                                default:
+                                    result._ = value.value
+                            }
                         } else {
                             result._ = value.value
                         }
@@ -512,6 +493,7 @@ const ElementHTML = Object.defineProperties({}, {
                     contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
                     contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
                     contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
+                    contentType ||= input.url.endsWith('.jsonl') ? 'application/x-jsonl' : undefined
                     contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
                     const serverContentType = input.headers.get('Content-Type')
                     if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
@@ -543,7 +525,7 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (tag) {
                     case 'meta':
                         return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
+                    case 'data': case 'input': case 'meter': case 'select': case 'textarea':
                         return element.value = data
                     case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
                         return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
@@ -596,7 +578,6 @@ const ElementHTML = Object.defineProperties({}, {
                                 element.setAttribute(k.slice(1) || 'name', v)
                                 continue
                         }
-
                     case '$':
                         if (k === '$') {
                             element.value = v
@@ -606,6 +587,7 @@ const ElementHTML = Object.defineProperties({}, {
                         } else {
                             element.dataset[k.slice(1)] = v
                         }
+                        continue
                     case '!':
                         let eventName = k.slice(1)
                         if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
@@ -679,7 +661,10 @@ const ElementHTML = Object.defineProperties({}, {
                         await Promise.all(nestingTargets.map(t => this.render(t, v)))
                         continue
                     case '~':
-                        continue
+                        if (element.hasAttribute('itemscope')) {
+                            this.render(element.querySelector(`[itemprop="${k.slice(1)}"]`), v)
+                            break
+                        }
                     default:
                         setProperty(k, v, element)
                 }
