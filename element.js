@@ -184,6 +184,10 @@ const ElementHTML = Object.defineProperties({}, {
                                 this.env.templates[key] = packageContents.templates[key]
                             }
                         }
+                        break
+                    case 'namespaces':
+                        for (const namespace in packageContents.namespaces) this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace])
+                        break
                     default:
                         Object.assign(this.env[a], packageContents[a])
                 }
