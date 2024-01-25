@@ -330,7 +330,20 @@
         #parseJSONExpression(expression, statementIndex, stepIndex) {
             let retval
             try { retval = JSON.parse(expression) } catch (e) { }
-            return async (value, labels, env, statementIndex, stepIndex) => retval
+            const resolveValue = (v, value, labels, env) => {
+                if (v === null || v === true || v === false || (typeof v === 'number')) {
+                    return v
+                } else if (typeof v === 'string') {
+                    return this.E.mergeVariables(v, value, labels, env)
+                } else if (Array.isArray(v)) {
+                    return retval.map(v => resolveValue(v))
+                } else if (typeof retval === 'object') {
+                    const result = {}
+                    for (const k in retval) result[this.E.mergeVariables(k, value, labels, env)] = resolveValue(retval[k])
+                    return result
+                }
+            }
+            return async (value, labels, env, statementIndex, stepIndex) => resolve(retval, value, labels, env)
         }
 
         #parseVariableExpression(expression, statementIndex, stepIndex) {
@@ -397,7 +410,8 @@
             return async (value, labels, env, statementIndex, stepIndex) => {
                 const useExpression = this.E.mergeVariables(expression, value, labels, env)
                 let ms = 0, [mainWait, override] = useExpression.split('(')
-                override = (override == null) ? value : this.E.getVariable(override.slice(0, -1).trim(), value, labels, env)
+                mainWait = this.E.mergeVariables(mainWait, value, labels, env)
+                override = (override == null) ? value : this.E.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
                 if (mainWait === 'frame') {
                     await new Promise(resolve => window.requestAnimationFrame(resolve))
                     return override
