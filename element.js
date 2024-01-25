@@ -750,7 +750,7 @@ const ElementHTML = Object.defineProperties({}, {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.getVariable(a.trim(), a.trim(), {}, { context: {} })) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim(), {}, { fields: {}, cells: {}, context: Object.freeze({ ...this.E.env.context }) })) : []
                 return element[funcName](...argsRest, ...(Array.from(arg)))
             }
         }
