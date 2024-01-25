@@ -817,36 +817,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
         }
     },
-    renderWithTemplate: {
-        value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
-            if (insertSelector) element = element.querySelector(insertSelector)
-            if (!element) return
-            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
-            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
-            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
-            insertPosition ||= 'replaceChildren'
-            let useNode
-            if (tag instanceof HTMLTemplateElement) {
-                useNode = tag.content.cloneNode(true).firstElementChild
-            } else if (tag instanceof HTMLElement) {
-                useNode = tag.cloneNode(true)
-            } else if (typeof tag === 'string') {
-                useNode = document.createElement(tag)
-            } else { return }
-            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
-            const buildNode = node => {
-                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
-                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
-                return node
-            }
-            let nodesToApply = []
-            if (Array.isArray(data)) {
-                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
-            } else { nodesToApply.push([buildNode(useNode), data]) }
-            element[insertPosition](...nodesToApply.map(n => n[0]))
-            for (const n of nodesToApply) this.render(...n)
-        }
-    },
     encapsulateNative: {
         value: function () {
             const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
@@ -928,6 +898,36 @@ const ElementHTML = Object.defineProperties({}, {
             this.classes[id].id = id
             this.constructors[id] = class extends this.classes[id] { constructor() { super() } }
             return true
+        }
+    },
+    renderWithTemplate: {
+        value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
+            if (insertSelector) element = element.querySelector(insertSelector)
+            if (!element) return
+            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
+            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
+            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
+            insertPosition ||= 'replaceChildren'
+            let useNode
+            if (tag instanceof HTMLTemplateElement) {
+                useNode = tag.content.cloneNode(true).firstElementChild
+            } else if (tag instanceof HTMLElement) {
+                useNode = tag.cloneNode(true)
+            } else if (typeof tag === 'string') {
+                useNode = document.createElement(tag)
+            } else { return }
+            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
+            const buildNode = node => {
+                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
+                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
+                return node
+            }
+            let nodesToApply = []
+            if (Array.isArray(data)) {
+                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
+            } else { nodesToApply.push([buildNode(useNode), data]) }
+            element[insertPosition](...nodesToApply.map(n => n[0]))
+            for (const n of nodesToApply) this.render(...n)
         }
     },
     sliceAndStep: {
