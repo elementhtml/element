@@ -427,6 +427,7 @@
                     let mainWaitSplit = mainWait.split(':').map(s => s.trim())
                     if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.E.sys.regexp.isNumeric.test(s))) {
                         ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`) - Date.now()
+                        if (ms < 0) ms = (ms + (1000 * 3600 * 24))
                     } else {
                         ms = Date.parse(mainWait) - Date.now()
                     }

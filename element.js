@@ -411,7 +411,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!expression) return value
             switch (expression[0]) {
                 case '"': case "'":
-                    return expression.slice(1, -1)
+                    return this.mergeVariables(expression.slice(1, -1), value, labels, env)
                 case '{':
                     if (expression.endsWith('}')) {
                         const items = {}
@@ -419,9 +419,9 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!(pair = pair.trim())) continue
                             let [key, name] = pair.split(':')
                             if (!(key = key.trim()) || !(name = name.trim())) continue
-                            key = this.getVariable(key, value, labels, env)
+                            key = this.mergeVariables(key, value, labels, env)
                             if (!key || (typeof key !== 'string')) continue
-                            items[key] = this.getVariable(name, value, labels, env)
+                            items[key] = this.mergeVariables(name, value, labels, env)
                         }
                         return items
                     }
@@ -429,7 +429,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case '[':
                     if (expression.endsWith(']')) {
                         const items = []
-                        for (const item of expression.slice(1, -1).split(',')) items.push(this.getVariable(item.trim(), value, labels, env))
+                        for (const item of expression.slice(1, -1).split(',')) items.push(this.mergeVariables(item.trim(), value, labels, env))
                         return items
                     }
                     return expression
