@@ -864,8 +864,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.ids[tag]) return this.ids[tag]
             const [namespace, pointer] = tag.split('-', 2).map(t => t.toLowerCase())
             if (namespace === 'e') return (new URL(`./e/components/${pointer}.html`, import.meta.url)).href
-            if (!this.env.namespaces[namespace]) return
-            return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
+            if (this.env.namespaces[namespace]) return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
+            return (new URL(`${namespace}/${pointer}.html`, document.baseURI)).href
         }
     },
     loadTagAssetsFromId: {
