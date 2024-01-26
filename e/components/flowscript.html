@@ -343,7 +343,7 @@
                     return result
                 }
             }
-            return async (value, labels, env, statementIndex, stepIndex) => resolve(retval, value, labels, env)
+            return async (value, labels, env, statementIndex, stepIndex) => resolveValue(retval, value, labels, env)
         }
 
         #parseVariableExpression(expression, statementIndex, stepIndex) {
