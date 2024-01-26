@@ -258,37 +258,43 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 result._options = []
-                switch (result.tag) {
-                    case 'form': case 'fieldset':
-                        result._ = result._named
-                        break
-                    case 'table':
-                        result._ = result._rows
-                        break
-                    case 'data': case 'meter': case 'input': case 'select': case 'textarea':
-                        if (result.tag === 'input') {
-                            switch (value.getAttribute('type')) {
-                                case 'checkbox':
-                                    result._ = value.checked
-                                    break
-                                case 'radio':
-                                    result._ = value.selected
-                                    break
-                                default:
-                                    result._ = value.value
+                if (value.constructor.E_ValueProperty) {
+                    result._ = value[value.constructor.E_ValueProperty]
+                } else if (value.constructor.observedAttributes && value.constructor.observedAttributes.includes('value')) {
+                    result._ = value.value
+                } else {
+                    switch (result.tag) {
+                        case 'form': case 'fieldset':
+                            result._ = result._named
+                            break
+                        case 'table':
+                            result._ = result._rows
+                            break
+                        case 'data': case 'meter': case 'input': case 'select': case 'textarea':
+                            if (result.tag === 'input') {
+                                switch (value.getAttribute('type')) {
+                                    case 'checkbox':
+                                        result._ = value.checked
+                                        break
+                                    case 'radio':
+                                        result._ = value.selected
+                                        break
+                                    default:
+                                        result._ = value.value
+                                }
+                            } else {
+                                result._ = value.value
                             }
-                        } else {
-                            result._ = value.value
-                        }
-                        break
-                    case 'time':
-                        result._ = value.getAttribute('datetime')
-                        break
-                    case 'meta':
-                        result._ = value.getAttribute('content')
-                        break
-                    default:
-                        result._ = value.hasAttribute('itemscope') ? result._itemprop : innerText.trim()
+                            break
+                        case 'time':
+                            result._ = value.getAttribute('datetime')
+                            break
+                        case 'meta':
+                            result._ = value.getAttribute('content')
+                            break
+                        default:
+                            result._ = value.hasAttribute('itemscope') ? result._itemprop : innerText.trim()
+                    }
                 }
                 if (result.tag === 'select' || result.tag === 'datalist') {
                     const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
@@ -522,20 +528,26 @@ const ElementHTML = Object.defineProperties({}, {
             if (data === null) return
             const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
             if (typeof data !== 'object') {
-                switch (tag) {
-                    case 'meta':
-                        return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                    case 'data': case 'input': case 'meter': case 'select': case 'textarea':
-                        return element.value = data
-                    case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
-                        return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
-                    case 'area': case 'link':
-                        return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
-                    case 'object':
-                        return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
-                    default:
-                        if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
-                        return element.textContent = (data == undefined) ? '' : data
+                if (element.constructor.E_ValueProperty) {
+                    return element[element.constructor.E_ValueProperty] = data
+                } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
+                    return value.value = data
+                } else {
+                    switch (tag) {
+                        case 'meta':
+                            return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
+                        case 'data': case 'input': case 'meter': case 'select': case 'textarea':
+                            return element.value = data
+                        case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
+                            return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
+                        case 'area': case 'link':
+                            return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
+                        case 'object':
+                            return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
+                        default:
+                            if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
+                            return element.textContent = (data == undefined) ? '' : data
+                    }
                 }
             }
             const setProperty = (k, v, element) => {

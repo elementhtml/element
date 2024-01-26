@@ -1,0 +1,20 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #value
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('value') }
+
+        get value() { return this.getAttribute('value') || this.#value }
+        set value(value) {
+            value = parseInt(value) || 0
+            if (value === this.#value) return
+            this.#value = value
+            if (typeof navigator.setAppBadge === 'function') navigator.setAppBadge(value)
+            this.dispatchEvent(new CustomEvent('change', { detail: value }))
+        }
+
+    }
+</script>
