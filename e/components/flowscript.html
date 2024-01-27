@@ -309,7 +309,8 @@
                         const target = this.E.resolveSelector(selector, scope)
                         if (!target || (Array.isArray(target) && !target.length)) return
                     } else if (selector && !event.target.matches(selector)) { return }
-                    if (!eventList && (event.type !== (this.E.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'))) return
+                    let tagDefaultEventType = event.target.constructor.E_DefaultEvent ?? this.E.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                    if (!eventList && (event.type !== tagDefaultEventType)) return
                     if (!keepDefault) event.preventDefault()
                     this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.E.flatten(event.target, undefined, event) }))
                 }, { signal: this.keyedAbortControllers[eventKey].signal })

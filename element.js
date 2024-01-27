@@ -602,8 +602,8 @@ const ElementHTML = Object.defineProperties({}, {
                         continue
                     case '!':
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = this.sys.defaultEventTypes[tag] ?? 'click'
-                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v }))
+                        if (!eventName) eventName = element.constructor.E_DefaultEvent ?? this.E.sys.defaultEventTypes[tag] ?? 'click'
+                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v, bubbles: true, cancelable: true }))
                         continue
                     case '.': case '<':
                         if (!v) { element.replaceChildren(); continue }
