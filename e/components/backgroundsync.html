@@ -28,6 +28,8 @@
         set tags(value) { this.#bulkRegister(this.E.mergeVariables(tags)) }
 
         #bulkRegister(tags) {
+            if (!tags) return
+            if (!Array.isArray(tags)) tags = [tags]
             navigator.serviceWorker.ready.then(sw => {
                 if (!this.#serviceWorker) this.#serviceWorker = sw
                 if (!this.#serviceWorker?.sync?.register) return
