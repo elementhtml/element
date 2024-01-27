@@ -336,10 +336,10 @@
                 } else if (typeof v === 'string') {
                     return this.E.mergeVariables(v, value, labels, env)
                 } else if (Array.isArray(v)) {
-                    return retval.map(v => resolveValue(v))
+                    return retval.map(v => resolveValue(v, value, labels, env))
                 } else if (typeof retval === 'object') {
                     const result = {}
-                    for (const k in retval) result[this.E.mergeVariables(k, value, labels, env)] = resolveValue(retval[k])
+                    for (const k in retval) result[this.E.mergeVariables(k, value, labels, env)] = resolveValue(retval[k], value, labels, env)
                     return result
                 }
             }

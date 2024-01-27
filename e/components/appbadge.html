@@ -12,6 +12,7 @@
             value = parseInt(value) || 0
             if (value === this.#value) return
             this.#value = value
+            this.setAttribute('value', value)
             if (typeof navigator.setAppBadge === 'function') navigator.setAppBadge(value)
             this.dispatchEvent(new CustomEvent('change', { detail: value }))
         }

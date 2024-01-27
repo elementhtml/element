@@ -417,7 +417,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!expression) return value
             switch (expression[0]) {
                 case '"': case "'":
-                    return this.mergeVariables(expression.slice(1, -1), value, labels, env)
+                    return expression.slice(1, -1)
                 case '{':
                     if (expression.endsWith('}')) {
                         const items = {}
@@ -445,7 +445,7 @@ const ElementHTML = Object.defineProperties({}, {
                             return JSON.parse(expression)
                         default:
                             if (expression.match(this.sys.regexp.isNumeric)) return JSON.parse(expression)
-                            return labels[expression] ?? expression
+                            return labels[expression]
                     }
                 case '~':
                     return env.context[expression.slice(1)]
@@ -531,7 +531,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (element.constructor.E_ValueProperty) {
                     return element[element.constructor.E_ValueProperty] = data
                 } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
-                    return value.value = data
+                    return element.value = data
                 } else {
                     switch (tag) {
                         case 'meta':
