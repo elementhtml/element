@@ -1,0 +1,50 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #charging
+        #chargingTime
+        #dischargingTime
+        #level
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'charging'
+
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || [])
+                .concat('charging', 'chargingTime', 'dischargingTime', 'level')
+        }
+
+        async connectedCallback() {
+            if (!navigator.getBattery) return
+            const battery = await navigator.getBattery()
+            battery.addEventListener('chargingchange', event => {
+                this.#charging = event.target.charging
+                this.E_emitValueChange({ charging: this.#charging })
+            })
+            battery.addEventListener('chargingtimechange', event => {
+                this.#chargingTime = event.target.chargingTime
+                this.E_emitValueChange({ chargingTime: this.#chargingTime })
+            })
+            battery.addEventListener('dischargingtimechange', event => {
+                this.#dischargingTime = event.target.dischargingTime
+                this.E_emitValueChange({ dischargingTime: this.#dischargingTime })
+            })
+            battery.addEventListener('levelchange', event => {
+                this.#level = event.target.level
+                this.E_emitValueChange({ level: this.#level })
+            })
+        }
+
+        get charging() { return this.#charging }
+        set charging(value) { return }
+
+        get chargingTime() { return this.#chargingTime }
+
+        get dischargingTime() { return this.#dischargingTime }
+
+        get level() { return this.#level }
+
+    }
+</script>
