@@ -30,8 +30,6 @@
         get options() { return this.getAttribute('options') || this.#options }
         set options(value) { this.#options = value }
 
-        get recordsAvailable() { return this.#registration?.recordsAvailable }
-
         get result() { return this.#registration?.result ?? this.#result }
         set result(value) { this.fetch(value) }
 
