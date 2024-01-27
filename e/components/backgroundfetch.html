@@ -15,7 +15,7 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('id', 'options') }
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
-                .concat('failureReason', 'id', 'options', 'downloaded', 'downloadTotal', 'recordsAvailable', 'result', 'uploaded', 'uploadTotal')
+                .concat('downloaded', 'downloadTotal', 'failureReason', 'id', 'options', 'recordsAvailable', 'result', 'uploaded', 'uploadTotal')
         }
 
         get downloaded() { return this.#registration?.downloaded }
@@ -25,7 +25,7 @@
         get failureReason() { return this.#registration?.failureReason }
 
         get id() { return this.#id ?? this.getAttribute('id') }
-        set id(value) { this.#id = value }
+        set id(value) { if (this.hasAttribute('id')) this.#id = this.getAttribute('id') }
 
         get options() { return this.getAttribute('options') || this.#options }
         set options(value) { this.#options = value }
