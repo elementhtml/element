@@ -412,56 +412,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getVariable: {
-        enumerable: true, value: function (expression, value, labels, env) {
-            if (!expression) return value
-            switch (expression[0]) {
-                case '"': case "'":
-                    return expression.slice(1, -1)
-                case '{':
-                    if (expression.endsWith('}')) {
-                        const items = {}
-                        for (let pair of expression.slice(1, -1).split(',')) {
-                            if (!(pair = pair.trim())) continue
-                            let [key, name] = pair.split(':')
-                            if (!(key = key.trim()) || !(name = name.trim())) continue
-                            key = this.mergeVariables(key, value, labels, env)
-                            if (!key || (typeof key !== 'string')) continue
-                            items[key] = this.mergeVariables(name, value, labels, env)
-                        }
-                        return items
-                    }
-                    return expression
-                case '[':
-                    if (expression.endsWith(']')) {
-                        const items = []
-                        for (const item of expression.slice(1, -1).split(',')) items.push(this.mergeVariables(item.trim(), value, labels, env))
-                        return items
-                    }
-                    return expression
-                case 't': case 'f': case 'n': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
-                    switch (expression) {
-                        case 'null': case 'true': case 'false':
-                            return JSON.parse(expression)
-                        default:
-                            if (expression.match(this.sys.regexp.isNumeric)) return JSON.parse(expression)
-                            return labels[expression]
-                    }
-                case '~':
-                    return env.context[expression.slice(1)]
-                case '#':
-                    return (env.cells[expression.slice(1)] ?? {})?.get()
-                case '%':
-                    return (env.fields[expression.slice(1)] ?? {})?.get()
-                case '$':
-                    expression = expression.slice(1)
-                    if (!expression) return value
-                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
-                default:
-                    return labels[expression]
-            }
-        }
-    },
     loadHelper: {
         enumerable: true, value: async function (name) {
             if (typeof this.app.helpers[name] === 'function') return
@@ -475,6 +425,11 @@ const ElementHTML = Object.defineProperties({}, {
             if (!expression) return inner ? value : undefined
             if (typeof expression !== 'string') return expression
             const isMatch = expression.match(this.sys.regexp.hasVariable)
+            labels ||= {}
+            env ||= {}
+            env.fields ||= {}
+            if (!env.cells) for (const name in this.app.cells) env.cells[name] = this.app.cells[name].get()
+            env.context ||= { ...this.env.context }
             if (!isMatch) return inner ? this.getVariable(expression, value, labels, env) : expression
             if (expression[0] === '[') return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
             if (expression[0] === '{') return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
@@ -751,7 +706,7 @@ const ElementHTML = Object.defineProperties({}, {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim(), {}, { fields: {}, cells: {}, context: Object.freeze({ ...this.E.env.context }) })) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim())) : []
                 return element[funcName](...argsRest, ...(Array.from(arg)))
             }
         }
@@ -878,6 +833,56 @@ const ElementHTML = Object.defineProperties({}, {
             if (namespace === 'e') return (new URL(`./e/components/${pointer}.html`, import.meta.url)).href
             if (this.env.namespaces[namespace]) return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
             return (new URL(`${namespace}/${pointer}.html`, document.baseURI)).href
+        }
+    },
+    getVariable: {
+        enumerable: true, value: function (expression, value, labels, env) {
+            if (!expression) return value
+            switch (expression[0]) {
+                case '"': case "'":
+                    return expression.slice(1, -1)
+                case '{':
+                    if (expression.endsWith('}')) {
+                        const items = {}
+                        for (let pair of expression.slice(1, -1).split(',')) {
+                            if (!(pair = pair.trim())) continue
+                            let [key, name] = pair.split(':')
+                            if (!(key = key.trim()) || !(name = name.trim())) continue
+                            key = this.mergeVariables(key, value, labels, env)
+                            if (!key || (typeof key !== 'string')) continue
+                            items[key] = this.mergeVariables(name, value, labels, env)
+                        }
+                        return items
+                    }
+                    return expression
+                case '[':
+                    if (expression.endsWith(']')) {
+                        const items = []
+                        for (const item of expression.slice(1, -1).split(',')) items.push(this.mergeVariables(item.trim(), value, labels, env))
+                        return items
+                    }
+                    return expression
+                case 't': case 'f': case 'n': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+                    switch (expression) {
+                        case 'null': case 'true': case 'false':
+                            return JSON.parse(expression)
+                        default:
+                            if (expression.match(this.sys.regexp.isNumeric)) return JSON.parse(expression)
+                            return labels[expression]
+                    }
+                case '~':
+                    return env.context[expression.slice(1)]
+                case '#':
+                    return (env.cells[expression.slice(1)] ?? {})?.get()
+                case '%':
+                    return (env.fields[expression.slice(1)] ?? {})?.get()
+                case '$':
+                    expression = expression.slice(1)
+                    if (!expression) return value
+                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
+                default:
+                    return labels[expression]
+            }
         }
     },
     loadTagAssetsFromId: {

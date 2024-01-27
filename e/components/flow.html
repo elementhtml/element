@@ -58,7 +58,7 @@
                     let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
-                        if (detail == undefined) detail = this.E.getVariable(defaultValue, undefined, labels, env)
+                        if (detail == undefined) detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
                         switch (label[0]) {
                             case '%':
                                 env.fields[label.slice(1)].set(detail, labelMode)

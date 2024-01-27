@@ -35,6 +35,7 @@
         get recordsAvailable() { return this.#registration?.recordsAvailable }
 
         get result() { return this.#registration?.result ?? this.#result }
+        set result(value) { this.fetch(value) }
 
         get uploaded() { return this.#registration?.uploaded }
 
@@ -47,7 +48,7 @@
             }
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
-            delete this.#result
+            this.#result = undefined
             if (!this.#id) this.#id = crypto.randomUUID()
             let options = this.E.mergeVariables(this.options)
             requests = Array.isArray(requests) ? requests : [requests]
@@ -58,8 +59,8 @@
                 if (this.#registration?.result) {
                     this.#result = this.#registration.result
                     this.#abortController.abort()
-                    delete this.#registration
-                    delete this.#abortController
+                    this.#registration = undefined
+                    this.#abortController = undefined
                 }
                 this.E_emitValueChange(this.result)
             }, { signal: this.#abortController.signal })
