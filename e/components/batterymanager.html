@@ -12,7 +12,7 @@
         static validObserve = ['charging', 'chargingTime', 'dischargingTime', 'level']
 
         static E_DefaultEventType = 'change'
-        static E_ValueProperty = 'charging'
+        static E_ValueProperty = 'observe'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('observe') }
         static get E_FlattenableProperties() {
@@ -46,7 +46,6 @@
         }
 
         get charging() { return this.#charging }
-        set charging(value) { return }
 
         get chargingTime() { return this.#chargingTime }
 
