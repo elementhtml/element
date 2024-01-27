@@ -15,30 +15,30 @@
 
         async connectedCallback() {
             const tags = this.getAttribute('tags')
-            if (tags) this.#bulkRegister(tags)
+            if (tags) this.#bulkRegister(this.E.mergeVariables(tags))
         }
 
         async register(tag) {
             this.#serviceWorker = await navigator.serviceWorker.ready
             if (!this.#serviceWorker?.sync?.register) return
-            if (this.#tags.includes(tag)) return
-            await this.#serviceWorker.sync.register(tag)
-            this.E_emitValueChange(tag)
+            return await this.#register(tag)
         }
 
         get tags() { return this.#tags }
-        set tags(value) { this.#bulkRegister(value) }
+        set tags(value) { this.#bulkRegister(this.E.mergeVariables(tags)) }
 
         #bulkRegister(tags) {
             navigator.serviceWorker.ready.then(sw => {
                 if (!this.#serviceWorker) this.#serviceWorker = sw
                 if (!this.#serviceWorker?.sync?.register) return
-                for (const tag of tags.split(',').map(s => s.trim()).filter(s => !!s)) {
-                    if (this.#tags.includes(tag)) continue
-                    this.#tags.push(tag)
-                    this.#serviceWorker.sync.register(tag).then(() => this.E_emitValueChange(tag))
-                }
+                for (const tag of tags.split(',').map(s => s.trim()).filter(s => !!s)) this.#register(tag)
             })
+        }
+
+        #register(tag) {
+            if (this.#tags.includes(tag)) return
+            this.#tags.push(tag)
+            return this.#serviceWorker.sync.register(tag).then(() => this.E_emitValueChange(tag))
         }
 
     }
