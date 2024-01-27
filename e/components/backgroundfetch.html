@@ -3,22 +3,24 @@
 <script>
     export default class extends `meta` {
 
+        #abortController
         #id
         #options
         #registration
-        #abortController
         #result
 
         static E_DefaultEventType = 'progress'
-
         static E_ValueProperty = 'result'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('id', 'options') }
-
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
                 .concat('failureReason', 'id', 'options', 'downloaded', 'downloadTotal', 'recordsAvailable', 'result', 'uploaded', 'uploadTotal')
         }
+
+        get downloaded() { return this.#registration?.downloaded }
+
+        get downloadTotal() { return this.#registration?.downloadTotal }
 
         get failureReason() { return this.#registration?.failureReason }
 
@@ -28,10 +30,6 @@
         get options() { return this.getAttribute('options') || this.#options }
         set options(value) { this.#options = value }
 
-        get downloaded() { return this.#registration?.downloaded }
-
-        get downloadTotal() { return this.#registration?.downloadTotal }
-
         get recordsAvailable() { return this.#registration?.recordsAvailable }
 
         get result() { return this.#registration?.result ?? this.#result }
@@ -40,6 +38,10 @@
         get uploaded() { return this.#registration?.uploaded }
 
         get uploadTotal() { return this.#registration?.uploadTotal }
+
+        abort() {
+            if (this.#registration) this.#registration.abort()
+        }
 
         async fetch(requests) {
             if (!("BackgroundFetchManager" in self)) {
@@ -66,10 +68,6 @@
                 }
                 this.E_emitValueChange(this.result)
             }, { signal: this.#abortController.signal })
-        }
-
-        abort() {
-            if (this.#registration) this.#registration.abort()
         }
 
     }
