@@ -42,10 +42,12 @@
         get uploadTotal() { return this.#registration?.uploadTotal }
 
         async fetch(requests) {
-            if (!requests || (Array.isArray(requests) && !requests.length) || ((typeof requests === 'object') && !Object.keys(requests).length)) return
             if (!("BackgroundFetchManager" in self)) {
                 return
             }
+            const serviceWorkerRegistrations = await navigator.serviceWorker.getRegistrations()
+            if (!serviceWorkerRegistrations || !serviceWorkerRegistrations.length) return
+            if (!requests || (Array.isArray(requests) && !requests.length) || ((typeof requests === 'object') && !Object.keys(requests).length)) return
             if (this.#abortController) this.#abortController.abort()
             this.#abortController = new AbortController()
             this.#result = undefined
