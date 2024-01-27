@@ -435,9 +435,7 @@
                     }
                 }
                 ms = Math.max(ms, 0)
-                console.log('line 438', { ms, now, mainWait, override, value, labels, env })
                 await new Promise(resolve => setTimeout(resolve, ms))
-                console.log('line 440', { ms, now, mainWait, override, value, labels, env })
                 return override
             }
         }
