@@ -1,0 +1,45 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #id
+        #serviceWorker
+        #tags = []
+
+        static E_DefaultEventType = 'register'
+        static E_ValueProperty = 'tags'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('tags') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('tags') }
+
+        async connectedCallback() {
+            const tags = this.getAttribute('tags')
+            if (tags) this.#bulkRegister(tags)
+        }
+
+        async register(tag) {
+            this.#serviceWorker = await navigator.serviceWorker.ready
+            if (!this.#serviceWorker?.sync?.register) return
+            if (this.#tags.includes(tag)) return
+            await this.#serviceWorker.sync.register(tag)
+            this.E_emitValueChange(tag)
+        }
+
+        get tags() { return this.#tags }
+        set tags(value) { this.#bulkRegister(value) }
+
+        #bulkRegister(tags) {
+            navigator.serviceWorker.ready.then(sw => {
+                if (!this.#serviceWorker) this.#serviceWorker = sw
+                if (!this.#serviceWorker?.sync?.register) return
+                for (const tag of tags.split(',').map(s => s.trim()).filter(s => !!s)) {
+                    if (this.#tags.includes(tag)) continue
+                    this.#tags.push(tag)
+                    this.#serviceWorker.sync.register(tag).then(() => this.E_emitValueChange(tag))
+                }
+            })
+        }
+
+    }
+</script>
