@@ -428,7 +428,7 @@ const ElementHTML = Object.defineProperties({}, {
             labels ||= {}
             env ||= {}
             env.fields ||= {}
-            if (!env.cells) for (const name in this.app.cells) env.cells[name] = this.app.cells[name].get()
+            env.cells ||= { ...this.app.cells }
             env.context ||= { ...this.env.context }
             if (!isMatch) return inner ? this.getVariable(expression, value, labels, env) : expression
             if (expression[0] === '[') return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
