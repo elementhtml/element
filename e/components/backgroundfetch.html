@@ -1,0 +1,73 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #id
+        #options
+        #registration
+        #abortController
+        #result
+
+        static E_DefaultEventType = 'progress'
+
+        static E_ValueProperty = 'result'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('id', 'options') }
+
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || [])
+                .concat('failureReason', 'id', 'options', 'downloaded', 'downloadTotal', 'recordsAvailable', 'result', 'uploaded', 'uploadTotal')
+        }
+
+        get failureReason() { return this.#registration?.failureReason }
+
+        get id() { return this.#id ?? this.getAttribute('id') }
+        set id(value) { this.#id = value }
+
+        get options() { return this.getAttribute('options') || this.#options }
+        set options(value) { this.#options = value }
+
+        get downloaded() { return this.#registration?.downloaded }
+
+        get downloadTotal() { return this.#registration?.downloadTotal }
+
+        get recordsAvailable() { return this.#registration?.recordsAvailable }
+
+        get result() { return this.#registration?.result ?? this.#result }
+
+        get uploaded() { return this.#registration?.uploaded }
+
+        get uploadTotal() { return this.#registration?.uploadTotal }
+
+        async fetch(requests) {
+            if (!requests || (Array.isArray(requests) && !requests.length) || ((typeof requests === 'object') && !Object.keys(requests).length)) return
+            if (!("BackgroundFetchManager" in self)) {
+                return
+            }
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            delete this.#result
+            if (!this.#id) this.#id = crypto.randomUUID()
+            let options = this.E.mergeVariables(this.options)
+            requests = Array.isArray(requests) ? requests : [requests]
+            if (typeof options !== 'object') options = undefined
+            const r = await navigator.serviceWorker.ready
+            await r.backgroundFetch.fetch(id, requests, options).then(reg => this.#registration = reg)
+            this.#registration.addEventListener('progress', event => {
+                if (this.#registration?.result) {
+                    this.#result = this.#registration.result
+                    this.#abortController.abort()
+                    delete this.#registration
+                    delete this.#abortController
+                }
+                this.E_emitValueChange(this.result)
+            }, { signal: this.#abortController.signal })
+        }
+
+        abort() {
+            if (this.#registration) this.#registration.abort()
+        }
+
+    }
+</script>
