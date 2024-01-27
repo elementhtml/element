@@ -602,7 +602,7 @@ const ElementHTML = Object.defineProperties({}, {
                         continue
                     case '!':
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = element.constructor.E_DefaultEvent ?? this.E.sys.defaultEventTypes[tag] ?? 'click'
+                        if (!eventName) eventName = element.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[tag] ?? 'click'
                         v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v, bubbles: true, cancelable: true }))
                         continue
                     case '.': case '<':
@@ -1006,6 +1006,12 @@ const ElementHTML = Object.defineProperties({}, {
                 constructor() {
                     super()
                     Object.defineProperty(this, 'E', { value: ElementHTML })
+                    Object.defineProperty(this, 'E_emitValueChange', {
+                        value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
+                            if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
+                            this.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+                        }
+                    })
                     try {
                         this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
                         this.shadowRoot.textContent = ''
@@ -1020,7 +1026,7 @@ const ElementHTML = Object.defineProperties({}, {
                 static get E_FlattenableProperties() { return this.observedAttributes }
                 static E = ElementHTML
                 async connectedCallback() { }
-                async E_ReadyCallback() { }
+                async E_readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
             }
