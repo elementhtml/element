@@ -20,11 +20,12 @@
         }
 
         get tags() { return this.#tags }
-        set tags(value) { this.#bulkRegister(this.E.mergeVariables(value)) }
+        set tags(value) { this.#bulkRegister(value) }
 
         #bulkRegister(tags) {
             if (!tags) return
-            if (!Array.isArray(tags)) tags = [tags]
+            if (typeof tags === 'string') tags = tags.split(',').map(s => s.trim()).filter(s => !!s)
+            if (!Array.isArray(tags)) return
             navigator.serviceWorker.ready.then(sw => {
                 if (!this.#serviceWorker) this.#serviceWorker = sw
                 if (!this.#serviceWorker?.sync?.register) return
