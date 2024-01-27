@@ -13,11 +13,6 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('tags') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('tags') }
 
-        async connectedCallback() {
-            const tags = this.getAttribute('tags')
-            if (tags) this.#bulkRegister(this.E.mergeVariables(tags))
-        }
-
         async register(tag) {
             this.#serviceWorker = await navigator.serviceWorker.ready
             if (!this.#serviceWorker?.sync?.register) return
@@ -25,7 +20,7 @@
         }
 
         get tags() { return this.#tags }
-        set tags(value) { this.#bulkRegister(this.E.mergeVariables(tags)) }
+        set tags(value) { this.#bulkRegister(this.E.mergeVariables(value)) }
 
         #bulkRegister(tags) {
             if (!tags) return

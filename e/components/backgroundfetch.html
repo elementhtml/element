@@ -12,7 +12,7 @@
         static E_DefaultEventType = 'progress'
         static E_ValueProperty = 'result'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('id', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('id') }
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
                 .concat('downloaded', 'downloadTotal', 'failureReason', 'id', 'options', 'recordsAvailable', 'result', 'uploaded', 'uploadTotal')
@@ -27,8 +27,8 @@
         get id() { return this.#id ?? this.getAttribute('id') }
         set id(value) { if (this.hasAttribute('id')) this.#id = this.getAttribute('id') }
 
-        get options() { return this.getAttribute('options') || this.#options }
-        set options(value) { this.#options = value }
+        get options() { return this.#options }
+        set options(value) { if (value && (typeof value === 'object')) this.#options = value }
 
         get result() { return this.#registration?.result ?? this.#result }
         set result(value) { this.fetch(value) }
@@ -52,11 +52,9 @@
             this.#abortController = new AbortController()
             this.#result = undefined
             if (!this.#id) this.#id = crypto.randomUUID()
-            let options = this.E.mergeVariables(this.options)
             requests = Array.isArray(requests) ? requests : [requests]
-            if (typeof options !== 'object') options = undefined
             const r = await navigator.serviceWorker.ready
-            await r.backgroundFetch.fetch(id, requests, options).then(reg => this.#registration = reg)
+            await r.backgroundFetch.fetch(id, requests, this.options).then(reg => this.#registration = reg)
             this.#registration.addEventListener('progress', event => {
                 if (this.#registration?.result) {
                     this.#result = this.#registration.result
