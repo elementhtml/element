@@ -24,7 +24,8 @@
             if (!navigator.getBattery) return
             const battery = await navigator.getBattery()
             for (const info of this.constructor.validObserve) {
-                battery.addEventListener(`${info.toLowerCase()}change`, event => {
+                const eventName = `${info.toLowerCase()}change`
+                battery.addEventListener(eventName, event => {
                     const data = event.target[info]
                     switch (info) {
                         case 'charging':
@@ -40,6 +41,7 @@
                             this.#level = data
                             break
                     }
+                    this.dispatchEvent(new CustomEvent(eventName, { detail: data, bubbles: true, cancelable: true }))
                     if (!this.#observe || (this.#observe === info)) this.E_emitValueChange(this.#observe ? data : { [info]: data })
                 })
             }
