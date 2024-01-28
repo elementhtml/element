@@ -10,8 +10,8 @@
         #format
         #formats = []
         #rawValue
-        #results = {}
         #value
+
 
         static sourceTypes = [HTMLImageElement, SVGImageElement, HTMLVideoElement, HTMLCanvasElement, ImageBitmap, OffscreenCanvas, VideoFrame, Blob, ImageData]
 
@@ -19,7 +19,7 @@
         static E_ValueProperty = 'value'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('formats') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('boundingBox', 'cornerPoints', 'format', 'formats', 'rawValue', 'results', 'value') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('boundingBox', 'cornerPoints', 'format', 'formats', 'rawValue', 'value') }
 
         async connectedCallback() {
             this.detect().then(() => {
@@ -48,52 +48,41 @@
 
         get rawValue() { return this.#rawValue }
 
-        get results() { return this.#results }
-
         get value() { return this.#value }
-        set value(sources) { this.detect(sources) }
+        set value(source) { this.detect(source) }
 
-        async detect(sources) {
-            sources = (sources
-                ? (Array.isArray(sources) ? sources : [source])
-                : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))
-            if (!sources.length) return
-            const detector = new BarcodeDetector({ formats: this.formats })
-            this.#results = {}
-            for (const [i, s] of sources.entries()) {
-                if ((s instanceof HTMLImageElement) || (s instanceof SVGImageElement)) {
-                    if (!s.getAttribute('src')) continue
-                    await s.decode()
-                }
-                const sourceName = s.id || s.name || i
-                let results = []
-                try { results = await detector.detect(s) } catch (e) { }
-                this.#results[sourceName] = results
-                this.E_emitValueChange(results, 'results')
-                if (!results.length) return
-                const { boundingBox, cornerPoints, format, rawValue } = results[0]
-                if (i === 0) {
-                    if (this.#boundingBox !== boundingBox) {
-                        this.#boundingBox = boundingBox
-                        this.E_emitValueChange(boundingBox, 'boundingBox')
-                    }
-                    if (this.#cornerPoints !== cornerPoints) {
-                        this.#cornerPoints = cornerPoints
-                        this.E_emitValueChange(cornerPoints, 'cornerPoints')
-                    }
-                    if (this.#format !== format) {
-                        this.#format = format
-                        this.E_emitValueChange(format, 'format')
-                    }
-                    if (this.#rawValue !== rawValue) {
-                        this.#rawValue = rawValue
-                        this.E_emitValueChange(rawValue, 'rawValue')
-                    }
-                    if (this.#value !== rawValue) {
-                        this.#value = rawValue
-                        this.E_emitValueChange(rawValue)
-                    }
-                }
+        async detect(source) {
+            if ((source instanceof HTMLImageElement) || (source instanceof SVGImageElement)) await source.decode()
+            source = ((source
+                ? (Array.isArray(source) ? source : [source])
+                : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))).shift()
+            if (!source) return
+            const detector = new BarcodeDetector({ formats: this.formats }), results = []
+            try { results.push(...(await detector.detect(source))) } catch (e) { }
+            const { boundingBox, cornerPoints, format, rawValue } = results[0] ?? {}, value = rawValue
+            if (!value) {
+                if ((source instanceof HTMLVideoElement) || (source instanceof HTMLCanvasElement)) requestAnimationFrame(() => this.detect())
+                return
+            }
+            if (this.#boundingBox !== boundingBox) {
+                this.#boundingBox = boundingBox
+                this.E_emitValueChange(boundingBox, 'boundingBox')
+            }
+            if (this.#cornerPoints !== cornerPoints) {
+                this.#cornerPoints = cornerPoints
+                this.E_emitValueChange(cornerPoints, 'cornerPoints')
+            }
+            if (this.#format !== format) {
+                this.#format = format
+                this.E_emitValueChange(format, 'format')
+            }
+            if (this.#rawValue !== rawValue) {
+                this.#rawValue = rawValue
+                this.E_emitValueChange(rawValue, 'rawValue')
+            }
+            if (this.#value !== value) {
+                this.#value = value
+                this.E_emitValueChange(value)
             }
         }
 
