@@ -51,7 +51,7 @@
         set value(sources) { this.detect(sources) }
 
         async detect(sources) {
-            const sources = (sources
+            sources = (sources
                 ? (Array.isArray(sources) ? sources : [source])
                 : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))
             if (!sources.length) return

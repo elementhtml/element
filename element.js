@@ -1024,14 +1024,12 @@ const ElementHTML = Object.defineProperties({}, {
                         const templateNode = document.createElement('template')
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                        window.requestAnimationFrame(() => this.E_ReadyCallback())
                     } catch (e) { }
                 }
                 static get observedAttributes() { return [] }
                 static get E_FlattenableProperties() { return this.observedAttributes }
                 static E = ElementHTML
                 async connectedCallback() { }
-                async E_readyCallback() { }
                 attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
                 valueOf() { return this.E.flatten(this) }
             }
