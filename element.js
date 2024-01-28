@@ -707,7 +707,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof element[funcName] === 'function') {
                 argsRest = argsRest.join('(').slice(0, -1)
                 argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim())) : []
-                return element[funcName](...argsRest, ...(Array.from(arg)))
+                return element[funcName](...argsRest, ...([arg]))
             }
         }
     },
@@ -741,7 +741,8 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     serialize: {
-        enumerable: true, value: async function (input, contentType) {
+        enumerable: true, value: async function (input, contentType = 'application/json') {
+            contentType ||= 'application/json'
             if (typeof input === 'string') return input
             if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
             if (contentType === 'application/json') return JSON.stringify(input)
@@ -752,7 +753,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
             }
             await this.loadHelper(contentType)
-            return this.useHelper(contentType, input, true) ?? JSON.stringify(input)
+            return this.useHelper(contentType, input, true) ?? `${input}`
         }
     },
     useHelper: {
