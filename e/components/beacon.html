@@ -5,19 +5,20 @@
 <script>
     export default class extends `meta` {
 
+        #data
         #url
 
         static E_DefaultEventType = 'submit'
         static E_ValueProperty = 'data'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('url') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('auto', 'contentType', 'url') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('auto', 'contentType', 'data', 'url') }
 
         get auto() { return this.hasAttribute('auto') }
 
         get contentType() { return this.getAttribute('content-type') }
 
-        get data() { }
+        get data() { return this.#data }
         set data(value) { this.send(value) }
 
         get url() {
@@ -29,6 +30,7 @@
 
         send(data) {
             if (!this.#url) return
+            this.#data = data
             return this.auto
                 ? document.addEventListener('visibilitychange', event => (document.visibilityState === "hidden") && this.#serializeAndSend(data))
                 : this.#serializeAndSend(data)
