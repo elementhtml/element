@@ -752,7 +752,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
             }
             await this.loadHelper(contentType)
-            return this.useHelper(contentType, text, true) ?? JSON.stringify(input)
+            return this.useHelper(contentType, input, true) ?? JSON.stringify(input)
         }
     },
     useHelper: {
