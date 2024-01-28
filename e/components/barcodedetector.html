@@ -51,6 +51,7 @@
         set value(source) { this.detect(source) }
 
         async detect(source) {
+            if (this.hasAttribute('disabled')) return
             source = ((source
                 ? (Array.isArray(source) ? source : [source])
                 : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))).shift()
