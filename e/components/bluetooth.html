@@ -1,0 +1,118 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #characteristic
+        #characteristicObject
+        #data
+        #deviceObject
+        #device
+        #readData
+        #receivedData
+        #sentData
+        #serverObject
+        #service
+        #serviceObject
+
+        static E_DefaultEventType = 'receive'
+        static E_ValueProperty = 'data'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('device') }
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || [])
+                .concat('contentType', 'data', 'device', 'service', 'characteristic')
+        }
+
+        get characteristic() {
+            if (!this.#characteristic) this.#characteristic = this.getAttribute('characteristic') || undefined
+            return this.#characteristic
+        }
+        set characteristic(value) { this.#characteristic = value }
+
+        get contentType() { return this.getAttribute('content-type') }
+
+        get data() { return this.#data }
+        set data(value) { this.send(value) }
+
+        get device() {
+            if (!this.#device) this.#device = this.getAttribute('device') || undefined
+            return this.#device
+        }
+        set device(value) {
+            this.#disconnect()
+            if (typeof value === 'string') {
+                try { this.#device = JSON.parse(value) } catch (e) { }
+            } else if (value && (typeof value === 'object')) {
+                this.#device = value
+            } else {
+                this.#device = undefined
+            }
+            this.#connect()
+        }
+
+        get readData() { return this.#readData }
+
+        get receivedData() { return this.#receivedData }
+
+        get sentData() { return this.#sentData }
+
+        get service() {
+            if (!this.#service) this.#service = this.getAttribute('service') || undefined
+            return this.#service
+        }
+        set service(value) { this.#service = value }
+
+        get verify() { return this.hasAttribute('verify') }
+
+        async read() {
+            const connected = await this.#connect()
+            if (!connected) return
+            if (!this.characteristicObject) return
+            const readData = await this.#characteristicObject.readValue()
+            this.#readData = receivedData.getUint8(0).toString()
+            this.#data = this.#readData
+            this.E_emitValueChange(this.#readData, 'read')
+            return readData
+        }
+
+        async send(data) {
+            const connected = await this.#connect()
+            if (!connected) return
+            const serializedData = await Promise.resolve(typeof data === 'string' ? data : this.E.serialize(data, this.contentType))
+            const methodToUse = this.verify ? 'writeValueWithResponse' : 'writeValueWithoutResponse'
+            await this.#characteristicObject[methodToUse](new Uint8Array((new TextEncoder()).encode(serializedData)))
+            this.#sentData = data
+            this.#data = this.#sentData
+            this.E_emitValueChange(data, 'send')
+        }
+
+        async #connect() {
+            if (!(await navigator.bluetooth.getAvailability())) return
+            if (!this.#device || !this.#service || !this.#characteristic) return
+            this.#deviceObject ||= await navigator.bluetooth.requestDevice(this.#device)
+            if (!this.#deviceObject) return
+            this.#serverObject ||= await this.#deviceObject.gatt.connect()
+            if (!this.#serverObject) return
+            this.#serviceObject ||= await this.#serverObject.getPrimaryService(this.#service)
+            if (!this.#serviceObject) return
+            this.#characteristicObject ||= await this.#serviceObject.getCharacteristic(this.#characteristic)
+            if (!this.#characteristicObject) return
+            this.#characteristicObject.addEventListener('characteristicvaluechanged', event => {
+                this.#receivedData = event.target.value.getUint8(0).toString()
+                this.#data = this.#receivedData
+                this.E_emitValueChange(this.#receivedData)
+            })
+            this.#characteristicObject.startNotifications()
+            return true
+        }
+
+        #disconnect() {
+            if (this.#characteristicObject) this.#characteristicObject.stopNotifications()
+            if (this.#serverObject) this.#serverObject.disconnect()
+            this.#characteristicObject = this.#serviceObject = this.#serverObject = this.#deviceObject = undefined
+        }
+
+    }
+
+</script>
