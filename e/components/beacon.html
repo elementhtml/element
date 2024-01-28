@@ -37,7 +37,7 @@
         }
 
         #serializeAndSend(data) {
-            this.E.serialize(data, this.contentType).then(serializedData => {
+            Promise.resolve(typeof data === 'string' ? data : this.E.serialize(data, this.contentType)).then(serializedData => {
                 navigator.sendBeacon(this.E.resolveUrl(this.#url), serializedData)
                 this.E_emitValueChange(data)
             })
