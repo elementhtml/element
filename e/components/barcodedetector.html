@@ -1,0 +1,93 @@
+<style></style>
+<template>
+    <slot></slot>
+</template>
+<script>
+    export default class extends `HTMLElement` {
+
+        #boundingBox
+        #cornerPoints
+        #format
+        #formats = []
+        #rawValue
+        #results = {}
+        #value
+
+        static sourceTypes = [HTMLImageElement, SVGImageElement, HTMLVideoElement, HTMLCanvasElement, ImageBitmap, OffscreenCanvas, VideoFrame, Blob, ImageData]
+
+        static E_DefaultEventType = 'detect'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('formats') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('boundingBox', 'cornerPoints', 'format', 'formats', 'rawValue', 'results', 'value') }
+
+        async connectedCallback() {
+            this.shadowRoot.querySelector("slot").addEventListener("slotchange", event => this.detect())
+        }
+
+        get boundingBox() { return this.#boundingBox }
+
+        get cornerPoints() { return this.#cornerPoints }
+
+        get format() { return this.#format }
+
+        get formats() {
+            const formatsAttr = this.getAttribute('formats')
+            if (formatsAttr && !this.#formats) this.#formats = formatsAttr.split(',').map(s => s.trim()).filter(s => !!s)
+            return this.#formats
+        }
+        set formats(formats) {
+            if (!formats) return
+            if (typeof formats === 'string') formats = formats.split(',').map(s => s.trim()).filter(s => !!s)
+            if (!Array.isArray(formats)) return
+            this.#formats = formats
+        }
+
+        get rawValue() { return this.#rawValue }
+
+        get results() { return this.#results }
+
+        get value() { return this.#value }
+        set value(sources) { this.detect(sources) }
+
+        async detect(sources) {
+            const sources = (sources
+                ? (Array.isArray(sources) ? sources : [source])
+                : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))
+            if (!sources.length) return
+            const detector = new BarcodeDetector({ formats: this.formats })
+            this.#results = {}
+            for (const [i, s] of sources.entries()) {
+                const sourceName = s.id || s.name || i, results = await detector.detect(s)
+                this.#results[sourceName] = results
+                this.E_emitValueChange(results, 'results')
+                if (!results.length) return
+                const { boundingBox, cornerPoints, format, rawValue } = results[0]
+                if (i === 0) {
+                    if (this.#boundingBox !== boundingBox) {
+                        this.#boundingBox = boundingBox
+                        this.E_emitValueChange(boundingBox, 'boundingBox')
+                    }
+                    if (this.#cornerPoints !== cornerPoints) {
+                        this.#cornerPoints = cornerPoints
+                        this.E_emitValueChange(cornerPoints, 'cornerPoints')
+                    }
+                    if (this.#format !== format) {
+                        this.#format = format
+                        this.E_emitValueChange(format, 'format')
+                    }
+                    if (this.#rawValue !== rawValue) {
+                        this.#rawValue = rawValue
+                        this.E_emitValueChange(rawValue, 'rawValue')
+                    }
+                    if (this.#value !== rawValue) {
+                        this.#value = rawValue
+                        this.E_emitValueChange(rawValue)
+                    }
+                }
+            }
+        }
+
+    }
+
+</script>
