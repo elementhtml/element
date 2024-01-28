@@ -14,7 +14,7 @@
 
         static sourceTypes = [HTMLImageElement, SVGImageElement, HTMLVideoElement, HTMLCanvasElement, ImageBitmap, OffscreenCanvas, VideoFrame, Blob, ImageData]
 
-        static E_DefaultEventType = 'detect'
+        static E_DefaultEventType = 'change'
         static E_ValueProperty = 'value'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('formats') }
