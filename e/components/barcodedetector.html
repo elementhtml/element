@@ -22,7 +22,10 @@
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('boundingBox', 'cornerPoints', 'format', 'formats', 'rawValue', 'results', 'value') }
 
         async connectedCallback() {
-            this.shadowRoot.querySelector("slot").addEventListener("slotchange", event => this.detect())
+            this.detect().then(() => {
+                const slot = this.shadowRoot.querySelector("slot"), observer = new MutationObserver(mutations => this.detect())
+                observer.observe(this, { childList: true, subtree: true, attributes: true, characterData: true })
+            })
         }
 
         get boundingBox() { return this.#boundingBox }
@@ -58,7 +61,13 @@
             const detector = new BarcodeDetector({ formats: this.formats })
             this.#results = {}
             for (const [i, s] of sources.entries()) {
-                const sourceName = s.id || s.name || i, results = await detector.detect(s)
+                if ((s instanceof HTMLImageElement) || (s instanceof SVGImageElement)) {
+                    if (!s.getAttribute('src')) continue
+                    await s.decode()
+                }
+                const sourceName = s.id || s.name || i
+                let results = []
+                try { results = await detector.detect(s) } catch (e) { }
                 this.#results[sourceName] = results
                 this.E_emitValueChange(results, 'results')
                 if (!results.length) return
