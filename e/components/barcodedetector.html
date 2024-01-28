@@ -12,7 +12,6 @@
         #rawValue
         #value
 
-
         static sourceTypes = [HTMLImageElement, SVGImageElement, HTMLVideoElement, HTMLCanvasElement, ImageBitmap, OffscreenCanvas, VideoFrame, Blob, ImageData]
 
         static E_DefaultEventType = 'detect'
@@ -52,13 +51,13 @@
         set value(source) { this.detect(source) }
 
         async detect(source) {
-            if ((source instanceof HTMLImageElement) || (source instanceof SVGImageElement)) await source.decode()
             source = ((source
                 ? (Array.isArray(source) ? source : [source])
                 : this.shadowRoot.querySelector("slot").assignedElements()).filter(n => this.constructor.sourceTypes.find(t => n instanceof t))).shift()
             if (!source) return
+            try { if ((source instanceof HTMLImageElement) || (source instanceof SVGImageElement)) await source.decode() } catch (e) { return }
             const detector = new BarcodeDetector({ formats: this.formats }), results = []
-            try { results.push(...(await detector.detect(source))) } catch (e) { }
+            try { results.push(...(await detector.detect(source))) } catch (e) { return }
             const { boundingBox, cornerPoints, format, rawValue } = results[0] ?? {}, value = rawValue
             if (!value) {
                 if ((source instanceof HTMLVideoElement) || (source instanceof HTMLCanvasElement)) requestAnimationFrame(() => this.detect())
