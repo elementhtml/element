@@ -842,25 +842,10 @@ const ElementHTML = Object.defineProperties({}, {
                 case '"': case "'":
                     return expression.slice(1, -1)
                 case '{':
-                    if (expression.endsWith('}')) {
-                        const items = {}
-                        for (let pair of expression.slice(1, -1).split(',')) {
-                            if (!(pair = pair.trim())) continue
-                            let [key, name] = pair.split(':')
-                            if (!(key = key.trim()) || !(name = name.trim())) continue
-                            key = this.mergeVariables(key, value, labels, env)
-                            if (!key || (typeof key !== 'string')) continue
-                            items[key] = this.mergeVariables(name, value, labels, env)
-                        }
-                        return items
-                    }
+                    if (expression.endsWith('}')) try { JSON.parse(expression) } catch (e) { return expression }
                     return expression
                 case '[':
-                    if (expression.endsWith(']')) {
-                        const items = []
-                        for (const item of expression.slice(1, -1).split(',')) items.push(this.mergeVariables(item.trim(), value, labels, env))
-                        return items
-                    }
+                    if (expression.endsWith(']')) try { JSON.parse(expression) } catch (e) { return expression }
                     return expression
                 case 't': case 'f': case 'n': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
                     switch (expression) {
