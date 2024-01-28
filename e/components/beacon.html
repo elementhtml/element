@@ -1,0 +1,46 @@
+<style></style>
+<template>
+    <slot></slot>
+</template>
+<script>
+    export default class extends `meta` {
+
+        #url
+
+        static E_DefaultEventType = 'submit'
+        static E_ValueProperty = 'data'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('url') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('auto', 'contentType', 'url') }
+
+        get auto() { return this.hasAttribute('auto') }
+
+        get contentType() { return this.getAttribute('content-type') }
+
+        get data() { }
+        set data(value) { this.send(value) }
+
+        get url() {
+            const urlAttr = this.getAttribute('url')
+            if (urlAttr && !this.#url) this.#url = urlAttr
+            return this.#url
+        }
+        set url(value) { this.#url = value }
+
+        send(data) {
+            if (!this.#url) return
+            return this.auto
+                ? document.addEventListener('visibilitychange', event => (document.visibilityState === "hidden") && this.#serializeAndSend(data))
+                : this.#serializeAndSend(data)
+        }
+
+        #serializeAndSend(data) {
+            this.E.serialize(data, this.contentType).then(data => {
+                navigator.sendBeacon(this.E.resolveURL(this.#url), data)
+                this.E_emitValueChange(data)
+            })
+        }
+
+    }
+
+</script>
