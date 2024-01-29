@@ -77,41 +77,6 @@
 
         get verify() { return this.hasAttribute('verify') }
 
-        async getAvailability() {
-            if (typeof navigator.bluetooth.getAvailability !== 'function') return
-            this.#available = await navigator.bluetooth.getAvailability()
-            this.E_emitValueChange(this.#available, 'available')
-            return this.#available
-        }
-
-        async getDevices() {
-            if (typeof navigator.bluetooth.getDevices !== 'function') return
-            this.#devices = await navigator.bluetooth.getDevices()
-            this.E_emitValueChange(this.#devices, 'devices')
-            return this.#devices
-        }
-
-        async read() {
-            await this.connect()
-            if (!this.#connected) return
-            const readData = (await this.#characteristicObject.readValue()).getUint8(0).toString(), contentType = this.contentType
-            this.#readData = await Promise.resolve((typeof readData === 'string' && contentType) ? this.E.parse(readData, contentType) : readData)
-            this.#data = this.#readData
-            this.E_emitValueChange(this.#readData, 'read')
-            return readData
-        }
-
-        async send(data) {
-            await this.connect()
-            if (!this.#connected) return
-            const serializedData = await Promise.resolve(typeof data === 'string' ? data : this.E.serialize(data, this.contentType))
-            const methodToUse = this.verify ? 'writeValueWithResponse' : 'writeValueWithoutResponse'
-            await this.#characteristicObject[methodToUse](new Uint8Array((new TextEncoder()).encode(serializedData)))
-            this.#sentData = data
-            this.#data = this.#sentData
-            this.E_emitValueChange(data, 'send')
-        }
-
         async connect() {
             if (!(await navigator.bluetooth.getAvailability())) return
             if (!this.#service || !this.#characteristic) return
@@ -145,6 +110,41 @@
             this.#characteristicObject = this.#serviceObject = this.#serverObject = this.#deviceObject = undefined
             this.E_emitValueChange(false, 'connect')
             this.E_emitValueChange(true, 'disconnect')
+        }
+
+        async getAvailability() {
+            if (typeof navigator.bluetooth.getAvailability !== 'function') return
+            this.#available = await navigator.bluetooth.getAvailability()
+            this.E_emitValueChange(this.#available, 'available')
+            return this.#available
+        }
+
+        async getDevices() {
+            if (typeof navigator.bluetooth.getDevices !== 'function') return
+            this.#devices = await navigator.bluetooth.getDevices()
+            this.E_emitValueChange(this.#devices, 'devices')
+            return this.#devices
+        }
+
+        async read() {
+            await this.connect()
+            if (!this.#connected) return
+            const readData = (await this.#characteristicObject.readValue()).getUint8(0).toString(), contentType = this.contentType
+            this.#readData = await Promise.resolve((typeof readData === 'string' && contentType) ? this.E.parse(readData, contentType) : readData)
+            this.#data = this.#readData
+            this.E_emitValueChange(this.#readData, 'read')
+            return readData
+        }
+
+        async send(data) {
+            await this.connect()
+            if (!this.#connected) return
+            const serializedData = await Promise.resolve(typeof data === 'string' ? data : this.E.serialize(data, this.contentType))
+            const methodToUse = this.verify ? 'writeValueWithResponse' : 'writeValueWithoutResponse'
+            await this.#characteristicObject[methodToUse](new Uint8Array((new TextEncoder()).encode(serializedData)))
+            this.#sentData = data
+            this.#data = this.#sentData
+            this.E_emitValueChange(data, 'send')
         }
 
     }
