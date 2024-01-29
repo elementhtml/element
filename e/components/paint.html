@@ -1,0 +1,24 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #src
+
+        static E_DefaultEventType = 'load'
+        static E_ValueProperty = 'src'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('src') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('src') }
+
+        get src() { return this.#src }
+        set src(value) {
+            this.#src = this.E.resolveUrl(value)
+            if (!this.#src) return
+            CSS.paintWorklet.addModule(this.#src)
+            this.E_emitValueChange(this.#src)
+        }
+
+    }
+
+</script>
