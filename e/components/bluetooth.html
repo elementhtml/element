@@ -25,7 +25,8 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('characteristic', 'device', 'service') }
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
-                .concat('available', 'characteristic', 'connected', 'contentType', 'data', 'device', 'devices', 'readData', 'receivedData', 'sentData', 'service', 'verify')
+                .concat('available', 'characteristic', 'connected', 'contentType', 'data', 'device', 'devices', 'readData',
+                    'receivedData', 'sentData', 'service', 'verify')
         }
 
         get available() { return this.#available }
