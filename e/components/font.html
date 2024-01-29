@@ -1,0 +1,82 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #family
+        #font
+        #source
+        #descriptors
+
+        static E_DefaultEventType = 'load'
+        static E_ValueProperty = 'source'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('family', 'source', 'descriptors') }
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || []).concat('ascentOverride', 'descentOverride', 'descriptors', 'display', 'family', 'featureSettings',
+                'lineGapOverride', 'loaded', 'source', 'status', 'stretch', 'style', 'unicodeRange', 'variant', 'variationSettings', 'weight')
+        }
+
+        get ascentOverride() { return this.#font ? this.#font.ascentOverride : undefined }
+
+        get descentOverride() { return this.#font ? this.#font.descentOverride : undefined }
+
+        get descriptors() {
+            if (!this.#descriptors) {
+                const descriptorsAttr = this.getAttribute('descriptors')
+                this.descriptors = this.getAttribute('descriptors')
+            }
+            return this.#descriptors
+        }
+        set descriptors(value) {
+            try { if (typeof value === 'string') value = JSON.parse(value) } catch (e) { }
+            this.#descriptors = (value && (typeof value === 'object')) ? value : {}
+        }
+
+        get display() { return this.#font ? this.#font.display : undefined }
+
+        get family() { return this.#family || this.getAttribute('family') }
+        set family(value) { this.#family = value }
+
+        get featureSettings() { return this.#font ? this.#font.featureSettings : undefined }
+
+        get lineGapOverride() { return this.#font ? this.#font.lineGapOverride : undefined }
+
+        get loaded() { return this.#font ? this.#font.loaded : undefined }
+
+        get source() { return this.#source }
+        set source(value) {
+            this.#source = this.E.resolveUrl(value)
+            if (!this.#source) return
+            this.#font = new FontFace(this.family, this.#source, this.descriptors)
+            document.fonts.add(this.#font)
+        }
+
+        get status() { return this.#font ? this.#font.status : undefined }
+
+        get stretch() { return this.#font ? this.#font.stretch : undefined }
+
+        get style() { return this.#font ? this.#font.style : undefined }
+
+        get unicodeRange() { return this.#font ? this.#font.unicodeRange : undefined }
+
+        get variant() { return this.#font ? this.#font.variant : undefined }
+
+        get variationSettings() { return this.#font ? this.#font.variationSettings : undefined }
+
+        get weight() { return this.#font ? this.#font.weight : undefined }
+
+        async load() {
+            if (!this.#font) return
+            const result = this.#font.load()
+            this.E_emitValueChange(this.#source)
+            return result
+        }
+
+        async fontsReady() {
+            document.fonts.ready.then(() => this.E_emitValueChange(true, 'fontsReady'))
+        }
+
+    }
+
+</script>
