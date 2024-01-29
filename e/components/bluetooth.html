@@ -94,7 +94,8 @@
         async read() {
             await this.connect()
             if (!this.#connected) return
-            this.#readData = (await this.#characteristicObject.readValue()).getUint8(0).toString()
+            const readData = (await this.#characteristicObject.readValue()).getUint8(0).toString(), contentType = this.contentType
+            this.#readData = await Promise.resolve((typeof readData === 'string' && contentType) ? this.E.parse(readData, contentType) : readData)
             this.#data = this.#readData
             this.E_emitValueChange(this.#readData, 'read')
             return readData
@@ -126,9 +127,12 @@
             this.#abortController = new AbortController()
             this.#deviceObject.addEventListener('gattserverdisconnected', event => this.connect())
             this.#characteristicObject.addEventListener('characteristicvaluechanged', event => {
-                this.#receivedData = event.target.value.getUint8(0).toString()
-                this.#data = this.#receivedData
-                this.E_emitValueChange(this.#receivedData)
+                const receivedData = event.target.value.getUint8(0).toString()
+                Promise.resolve((typeof receivedData === 'string' && contentType) ? this.E.parse(receivedData, contentType) : receivedData).then(rd => {
+                    this.#receivedData = rd
+                    this.#data = this.#receivedData
+                    this.E_emitValueChange(this.#receivedData)
+                })
             }, { signal: this.#abortController.signal })
             this.#characteristicObject.startNotifications()
             this.E_emitValueChange(true, 'connect')
