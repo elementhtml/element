@@ -48,7 +48,7 @@
         set source(value) {
             this.#source = this.E.resolveUrl(value)
             if (!this.#source) return
-            this.#font = new FontFace(this.family, this.#source, this.descriptors)
+            this.#font = new FontFace(this.family, `url(${this.#source})`, this.descriptors)
             document.fonts.add(this.#font)
         }
 
