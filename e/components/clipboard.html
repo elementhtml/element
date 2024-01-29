@@ -1,0 +1,44 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #data
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'data'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('data', 'contentType') }
+
+        async connectedCallback() {
+            for (const t of ['copy', 'cut', 'paste']) addEventListener(t, event => this.#read().then(() => this.E_emitValueChange(t)))
+        }
+
+        get data() { return this.#data }
+        set data(value) { this.write(value) }
+
+        get contentType() { return this.getAttribute('content-type') }
+
+        async #read() {
+            this.#data = (await navigator.clipboard.readText()).trim()
+            const contentType = this.contentType
+            if (contentType) this.#data = await this.E.parse(this.#data, contentType)
+            return this.#data
+        }
+
+        async write(value) {
+            let stringValue = value
+            if (typeof stringValue !== 'string') {
+                const contentType = this.contentType
+                if (!contentType) return
+                stringValue = await this.E.serialize(stringValue, this.contentType)
+            }
+            await navigator.clipboard.writeText(stringValue)
+            this.#data = value
+            this.E_emitValueChange('write')
+        }
+
+    }
+
+</script>
