@@ -100,6 +100,7 @@
                 })
             }, { signal: this.#abortController.signal })
             this.#characteristicObject.startNotifications()
+            this.#connected = true
             this.E_emitValueChange(true, 'connect')
             return true
         }
@@ -108,7 +109,7 @@
             if (this.#characteristicObject) this.#characteristicObject.stopNotifications()
             if (this.#serverObject) this.#serverObject.disconnect()
             this.#characteristicObject = this.#serviceObject = this.#serverObject = this.#deviceObject = undefined
-            this.E_emitValueChange(false, 'connect')
+            this.#connected = false
             this.E_emitValueChange(true, 'disconnect')
         }
 
