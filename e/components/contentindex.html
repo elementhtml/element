@@ -1,0 +1,37 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #entries
+
+        static E_DefaultEventType = 'add'
+        static E_ValueProperty = 'entries'
+
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('entries') }
+
+        get entries() { return this.#entries }
+        set entries(value) { this.add(value) }
+
+        async add(entries) {
+            if (!entries) return
+            if (!Array.isArray(entries)) {
+                if (typeof entries !== 'object') return
+                entries = [entries]
+            }
+            const registration = await navigator.serviceWorker.ready
+            await registration.index.add(entries)
+            this.#entries = await registration.index.getAll()
+            this.E_emitValueChange(entries)
+        }
+
+        async delete(id) {
+            if (!id || typeof id !== 'string') return
+            const registration = await navigator.serviceWorker.ready
+            await registration.index.delete(id)
+            this.#entries = await registration.index.getAll()
+            this.E_emitValueChange(id, 'delete')
+        }
+
+    }
+</script>
