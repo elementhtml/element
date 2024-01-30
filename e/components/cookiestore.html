@@ -1,0 +1,35 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #cookies
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'cookies'
+
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('cookies') }
+
+        get cookies() { return this.#cookies }
+        set cookies(value) { this.set(value) }
+
+        async delete(cookie) {
+            if (!cookie) return
+            await cookieStore.delete(cookie)
+            this.#cookies = await cookieStore.getAll()
+            this.E_emitValueChange(cookie, 'delete')
+            this.E_emitValueChange({ 'delete': cookie })
+        }
+
+        async set(name, value) {
+            if (!name) return
+            const cookie = typeof name === 'string' ? { name, value } : name
+            if (!cookie?.name) return
+            await cookieStore.set(cookie)
+            this.#cookies = await cookieStore.getAll()
+            this.E_emitValueChange(cookie, 'set')
+            this.E_emitValueChange({ 'set': cookie })
+        }
+
+    }
+</script>
