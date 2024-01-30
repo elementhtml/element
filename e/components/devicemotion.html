@@ -11,6 +11,7 @@
         #rotationRate
 
         static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'acceleration'
 
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || []).concat('acceleration', 'accelerationIncludingGravity', 'interval',
