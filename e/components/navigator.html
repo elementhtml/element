@@ -4,20 +4,36 @@
     export default class extends `meta` {
 
         #appBadge
-        #autoPlayPolicy
+        #autoplayPolicy
         #installedRelatedApps
         #protocolHandlers = {}
 
         static E_DefaultEventType = 'change'
-        static E_ValueProperty = 'credentials'
+        static E_ValueProperty = 'appBadge'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat() }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat() }
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || []).concat(
+                'appBadge', 'autoPlayPolicy', 'connection', 'cookieEnabled', 'deviceMemory', 'hardwareConcurrency', 'installedRelatedApps', 'language',
+                'languages', 'maxTouchPoints', 'onLine', 'pdfViewerEnabled', 'protocolHandlers', 'userAgent', 'userAgentData', 'webdriver'
+            )
+        }
+
+        async connectedCallback() {
+            addEventListener("online", event => {
+                this.E_emitValueChange(true, 'online')
+                this.E_emitValueChange(true, 'onLine')
+                this.E_emitValueChange({ online: true, onLine: true })
+            })
+            addEventListener("offline", event => {
+                this.E_emitValueChange(true, 'offline')
+                this.E_emitValueChange({ offline: true })
+            })
+        }
 
         get appBadge() { return this.#appBadge }
         set appBadge(value) { this.setAppBadge(value) }
 
-        get autoPlayPolicy() { return this.#autoPlayPolicy }
+        get autoplayPolicy() { return this.#autoplayPolicy }
 
         get connection() { return navigator.connection }
 
@@ -33,8 +49,9 @@
 
         get languages() { return navigator.languages }
 
-        get maxTouchPointslanguages() { return navigator.maxTouchPoints }
+        get maxTouchPoints() { return navigator.maxTouchPoints }
 
+        get online() { return navigator.onLine }
         get onLine() { return navigator.onLine }
 
         get pdfViewerEnabled() { return navigator.pdfViewerEnabled }
@@ -61,8 +78,8 @@
         }
 
         getAutoplayPolicy() {
-            this.#autoPlayPolicy = navigator.getAutoplayPolicy()
-            this.E_emitValueChange(this.#autoPlayPolicy, 'autoPlayPolicy')
+            this.#autoplayPolicy = navigator.getAutoplayPolicy()
+            this.E_emitValueChange(this.#autoplayPolicy, 'autoplayPolicy')
         }
 
         async getInstalledRelatedApps() {
