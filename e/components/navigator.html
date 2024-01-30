@@ -1,0 +1,105 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #appBadge
+        #autoPlayPolicy
+        #installedRelatedApps
+        #protocolHandlers = {}
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'credentials'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat() }
+
+        get appBadge() { return this.#appBadge }
+        set appBadge(value) { this.setAppBadge(value) }
+
+        get autoPlayPolicy() { return this.#autoPlayPolicy }
+
+        get connection() { return navigator.connection }
+
+        get cookieEnabled() { return navigator.cookieEnabled }
+
+        get deviceMemory() { return navigator.deviceMemory }
+
+        get hardwareConcurrency() { return navigator.hardwareConcurrency }
+
+        get installedRelatedApps() { return this.#installedRelatedApps }
+
+        get language() { return navigator.language }
+
+        get languages() { return navigator.languages }
+
+        get maxTouchPointslanguages() { return navigator.maxTouchPoints }
+
+        get onLine() { return navigator.onLine }
+
+        get pdfViewerEnabled() { return navigator.pdfViewerEnabled }
+
+        get protocolHandlers() { return this.#protocolHandlers }
+        set protocolHandlers(protocolHandlers) {
+            if (!protocolHandler || (typeof protocolHandler !== 'object')) return
+            for (const [schema, url] of Object.entries(protocolHandlers)) url ? this.registerProtocolHandler(schema, url)
+                : (this.unregisterProtocolHandler(schema, this.#protocolHandlers[schema]))
+        }
+
+        get userAgent() { return navigator.userAgent }
+
+        get userAgentData() { return navigator.userAgentData }
+
+        get webdriver() { return navigator.webdriver }
+
+        async setAppBadge(contents) {
+            if (!content) contents = 0
+            if (typeof contents !== 'number') return
+            this.#appBadge = await navigator.setAppBadge(contents)
+            this.E_emitValueChange(this.#appBadge, 'appBadge')
+            this.E_emitValueChange({ appBadge: this.#appBadge })
+        }
+
+        getAutoplayPolicy() {
+            this.#autoPlayPolicy = navigator.getAutoplayPolicy()
+            this.E_emitValueChange(this.#autoPlayPolicy, 'autoPlayPolicy')
+        }
+
+        async getInstalledRelatedApps() {
+            this.#installedRelatedApps = await navigator.getInstalledRelatedApps()
+            this.E_emitValueChange(this.#installedRelatedApps, 'installedRelatedApps')
+        }
+
+        registerProtocolHandler(schema, url) {
+            if (schema && (typeof schema === 'object')) {
+                url = schema.url
+                schema = schema.schema
+            }
+            if (!schema || !url) return
+            navigator.registerProtocolHandler(schema, url)
+            this.#protocolHandlers[schema] = url
+            this.E_emitValueChange({ register: { [schema]: url } }, 'protocolHandler')
+            this.E_emitValueChange({ protocolHandler: { register: { [schema]: url } } })
+        }
+
+        unregisterProtocolHandler(schema, url) {
+            if (schema && (typeof schema === 'object')) {
+                url = schema.url
+                schema = schema.schema
+            } else if (!url && (typeof schema === 'string')) {
+                url = this.#protocolHandlers[schema]
+            }
+            if (!schema || !url) return
+            navigator.unregisterProtocolHandler(schema, url)
+            delete this.#protocolHandlers[schema]
+            this.E_emitValueChange({ unregister: { [schema]: url } }, 'protocolHandler')
+            this.E_emitValueChange({ protocolHandler: { unregister: { [schema]: url } } })
+        }
+
+        vibrate(pattern) {
+            navigator.vibrate(pattern)
+            this.E_emitValueChange(pattern, 'vibrate')
+        }
+
+    }
+</script>
