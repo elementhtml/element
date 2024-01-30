@@ -75,16 +75,19 @@
             this.#appBadge = await navigator.setAppBadge(contents)
             this.E_emitValueChange(this.#appBadge, 'appBadge')
             this.E_emitValueChange({ appBadge: this.#appBadge })
+            return this.#appBadge
         }
 
         getAutoplayPolicy() {
             this.#autoplayPolicy = navigator.getAutoplayPolicy()
             this.E_emitValueChange(this.#autoplayPolicy, 'autoplayPolicy')
+            return this.#autoplayPolicy
         }
 
         async getInstalledRelatedApps() {
             this.#installedRelatedApps = await navigator.getInstalledRelatedApps()
             this.E_emitValueChange(this.#installedRelatedApps, 'installedRelatedApps')
+            this.#installedRelatedApps
         }
 
         registerProtocolHandler(schema, url) {
@@ -97,6 +100,7 @@
             this.#protocolHandlers[schema] = url
             this.E_emitValueChange({ register: { [schema]: url } }, 'protocolHandler')
             this.E_emitValueChange({ protocolHandler: { register: { [schema]: url } } })
+            return this.#protocolHandlers[schema]
         }
 
         unregisterProtocolHandler(schema, url) {
