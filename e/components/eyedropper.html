@@ -1,0 +1,36 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #abortController
+        #color
+        #eyedropper
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'color'
+
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('color') }
+
+        async connectedCallback() {
+            this.#eyedropper = new EyeDropper()
+        }
+
+        get color() { return this.#color }
+        set color(value) { this.open() }
+
+        cancel() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#color = undefined
+            this.E_emitValueChange(null)
+        }
+
+        async open() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            this.#color = (await this.#eyedropper.open({ signal: this.#abortController.signal })).sRGBHex
+            this.E_emitValueChange(this.#color ?? null)
+        }
+
+    }
+</script>
