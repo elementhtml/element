@@ -1,0 +1,72 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #contacts
+        #properties
+        #validProperties
+
+        static E_DefaultEventType = 'select'
+        static E_ValueProperty = 'contacts'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('properties') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('contacts', 'properties', 'validProperties') }
+
+        async connectedCallback() {
+            if (!this.#validProperties) {
+                this.#validProperties = await navigator.contacts.getProperties()
+                this.E_emitValueChange(validProperties, 'validProperties')
+            }
+        }
+
+        get contacts() { return this.#contacts }
+        set contacts(value) { this.select() }
+
+        get multiple() { return this.hasAttribute('multiple') }
+
+        get properties() {
+            if (!this.#properties) {
+                const propertiesAttr = this.getAttribute('properties')
+                if (propertiesAttr) this.properties = propertiesAttr
+            }
+            return this.#properties
+        }
+        set properties(value) {
+            if (typeof value === 'string') value = value.split(',').map(s => s.trim()).filter(s => !!s)
+            if (!Array.isArray(value)) return
+            const complete = () => {
+                value = value.filter(p => this.#validProperties.includes(p))
+                value.sort()
+                this.#properties = value
+            }
+            if (!this.#validProperties) {
+                navigator.contacts.getProperties().then(validProperties => {
+                    this.#validProperties = validProperties
+                    this.E_emitValueChange(validProperties, 'validProperties')
+                    complete()
+                })
+                return
+            }
+            complete()
+        }
+
+        get validProperties() { return this.#validProperties }
+        set validProperties(value) {
+            navigator.contacts.getProperties().then(validProperties => {
+                this.#validProperties = validProperties
+                this.E_emitValueChange(validProperties, 'validProperties')
+            })
+        }
+
+        async select() {
+            let properties = this.#properties
+            properties ||= await navigator.contacts.getProperties()
+            this.#contacts = await navigator.contacts.select(properties, { multiple: this.multiple })
+            this.E_emitValueChange(this.#contacts)
+            return this.#contacts
+        }
+
+    }
+
+</script>
