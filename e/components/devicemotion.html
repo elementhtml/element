@@ -1,0 +1,54 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #acceleration
+        #accelerationIncludingGravity
+        #interval
+        #orientation
+        #orientationabsolute
+        #rotationRate
+
+        static E_DefaultEventType = 'change'
+
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || []).concat('acceleration', 'accelerationIncludingGravity', 'interval',
+                'orientation', 'orientationabsolute', 'rotationRate')
+        }
+
+        async connectedCallback() {
+            addEventListener("devicemotion", event => {
+                const { acceleration, accelerationIncludingGravity, rotationRate, interval } = event
+                this.#acceleration = acceleration
+                this.#accelerationIncludingGravity = accelerationIncludingGravity
+                this.#rotationRate = rotationRate
+                this.#interval = interval
+                this.E_emitValueChange({ acceleration, accelerationIncludingGravity, rotationRate, interval }, 'motion')
+                this.E_emitValueChange({ motion: { acceleration, accelerationIncludingGravity, rotationRate, interval } })
+            })
+            for (const eventName of ['orientation', 'orientationabsolute']) {
+                addEventListener(`device${eventName}`, event => {
+                    const { absolute, alpha, beta, gamma } = event,
+                        orientation = { absolute, alpha, beta, gamma }
+                    eventName === 'orientation' ? (this.#orientation = orientation) : (this.#orientationabsolute = orientation)
+                    this.E_emitValueChange(orientation, eventName)
+                    this.E_emitValueChange({ [eventName]: orientation })
+                })
+            }
+        }
+
+        get acceleration() { return this.#acceleration }
+
+        get accelerationIncludingGravity() { return this.#accelerationIncludingGravity }
+
+        get interval() { return this.#interval }
+
+        get orientation() { return this.#orientation }
+
+        get orientationabsolute() { return this.#orientationabsolute }
+
+        get rotationRate() { return this.#rotationRate }
+
+    }
+</script>
