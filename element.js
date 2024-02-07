@@ -113,19 +113,16 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
-            for (const a of ['gateways', 'helpers', 'loaders']) {
+            const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
+            for (const a of ['gateways', 'helpers', 'loaders', 'templates']) {
                 if (typeof packageContents[a] !== 'string') continue
-                const importUrl = this.resolveUrl(packageContents[a], packageUrl)
-                let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl)))?.instance?.exports : (await import(importUrl))
+                const importUrl = this.resolveUrl(packageContents[a], packageUrl), exports = getExports(importUrl)
                 packageContents[a] = {}
                 if (!exports || (typeof exports !== 'object')) continue
-                for (const aa in exports) if (typeof exports[aa] === 'function') packageContents[a][aa] = exports[aa]
-            }
-            if (typeof packageContents.templates === 'string') {
-                const importUrl = this.resolveUrl(packageContents.templates, packageUrl)
-                let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl)))?.instance?.exports : (await import(importUrl))
-                packageContents.templates = {}
-                if (exports && (typeof exports === 'object')) for (const aa in exports) if ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement)) packageContents.templates[aa] = exports[aa]
+                for (const aa in exports) {
+                    const typeCheck = a === 'templates' ? ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement)) : (typeof exports[aa] === 'function')
+                    if (typeCheck) packageContents.templates[aa] = exports[aa]
+                }
             }
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
                 switch (a) {
@@ -152,8 +149,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     this.env[a][aa] = packageContents[a][aa]
                                     break
                                 case `string`:
-                                    const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl)
-                                    let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl))).instance.exports : (await import(importUrl))
+                                    const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
                                     this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                             }
                         }
@@ -161,14 +157,17 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'templates':
                         for (const key in packageContents.templates) {
                             if ((typeof packageContents.templates[key] === 'string') && (packageContents.templates[key][0] === '`' && packageContents.templates[key].slice(-1) === '`')) {
-                                this.env.templates[key] = [packageContents.templates[key].slice(1, -1), packageUrl]
+                                this.env.templates[key] = ('`' + this.resolveUrl(packageContents.templates[key].slice(1, -1), packageUrl) + '`')
                             } else {
                                 this.env.templates[key] = packageContents.templates[key]
                             }
                         }
                         break
                     case 'namespaces':
-                        for (const namespace in packageContents.namespaces) this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace], packageUrl)
+                        for (const namespace in packageContents.namespaces) {
+                            this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace], packageUrl)
+                            if (this.env.namespaces[namespace].endsWith('/')) this.env.namespaces[namespace] = this.env.namespaces[namespace].slice(0, -1)
+                        }
                         break
                     default:
                         Object.assign(this.env[a], packageContents[a])
@@ -596,7 +595,7 @@ const ElementHTML = Object.defineProperties({}, {
                                             } else if (this.env.templates[renderExpression]) {
                                                 const envTemplate = this.env.templates[renderExpression]
                                                 this.app.templates[renderExpression] = document.createElement('template')
-                                                if (envTemplate instanceof HTMLTemplateElement) {
+                                                if (envTemplate instanceof HTMLElement) {
                                                     this.app.templates[renderExpression].innerHTML = envTemplate.innerHTML
                                                 } else if (typeof envTemplate === 'string') {
                                                     if (envTemplate[0] === '`' && envTemplate.slice(-1) === '`') {
@@ -604,8 +603,6 @@ const ElementHTML = Object.defineProperties({}, {
                                                     } else {
                                                         this.app.templates[renderExpression].innerHTML = envTemplate
                                                     }
-                                                } else if (Array.isArray(envTemplate)) {
-                                                    this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(...envTemplate))).text()
                                                 }
                                             } else {
                                                 this.app.templates[renderExpression] = document.createElement('template')
