@@ -237,16 +237,12 @@ const ElementHTML = Object.defineProperties({}, {
                     '.': (textContent.includes('<') && textContent.includes('>')) ? innerHTML : textContent,
                     '..': textContent, '...': innerText, '<>': innerHTML, '#': value.id
                 }
-                if ('id' in value) result.id = value.id
-                if ('name' in value) result.name = value.name
-                if ('value' in value) result.value = value.value
-                if ('checked' in value) result.checked = value.checked
-                if ('selected' in value) result.selected = value.selected
+                for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
+                for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
+                if (value.hasAttribute('itemscope')) result.itemscope = true
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
-                if (value.constructor.E_FlattenableProperties && Array.isArray(value.constructor.E_FlattenableProperties)) {
-                    for (const p of value.constructor.E_FlattenableProperties) result[p] = value[p]
-                }
+                if (Array.isArray(value.constructor.E_FlattenableProperties)) for (const p of value.constructor.E_FlattenableProperties) result[p] = value[p]
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
                 result._itemprop = {}
@@ -308,10 +304,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (result.tag === 'datalist') result._ = result._options
                 }
                 result._closest = {
-                    id: value.closest('[id]')?.id,
-                    name: value.closest('[name]')?.name,
-                    class: value.closest('[class]')?.getAttribute('class'),
+                    id: value.parentElement.closest('[id]')?.id,
+                    itemprop: value.parentElement.closest('[itemprop]')?.getAttribute('itemprop'),
+                    itemscope: value.parentElement.closest('[itemscope]')?.getAttribute('itemscope'),
+                    name: value.parentElement.closest('[name]')?.name,
+                    class: value.parentElement.closest('[class]')?.getAttribute('class'),
                 }
+                const itemscopeElement = value.parentElement.closest('[itemscope]')
+                if (itemscopeElement) result._itemscope = this.flatten(itemscopeElement)
                 if (event instanceof Event) result._event = this.flatten(event)
                 return result
             }
@@ -668,7 +668,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return document[prop]
                 default:
                     if (scopeStatement.startsWith('#')) return document.documentElement
-                    return element.closest(scopeStatement)
+                    return element.parentElement.closest(scopeStatement)
             }
         }
     },
