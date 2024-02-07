@@ -112,7 +112,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ImportPackage: {
-        enumerable: true, value: async function (packageObject, packageUrl) {
+        enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             for (const a of ['gateways', 'helpers', 'loaders']) {
@@ -122,6 +122,12 @@ const ElementHTML = Object.defineProperties({}, {
                 packageContents[a] = {}
                 if (!exports || (typeof exports !== 'object')) continue
                 for (const aa in exports) if (typeof exports[aa] === 'function') packageContents[a][aa] = exports[aa]
+            }
+            if (typeof packageContents.templates === 'string') {
+                const importUrl = this.resolveUrl(packageContents.templates, packageUrl)
+                let exports = importUrl.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(importUrl)))?.instance?.exports : (await import(importUrl))
+                packageContents.templates = {}
+                if (exports && (typeof exports === 'object')) for (const aa in exports) if ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement)) packageContents.templates[aa] = exports[aa]
             }
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
                 switch (a) {
@@ -164,12 +170,13 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'namespaces':
-                        for (const namespace in packageContents.namespaces) this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace])
+                        for (const namespace in packageContents.namespaces) this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace], packageUrl)
                         break
                     default:
                         Object.assign(this.env[a], packageContents[a])
                 }
             }
+            if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
         }
     },
 
@@ -188,6 +195,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
+                if (!this.env.errors) console.log = () => { }
                 this.encapsulateNative()
             }
             rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
@@ -1028,13 +1036,15 @@ if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
-    const imports = importmap.imports ?? {}, importPromises = {}
+    const imports = importmap.imports ?? {}, importPromises = {}, importKeys = {}
     for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/')) {
+        if (imports[p].endsWith('/')) imports[p] = `${imports[p]}package.js`
         const importUrl = ElementHTML.resolveUrl(imports[p])
         importPromises[importUrl] = import(importUrl)
+        importKeys[importUrl] = p
     }
     await Promise.all(Object.values(importPromises))
-    for (const u in importPromises) await ElementHTML.ImportPackage(await importPromises[u], u)
+    for (const url in importPromises) await ElementHTML.ImportPackage(await importPromises[url], url, importKeys[url])
 }
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load()
