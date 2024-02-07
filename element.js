@@ -890,7 +890,6 @@ const ElementHTML = Object.defineProperties({}, {
             this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
             this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>') + 10, this.files[id].indexOf('</template>')).trim()
             this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>') + 8, this.files[id].indexOf('</script>')).trim()
-            const ElementHTML = this
             let extendsId = this.scripts[id].match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
             if (extendsId.startsWith('e-')) {
                 extendsId = this.getTagId(extendsId)
