@@ -674,7 +674,7 @@ const ElementHTML = Object.defineProperties({}, {
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
             let scope = element, selector = scopedSelector
-            if (selector.startsWith('#')) selector = `:document|${selector}`
+            if ((selector[0] === '#') || (selector[0] === '#')) selector = `:document|${selector}`
             if (selector.includes('|')) {
                 const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
                 scope = this.resolveScope(scopeStatement, element)
