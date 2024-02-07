@@ -36,9 +36,7 @@ const ElementHTML = Object.defineProperties({}, {
             helpers: {
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
-                    let valid, errors
-                    valid = this.app.types[typeName].validate(value)
-                    if (!valid) errors = this.app.types[typeName].errors(value)
+                    let valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
                     return { valid, errors }
                 },
                 'application/x-jsonata': function (text) {
@@ -842,7 +840,7 @@ const ElementHTML = Object.defineProperties({}, {
             pointer = pointer.join('/')
             if (namespace === 'e') return (new URL(`./e/components/${pointer}.html`, import.meta.url)).href
             if (this.env.namespaces[namespace]) return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
-            return (new URL(`${namespace}/${pointer}.html`, document.baseURI)).href
+            return (new URL(`components/${namespace}/${pointer}.html`, document.baseURI)).href
         }
     },
     getVariable: {
