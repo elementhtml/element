@@ -219,7 +219,8 @@ const ElementHTML = Object.defineProperties({}, {
                     ...Object.fromEntries(complex.filter(p => value[p] !== undefined).map(p => ([p, this.flatten(value[p])])))
                 }
             }
-            if (typeof value !== 'object') return value
+            if (value === undefined) return null
+            if ((value == null) || (typeof value !== 'object')) return value
             if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
             if (value instanceof HTMLElement) {
                 let result
@@ -304,14 +305,12 @@ const ElementHTML = Object.defineProperties({}, {
                     if (result.tag === 'datalist') result._ = result._options
                 }
                 result._closest = {
+                    class: value.parentElement.closest('[class]')?.getAttribute('class'),
                     id: value.parentElement.closest('[id]')?.id,
                     itemprop: value.parentElement.closest('[itemprop]')?.getAttribute('itemprop'),
-                    itemscope: value.parentElement.closest('[itemscope]')?.getAttribute('itemscope'),
-                    name: value.parentElement.closest('[name]')?.name,
-                    class: value.parentElement.closest('[class]')?.getAttribute('class'),
+                    itemscope: this.flatten(value.parentElement.closest('[itemscope]')),
+                    name: value.parentElement.closest('[name]')?.name
                 }
-                const itemscopeElement = value.parentElement.closest('[itemscope]')
-                if (itemscopeElement) result._itemscope = this.flatten(itemscopeElement)
                 if (event instanceof Event) result._event = this.flatten(event)
                 return result
             }
