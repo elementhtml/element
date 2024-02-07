@@ -418,10 +418,14 @@ const ElementHTML = Object.defineProperties({}, {
     },
     loadHelper: {
         enumerable: true, value: async function (name) {
-            if (typeof this.app.helpers[name] === 'function') return
-            if (typeof this.env.helpers[name] !== 'function') return
+            if (typeof this.app.helpers[name] === 'function') return true
+            if (typeof this.env.helpers[name] !== 'function') return false
             if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
-            if (typeof this.env.helpers[name] === 'function') this.app.helpers[name] = this.env.helpers[name].bind(this)
+            if (typeof this.env.helpers[name] === 'function') {
+                this.app.helpers[name] = this.env.helpers[name].bind(this)
+                return true
+            }
+            return false
         }
     },
     mergeVariables: {
@@ -449,6 +453,7 @@ const ElementHTML = Object.defineProperties({}, {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
             if (!typeCheck && (input instanceof Object)) return input
             input = typeCheck ? input : `${input}`
+            let inputUrlExtension
             if (!contentType) {
                 if (!contentType && (input instanceof Response)) {
                     contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
@@ -462,6 +467,7 @@ const ElementHTML = Object.defineProperties({}, {
                     contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
                     const serverContentType = input.headers.get('Content-Type')
                     if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
+                    if (input.url.includes('.')) inputUrlExtension = input.url.split('.').pop()
                 } else if (contentType && contentType.includes('json')) {
                     contentType = 'application/json'
                 } else if (contentType && contentType.includes('yaml')) {
@@ -477,8 +483,13 @@ const ElementHTML = Object.defineProperties({}, {
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-            await this.loadHelper(contentType)
-            return this.useHelper(contentType, text) ?? text
+            let hasHelper = await this.loadHelper(contentType)
+            if (hasHelper) return this.useHelper(contentType, text) ?? text
+            if (inputUrlExtension) {
+                inputUrlExtension = `.${inputUrlExtension}`
+                hasHelper = await this.loadHelper(inputUrlExtension)
+                if (hasHelper) return this.useHelper(inputUrlExtension, text) ?? text
+            }
         }
     },
     render: {
