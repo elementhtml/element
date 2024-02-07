@@ -646,8 +646,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!scopeStatement) return element.parentElement
             let scope, root, prop
             switch (scopeStatement) {
-                case '$':
-                    return element
                 case ':':
                     prop = 'body'
                 case '~':
@@ -673,8 +671,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
+            const sMap = { '$': 'root', '#': 'document' }
             let scope = element, selector = scopedSelector
-            if ((selector[0] === '#') || (selector[0] === '#')) selector = `:document|${selector}`
+            if (sMap[selector[0]]) selector = `:${sMap[selector[0]]}|${selector}`
             if (selector.includes('|')) {
                 const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
                 scope = this.resolveScope(scopeStatement, element)
@@ -686,6 +685,11 @@ const ElementHTML = Object.defineProperties({}, {
     resolveSelector: {
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
+            if (selector[0] === '$') {
+                selector = selector.slice(1)
+                if (!selector) return scope
+                return scope.querySelector(selector) || scope.querySelector(`[is="${selector}"]`) || scope.querySelector(`e-${selector}`) || scope.querySelector(`[is="e-${selector}"]`)
+            }
             if (selector.includes('{') && selector.endsWith('}')) {
                 let [selectorStem, sig] = selector.split('{')
                 return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
