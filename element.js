@@ -489,9 +489,9 @@ const ElementHTML = Object.defineProperties({}, {
             const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
             if (typeof data !== 'object') {
                 if (element.constructor.E_ValueProperty) {
-                    return element[element.constructor.E_ValueProperty] = data
+                    try { return element[element.constructor.E_ValueProperty] = data } catch (e) { return }
                 } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
-                    return element.value = data
+                    try { return element.value = data } catch (e) { return }
                 } else {
                     switch (tag) {
                         case 'meta':
@@ -514,7 +514,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (k.includes('(') && k.endsWith(')')) {
                     return v != undefined ? this.runElementMethod(k, v, element) : undefined
                 } else if (v === undefined) {
-                    return delete element[k]
+                    try { return delete element[k] } catch (e) { return }
                 }
                 element[k] = v
             }
@@ -539,15 +539,16 @@ const ElementHTML = Object.defineProperties({}, {
                         element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
                         continue
                     case '@':
+                        const attrName = k.slice(1) || 'name'
                         switch (v) {
                             case true: case false:
-                                element.toggleAttribute(k.slice(1) || 'name', v)
+                                element.toggleAttribute(attrName, v)
                                 continue
                             case null: case undefined:
-                                element.removeAttribute(k.slice(1) || 'name')
+                                element.removeAttribute(attrName)
                                 continue
                             default:
-                                element.setAttribute(k.slice(1) || 'name', v)
+                                element.setAttribute(attrName, v)
                                 continue
                         }
                     case '$':
@@ -563,7 +564,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case '!':
                         let eventName = k.slice(1)
                         if (!eventName) eventName = element.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[tag] ?? 'click'
-                        v === null ? element.addEventListener(eventName, event => event.preventDefault(), { once: true }) : element.dispatchEvent(new CustomEvent(eventName, { detail: v, bubbles: true, cancelable: true }))
+                        if (v != null) element.dispatchEvent(new CustomEvent(eventName, { detail: v, bubbles: true, cancelable: true }))
                         continue
                     case '.': case '<':
                         if (!v) { element.replaceChildren(); continue }
@@ -596,7 +597,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                 const envTemplate = this.env.templates[renderExpression]
                                                 this.app.templates[renderExpression] = document.createElement('template')
                                                 if (envTemplate instanceof HTMLElement) {
-                                                    this.app.templates[renderExpression].innerHTML = envTemplate.innerHTML
+                                                    this.app.templates[renderExpression].innerHTML = envTemplate instanceof HTMLTemplateElement ? envTemplate.innerHTML : envTemplate.outerHTML
                                                 } else if (typeof envTemplate === 'string') {
                                                     if (envTemplate[0] === '`' && envTemplate.slice(-1) === '`') {
                                                         this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(envTemplate.slice(1, -1)))).text()
