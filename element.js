@@ -733,14 +733,15 @@ const ElementHTML = Object.defineProperties({}, {
             }
             expression ||= this.app.transforms[transformKey][1]
             const bindings = {}
-            if (element && transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
-            if (element && transform.includes('$this')) bindings.this = this.flatten(element)
-            if (element && transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
-            if (element && transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
-            if (element && transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
+            if (element) {
+                if (transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+                if (transform.includes('$this')) bindings.this = this.flatten(element)
+                if (transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
+                if (transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
+                if (transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
+            }
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
-            const result = await expression.evaluate(data, bindings)
-            return result
+            return await expression.evaluate(data, bindings)
         }
     },
     serialize: {
