@@ -292,7 +292,10 @@
         }
 
         #parseSelectorExpression(expression, statementIndex, stepIndex) {
-            if (expression && (expression[0] === '#')) expression = `:document|${expression}`
+            if (expression) {
+                if (expression[0] === '#')`:document|${expression}`
+                if (expression[0] === '$')`:root|${expression}`
+            }
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
                 scope = this.E.resolveScope(scopeStatement, this)
             if (!scope) return []
