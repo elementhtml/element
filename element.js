@@ -157,7 +157,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'templates':
                         for (const key in packageContents.templates) {
                             if ((typeof packageContents.templates[key] === 'string') && (packageContents.templates[key][0] === '`' && packageContents.templates[key].slice(-1) === '`')) {
-                                let templateUrl = this.resolveTemplate(packageContents.templates[key])
+                                let templateUrl = this.resolveTemplateKey(packageContents.templates[key])
                                 this.env.templates[key] = ('`' + this.resolveUrl(templateUrl, packageUrl) + '`')
                             } else {
                                 this.env.templates[key] = packageContents.templates[key]
@@ -625,7 +625,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                     useTemplate.innerHTML = envTemplate instanceof HTMLTemplateElement ? envTemplate.innerHTML : envTemplate.outerHTML
                                                 } else if (typeof envTemplate === 'string') {
                                                     if (envTemplate[0] === '`' && envTemplate.endsWith('`')) {
-                                                        let templateUrl = this.resolveTemplate(envTemplate)
+                                                        let templateUrl = this.resolveTemplateKey(envTemplate)
                                                         useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
                                                     } else {
                                                         useTemplate.innerHTML = envTemplate
@@ -635,7 +635,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                 this.app.templates[renderExpression] = true
                                                 useTemplate = document.createElement('template')
                                                 let templateUrl = renderExpression
-                                                if (templateUrl.startsWith('~/') || templateUrl.endsWith('.')) templateUrl = this.resolveTemplate('`' + templateUrl + '`')
+                                                if (templateUrl.startsWith('~/') || templateUrl.endsWith('.')) templateUrl = this.resolveTemplateKey('`' + templateUrl + '`')
                                                 useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
                                             }
                                             this.app.templates[renderExpression] = useTemplate
@@ -992,7 +992,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const n of nodesToApply) this.render(...n)
         }
     },
-    resolveTemplate: {
+    resolveTemplateKey: {
         value: function (templateKey) {
             if (templateKey[0] === '`' && templateKey.endsWith('`')) {
                 templateKey = templateKey.slice(1, -1)
