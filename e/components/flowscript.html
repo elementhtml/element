@@ -292,7 +292,25 @@
         }
 
         #parseSelectorExpression(expression, statementIndex, stepIndex) {
-            if (!expression.includes('|')) expression = expression[0] === '#' ? `:document|${expression}` : `:root|${expression}`
+            if (!expression.includes('|')) {
+                switch (expression[0]) {
+                    case '#':
+                        expression = `:document|${expression}`
+                        break
+                    case '@':
+                        expression = `:root|[name="${expression.slice(1)}"]`
+                        break
+                    case '^':
+                        expression = `:root|[style~="${expression.slice(1)}"]`
+                        break
+                    case '~':
+                        expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                        break
+                    case '.':
+                    default:
+                        expression = `:root|${expression}`
+                }
+            }
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
                 scope = this.E.resolveScope(scopeStatement, this)
             if (!scope) return []
