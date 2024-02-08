@@ -165,7 +165,7 @@
                                 for (const [k, v] of Object.entries(value)) {
                                     if (k.endsWith(')') && k.includes('(')) {
                                         let funcName = k.trim().slice(0, -2).trim()
-                                        document.location[funcName](funcName === 'assign' ? v : undefined)
+                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
                                     } else if (typeof v === 'string') {
                                         document.location[k] = v
                                         break
