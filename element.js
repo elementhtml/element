@@ -157,7 +157,8 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'templates':
                         for (const key in packageContents.templates) {
                             if ((typeof packageContents.templates[key] === 'string') && (packageContents.templates[key][0] === '`' && packageContents.templates[key].slice(-1) === '`')) {
-                                this.env.templates[key] = ('`' + this.resolveUrl(packageContents.templates[key].slice(1, -1), packageUrl) + '`')
+                                let templateUrl = this.resolveTemplate(packageContents.templates[key])
+                                this.env.templates[key] = ('`' + this.resolveUrl(templateUrl, packageUrl) + '`')
                             } else {
                                 this.env.templates[key] = packageContents.templates[key]
                             }
@@ -607,24 +608,37 @@ const ElementHTML = Object.defineProperties({}, {
                                         let useTemplate
                                         if (renderExpression[0] === '`' && renderExpression.slice(-1) === '`') {
                                             renderExpression = renderExpression.slice(1, -1)
+                                            if (this.app.templates[renderExpression] === true) {
+                                                let waitCount = 0
+                                                while ((waitCount <= 100) && (this.app.templates[renderExpression] === true)) {
+                                                    await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
+                                                }
+                                            }
+                                            if (this.app.templates[renderExpression] === true) delete this.app.templates[renderExpression]
                                             if (this.app.templates[renderExpression] && (this.app.templates[renderExpression] instanceof HTMLTemplateElement)) {
+                                                useTemplate = this.app.templates[renderExpression]
                                             } else if (this.env.templates[renderExpression]) {
+                                                this.app.templates[renderExpression] = true
                                                 const envTemplate = this.env.templates[renderExpression]
-                                                this.app.templates[renderExpression] = document.createElement('template')
+                                                useTemplate = document.createElement('template')
                                                 if (envTemplate instanceof HTMLElement) {
-                                                    this.app.templates[renderExpression].innerHTML = envTemplate instanceof HTMLTemplateElement ? envTemplate.innerHTML : envTemplate.outerHTML
+                                                    useTemplate.innerHTML = envTemplate instanceof HTMLTemplateElement ? envTemplate.innerHTML : envTemplate.outerHTML
                                                 } else if (typeof envTemplate === 'string') {
-                                                    if (envTemplate[0] === '`' && envTemplate.slice(-1) === '`') {
-                                                        this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(envTemplate.slice(1, -1)))).text()
+                                                    if (envTemplate[0] === '`' && envTemplate.endsWith('`')) {
+                                                        let templateUrl = this.resolveTemplate(envTemplate)
+                                                        useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
                                                     } else {
-                                                        this.app.templates[renderExpression].innerHTML = envTemplate
+                                                        useTemplate.innerHTML = envTemplate
                                                     }
                                                 }
                                             } else {
-                                                this.app.templates[renderExpression] = document.createElement('template')
-                                                this.app.templates[renderExpression].innerHTML = await (await fetch(this.resolveUrl(renderExpression))).text()
+                                                this.app.templates[renderExpression] = true
+                                                useTemplate = document.createElement('template')
+                                                let templateUrl = renderExpression
+                                                if (templateUrl.startsWith('~/') || templateUrl.endsWith('.')) templateUrl = this.resolveTemplate('`' + templateUrl + '`')
+                                                useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
                                             }
-                                            useTemplate = this.app.templates[renderExpression]
+                                            this.app.templates[renderExpression] = useTemplate
                                         } else {
                                             useTemplate = this.resolveScopedSelector(renderExpression, element)
                                         }
@@ -740,17 +754,30 @@ const ElementHTML = Object.defineProperties({}, {
             if (transform) transform = transform.trim()
             const transformKey = transform
             let expression
-            if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey] ??
-                (this.env.transforms[transformKey] ? [transformKey, this.env.transforms[transformKey]]
-                    : [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined])
-            if (!transform) return data
+            if (this.app.transforms[transformKey] === true) {
+                let waitCount = 0
+                while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) {
+                    await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
+                }
+            }
+            if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
             if (!this.app.transforms[transformKey]) {
+                this.app.transforms[transformKey] = true
+                if (transformKey[0] === '`') [transform, expression] = this.env.transforms[transformKey] ? [transformKey, this.env.transforms[transformKey]]
+                    : [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
+                if (!transform) {
+                    delete this.app.transforms[transformKey]
+                    return data
+                }
                 expression ||= this.env.transforms[transformKey]
                 if (!expression) {
                     await this.loadHelper('application/x-jsonata')
                     expression = this.useHelper('application/x-jsonata', transform)
                 }
                 this.app.transforms[transformKey] = [transform, expression]
+            } else {
+                if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey]
+                if (!transform) return data
             }
             expression ||= this.app.transforms[transformKey][1]
             const bindings = {}
@@ -963,6 +990,16 @@ const ElementHTML = Object.defineProperties({}, {
             } else { nodesToApply.push([buildNode(useNode), data]) }
             element[insertPosition](...nodesToApply.map(n => n[0]))
             for (const n of nodesToApply) this.render(...n)
+        }
+    },
+    resolveTemplate: {
+        value: function (templateKey) {
+            if (templateKey[0] === '`' && templateKey.endsWith('`')) {
+                templateKey = templateKey.slice(1, -1)
+                if (templateKey.startsWith('~/')) templateKey = `templates${templateKey.slice(1)}`
+                if (templateKey.endsWith('.')) templateKey = `${templateKey}html`
+            }
+            return templateKey
         }
     },
     sliceAndStep: {
