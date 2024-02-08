@@ -357,7 +357,7 @@
         }
 
         #parseVariableExpression(expression, statementIndex, stepIndex) {
-            return async (value, labels, env, statementIndex, stepIndex) => this.E.margeVariables(expression, value, labels, env)
+            return async (value, labels, env, statementIndex, stepIndex) => this.E.mergeVariables(expression, value, labels, env)
         }
 
         #parseTransformExpression(expression, statementIndex, stepIndex) {
