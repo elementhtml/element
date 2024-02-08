@@ -411,8 +411,9 @@
                     if (returnFullRequest) {
                         return r
                     } else {
-                        if (hasDefault && !r.ok) return
-                        return r.ok ? this.E.parse(r) : undefined
+                        const ok = r.status < 400
+                        if (hasDefault && !ok) return
+                        return ok ? this.E.parse(r) : undefined
                     }
                 })
             }
