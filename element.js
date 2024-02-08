@@ -386,10 +386,10 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (name[0]) {
                     case '#':
                         return [this.getCell(name.slice(1)), mode]
-                    case '%':
+                    case '@':
                         return [element.getField(name.slice(1)), mode]
                     default:
-                        return [type === '%' ? element.getField(name) : this.getCell(name), mode]
+                        return [type === '@' ? element.getField(name) : this.getCell(name), mode]
                 }
             }
             switch (expression[0]) {
@@ -893,7 +893,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return env.context[expression.slice(1)]
                 case '#':
                     return (env.cells[expression.slice(1)] ?? {})?.get()
-                case '%':
+                case '@':
                     return (env.fields[expression.slice(1)] ?? {})?.get()
                 case '$':
                     expression = expression.slice(1)

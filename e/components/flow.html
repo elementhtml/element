@@ -60,7 +60,7 @@
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
                         if (detail == undefined) detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
                         switch (label[0]) {
-                            case '%':
+                            case '@':
                                 env.fields[label.slice(1)].set(detail, labelMode)
                                 break
                             case '#':

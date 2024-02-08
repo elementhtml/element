@@ -3,7 +3,7 @@
 <script>
     export default class extends `./flow` {
 
-        static labelRegExp = /^([\%\#]?[a-zA-Z0-9]+[\!\?]?):\s+/
+        static labelRegExp = /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/
         static defaultValueRegExp = /\s+\?\?\s+(.+)\s*$/
         static splitter = /\n(?!\s+>>)/gm
 
@@ -51,7 +51,7 @@
                         step.push(label)
                     }
                     switch (label[0]) {
-                        case '%':
+                        case '@':
                             let fn = label.slice(1).trim()
                             if (fn) fieldNames.add(fn)
                             break
@@ -81,7 +81,7 @@
                                 case '"': case "'":
                                     handler = this.#parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
-                                case "#": case "%":
+                                case "#": case "@":
                                     let addedFieldNames, addedCellNames
                                     [handler, addedFieldNames, addedCellNames] = this.#parseStateExpression(handlerExpression.slice(1),
                                         handlerExpression[0], statementIndex, stepIndex)
