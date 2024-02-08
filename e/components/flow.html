@@ -61,11 +61,12 @@
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
                                 detail = defaultValue
+                            } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
+                                detail = defaultValue.slice(1, -1)
                             } else if (defaultValue.match(this.E.sys.regexp.hasVariable)) {
                                 detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
                             } else if (defaultValue.match(this.E.sys.regexp.isJSONObject) || defaultValue.match(this.E.sys.regexp.isNumeric)
-                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '"' && defaultValue.endsWith('"'))
-                                || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
                                 try {
                                     detail = JSON.parse(defaultValue)
                                 } catch (e) {
