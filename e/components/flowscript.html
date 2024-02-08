@@ -319,6 +319,10 @@
                     if (selector.endsWith('}') && selector.includes('{')) {
                         const target = this.E.resolveSelector(selector, scope)
                         if (!target || (Array.isArray(target) && !target.length)) return
+                    } else if (selector[0] === '$') {
+                        if (selector.length === 1) return
+                        const catchallSelector = this.E.buildCatchallSelector(selector)
+                        if (!event.target.matches(catchallSelector)) return
                     } else if (selector && !event.target.matches(selector)) { return }
                     let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
                     if (!eventList && (event.type !== tagDefaultEventType)) return

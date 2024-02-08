@@ -304,12 +304,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (isObj) result._options = Object.fromEntries(result._options)
                     if (result.tag === 'datalist') result._ = result._options
                 }
-                result._closest = {
-                    class: value.parentElement.closest('[class]')?.getAttribute('class'),
-                    id: value.parentElement.closest('[id]')?.id,
-                    itemprop: value.parentElement.closest('[itemprop]')?.getAttribute('itemprop'),
-                    itemscope: this.flatten(value.parentElement.closest('[itemscope]')),
-                    name: value.parentElement.closest('[name]')?.name
+                if (value.parentElement && value.parentElement instanceof HTMLElement) {
+                    result._closest = {
+                        class: value.parentElement.closest('[class]')?.getAttribute('class'),
+                        id: value.parentElement.closest('[id]')?.id,
+                        itemprop: value.parentElement.closest('[itemprop]')?.getAttribute('itemprop'),
+                        itemscope: this.flatten(value.parentElement.closest('[itemscope]')),
+                        name: value.parentElement.closest('[name]')?.name
+                    }
                 }
                 if (event instanceof Event) result._event = this.flatten(event)
                 return result
@@ -702,7 +704,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (selector[0] === '$') {
                 selector = selector.slice(1)
                 if (!selector) return scope
-                return scope.querySelector(selector) || scope.querySelector(`[is="${selector}"]`) || scope.querySelector(`e-${selector}`) || scope.querySelector(`[is="e-${selector}"]`)
+                const catchallSelector = this.buildCatchallSelector(selector)
+                return scope.querySelector(catchallSelector)
             }
             if (selector.includes('{') && selector.endsWith('}')) {
                 let [selectorStem, sig] = selector.split('{')
@@ -805,6 +808,13 @@ const ElementHTML = Object.defineProperties({}, {
             if (!loadResult) return
             const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
             if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+        }
+    },
+    buildCatchallSelector: {
+        value: function (selector) {
+            const selectorMain = selector.slice(1)
+            if (!selectorMain) return selector
+            return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
     encapsulateNative: {
