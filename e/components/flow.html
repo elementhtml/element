@@ -58,7 +58,23 @@
                     let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
-                        if (detail == undefined) detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
+                        if (detail == undefined) {
+                            if (typeof defaultValue !== 'string') {
+                                detail = defaultValue
+                            } else if (defaultValue.match(this.E.sys.regexp.hasVariable)) {
+                                detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
+                            } else if (defaultValue.match(this.E.sys.regexp.isJSONObject) || defaultValue.match(this.E.sys.regexp.isNumeric)
+                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '"' && defaultValue.endsWith('"'))
+                                || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                try {
+                                    detail = JSON.parse(defaultValue)
+                                } catch (e) {
+                                    detail = defaultValue
+                                }
+                            } else {
+                                detail = defaultValue
+                            }
+                        }
                         switch (label[0]) {
                             case '@':
                                 env.fields[label.slice(1)].set(detail, labelMode)
