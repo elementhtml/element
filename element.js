@@ -1,6 +1,6 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '1.1.1' },
+    version: { enumerable: true, value: '1.2.0' },
 
     sys: {
         value: Object.freeze({
