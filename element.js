@@ -78,13 +78,15 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'ipfs://': async function () {
                     if (this.env.options['ipfs://']?.gateway) return
-                    if ((await fetch('https://ipfs.tech.ipns.localhost:8080/', { method: 'HEAD' })).ok) {
-                        this.env.options ||= {}
-                        this.env.options['ipfs://'] ||= {}
-                        this.env.options['ipfs://'].gateway ||= 'localhost:8080'
-                        this.env.options['ipns://'] ||= {}
-                        this.env.options['ipns://'].gateway ||= 'localhost:8080'
-                    }
+                    try {
+                        if ((await fetch('https://ipfs.tech.ipns.localhost:8080/', { method: 'HEAD' })).ok) {
+                            this.env.options ||= {}
+                            this.env.options['ipfs://'] ||= {}
+                            this.env.options['ipfs://'].gateway ||= 'localhost:8080'
+                            this.env.options['ipns://'] ||= {}
+                            this.env.options['ipns://'].gateway ||= 'localhost:8080'
+                        }
+                    } catch (e) { }
                 },
                 'ipns://': async function () {
                     if (this.env.options['ipns://']?.gateway) return
@@ -110,9 +112,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {}, options: {}, preload: {
-                "ipfs://": null, "ipns://": null
-            }, regexp: {}, templates: {}, transforms: {}, types: {}
+            namespaces: {}, options: {}, preload: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
 
@@ -197,7 +197,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     load: {
-        enumerable: true, value: async function (rootElement = undefined) {
+        enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
                 if (this.app._globalNamespace) return
                 this.app._globalNamespace = crypto.randomUUID()
@@ -208,7 +208,8 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.options['application/x-jsonata'].helpers ||= {}
                     this.env.options['application/x-jsonata'].helpers.is = 'application/schema+json'
                 }
-                for (const hn in this.env.preload) if ((typeof this.env.loaders(hn) === 'function')) await this.loadHelper(h, this.env.preload[hn])
+                if (preload?.length) for (const p of preload) this.env.preload[`${p}://`] ||= null
+                for (const hn in this.env.preload) if ((typeof this.env.loaders[hn] === 'function')) await this.loadHelper(hn, this.env.preload[hn])
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
@@ -1151,5 +1152,5 @@ if (metaOptions.has('packages')) {
     for (const url in importPromises) await ElementHTML.ImportPackage(await importPromises[url], url, importKeys[url])
 }
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
-if (metaOptions.has('load')) await ElementHTML.load()
+if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
