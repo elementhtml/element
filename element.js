@@ -1098,9 +1098,15 @@ if (metaOptions.has('packages')) {
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
     const imports = importmap.imports ?? {}, importPromises = {}, importKeys = {}
-    for (const p of metaOptions.get('packages').split(',').map(s => s.trim())) if (p && (typeof imports[p] === 'string') && imports[p].includes('/')) {
-        if (imports[p].endsWith('/')) imports[p] = `${imports[p]}package.js`
-        const importUrl = ElementHTML.resolveUrl(imports[p])
+    for (const p of metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s)) {
+        let importUrl
+        if ((typeof imports[p] === 'string') && imports[p].includes('/')) {
+            if (imports[p].endsWith('/')) imports[p] = `${imports[p]}package.js`
+            importUrl = ElementHTML.resolveUrl(imports[p])
+        } else {
+            importUrl = ElementHTML.resolveUrl(`ipfs://${p}/package.js`)
+        }
+        if (!importUrl) continue
         importPromises[importUrl] = import(importUrl)
         importKeys[importUrl] = p
     }
