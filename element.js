@@ -746,7 +746,6 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
             if (selector[0] === '$') {
-                selector = selector.slice(1)
                 if (!selector) return scope
                 const catchallSelector = this.buildCatchallSelector(selector)
                 return scope.querySelector(catchallSelector)
