@@ -1116,15 +1116,17 @@ if (metaOptions.has('packages')) {
         let importUrl
         if ((typeof imports[p] === 'string') && imports[p].includes('/')) {
             if (imports[p].endsWith('/')) imports[p] = `${imports[p]}package.js`
-            importUrl = ElementHTML.resolveUrl(imports[p])
+            importUrl = imports[p]
         } else {
-            importUrl = ElementHTML.resolveUrl(`ipfs://${p}/package.js`)
+            importUrl = `ipfs://${p}/package.js`
         }
-        if (!importUrl) continue
-        if (!value.startsWith('https://') && !value.startsWith('http://') && value.includes('://')) {
-            const [protocol,] = value.split('://'), helperName = `${protocol}://`
+        const [protocol,] = value.split('://')
+        if (protocol !== value) {
+            const helperName = `${protocol}://`
             if (typeof ElementHTML.env.loaders[helperName] === 'function') await ElementHTML.env.loaders[helperName].bind(ElementHTML)()
         }
+        importUrl = ElementHTML.resolveUrl(importUrl)
+        if (!importUrl) continue
         importPromises[importUrl] = import(importUrl)
         importKeys[importUrl] = p
     }
