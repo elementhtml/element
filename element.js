@@ -23,16 +23,6 @@ const ElementHTML = Object.defineProperties({}, {
     env: {
         enumerable: true, value: {
             context: {},
-            gateways: {
-                ipfs: (hostpath, E) => {
-                    const [cid, ...path] = hostpath.split('/')
-                    return `https://${cid}.ipfs.dweb.link/${path.join('/')}}`
-                },
-                ipns: (hostpath, E) => {
-                    const [cid, ...path] = hostpath.split('/')
-                    return `https://${cid}.ipns.dweb.link/${path.join('/')}}`
-                }
-            },
             helpers: {
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
@@ -47,10 +37,18 @@ const ElementHTML = Object.defineProperties({}, {
                         v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
                     if (text.includes('$queryString(')) expression.registerFunction('queryString',
                         v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    for (const [helperAlias, helperName] of Object.entries(this.env.options?.jsonata?.helpers ?? {})) {
+                    for (const [helperAlias, helperName] of Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {})) {
                         if (text.includes(`$${helperAlias}(`)) expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
                     }
                     return expression
+                },
+                'ipfs://': function (hostpath) {
+                    const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
+                    return `https://${cid}.ipfs.${gateway}/${path.join('/')}}`
+                },
+                'ipns://': function (hostpath) {
+                    const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipns://']?.gateway ?? 'dweb.link'
+                    return `https://${cid}.ipns.${gateway}/${path.join('/')}}`
                 },
                 'text/markdown': function (text, serialize) {
                     if (!this.app.libraries['text/markdown']) return
@@ -76,7 +74,7 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                    await Promise.all(Object.entries(this.env.options?.jsonata?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
+                    await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
                 'text/markdown': async function () {
                     if (this.app.libraries['text/markdown']) return
@@ -114,7 +112,7 @@ const ElementHTML = Object.defineProperties({}, {
             let packageContents = packageObject?.default ?? {}
             if (!packageContents) return
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const a of ['gateways', 'helpers', 'loaders', 'templates']) {
+            for (const a of ['helpers', 'loaders', 'templates']) {
                 if (typeof packageContents[a] !== 'string') continue
                 const importUrl = this.resolveUrl(packageContents[a], packageUrl), exports = getExports(importUrl)
                 packageContents[a] = {}
@@ -142,7 +140,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    case 'gateways': case 'helpers': case 'loaders':
+                    case 'helpers': case 'loaders':
                         for (const aa in packageContents[a]) {
                             switch (typeof packageContents[a][aa]) {
                                 case 'function':
@@ -186,10 +184,11 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
                 if (Object.keys(this.env.types).length) {
                     this.env.options ||= {}
-                    this.env.options.jsonata ||= {}
-                    this.env.options.jsonata.helpers ||= {}
-                    this.env.options.jsonata.helpers.is = 'application/schema+json'
+                    this.env.options['application/x-jsonata'] ||= {}
+                    this.env.options['application/x-jsonata'].helpers ||= {}
+                    this.env.options['application/x-jsonata'].helpers.is = 'application/schema+json'
                 }
+                for (const h in this.env.helpers) if ((typeof this.env.loaders(h) === 'function') && h.endsWith('://')) await this.loadHelper(h)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
@@ -424,10 +423,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof this.app.helpers[name] === 'function') return true
             if (typeof this.env.helpers[name] !== 'function') return false
             if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
-            if (typeof this.env.helpers[name] === 'function') {
-                this.app.helpers[name] = this.env.helpers[name].bind(this)
-                return true
-            }
+            if (typeof this.env.helpers[name] === 'function') return (this.app.helpers[name] = this.env.helpers[name].bind(this))
             return false
         }
     },
@@ -733,8 +729,10 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof value !== 'string') return value
             if (value.startsWith('https://') || value.startsWith('http://')) return value
             if (value.includes('://')) {
-                const [protocol, hostpath] = value.split(/\:\/\/(.+)/)
-                return typeof this.env.gateways[protocol] === 'function' ? this.env.gateways[protocol](hostpath, this) : value
+                const [protocol, hostpath] = value.split(/\:\/\/(.+)/), helperName = `${protocol}://`
+                if (typeof this.app.helpers[helperName] === 'function') return this.useHelper(helperName, hostpath)
+                if (typeof this.env.helpers[helperName] === 'function') return this.env.helpers[helperName](hostpath, this)
+                return value
             }
             return new URL(value, base ?? document.baseURI).href
         }
