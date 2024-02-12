@@ -210,7 +210,12 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
-                if (!this.env.errors) console.log = () => { }
+                if (!this.env.errors) {
+                    console.log = () => { }
+                    window.addEventListener('unhandledrejection', event => {
+                        event.preventDefault()
+                    })
+                }
                 this.encapsulateNative()
             }
             rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
@@ -228,6 +233,11 @@ const ElementHTML = Object.defineProperties({}, {
             if (!rootElement) {
                 Object.freeze(this.app)
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+                const eventMap = {
+                    'beforeinstallprompt': 'installprompt', 'beforeunload': 'unload', 'appinstalled': 'install',
+                    'offline': 'offline', 'online': 'online', 'visibilitychange': 'visibilitychange', 'pagehide': 'hide', 'pageshow': 'show'
+                }
+                for (const n in eventMap) addEventListener(n, event => this.app.eventTarget.dispatchEvent(new CustomEvent(eventMap[n], { detail: this })))
             }
         }
     },
