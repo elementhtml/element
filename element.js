@@ -1121,6 +1121,10 @@ if (metaOptions.has('packages')) {
             importUrl = ElementHTML.resolveUrl(`ipfs://${p}/package.js`)
         }
         if (!importUrl) continue
+        if (!value.startsWith('https://') && !value.startsWith('http://') && value.includes('://')) {
+            const [protocol,] = value.split('://'), helperName = `${protocol}://`
+            if (typeof ElementHTML.env.loaders[helperName] === 'function') await ElementHTML.env.loaders[helperName].bind(ElementHTML)()
+        }
         importPromises[importUrl] = import(importUrl)
         importKeys[importUrl] = p
     }
