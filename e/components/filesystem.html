@@ -1,0 +1,68 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #directory
+        #directoryHandle
+        #file
+        #files
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'contacts'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('properties') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files') }
+
+        async connectedCallback() {
+        }
+
+
+        get directory() { return this.#directory }
+        set directory(value) { this.showDirectoryPicker(value) }
+
+        get files() { return this.#files }
+        set files(value) { this.showOpenFilePicker(value) }
+
+
+
+
+
+        async getFile(name, options) {
+            if (!this.#directoryHandle) return
+            const fileHandle = await this.#directoryHandle.getFileHandle(name, options)
+            if (!fileHandle) {
+                this.#file = undefined
+
+            }
+            file = fileHandle.getFile()
+            fileObject = { arrayBuffer: await file.arrayBuffer(), lastModified: file.lastModified, name: file.name, size: file.size, text: await file.text(), type: file.type }
+
+        }
+
+        async showDirectoryPicker(options) {
+            const directoryHandle = await window.showDirectoryPicker(options)
+            this.#directoryHandle = directoryHandle
+            this.#directory = directoryHandle ? { kind: directoryHandle.kind, name: directoryHandle.name } : undefined
+            this.E_emitValueChange(this.#directory, 'directory')
+            return this.#directory
+        }
+
+        async showOpenFilePicker(options) {
+            const fileHandles = await window.showOpenFilePicker(options)
+            if (fileHandles && fileHandles.length) {
+                this.#files = []
+                this.#directory = undefined
+                for (const fileHandle of fileHandles) {
+                    const file = await fileHandle.getFile(),
+                        fileObject = { arrayBuffer: await file.arrayBuffer(), lastModified: file.lastModified, name: file.name, size: file.size, text: await file.text(), type: file.type }
+                    this.#files.push(fileObject)
+                }
+            }
+            this.E_emitValueChange(this.#files, 'files')
+            return this.#files
+        }
+
+    }
+
+</script>

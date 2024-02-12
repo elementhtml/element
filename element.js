@@ -1101,6 +1101,7 @@ const ElementHTML = Object.defineProperties({}, {
                         value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
                             if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
                             this.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+                            return value
                         }
                     })
                     try {

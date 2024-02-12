@@ -15,8 +15,8 @@
 
         async connectedCallback() {
             if (!this.#validProperties) {
-                this.#validProperties = await navigator.contacts.getProperties()
-                this.E_emitValueChange(validProperties, 'validProperties')
+                this.#validProperties = await navigator.contacts?.getProperties()
+                if (this.#validProperties) this.E_emitValueChange(this.#validProperties, 'validProperties')
             }
         }
 
@@ -41,7 +41,7 @@
                 this.#properties = value
             }
             if (!this.#validProperties) {
-                navigator.contacts.getProperties().then(validProperties => {
+                navigator.contacts?.getProperties().then(validProperties => {
                     this.#validProperties = validProperties
                     this.E_emitValueChange(validProperties, 'validProperties')
                     complete()
