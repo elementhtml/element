@@ -185,6 +185,8 @@ const ElementHTML = Object.defineProperties({}, {
                             if (this.env.namespaces[namespace].endsWith('/')) this.env.namespaces[namespace] = this.env.namespaces[namespace].slice(0, -1)
                         }
                         break
+                    case 'hooks':
+                        break
                     default:
                         Object.assign(this.env[a], packageContents[a])
                 }
