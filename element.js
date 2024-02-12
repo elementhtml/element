@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
-            cells: {}, helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            cells: {}, eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
     env: {
@@ -126,7 +126,8 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let packageContents = packageObject?.default ?? {}
-            if (!packageContents) return
+            if (!packageContents || (typeof packageContents !== 'object')) return
+            if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
             for (const a of ['helpers', 'loaders', 'templates']) {
                 if (typeof packageContents[a] !== 'string') continue
@@ -189,6 +190,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
+            if (packageContents?.hooks?.postInstall === 'function') packageContents.hooks.postInstall(packageContents, this)
         }
     },
 
@@ -223,7 +225,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             })
             observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
-            Object.freeze(this.app)
+            if (!rootElement) {
+                Object.freeze(this.app)
+                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+            }
         }
     },
 
