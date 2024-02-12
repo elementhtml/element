@@ -76,6 +76,20 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                     await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
+                'ipfs://': async function () {
+                    if (this.env.options['ipfs://']?.gateway) return
+                    if ((await fetch('https://ipfs.tech.ipns.localhost:8080/', { method: 'HEAD' })).ok) {
+                        this.env.options ||= {}
+                        this.env.options['ipfs://'] ||= {}
+                        this.env.options['ipfs://'].gateway ||= 'localhost:8080'
+                        this.env.options['ipns://'] ||= {}
+                        this.env.options['ipns://'].gateway ||= 'localhost:8080'
+                    }
+                },
+                'ipns://': async function () {
+                    if (this.env.options['ipns://']?.gateway) return
+                    if (typeof this.env.loaders['ipfs://'] === 'function') return await this.env.loaders['ipfs://']()
+                },
                 'text/markdown': async function () {
                     if (this.app.libraries['text/markdown']) return
                     this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
@@ -96,7 +110,9 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {}, options: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            namespaces: {}, options: {}, preload: {
+                "ipfs://": null, "ipns://": null
+            }, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
 
@@ -188,7 +204,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.options['application/x-jsonata'].helpers ||= {}
                     this.env.options['application/x-jsonata'].helpers.is = 'application/schema+json'
                 }
-                for (const h in this.env.helpers) if ((typeof this.env.loaders(h) === 'function') && h.endsWith('://')) await this.loadHelper(h)
+                for (const hn in this.env.preload) if ((typeof this.env.loaders(hn) === 'function')) await this.loadHelper(h, this.env.preload[hn])
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 Object.freeze(this)
