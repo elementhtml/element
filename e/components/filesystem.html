@@ -12,8 +12,8 @@
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'files'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('options', 'id', 'mode', 'multiple') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'mode', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'id', 'mode', 'multiple', 'options') }
 
         get directory() { return this.#directory }
         set directory(value) {
@@ -49,6 +49,7 @@
             } else if (typeof value === 'string') {
                 startIn = value
             }
+            startIn ||= options?.startIn
             options ||= {
                 excludeAcceptAllOption: this.excludeAcceptAll,
                 multiple: this.multiple,
@@ -69,6 +70,8 @@
         }
 
         get id() { return this.getAttribute('id') }
+
+        get mode() { return this.getAttribute('mode') }
 
         get multiple() { return this.hasAttribute('multiple') }
 
