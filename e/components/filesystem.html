@@ -33,9 +33,9 @@
                 mode: this.mode,
                 startIn: startIn ? startIn : this.#directoryHandle
             }
-            window.showOpenDirectoryPicker(options).then(directoryHandle => {
+            window.showDirectoryPicker(options).then(directoryHandle => {
                 this.#directoryHandle = directoryHandle
-                this.#directory = this.#directoryHandle ? { kind: this.directoryHandle.kind, name: this.directoryHandle.name } : undefined
+                this.#directory = this.#directoryHandle ? { kind: this.#directoryHandle.kind, name: this.#directoryHandle.name } : undefined
                 return this.E_emitValueChange(this.#directory, 'directory')
             })
         }
@@ -82,7 +82,7 @@
 
         get id() { return this.getAttribute('id') }
 
-        get mode() { return this.getAttribute('mode') }
+        get mode() { return this.getAttribute('mode') || "read" }
 
         get multiple() { return this.hasAttribute('multiple') }
 
