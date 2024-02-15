@@ -5,28 +5,54 @@
 
         #directory
         #directoryHandle
-        #file
-        #files
+        #fileHandles = []
+        #files = []
         #options
 
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'file'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'file', 'files', 'options') }
-
-        async connectedCallback() {
-        }
-
+        static get observedAttributes() { return (super.observedAttributes || []).concat('options', 'id', 'multiple') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'options') }
 
         get directory() { return this.#directory }
-        set directory(value) { this.showDirectoryPicker(value) }
+        set directory(value) {
+            typeof value === 'string' ? this.setDirectory(value) : this.showDirectoryPicker(value)
+        }
 
-        get file() { return this.#file }
-        set file(value) { this.setFile(value) }
+        get excludeAcceptAll() { return this.hasAttribute('exclude-accept-all') }
 
         get files() { return this.#files }
-        set files(value) { this.showOpenFilePicker(value) }
+        set files(value) {
+            let options, types, startIn
+            if (Array.isArray(value)) {
+                types = value
+            } else if (typeof value === 'object') {
+                options = value
+            } else if (typeof value === 'string') {
+                startIn = value
+            }
+            options ||= {
+                excludeAcceptAllOption: this.excludeAcceptAll,
+                multiple: this.multiple,
+                id: this.id,
+                startIn: startIn ? startIn : this.#directoryHandle,
+                types: types ? types : []
+            }
+            window.showOpenFilePicker(options).then(fileHandles => {
+                this.#fileHandles = fileHandles
+                Promise.all(this.#fileHandles.map(fh => fh.getFile().then(f => {
+                    return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
+                }))).then(files => {
+                    this.#files = files
+                    return this.E_emitValueChange(this.#files, 'files')
+                })
+            })
+        }
+
+        get id() { return this.getAttribute('id') }
+
+        get multiple() { return this.hasAttribute('multiple') }
 
         get options() {
             if (!this.#options) this.options = this.getAttribute('options') || undefined
@@ -41,7 +67,6 @@
                 this.#options = undefined
             }
         }
-
 
         async setDirectory(name, options) {
             if (!this.#directoryHandle) await this.showDirectoryPicker(options)
