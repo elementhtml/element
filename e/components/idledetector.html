@@ -13,7 +13,7 @@
         static E_ValueProperty = 'state'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('threshold') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('state') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('permission', 'state', 'threshold') }
 
         async connectedCallback() {
             this.#idleDetector = new IdleDetector()
@@ -30,10 +30,12 @@
             if (this.#abortController) this.#abortController.abort()
         }
 
-        get threshold() { return this.#threshold ?? (this.getAttribute('threshold') || 60000) }
-        set threshold(value) { return this.#threshold = value }
+        get permission() { return this.#permission }
 
         get state() { return this.#state }
+
+        get threshold() { return this.#threshold ?? (this.getAttribute('threshold') || 60000) }
+        set threshold(value) { return this.#threshold = value }
 
         async start() {
             if (this.#abortController) this.#abortController.abort()
