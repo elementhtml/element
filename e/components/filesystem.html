@@ -99,25 +99,24 @@
         get value() { return this.#value }
         set value(value) {
             if (!value) return
-            Promise.resolve(typeof value === 'string' ? value : this.E.serialize(value, this.contentType)).then(serializedValue => {
-                let options = this.options ?? {}
+            return Promise.resolve(typeof value === 'string' ? value : this.E.serialize(value, this.contentType ?? 'application/json')).then(serializedValue => {
+                let options = this.options ?? {}, startIn
+                startIn ||= options?.startIn
                 options = {
                     ...{
                         excludeAcceptAllOption: this.excludeAcceptAll,
                         id: this.id,
                         startIn: startIn ? startIn : this.#directoryHandle,
                         suggestedName: this.suggestedName,
-                        types: types ? types : []
                     }, ...options
                 }
-                window.showSaveFilePicker(options).then(fileHandle => {
-                    this.#fileHandles = [fileHandle]
-                    Promise.all(this.#fileHandles.map(fh => fh.getFile().then(f => {
-                        return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
-                    }))).then(files => {
-                        this.#files = files
-                        this.#value = value
-                        return this.E_emitValueChange(this.#value)
+                return window.showSaveFilePicker(options).then(fileHandle => {
+                    return fileHandle.createWritable().then(writable => {
+                        return writable.write(serializedValue).then(() => writable.close()).then(() => {
+                            console.log('line 116', value, serializedValue)
+                            this.#value = value
+                            return this.E_emitValueChange(this.#value)
+                        })
                     })
                 })
             })
