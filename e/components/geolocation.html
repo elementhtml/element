@@ -1,0 +1,66 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #maximumAge
+        #timeout
+        #value
+        #watcherId
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('maximum-age', 'timeout') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('watch', 'enableHighAccuracy', 'maximumAge', 'timeout', 'value') }
+
+        async connectedCallback() {
+            if (this.hasAttribute('watch')) this.#setWatch()
+        }
+
+        async disconnectedCallback() {
+            if (this.#watcherId) navigator.geolocation.clearWatch(this.#watcherId)
+        }
+
+        get enableHighAccuracy() { return this.hasAttribute('enable-high-accuracy') }
+
+        get maximumAge() { return this.#maximumAge ?? (this.getAttribute('maximum-age') || 0) }
+        set maximumAge(value) { this.#maximumAge = value }
+        set ['maximum-age'](value) { this.maximumAge = value }
+
+        get timeout() { return this.#timeout ?? (this.getAttribute('timeout') || Infinity) }
+        set timeout(value) { return this.#timeout = value }
+
+        get value() { return this.#value }
+        set value(value) {
+            navigator.getCurrentPosition(pos => {
+                this.#value = pos
+                return this.E_emitValueChange(this.#value)
+            }, undefined, {
+                maximumAge: this.maximumAge,
+                timeout: this.timeout,
+                emableHighAccuracy: this.enableHighAccuracy
+            })
+            if (value) {
+                if (this.#watcherId) navigator.geolocation.clearWatch(this.#watcherId)
+                if (this.watch) this.#setWatch()
+            } else {
+                if (this.#watcherId) navigator.geolocation.clearWatch(this.#watcherId)
+            }
+        }
+
+        get watch() { return !!this.#watcherId }
+
+        #setWatch() {
+            this.#watcherId = navigator.geolocation.watchPosition(pos => {
+                this.#value = pos
+                return this.E_emitValueChange(this.#value)
+            }, undefined, {
+                maximumAge: this.maximumAge,
+                timeout: this.timeout,
+                emableHighAccuracy: this.enableHighAccuracy
+            })
+        }
+
+    }
+</script>
