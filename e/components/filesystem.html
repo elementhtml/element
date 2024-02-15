@@ -8,20 +8,24 @@
         #fileHandles = []
         #files = []
         #options
+        #suggestedName
+        #value
 
         static E_DefaultEventType = 'change'
-        static E_ValueProperty = 'files'
+        static E_ValueProperty = 'value'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'id', 'mode', 'multiple', 'options') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('contentType', 'directory', 'excludeAcceptAll', 'files', 'id', 'mode', 'multiple', 'options', 'suggestedName', 'value') }
 
         get directory() { return this.#directory }
         set directory(value) {
             let options = this.options, startIn
-            if (typeof value === 'object') {
-                options = value
-            } else if (typeof value === 'string') {
-                startIn = value
+            switch (typeof value) {
+                case 'object':
+                    options = value ? value : options
+                    break
+                case 'string':
+                    startIn = value
             }
             startIn ||= options?.startIn
             options ||= {
@@ -32,22 +36,23 @@
             window.showOpenDirectoryPicker(options).then(directoryHandle => {
                 this.#directoryHandle = directoryHandle
                 this.#directory = this.#directoryHandle ? { kind: this.directoryHandle.kind, name: this.directoryHandle.name } : undefined
-                this.E_emitValueChange(this.#directory, 'directory')
-                return this.E_emitValueChange(this.#directory)
+                return this.E_emitValueChange(this.#directory, 'directory')
             })
         }
+
+        get contentType() { return this.hasAttribute('content-type') }
 
         get excludeAcceptAll() { return this.hasAttribute('exclude-accept-all') }
 
         get files() { return this.#files }
         set files(value) {
             let options, types, startIn
-            if (Array.isArray(value)) {
-                types = value
-            } else if (typeof value === 'object') {
-                options = value
-            } else if (typeof value === 'string') {
-                startIn = value
+            switch (typeof value) {
+                case 'object':
+                    Array.isArray(value) ? (types = value) : (options = value)
+                    break
+                case 'string':
+                    startIn = value
             }
             startIn ||= options?.startIn
             options ||= {
@@ -63,8 +68,7 @@
                     return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
                 }))).then(files => {
                     this.#files = files
-                    this.E_emitValueChange(this.#files, 'files')
-                    return this.E_emitValueChange(this.#files)
+                    return this.E_emitValueChange(this.#files, 'files')
                 })
             })
         }
@@ -89,6 +93,35 @@
             }
         }
 
-    }
+        get suggestedName() { return this.#suggestedName ?? this.getAttribute('suggested-name') }
+        set suggestedName(value) { this.#suggestedName = value }
 
+        get value() { return this.#value }
+        set value(value) {
+            if (!value) return
+            Promise.resolve(typeof value === 'string' ? value : this.E.serialize(value, this.contentType)).then(serializedValue => {
+                let options = this.options ?? {}
+                options = {
+                    ...{
+                        excludeAcceptAllOption: this.excludeAcceptAll,
+                        id: this.id,
+                        startIn: startIn ? startIn : this.#directoryHandle,
+                        suggestedName: this.suggestedName,
+                        types: types ? types : []
+                    }, ...options
+                }
+                window.showSaveFilePicker(options).then(fileHandle => {
+                    this.#fileHandles = [fileHandle]
+                    Promise.all(this.#fileHandles.map(fh => fh.getFile().then(f => {
+                        return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
+                    }))).then(files => {
+                        this.#files = files
+                        this.#value = value
+                        return this.E_emitValueChange(this.#value)
+                    })
+                })
+            })
+        }
+
+    }
 </script>
