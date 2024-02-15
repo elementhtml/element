@@ -10,14 +10,31 @@
         #options
 
         static E_DefaultEventType = 'change'
-        static E_ValueProperty = 'file'
+        static E_ValueProperty = 'files'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('options', 'id', 'multiple') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'options') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('options', 'id', 'mode', 'multiple') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('directory', 'files', 'mode', 'options') }
 
         get directory() { return this.#directory }
         set directory(value) {
-            typeof value === 'string' ? this.setDirectory(value) : this.showDirectoryPicker(value)
+            let options = this.options, startIn
+            if (typeof value === 'object') {
+                options = value
+            } else if (typeof value === 'string') {
+                startIn = value
+            }
+            startIn ||= options?.startIn
+            options ||= {
+                id: this.id,
+                mode: this.mode,
+                startIn: startIn ? startIn : this.#directoryHandle
+            }
+            window.showOpenDirectoryPicker(options).then(directoryHandle => {
+                this.#directoryHandle = directoryHandle
+                this.#directory = this.#directoryHandle ? { kind: this.directoryHandle.kind, name: this.directoryHandle.name } : undefined
+                this.E_emitValueChange(this.#directory, 'directory')
+                return this.E_emitValueChange(this.#directory)
+            })
         }
 
         get excludeAcceptAll() { return this.hasAttribute('exclude-accept-all') }
@@ -45,7 +62,8 @@
                     return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
                 }))).then(files => {
                     this.#files = files
-                    return this.E_emitValueChange(this.#files, 'files')
+                    this.E_emitValueChange(this.#files, 'files')
+                    return this.E_emitValueChange(this.#files)
                 })
             })
         }
@@ -66,53 +84,6 @@
             } else {
                 this.#options = undefined
             }
-        }
-
-        async setDirectory(name, options) {
-            if (!this.#directoryHandle) await this.showDirectoryPicker(options)
-            if (!this.#directoryHandle) return
-            if (name) {
-                this.#directoryHandle = await this.#directoryHandle.getDirectoryHandle(name, options)
-                if (!this.#directoryHandle) {
-                    this.#directory = undefined
-                    return this.E_emitValueChange(this.#directory, 'directory')
-                }
-                this.#directory = this.#directoryHandle ? { kind: this.#directoryHandle.kind, name: this.#directoryHandle.name } : undefined
-            }
-            return this.E_emitValueChange(this.#directory, 'directory')
-        }
-
-        async setFile(name, options) {
-            if (!this.#directoryHandle) await this.showDirectoryPicker(options)
-            if (!this.#directoryHandle) return
-            const fileHandle = await this.#directoryHandle.getFileHandle(name, options)
-            if (!fileHandle) {
-                this.#file = undefined
-                return this.E_emitValueChange(this.#file, 'file')
-            }
-            const file = fileHandle.getFile()
-            this.#file = { arrayBuffer: await file.arrayBuffer(), lastModified: file.lastModified, name: file.name, size: file.size, text: await file.text(), type: file.type }
-            return this.E_emitValueChange(this.#file, 'file')
-        }
-
-        async showDirectoryPicker(options) {
-            this.#directoryHandle = await window.showDirectoryPicker(options)
-            this.#directory = this.#directoryHandle ? { kind: this.#directoryHandle.kind, name: this.#directoryHandle.name } : undefined
-            return this.E_emitValueChange(this.#directory, 'directory')
-        }
-
-        async showOpenFilePicker(options) {
-            const fileHandles = await window.showOpenFilePicker(options)
-            if (fileHandles && fileHandles.length) {
-                this.#files = []
-                this.#directory = undefined
-                for (const fileHandle of fileHandles) {
-                    const file = await fileHandle.getFile(),
-                        fileObject = { arrayBuffer: await file.arrayBuffer(), lastModified: file.lastModified, name: file.name, size: file.size, text: await file.text(), type: file.type }
-                    this.#files.push(fileObject)
-                }
-            }
-            return this.E_emitValueChange(this.#files, 'files')
         }
 
     }
