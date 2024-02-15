@@ -1,0 +1,51 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #abortController
+        #value
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('value') }
+
+        async connectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            addEventListener('gamepadconnected', event => {
+                this.#value = this.#buildValue()
+                return this.E_emitValueChange(this.#value)
+            }, { signal: this.#abortController.signal })
+            addEventListener('gamepaddisconnected', event => {
+                this.#value = this.#buildValue()
+                return this.E_emitValueChange(this.#value)
+            }, { signal: this.#abortController.signal })
+        }
+
+        async disconnectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+        }
+
+        get value() { return this.#value }
+
+        #buildValue() {
+            return navigator.getGamepads().map(gp => ({
+                axes: gp.axes,
+                button: gp.buttons,
+                connected: gp.connected,
+                hand: gp.hand,
+                hapticActuators: gp.hapticActuators.map(a => ({ type: a.type })),
+                vibrationActuator: { type: gp.vibrationActuator.type },
+                id: gp.id,
+                index: gp.index,
+                mapping: gp.mapping,
+                pose: gp.pose,
+                timestamp: gp.timestamp
+            }))
+        }
+
+    }
+</script>

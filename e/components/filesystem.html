@@ -17,6 +17,8 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('options') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('contentType', 'directory', 'excludeAcceptAll', 'files', 'id', 'mode', 'multiple', 'options', 'suggestedName', 'value') }
 
+        get contentType() { return this.hasAttribute('content-type') }
+
         get directory() { return this.#directory }
         set directory(value) {
             let options = this.options, startIn
@@ -39,8 +41,6 @@
                 return this.E_emitValueChange(this.#directory, 'directory')
             })
         }
-
-        get contentType() { return this.hasAttribute('content-type') }
 
         get excludeAcceptAll() { return this.hasAttribute('exclude-accept-all') }
 
