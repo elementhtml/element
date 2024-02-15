@@ -46,7 +46,7 @@
 
         get files() { return this.#files }
         set files(value) {
-            let options, types, startIn
+            let options, types, startIn, multiple = this.multiple
             switch (typeof value) {
                 case 'object':
                     Array.isArray(value) ? (types = value) : (options = value)
@@ -57,7 +57,7 @@
             startIn ||= options?.startIn
             options ||= {
                 excludeAcceptAllOption: this.excludeAcceptAll,
-                multiple: this.multiple,
+                multiple,
                 id: this.id,
                 startIn: startIn ? startIn : this.#directoryHandle,
                 types: types ? types : []
@@ -67,8 +67,15 @@
                 Promise.all(this.#fileHandles.map(fh => fh.getFile().then(f => {
                     return f.arrayBuffer().then(arrayBuffer => f.text().then(text => ({ arrayBuffer, lastModified: f.lastModified, name: f.name, size: f.size, text, type: f.type })))
                 }))).then(files => {
+                    const contentType = this.contentType
                     this.#files = files
-                    return this.E_emitValueChange(this.#files, 'files')
+                    const filesValue = []
+                    Promise.all(this.#files.map(f => this.E.parse(f.text, contentType).then(t => filesValue.push(t)))).then(() => {
+                        this.#value = multiple ? filesValue : filesValue[0]
+                    }).then(() => {
+                        this.E_emitValueChange(this.#files, 'files')
+                        return this.E_emitValueChange(this.#value)
+                    })
                 })
             })
         }
@@ -113,7 +120,6 @@
                 return window.showSaveFilePicker(options).then(fileHandle => {
                     return fileHandle.createWritable().then(writable => {
                         return writable.write(serializedValue).then(() => writable.close()).then(() => {
-                            console.log('line 116', value, serializedValue)
                             this.#value = value
                             return this.E_emitValueChange(this.#value)
                         })
