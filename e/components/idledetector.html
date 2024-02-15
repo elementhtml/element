@@ -1,0 +1,50 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #abortController
+        #idleDetector
+        #permission
+        #state
+        #threshold
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'state'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('threshold') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('state') }
+
+        async connectedCallback() {
+            this.#idleDetector = new IdleDetector()
+            this.#idleDetector.addEventListener('change', event => {
+                this.#state = {
+                    user: this.#idleDetector.userState,
+                    screen: this.#idleDetector.screenState
+                }
+                return this.E_emitValueChange(this.#state)
+            })
+        }
+
+        async disconnectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+        }
+
+        get threshold() { return this.#threshold ?? (this.getAttribute('threshold') || 60000) }
+        set threshold(value) { return this.#threshold = value }
+
+        get state() { return this.#state }
+
+        async start() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            if (!this.#permission) this.#permission = await IdleDetector.requestPermission()
+            if (!this.#permission) return
+            this.#idleDetector.start({
+                threshold: this.threshold,
+                signal: this.#abortController.signal
+            })
+        }
+
+    }
+</script>
