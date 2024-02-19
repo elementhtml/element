@@ -8,6 +8,7 @@
         #fillLightMode
         #imageHeight
         #imageWidth
+        #mediaStream
         #photoCapabilities
         #photoSettings
         #rawValue
@@ -21,6 +22,20 @@
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
                 .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'value')
+        }
+
+        async connectedCallback() {
+            const setup = async () => {
+                if (this.hasAttribute('disabled')) {
+                    this.#mediaStream = undefined
+                    return
+                }
+                if (!this.#mediaStream) this.#mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
+                const videoElement = this.querySelector('video')
+                if (videoElement) videoElement.srcObject = this.#mediaStream
+            }
+            const observer = new MutationObserver(mutations => setup())
+            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] })
         }
 
         get fillLightMode() { return this.#fillLightMode }
@@ -46,21 +61,20 @@
         get value() { return this.#value }
 
         async getPhotoCapabilities() {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
-            this.#photoCapabilities = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoCapabilities()
+            if (!this.#mediaStream) return
+            this.#photoCapabilities = await (new ImageCapture(this.#mediaStream.getVideoTracks()[0])).getPhotoCapabilities()
             this.E_emitValueChange(this.#photoCapabilities, 'photoCapabilities')
         }
 
         async getPhotoSettings() {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
-            this.#photoSettings = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoSettings()
+            if (!this.#mediaStream) return
+            this.#photoSettings = await (new ImageCapture(this.#mediaStream.getVideoTracks()[0])).getPhotoSettings()
             this.E_emitValueChange(this.#photoSettings, 'photoSettings')
         }
 
         async grabFrame() {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }), videoElement = this.querySelector('video')
-            if (videoElement) videoElement.srcObject = mediaStream
-            const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0]))
+            if (!this.#mediaStream) return
+            const imageCapture = await (new ImageCapturethis.#mediaStream.getVideoTracks()[0]))
             const bitmap = await imageCapture.grabFrame(), offscreen = new OffscreenCanvas(bitmap.width, bitmap.height),
                 renderer = offscreen.getContext('bitmaprenderer')
             renderer.transferFromImageBitmap(bitmap)
@@ -73,9 +87,8 @@
         }
 
         async takePhoto(photoSettings) {
+            if (!this.#mediaStream) return
             if (typeof photoSettings !== 'object') photoSettings = undefined
-            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }), videoElement = this.querySelector('video')
-            if (videoElement) videoElement.srcObject = mediaStream
             const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0])),
                 { fillLightMode, imageHeight, imageWidth, redEyeReduction } = this
             photoSettings ||= { fillLightMode, imageHeight, imageWidth, redEyeReduction }
