@@ -26,14 +26,12 @@
 
         async connectedCallback() {
             const setup = async () => {
-                if (this.hasAttribute('disabled')) {
-                    this.#mediaStream = undefined
-                    return
-                }
-                if (!this.#mediaStream) this.#mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
+                if (this.hasAttribute('disabled')) return this.#mediaStream = undefined
+                if (!this.#mediaStream) try { this.#mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }) } catch (e) { }
                 const videoElement = this.querySelector('video')
                 if (videoElement) videoElement.srcObject = this.#mediaStream
             }
+            setup()
             const observer = new MutationObserver(mutations => setup())
             observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] })
         }
@@ -74,8 +72,8 @@
 
         async grabFrame() {
             if (!this.#mediaStream) return
-            const imageCapture = await (new ImageCapturethis.#mediaStream.getVideoTracks()[0]))
-            const bitmap = await imageCapture.grabFrame(), offscreen = new OffscreenCanvas(bitmap.width, bitmap.height),
+            const imageCapture = await (new ImageCapturethis.#mediaStream.getVideoTracks()[0]),
+                bitmap = await imageCapture.grabFrame(), offscreen = new OffscreenCanvas(bitmap.width, bitmap.height),
                 renderer = offscreen.getContext('bitmaprenderer')
             renderer.transferFromImageBitmap(bitmap)
             this.#rawValue = await offscreen.convertToBlob()
@@ -89,7 +87,7 @@
         async takePhoto(photoSettings) {
             if (!this.#mediaStream) return
             if (typeof photoSettings !== 'object') photoSettings = undefined
-            const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0])),
+            const imageCapture = await (new ImageCapture(this.#mediaStream.getVideoTracks()[0])),
                 { fillLightMode, imageHeight, imageWidth, redEyeReduction } = this
             photoSettings ||= { fillLightMode, imageHeight, imageWidth, redEyeReduction }
             this.#rawValue = await imageCapture.takePhoto(photoSettings)
