@@ -11,13 +11,12 @@
         #photoCapabilities
         #photoSettings
         #rawValue
-        #redEyeReduction
         #value
 
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'value'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('fill-light-mode', 'image-height', 'image-width', 'red-eye-reduction') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('fill-light-mode', 'image-height', 'image-width') }
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
                 .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'value')
@@ -47,8 +46,7 @@
 
         get rawValue() { return this.#rawValue }
 
-        get redEyeReduction() { return this.#redEyeReduction }
-        set redEyeReduction(value) { this.#redEyeReduction = value }
+        get redEyeReduction() { return this.hasAttribute('red-eye-reduction') }
 
         get value() { return this.#value }
 
