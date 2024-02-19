@@ -1,0 +1,39 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #delay
+        #value
+        #id
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('delay', 'value') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('delay', 'id', 'value') }
+
+        async disconnectedCallback() {
+            if (this.#id) clearInterval(this.#id)
+        }
+
+        get delay() { return this.#delay ?? this.getAttribute('delay') }
+        set delay(value) {
+            if (typeof value === 'string') value = this.E.mergeVariables(value)
+            this.#delay = parseInt(value) || undefined
+            if (this.#id) clearInterval(this.#id)
+            if (this.#delay) {
+                this.#id = setInterval(() => {
+                    const v = this.E.mergeVariables(this.#value)
+                    if (v != null) return this.E_emitValueChange(v)
+                }, this.#delay)
+            }
+        }
+
+        get id() { return this.#id }
+
+        get value() { return this.#value ?? this.E.mergeVariables(this.getAttribute('value')) }
+        set value(value) { this.#value = this.E.mergeVariables(value) }
+
+    }
+</script>
