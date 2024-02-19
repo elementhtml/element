@@ -78,6 +78,7 @@
         }
 
         async takePhoto(photoSettings) {
+            if (typeof photoSettings !== 'object') photoSettings = undefined
             const mediaStream = await navigator.getMediaDevices({ video: true }), videoElement = this.querySelector('video')
             if (videoElement) videoElement.srcObject = mediaStream
             const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0])),
