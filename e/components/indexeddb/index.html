@@ -1,0 +1,43 @@
+<style></style>
+<template></template>
+<script>
+    export default class extends `meta` {
+
+        #keyPath
+        #multiEntry
+        #name
+        #unique
+        #value
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('key-path', 'multi-entry', 'name', 'unique') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('keyPath', 'multiEntry', 'name', 'unique', 'value') }
+
+        async connectedCallback() {
+            const setup = async () => {
+            }
+            setup()
+            const observer = new MutationObserver(mutations => setup())
+            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
+        }
+
+        get keyPath() { return this.#keyPath }
+        set keyPath(value) { this.#keyPath = value }
+
+        get multiEntry() { return this.#multiEntry }
+        set multiEntry(value) { this.#multiEntry = value }
+
+        get name() { return this.#name }
+        set name(value) { this.#name = value }
+
+        get unique() { return this.#unique }
+        set unique(value) { this.#unique = value }
+
+        get value() { return this.#value }
+        set value(value) { this.#value = value }
+
+    }
+
+</script>

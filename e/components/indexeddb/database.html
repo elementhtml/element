@@ -1,0 +1,41 @@
+<style></style>
+<template>
+    <slot></slot>
+</template>
+<script>
+    export default class extends `HTMLElement` {
+
+        #name
+        #value
+        #version
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'version') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('name', 'version', 'value') }
+
+        async connectedCallback() {
+            const setup = async () => {
+            }
+            setup()
+            const observer = new MutationObserver(mutations => setup())
+            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
+        }
+
+        get name() { return this.#name }
+        set name(value) { this.#name = name }
+
+        get value() { return this.#value }
+        set value(value) { this.#value = value }
+
+        get version() { return this.#version }
+        set version(value) { this.#version = value }
+
+        cmp(first, second) {
+            return window.indexedDB.cmp(first, second)
+        }
+
+    }
+
+</script>

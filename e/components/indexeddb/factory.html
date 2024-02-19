@@ -1,0 +1,52 @@
+<style></style>
+<template>
+    <slot></slot>
+</template>
+<script>
+    export default class extends `meta` {
+
+        #databases
+        #value
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('value') }
+
+        async connectedCallback() {
+            const setup = async () => {
+            }
+            setup()
+            const observer = new MutationObserver(mutations => setup())
+            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
+        }
+
+        get databases() { return this.#databases }
+        set databases(value) { this.databases() }
+
+        get value() { return this.#value }
+        set value(value) { this.databases() }
+
+        cmp(first, second) {
+            return window.indexedDB.cmp(first, second)
+        }
+
+        async databases() {
+            this.#databases = await window.indexedDB.databases()
+            this.E_emitValueChange(this.#databases, 'databases')
+            this.E_emitValueChange(this.#databases)
+            return this.#databases
+        }
+
+        async deleteDatabase(name) {
+            await window.indexedDB.deleteDatabase(name)
+            this.#databases = await window.indexedDB.databases()
+            this.E_emitValueChange(this.#databases, 'databases')
+            this.E_emitValueChange(this.#databases)
+            return this.#databases
+        }
+
+    }
+
+</script>
