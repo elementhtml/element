@@ -23,13 +23,6 @@
                 .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'value')
         }
 
-        async connectedCallback() {
-            this.detect().then(() => {
-                const slot = this.shadowRoot.querySelector("slot"), observer = new MutationObserver(mutations => this.detect())
-                observer.observe(this, { childList: true, subtree: true, attributes: true, characterData: true })
-            })
-        }
-
         get fillLightMode() { return this.#fillLightMode }
         set fillLightMode(value) { this.#fillLightMode = value }
 
@@ -53,19 +46,19 @@
         get value() { return this.#value }
 
         async getPhotoCapabilities() {
-            const mediaStream = await navigator.getMediaDevices({ video: true })
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
             this.#photoCapabilities = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoCapabilities()
             this.E_emitValueChange(this.#photoCapabilities, 'photoCapabilities')
         }
 
         async getPhotoSettings() {
-            const mediaStream = await navigator.getMediaDevices({ video: true })
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
             this.#photoSettings = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoSettings()
             this.E_emitValueChange(this.#photoSettings, 'photoSettings')
         }
 
         async grabFrame() {
-            const mediaStream = await navigator.getMediaDevices({ video: true }), videoElement = this.querySelector('video')
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }), videoElement = this.querySelector('video')
             if (videoElement) videoElement.srcObject = mediaStream
             const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0]))
             const bitmap = await imageCapture.grabFrame(), offscreen = new OffscreenCanvas(bitmap.width, bitmap.height),
@@ -81,7 +74,7 @@
 
         async takePhoto(photoSettings) {
             if (typeof photoSettings !== 'object') photoSettings = undefined
-            const mediaStream = await navigator.getMediaDevices({ video: true }), videoElement = this.querySelector('video')
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true }), videoElement = this.querySelector('video')
             if (videoElement) videoElement.srcObject = mediaStream
             const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0])),
                 { fillLightMode, imageHeight, imageWidth, redEyeReduction } = this
