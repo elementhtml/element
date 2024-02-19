@@ -12,7 +12,6 @@
         #photoSettings
         #rawValue
         #redEyeReduction
-        #track
         #value
 
         static E_DefaultEventType = 'change'
@@ -21,7 +20,7 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('fill-light-mode', 'image-height', 'image-width', 'red-eye-reduction') }
         static get E_FlattenableProperties() {
             return (super.E_FlattenableProperties || [])
-                .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'track', 'value')
+                .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'value')
         }
 
         async connectedCallback() {
@@ -46,17 +45,12 @@
         get photoSettings() { return this.#photoSettings }
         set photoSettings(value) { this.getPhotoSettings() }
 
+        get rawValue() { return this.#rawValue }
+
         get redEyeReduction() { return this.#redEyeReduction }
         set redEyeReduction(value) { this.#redEyeReduction = value }
 
-        get track() { return this.#track }
-
         get value() { return this.#value }
-
-        get rawValue() { return this.#rawValue }
-
-        get value() { return this.#value }
-        set value(source) { this.detect(source) }
 
         async getPhotoCapabilities() {
             const mediaStream = await navigator.getMediaDevices({ video: true })
