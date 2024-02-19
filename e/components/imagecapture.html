@@ -1,0 +1,120 @@
+<style></style>
+<template>
+    <slot></slot>
+</template>
+<script>
+    export default class extends `HTMLElement` {
+
+        #fillLightMode
+        #imageHeight
+        #imageWidth
+        #photoCapabilities
+        #photoSettings
+        #rawValue
+        #redEyeReduction
+        #track
+        #value
+
+        static E_DefaultEventType = 'change'
+        static E_ValueProperty = 'value'
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat('fill-light-mode', 'image-height', 'image-width', 'red-eye-reduction') }
+        static get E_FlattenableProperties() {
+            return (super.E_FlattenableProperties || [])
+                .concat('fillLightMode', 'imageHeight', 'imageWidth', 'photoCapabilities', 'photoSettings', 'redEyeReduction', 'track', 'value')
+        }
+
+        async connectedCallback() {
+            this.detect().then(() => {
+                const slot = this.shadowRoot.querySelector("slot"), observer = new MutationObserver(mutations => this.detect())
+                observer.observe(this, { childList: true, subtree: true, attributes: true, characterData: true })
+            })
+        }
+
+        get fillLightMode() { return this.#fillLightMode }
+        set fillLightMode(value) { this.#fillLightMode = value }
+
+        get imageHeight() { return this.#imageHeight }
+        set imageHeight(value) { this.#imageHeight = value }
+
+        get imageWidth() { return this.#imageWidth }
+        set imageWidth(value) { this.#imageWidth = value }
+
+        get photoCapabilities() { return this.#photoCapabilities }
+        set photoCapabilities(value) { this.getPhotoCapabilities() }
+
+        get photoSettings() { return this.#photoSettings }
+        set photoSettings(value) { this.getPhotoSettings() }
+
+        get redEyeReduction() { return this.#redEyeReduction }
+        set redEyeReduction(value) { this.#redEyeReduction = value }
+
+        get track() { return this.#track }
+
+        get value() { return this.#value }
+
+        get rawValue() { return this.#rawValue }
+
+        get value() { return this.#value }
+        set value(source) { this.detect(source) }
+
+        async getPhotoCapabilities() {
+            const mediaStream = await navigator.getMediaDevices({ video: true })
+            this.#photoCapabilities = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoCapabilities()
+            this.E_emitValueChange(this.#photoCapabilities, 'photoCapabilities')
+        }
+
+        async getPhotoSettings() {
+            const mediaStream = await navigator.getMediaDevices({ video: true })
+            this.#photoSettings = await (new ImageCapture(mediaStream.getVideoTracks()[0])).getPhotoSettings()
+            this.E_emitValueChange(this.#photoSettings, 'photoSettings')
+        }
+
+        async grabFrame() {
+            const mediaStream = await navigator.getMediaDevices({ video: true }), videoElement = this.querySelector('video')
+            if (videoElement) videoElement.srcObject = mediaStream
+            const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0]))
+            const bitmap = await imageCapture.grabFrame(), offscreen = new OffscreenCanvas(bitmap.width, bitmap.height),
+                renderer = offscreen.getContext('bitmaprenderer')
+            renderer.transferFromImageBitmap(bitmap)
+            this.#rawValue = await offscreen.convertToBlob()
+            this.#value = await this.#blobToValue(this.#rawValue)
+            this.#value.height = bitmap.height
+            this.#value.width = bitmap.width
+            this.E_emitValueChange(this.#value, 'frame')
+            this.E_emitValueChange()
+        }
+
+        async takePhoto(photoSettings) {
+            const mediaStream = await navigator.getMediaDevices({ video: true }), videoElement = this.querySelector('video')
+            if (videoElement) videoElement.srcObject = mediaStream
+            const imageCapture = await (new ImageCapture(mediaStream.getVideoTracks()[0])),
+                { fillLightMode, imageHeight, imageWidth, redEyeReduction } = this
+            photoSettings ||= { fillLightMode, imageHeight, imageWidth, redEyeReduction }
+            this.#rawValue = await imageCapture.takePhoto(photoSettings)
+            this.#value = await this.#blobToValue(this.#rawValue)
+            this.#value.height = imageHeight ?? this.photoSettings?.imageHeight
+            this.#value.width = imageWidth ?? this.photoSettings?.imageWidth
+            if (!this.#value.height || !this.#value.width) {
+                const photoSettings = await this.getPhotoSettings()
+                this.#value.height = photoSettings.imageHeight
+                this.#value.width = photoSettings.imageWidth
+            }
+            this.E_emitValueChange(this.#value, 'photo')
+            this.E_emitValueChange()
+        }
+
+        async #blobToValue(blob) {
+            return {
+                size: blob.size, type: blob.type, arrayBuffer: await blob.arrayBuffer(),
+                dataUrl: await new Promise(resolve => {
+                    const reader = new FileReader()
+                    reader.addEventListener('load', () => resolve(reader.result))
+                    reader.readAsDataURL(blob)
+                })
+            }
+        }
+
+    }
+
+</script>
