@@ -28,10 +28,6 @@
         get value() { return this.#value }
         set value(value) { this.databases() }
 
-        cmp(first, second) {
-            return window.indexedDB.cmp(first, second)
-        }
-
         async databases() {
             this.#databases = await window.indexedDB.databases()
             this.E_emitValueChange(this.#databases, 'databases')
