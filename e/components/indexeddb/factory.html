@@ -12,7 +12,7 @@
         static E_ValueProperty = 'value'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('value') }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('databases', 'value') }
 
         async connectedCallback() {
             const setup = async () => {
