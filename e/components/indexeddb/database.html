@@ -54,6 +54,7 @@
                 for (const objectStoreName of objectStoreNames) transaction.objectStore(objectStoreName)
                     .getAll().addEventListener('success', event => newValue[objectStoreName] = event.target.result)
                 transaction.addEventListener('complete', event => {
+                    db.close()
                     this.#version = db.version
                     this.E_emitValueChange(this.#version, 'version')
                     this.#value = newValue
@@ -86,12 +87,17 @@
                     this.#value[storeName] = storePut
                     const objectStore = transaction.objectStore(storeName)
                     if (storePut && typeof storePut === 'object') {
-                        for (const [k, v] of Object.entries(storePut)) objectStore.put(v, k)
+                        for (const [k, v] of Object.entries(storePut)) {
+                            v == null ? objectStore.delete(k) : objectStore[(k in this.#value[storeName]) ? 'put' : 'add'](v, k)
+                        }
+                    } else if (storePut == null) {
+                        objectStore.clear()
                     } else {
                         objectStore.put(storePut)
                     }
                 }
                 transaction.addEventListener('complete', event => {
+                    db.close()
                     this.#version = db.version
                     this.E_emitValueChange(this.#version, 'version')
                     this.E_emitValueChange()
