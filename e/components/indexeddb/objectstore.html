@@ -16,25 +16,30 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('auto-incremement', 'key-path', 'name') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('autoIncrement', 'keyPath', 'name', 'value') }
 
-        async connectedCallback() {
-            const setup = async () => {
-            }
-            setup()
-            const observer = new MutationObserver(mutations => setup())
-            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
-        }
-
-        get autoIncrement() { return this.#autoIncrement }
+        get autoIncrement() { return this.#autoIncrement ?? this.getAttribute('auto-increment') }
         set autoIncrement(value) { this.#autoIncrement = value }
 
-        get keyPath() { return this.#keyPath }
+        get keyPath() { return this.#keyPath ?? this.getAttribute('key-path') }
         set keyPath(value) { this.#keyPath = value }
 
-        get name() { return this.#name }
-        set name(value) { this.#name = value }
+        get name() { return this.#name ?? this.getAttribute('name') }
+        set name(value) {
+            this.#getObjectStore(value)
+            this.#name = value
+        }
 
         get value() { return this.#value }
         set value(value) { this.#value = value }
+
+        async #getObjectStore(name) {
+            const parentDbElement = this.closest('e-indexeddb-database')
+            if (!parentDbElement?.name) return
+            const openRequest = window.indexedDB.open(parentDbElement.name)
+            openRequest.addEventListener('upgradeneeded', event => {
+                const db = event.target.result
+                if (!db.objectStoreName.contains(name)) db.createObjectStore(name, { keyPath: this.keyPath, autoIncrement: this.autoIncrement })
+            })
+        }
 
     }
 

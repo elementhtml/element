@@ -12,18 +12,7 @@
         static E_ValueProperty = 'value'
 
         static get observedAttributes() { return (super.observedAttributes || []).concat() }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('databases', 'value') }
-
-        async connectedCallback() {
-            const setup = async () => {
-            }
-            setup()
-            const observer = new MutationObserver(mutations => setup())
-            observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
-        }
-
-        get databases() { return this.#databases }
-        set databases(value) { this.databases() }
+        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('value') }
 
         get value() { return this.#value }
         set value(value) { this.databases() }

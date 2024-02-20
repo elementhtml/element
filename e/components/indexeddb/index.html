@@ -1,7 +1,9 @@
 <style></style>
-<template></template>
+<template>
+    <slot></slot>
+</template>
 <script>
-    export default class extends `meta` {
+    export default class extends `HTMLElement` {
 
         #keyPath
         #multiEntry
@@ -12,7 +14,7 @@
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'value'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('key-path', 'multi-entry', 'name', 'unique') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('key-path', 'name') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('keyPath', 'multiEntry', 'name', 'unique', 'value') }
 
         async connectedCallback() {
@@ -23,20 +25,38 @@
             observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: [] })
         }
 
-        get keyPath() { return this.#keyPath }
+        get keyPath() { return this.#keyPath ?? this.getAttribute('key-path') }
         set keyPath(value) { this.#keyPath = value }
 
-        get multiEntry() { return this.#multiEntry }
+        get multiEntry() { return this.#multiEntry ?? this.hasAttribute('multi-entry') }
         set multiEntry(value) { this.#multiEntry = value }
 
-        get name() { return this.#name }
-        set name(value) { this.#name = value }
+        get name() { return this.#name ?? this.getAttribute('name') }
+        set name(value) {
+            this.#getIndex(value)
+            this.#name = value
+        }
 
-        get unique() { return this.#unique }
+        get unique() { return this.#unique ?? this.hasAttribute('unique') }
         set unique(value) { this.#unique = value }
 
         get value() { return this.#value }
         set value(value) { this.#value = value }
+
+        async #getIndex(name) {
+            const parentOsElement = this.closest('e-indexeddb-objectstore')
+            if (!parentOsElement?.name) return
+            const parentDbElement = parentOsElement.closest('e-indexeddb-database')
+            if (!parentDbElement?.name) return
+            const openRequest = window.indexedDB.open(parentDbElement)
+            openRequest.addEventListener('upgradeneeded', event => {
+                const db = event.target.result,
+                    os = db.objectStoreNames.contains(parentOsElement.name)
+                        ? db.transaction(parentOsElement.name).objectStore(parentOsElement.name)
+                        : db.createObjectStore(parentOsElement.name, { keyPath: parentOsElement.keyPath, autoIncrement: parentOsElement.autoIncrement })
+                index = os.index(this.name) ?? os.createIndex(this.name, this.keyPath, { unique: this.unique, multiEntry: this.multiEntry })
+            })
+        }
 
     }
 
