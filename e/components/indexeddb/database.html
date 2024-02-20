@@ -36,20 +36,28 @@
         async #getValue(dbName) {
             dbName ||= this.name
             if (!dbName) return
-            this.#value = {}
+            const newValue = {}
             const request = indexedDB.open(dbName)
-            request.onsuccess = event => {
-                const db = event.target.result, objectStoreNames = db.objectStoreNames,
-                    transaction = db.transaction(objectStoreNames, 'readonly')
-                for (let i = 0; i < objectStoreNames.length; i++) {
-                    if (!this.querySelector(`e-indexeddb-objectstore[name=${objectStoreNames[i]}]`)) continue
-                    const objectStoreName = objectStoreNames[i], objectStore = transaction.objectStore(objectStoreName)
-                    objectStore.getAll().addEventListener('success', event => this.#value[objectStoreName] = event.target.result)
+            request.onsuccess = async event => {
+                const db = event.target.result,
+                    objectStoreElements = Array.from(this.querySelectorAll(`e-indexeddb-objectstore[name]`)),
+                    objectStoreNames = objectStoreElements.map(el => el.getAttribute('name'))
+                for (const objectStoreName of objectStoreNames) {
+                    if (!db.objectStoreNames.contains(objectStoreName)) {
+                        const objectStoreElement = this.querySelector(`e-indexeddb-objectstore[name="${objectStoreName}"]`),
+                            { keyPath, autoIncrement } = objectStoreElement ?? {}
+                        const objectStore = db.createObjectStore(objectStoreName, { keyPath, autoIncrement })
+                        await new Promise(resolve => objectStore.transaction.addEventListener('complete', event => resolve, { once: true }))
+                    }
                 }
+                transaction = db.transaction(objectStoreNames, 'readonly')
+                for (const objectStoreName of objectStoreNames) transaction.objectStore(objectStoreName)
+                    .getAll().addEventListener('success', event => newValue[objectStoreName] = event.target.result)
                 transaction.addEventListener('complete', event => {
                     this.#version = db.version
                     this.E_emitValueChange(this.#version, 'version')
-                    this.E_emitValueChange()
+                    this.#value = newValue
+                    this.E_emitValueChange(this.#value)
                 })
             }
         }
