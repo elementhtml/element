@@ -5,6 +5,7 @@
 <script>
     export default class extends `HTMLElement` {
 
+        #durability
         #rawValue
         #name
         #value
@@ -13,7 +14,7 @@
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'value'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('name', 'version') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('durability', 'name', 'version') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('name', 'version', 'value') }
 
         constructor() {
@@ -21,25 +22,51 @@
             Object.defineProperty(this, 'rawValue', { get: function () { return this.#rawValue } })
         }
 
+        get durability() { return this.#durability ?? this.getAttribute('durability') }
+        set durability(value) { this.#durability = value }
+
         get name() { return this.#name ?? this.getAttribute('name') }
-        set name(value) {
-            if (this.#rawValue) this.#rawValue = this.#rawValue.close()
-            if (!value) return
-            this.#name = value
-            const openRequest = window.indexedDB.open(this.#name, this.#version ?? 1)
-            openRequest.addEventListener('success', event => {
-                this.#rawValue = event.target.result
-            })
-            openRequest.addEventListener('upgradeneeded', event => {
-                this.#rawValue = event.target.result
-            })
-        }
+        set name(value) { this.#name = value }
 
         get value() { return this.#value }
-        set value(value) { this.#value = value }
+        set value(value) { if (value && (typeof value === 'object')) this.#setValue(value) }
 
         get version() { return this.#version }
         set version(value) { this.#version = value }
+
+        async #setValue(tree) {
+            const dbName = this.name
+            if (!dbName) return
+            this.#version = (this.#version ?? 0) + 1
+            const request = indexedDB.open(dbName, this.#version)
+            request.addEventListener('upgradeneeded', async event => {
+                const db = event.target.result
+                for (const [storeName, storePut] of Object.entries(tree)) {
+                    if (!db.objectStoreNames.contains(storeName)) {
+                        const objectStoreElement = this.querySelector(`e-indexeddb-objectstore[name="${storeName}"]`),
+                            { keyPath, autoIncrement } = objectStoreElement ?? {}
+                        const objectStore = db.createObjectStore(storeName, { keyPath, autoIncrement })
+                        await new Promise(resolve => {
+                            objectStore.transaction.addEventListener('complete', event => resolve, { once: true })
+                        })
+                    }
+                }
+                const transaction = db.transaction(Object.keys(tree), 'readwrite', { durability: this.durability })
+                this.#value ||= {}
+                for (const [storeName, storePut] of Object.entries(tree)) {
+                    this.#value[storeName] = storePut
+                    const objectStore = transaction.objectStore(storeName)
+                    if (storePut && typeof storePut === 'object') {
+                        for (const [k, v] of Object.entries(storePut)) objectStore.put(v, k)
+                    } else {
+                        objectStore.put(storePut)
+                    }
+                }
+                transaction.addEventListener('complete', event => {
+                    this.E_emitValueChange()
+                }, { once: true })
+            })
+        }
 
     }
 
