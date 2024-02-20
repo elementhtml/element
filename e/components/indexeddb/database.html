@@ -14,12 +14,28 @@
         static E_DefaultEventType = 'change'
         static E_ValueProperty = 'value'
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('durability', 'name', 'version') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat('durability', 'name') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('name', 'version', 'value') }
 
-        constructor() {
-            super()
-            Object.defineProperty(this, 'rawValue', { get: function () { return this.#rawValue } })
+        async connectedCallback() {
+            if (this.hasAttribute('lazy')) return
+            const dbName = this.name
+            if (!dbName) return
+            this.#value = {}
+            const request = indexedDB.open(dbName)
+            request.onsuccess = event => {
+                const db = event.target.result, objectStoreNames = db.objectStoreNames,
+                    transaction = db.transaction(objectStoreNames, 'readonly')
+                for (let i = 0; i < objectStoreNames.length; i++) {
+                    const objectStoreName = objectStoreNames[i], objectStore = transaction.objectStore(objectStoreName)
+                    objectStore.getAll().addEventListener('success', event => this.#value[objectStoreName] = event.target.result)
+                }
+                transaction.addEventListener('complete', event => {
+                    this.#version = db.version
+                    this.E_emitValueChange(this.#version, 'version')
+                    this.E_emitValueChange()
+                })
+            }
         }
 
         get durability() { return this.#durability ?? this.getAttribute('durability') }
@@ -31,14 +47,13 @@
         get value() { return this.#value }
         set value(value) { if (value && (typeof value === 'object')) this.#setValue(value) }
 
-        get version() { return this.#version }
-        set version(value) { this.#version = value }
+        get version() { return parseInt(this.#version ?? 0) }
 
         async #setValue(tree) {
             const dbName = this.name
             if (!dbName) return
-            this.#version = (this.#version ?? 0) + 1
-            const request = indexedDB.open(dbName, this.#version)
+            const version = (this.#version ?? 0) + 1
+            const request = indexedDB.open(dbName, version)
             request.addEventListener('upgradeneeded', async event => {
                 const db = event.target.result
                 for (const [storeName, storePut] of Object.entries(tree)) {
@@ -63,6 +78,8 @@
                     }
                 }
                 transaction.addEventListener('complete', event => {
+                    this.#version = db.version
+                    this.E_emitValueChange(this.#version, 'version')
                     this.E_emitValueChange()
                 }, { once: true })
             })
