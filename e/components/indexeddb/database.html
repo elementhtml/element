@@ -18,7 +18,6 @@
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('name', 'version', 'value') }
 
         async connectedCallback() {
-            if (this.hasAttribute('lazy')) return
             const dbName = this.name, version = this.version
             if (!dbName) return
             window.indexedDB.open(dbName, version).addEventListener('success', event => {
@@ -27,7 +26,8 @@
                     this.E_emitValueChange(this.#version, 'version')
                 })
             })
-            await this.#getValue()
+            if (this.hasAttribute('lazy')) return
+            await this.#getValue(dbName)
         }
 
         get durability() { return this.#durability ?? this.getAttribute('durability') }
