@@ -19,6 +19,14 @@
 
         async connectedCallback() {
             if (this.hasAttribute('lazy')) return
+            const dbName = this.name, version = this.version
+            if (!dbName) return
+            window.indexedDB.open(dbName, version).addEventListener('success', event => {
+                event.target.result.addEventListener('versionchange', event => {
+                    this.#version = db.version
+                    this.E_emitValueChange(this.#version, 'version')
+                })
+            })
             await this.#getValue()
         }
 
@@ -40,23 +48,12 @@
             const request = indexedDB.open(dbName)
             request.onsuccess = async event => {
                 const db = event.target.result,
-                    objectStoreElements = Array.from(this.querySelectorAll(`e-indexeddb-objectstore[name]`)),
-                    objectStoreNames = objectStoreElements.map(el => el.getAttribute('name'))
-                for (const objectStoreName of objectStoreNames) {
-                    if (!db.objectStoreNames.contains(objectStoreName)) {
-                        const objectStoreElement = this.querySelector(`e-indexeddb-objectstore[name="${objectStoreName}"]`),
-                            { keyPath, autoIncrement } = objectStoreElement ?? {}
-                        const objectStore = db.createObjectStore(objectStoreName, { keyPath, autoIncrement })
-                        await new Promise(resolve => objectStore.transaction.addEventListener('complete', event => resolve, { once: true }))
-                    }
-                }
+                    objectStoreNames = Array.from(this.querySelectorAll(`e-indexeddb-objectstore[name]`)).map(el => el.getAttribute('name'))
                 transaction = db.transaction(objectStoreNames, 'readonly')
                 for (const objectStoreName of objectStoreNames) transaction.objectStore(objectStoreName)
                     .getAll().addEventListener('success', event => newValue[objectStoreName] = event.target.result)
                 transaction.addEventListener('complete', event => {
                     db.close()
-                    this.#version = db.version
-                    this.E_emitValueChange(this.#version, 'version')
                     this.#value = newValue
                     this.E_emitValueChange(this.#value)
                 })
@@ -98,8 +95,6 @@
                 }
                 transaction.addEventListener('complete', event => {
                     db.close()
-                    this.#version = db.version
-                    this.E_emitValueChange(this.#version, 'version')
                     this.E_emitValueChange()
                 }, { once: true })
             })

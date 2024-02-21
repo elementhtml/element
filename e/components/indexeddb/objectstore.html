@@ -16,6 +16,8 @@
         static get observedAttributes() { return (super.observedAttributes || []).concat('auto-incremement', 'key-path', 'name') }
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('autoIncrement', 'keyPath', 'name', 'value') }
 
+        async connectedCallback() { this.#getObjectStore(value) }
+
         get autoIncrement() { return this.#autoIncrement ?? this.getAttribute('auto-increment') }
         set autoIncrement(value) { this.#autoIncrement = value }
 
@@ -34,10 +36,13 @@
         async #getObjectStore(name) {
             const parentDbElement = this.closest('e-indexeddb-database')
             if (!parentDbElement?.name) return
-            const openRequest = window.indexedDB.open(parentDbElement.name)
-            openRequest.addEventListener('upgradeneeded', event => {
+            const openRequest = window.indexedDB.open(parentDbElement.name, (parentDbElement.version ?? 0) + 1)
+            openRequest.addEventListener('upgradeneeded', async event => {
                 const db = event.target.result
-                if (!db.objectStoreName.contains(name)) db.createObjectStore(name, { keyPath: this.keyPath, autoIncrement: this.autoIncrement })
+                if (!db.objectStoreNames.contains(name)) {
+                    db.createObjectStore(name, { keyPath: this.keyPath, autoIncrement: this.autoIncrement })
+                    await new Promise(resolve => objectStore.transaction.addEventListener('complete', event => resolve, { once: true }))
+                }
             })
         }
 
