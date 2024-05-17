@@ -220,9 +220,25 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                 }
                 this.encapsulateNative()
+            } else {
+                await this.activateTag(this.getCustomTag(rootElement), rootElement)
+                const isAttr = rootElement.getAttribute('is')
+                if (isAttr) {
+                    const tagId = this.ids[isAttr], tagInheritance = this.getInheritance(tagId)
+                    for (const i of tagInheritance) {
+                        const prototype = this.classes[i]?.prototype
+                        for (const p of Object.getOwnPropertyNames(prototype)) {
+                            if (p in rootElement) continue
+                            if (typeof prototype[p] === 'function') {
+                                Object.defineProperty(rootElement, p, { value: prototype[p].bind(rootElement), enumerable: true })
+                            } else {
+                                Object.defineProperty(rootElement, p, { get: () => prototype[p], enumerable: true })
+                            }
+                        }
+                    }
+                }
+                if (!rootElement.shadowRoot) return
             }
-            rootElement && await this.activateTag(this.getCustomTag(rootElement), rootElement)
-            if (rootElement && !rootElement.shadowRoot) return
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
             for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) this.load(element)
@@ -788,7 +804,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.app.transforms[transformKey] === true) {
                 let waitCount = 0
                 while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) {
-                    await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
+                    await new Promise(resolve => window.requestIdleCallback ? window.requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
                 }
             }
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
@@ -859,13 +875,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     activateTag: {
         value: async function (tag, forceReload = false) {
+            if (globalThis.customElements.get(tag)) return
             if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
             const id = this.getTagId(tag);
             [this.ids[tag], this.tags[id]] = [id, tag]
             const loadResult = await this.loadTagAssetsFromId(id, forceReload)
             if (!loadResult) return
-            const baseTag = this.getInheritance(id).pop() || 'HTMLElement'
-            if (!globalThis.customElements.get(tag)) globalThis.customElements.define(tag, this.constructors[id], (baseTag && baseTag !== 'HTMLElement' & !baseTag.includes('-')) ? { extends: baseTag } : undefined)
+            globalThis.customElements.define(tag, this.constructors[id], undefined)
         }
     },
     buildCatchallSelector: {

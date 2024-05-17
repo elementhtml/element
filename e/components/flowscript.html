@@ -68,38 +68,38 @@
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            handler = this.#parseRouterExpression(handlerExpression, statementIndex, stepIndex)
+                            handler = this.__parseRouterExpression(handlerExpression, statementIndex, stepIndex)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    handler = this.#parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    handler = this.__parseProxyExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '/':
-                                    handler = this.#parsePatternExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    handler = this.__parsePatternExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '"': case "'":
-                                    handler = this.#parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    handler = this.__parseStringExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case "#": case "@":
                                     let addedFieldNames, addedCellNames
-                                    [handler, addedFieldNames, addedCellNames] = this.#parseStateExpression(handlerExpression.slice(1),
+                                    [handler, addedFieldNames, addedCellNames] = this.__parseStateExpression(handlerExpression.slice(1),
                                         handlerExpression[0], statementIndex, stepIndex)
                                     for (const addedName of addedFieldNames) fieldNames.add(addedName)
                                     for (const addedName of addedCellNames) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        handler = this.#parseVariableExpression(handlerExpression, statementIndex, stepIndex)
+                                        handler = this.__parseVariableExpression(handlerExpression, statementIndex, stepIndex)
                                     } else if (handlerExpression[1] === "(") {
-                                        handler = this.#parseSelectorExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
+                                        handler = this.__parseSelectorExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
                                     }
                                     break
                                 case "(":
-                                    handler = this.#parseTransformExpression(handlerExpression, statementIndex, stepIndex)
+                                    handler = this.__parseTransformExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 case "{": case "[":
-                                    handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
+                                    handler = this.__parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
                                     let t
@@ -107,18 +107,18 @@
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.E.sys.regexp.isNumeric)) handler = this.#parseJSONExpression(handlerExpression, statementIndex, stepIndex)
+                                            if (t || handlerExpression.match(this.E.sys.regexp.isNumeric)) handler = this.__parseJSONExpression(handlerExpression, statementIndex, stepIndex)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        handler = this.#parseWaitExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
+                                        handler = this.__parseWaitExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    handler = this.#parseNetworkExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                                    handler = this.__parseNetworkExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                             }
                     }
                     handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
@@ -136,7 +136,7 @@
             return { handlers, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
 
-        #parseRouterExpression(expression, statementIndex, stepIndex) {
+        __parseRouterExpression(expression, statementIndex, stepIndex) {
             const eventKey = `${statementIndex}-${stepIndex}`
             this.keyedAbortControllers[eventKey] = new AbortController()
             if (expression === '#') {
@@ -190,7 +190,7 @@
             }
         }
 
-        #parseProxyExpression(expression, statementIndex, stepIndex) {
+        __parseProxyExpression(expression, statementIndex, stepIndex) {
             const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
@@ -217,7 +217,7 @@
             }
         }
 
-        #parsePatternExpression(expression, statementIndex, stepIndex) {
+        __parsePatternExpression(expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
             this.E.app.regexp[expression] ||= this.E.env.regexp[expression] ?? new RegExp(expression)
@@ -228,11 +228,11 @@
             }
         }
 
-        #parseStringExpression(expression, statementIndex, stepIndex) {
+        __parseStringExpression(expression, statementIndex, stepIndex) {
             return async (value, labels, env, statementIndex, stepIndex) => this.E.mergeVariables(expression, value, labels, env)
         }
 
-        #parseStateExpression(expression, type, statementIndex, stepIndex) {
+        __parseStateExpression(expression, type, statementIndex, stepIndex) {
             let group = this.E.getStateGroup(expression, type, this), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
                 addedFields = new Set(), addedCells = new Set(), items = []
@@ -304,7 +304,7 @@
             }, Array.from(addedFields), Array.from(addedCells)]
         }
 
-        #parseSelectorExpression(expression, statementIndex, stepIndex) {
+        __parseSelectorExpression(expression, statementIndex, stepIndex) {
             if (!expression.includes('|')) {
                 switch (expression[0]) {
                     case '#':
@@ -363,17 +363,17 @@
             }
         }
 
-        #parseJSONExpression(expression, statementIndex, stepIndex) {
+        __parseJSONExpression(expression, statementIndex, stepIndex) {
             let retval
             try { retval = JSON.parse(expression) } catch (e) { }
             return async (value, labels, env, statementIndex, stepIndex) => retval
         }
 
-        #parseVariableExpression(expression, statementIndex, stepIndex) {
+        __parseVariableExpression(expression, statementIndex, stepIndex) {
             return async (value, labels, env, statementIndex, stepIndex) => this.E.mergeVariables(expression, value, labels, env)
         }
 
-        #parseTransformExpression(expression, statementIndex, stepIndex) {
+        __parseTransformExpression(expression, statementIndex, stepIndex) {
             if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
             if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
             if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
@@ -386,7 +386,7 @@
             }
         }
 
-        #parseNetworkExpression(expression, hasDefault, statementIndex, stepIndex) {
+        __parseNetworkExpression(expression, hasDefault, statementIndex, stepIndex) {
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             let returnFullRequest
             if (expression[0] === '~' && expression.endsWith('~')) {
@@ -431,7 +431,7 @@
             }
         }
 
-        #parseWaitExpression(expression, hasDefault, statementIndex, stepIndex) {
+        __parseWaitExpression(expression, hasDefault, statementIndex, stepIndex) {
             return async (value, labels, env, statementIndex, stepIndex) => {
                 const useExpression = this.E.mergeVariables(expression, value, labels, env)
                 let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')

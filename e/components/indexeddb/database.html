@@ -18,28 +18,39 @@
         static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('name', 'version', 'value') }
 
         async connectedCallback() {
+            // console.log('line 21', 'db')
+
             const dbName = this.name, version = this.version
             if (!dbName) return
             window.indexedDB.open(dbName, version).addEventListener('success', event => {
                 event.target.result.addEventListener('versionchange', event => {
-                    this.#version = db.version
+                    this.#version = event.target.version
                     this.E_emitValueChange(this.#version, 'version')
                 })
             })
             if (this.hasAttribute('lazy')) return
-            await this.#getValue(dbName)
+
+            this.addEventListener('add-object-store', event => {
+                // console.log('line 32', event)
+            })
+
+            // this.#getValue(dbName)
+
         }
 
         get durability() { return this.#durability ?? this.getAttribute('durability') }
         set durability(value) { this.#durability = value }
 
-        get name() { return this.#name ?? this.getAttribute('name') }
+        get name() {
+            // console.log('line 43', this.hasAttribute('name'), this.getAttribute('name'), this.#name)
+            return this.#name ?? this.getAttribute('name')
+        }
         set name(value) { this.#name = value }
 
         get value() { return this.#value }
         set value(value) { this.#setValue(value) }
 
-        get version() { return parseInt(this.#version ?? 0) }
+        get version() { return parseInt(this.#version ?? 1) }
 
         async #getValue(dbName) {
             dbName ||= this.name
