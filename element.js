@@ -224,18 +224,27 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-                    const tagId = this.ids[isAttr], tagInheritance = this.getInheritance(tagId)
-                    for (const i of tagInheritance) {
-                        const prototype = this.classes[i]?.prototype
-                        for (const p of Object.getOwnPropertyNames(prototype)) {
-                            if (p in rootElement) continue
-                            if (typeof prototype[p] === 'function') {
-                                Object.defineProperty(rootElement, p, { value: prototype[p].bind(rootElement), enumerable: true })
+                    const tagId = this.ids[isAttr], tagDoppel = document.createElement(isAttr)
+                    for (const p of Object.getOwnPropertyNames(tagDoppel)) {
+                        if (p in rootElement) continue
+                        const pd = Object.getOwnPropertyDescriptor(tagDoppel, p)
+                        if (pd.value) {
+                            if (typeof pd.value === 'function') {
+                                pd.value = pd.value.bind(rootElement)
                             } else {
-                                Object.defineProperty(rootElement, p, { get: () => prototype[p], enumerable: true })
+                                pd.get = () => tagDoppel[p]
+                                pd.set = (v) => tagDoppel[p] = v
+                                delete pd.value
+                                delete pd.writable
                             }
+                        } else if (pd.get || pd.set) {
+                            if (pd.get) pd.get = pd.get.bind(rootElement)
+                            if (pd.set) pd.set = pd.set.bind(rootElement)
+                            delete pd.writable
                         }
+                        Object.defineProperty(rootElement, p, { ...pd })
                     }
+                    console.log('line 245', isAttr, tagId, this.classes[tagId])
                 }
                 if (!rootElement.shadowRoot) return
             }
@@ -1109,10 +1118,11 @@ const ElementHTML = Object.defineProperties({}, {
 
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
-            return class extends baseClass {
+            return class extends globalThis.HTMLElement { // baseClass was here
                 constructor() {
                     super()
                     Object.defineProperty(this, 'E', { value: ElementHTML })
+                    Object.defineProperty(this, 'E_baseClass', { value: baseClass }) // added
                     Object.defineProperty(this, 'E_emitValueChange', {
                         value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
                             if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
