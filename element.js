@@ -253,9 +253,15 @@ const ElementHTML = Object.defineProperties({}, {
                 observerRoot = rootElement || this.app
             for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) this.load(element)
             observerRoot._observer ||= new MutationObserver(async records => {
-                for (const record of records) for (const addedNode of (record.addedNodes || [])) {
-                    if (this.getCustomTag(addedNode)) this.load(addedNode)
-                    if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
+                for (const record of records) {
+                    for (const addedNode of (record.addedNodes || [])) {
+                        if (this.getCustomTag(addedNode)) this.load(addedNode)
+                        if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
+                    }
+                    for (const removedNode of (record.removedNodes || [])) {
+                        if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
+                        if (this.getCustomTag(removedNode)) if (typeof removedNode?.disconnectedCallback === 'function') removedNode.disconnectedCallback()
+                    }
                 }
             })
             observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
@@ -1144,10 +1150,10 @@ const ElementHTML = Object.defineProperties({}, {
                         this.shadowRoot.textContent = ''
                         this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
                         const templateNode = document.createElement('template')
-                        templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
+                        templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id) ?? ''
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                     } catch (e) {
-                        console.log('line 1149', e, this)
+                        console.log('line 1150', e, this)
                     }
                 }
                 static get observedAttributes() { return [] }
