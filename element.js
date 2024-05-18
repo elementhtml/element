@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
-            cells: {}, eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            cells: {}, doppel: new WeakMap(), eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
     env: {
@@ -224,27 +224,28 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-                    const tagId = this.ids[isAttr], tagDoppel = document.createElement(isAttr)
-                    for (const p of Object.getOwnPropertyNames(tagDoppel)) {
-                        if (p in rootElement) continue
-                        const pd = Object.getOwnPropertyDescriptor(tagDoppel, p)
-                        if (pd.value) {
-                            if (typeof pd.value === 'function') {
-                                pd.value = pd.value.bind(rootElement)
-                            } else {
-                                pd.get = () => tagDoppel[p]
-                                pd.set = (v) => tagDoppel[p] = v
-                                delete pd.value
-                                delete pd.writable
-                            }
-                        } else if (pd.get || pd.set) {
+                    this.app.doppel.set(rootElement, document.createElement(isAttr))
+                    const tagDoppel = this.app.doppel.get(rootElement)
+                    for (const p of this.getAllProperties(tagDoppel)) {
+                        if (rootElement[p] != undefined) continue
+                        const pd = { ...Object.getOwnPropertyDescriptor(tagDoppel, p) }
+                        if (pd.get || pd.set) {
                             if (pd.get) pd.get = pd.get.bind(rootElement)
                             if (pd.set) pd.set = pd.set.bind(rootElement)
                             delete pd.writable
+                        } else {
+                            const pdValue = pd.value ?? tagDoppel[p], pdValueIsFunction = typeof pdValue === 'function', ds = pdValueIsFunction ? ['get', 'set'] : ['value', 'writable']
+                            if (pdValueIsFunction) {
+                                pd.value = pdValue.bind(rootElement)
+                            } else {
+                                pd.get = () => tagDoppel[p]
+                                pd.set = (v) => tagDoppel[p] = v
+                            }
+                            for (const d of ds) delete pd[d]
                         }
-                        Object.defineProperty(rootElement, p, { ...pd })
+                        Object.defineProperty(rootElement, p, pd)
                     }
-                    console.log('line 245', isAttr, tagId, this.classes[tagId])
+                    if (typeof rootElement.connectedCallback === 'function') rootElement.connectedCallback()
                 }
                 if (!rootElement.shadowRoot) return
             }
@@ -929,6 +930,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    getAllProperties: {
+        value: function (obj) {
+            const properties = new Set()
+            let currentObj = obj, temp
+            while (currentObj !== null) Object.getOwnPropertyNames((temp = currentObj, currentObj = Object.getPrototypeOf(currentObj), temp)).forEach(prop => properties.add(prop))
+            return properties
+        }
+    },
     getCustomTag: {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
@@ -1137,7 +1146,9 @@ const ElementHTML = Object.defineProperties({}, {
                         const templateNode = document.createElement('template')
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id)
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    } catch (e) { }
+                    } catch (e) {
+                        console.log('line 1149', e, this)
+                    }
                 }
                 static get observedAttributes() { return [] }
                 static get E_FlattenableProperties() { return this.observedAttributes }
