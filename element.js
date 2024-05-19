@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
-            cells: {}, doppel: new WeakMap(), eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            cells: {}, doppel: { dom: new WeakMap(), observers: new WeakMap }, eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
     env: {
@@ -224,19 +224,51 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-                    this.app.doppel.set(rootElement, document.createElement(isAttr))
-                    const tagDoppel = this.app.doppel.get(rootElement)
+
+                    this.app.doppel.dom.set(rootElement, document.createElement(isAttr))
+                    const tagDoppel = this.app.doppel.dom.get(rootElement)
+
+                    console.log('line 231', tagDoppel, this.getAllProperties(tagDoppel).difference(this.getAllProperties(rootElement)))
+
+                    const getProxy = (primary, secondary, thisArg) => {
+                        thisArg ??= primary
+                        const primaryProperties = this.getAllProperties(primary), secondaryProperties = this.getAllProperties(secondary),
+                            thisArgProperties = this.getAllProperties(thisArg)
+                        return new Proxy(primary, {
+                            defineProperty: (t, p, descriptor) => Reflect.defineProperty(t[p] != undefined ? primary : secondary, p, descriptor),
+                            deleteProperty: (t, p) => Reflect.deleteProperty(t[p] != undefined ? primary : secondary, p),
+                            get: (t, p) => {
+                                const useAsTarget = primaryProperties.has(p) ? primary : secondary
+                                const useAsThisArg = thisArgProperties.has(p) ? thisArg : (primaryProperties.has(p) ? primary : secondary)
+
+                                console.log('line 244', p, useAsTarget, useAsThisArg)
+
+                                return Reflect.get(useAsTarget, p, useAsThisArg)
+                            },
+                            getOwnPropertyDescriptor: (t, p) => Reflect.getOwnPropertyDescriptor(t[p] != undefined ? primary : secondary, p),
+                            getPrototypeOf: (t) => Reflect.getPrototypeOf(t),
+                            has: (t, p) => Reflect.hash(t[p] != undefined ? primary : secondary, p),
+                            isExtensible: (t) => Reflect.isExtensible(t),
+                            ownKeys: (t) => Array.from(new Set([...Reflect.ownKeys(primary), ...Reflect.ownKeys(secondary)])),
+                            preventExtensions: (t) => Reflect.preventExtensions(t),
+                            set: (t, p, value) => Reflect.set(t[p] != undefined ? primary : secondary, p, value, thisArg),
+                            setPrototypeOf: (t, p) => Reflect.setPrototypeOf(t, p)
+                        })
+                    }, constructorProxy = getProxy(tagDoppel.constructor, rootElement.constructor),
+                        prototypeProxy = getProxy(Reflect.getPrototypeOf(tagDoppel), Reflect.getPrototypeOf(rootElement)),
+                        selfProxy = getProxy(rootElement, tagDoppel, tagDoppel)
+
                     for (const p of this.getAllProperties(tagDoppel)) {
                         if (rootElement[p] != undefined) continue
-                        const pd = { ...Object.getOwnPropertyDescriptor(tagDoppel, p) }
+                        const pd = { ...(Object.getOwnPropertyDescriptor(tagDoppel, p) ?? {}) }
                         if (pd.get || pd.set) {
-                            if (pd.get) pd.get = pd.get.bind(rootElement)
-                            if (pd.set) pd.set = pd.set.bind(rootElement)
+                            if (pd.get) pd.get = pd.get.bind(selfProxy)
+                            if (pd.set) pd.set = pd.set.bind(selfProxy)
                             delete pd.writable
                         } else {
                             const pdValue = pd.value ?? tagDoppel[p], pdValueIsFunction = typeof pdValue === 'function', ds = pdValueIsFunction ? ['get', 'set'] : ['value', 'writable']
                             if (pdValueIsFunction) {
-                                pd.value = pdValue.bind(rootElement)
+                                pd.value = pdValue.bind(selfProxy)
                             } else {
                                 pd.get = () => tagDoppel[p]
                                 pd.set = (v) => tagDoppel[p] = v
@@ -245,7 +277,22 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         Object.defineProperty(rootElement, p, pd)
                     }
+                    Object.defineProperty(rootElement, 'constructor', { value: constructorProxy })
+                    Object.defineProperty(rootElement, 'prototype', { value: prototypeProxy })
                     if (typeof rootElement.connectedCallback === 'function') rootElement.connectedCallback()
+                    if (rootElement.disconnectedCallback || rootElement.adoptedCallback || rootElement.attributeChangedCallback) {
+                        this.app.doppel.observers.set(rootElement, new MutationObserver(async records => {
+                            for (const record of records) {
+                                if (record.type === 'childList') {
+                                    for (const removedNode of record.removedNodes) {
+                                        if (typeof rootElement.disconnectedCallback === 'function' && removedNode === rootElement) rootElement.disconnectedCallback()
+                                        if (typeof rootElement.adoptedCallback === 'function' && removedNode.ownerDocument !== document) rootElement.adoptedCallback()
+                                    }
+                                }
+                                if (record.type === 'attributes' && typeof rootElement.attributeChangedCallback === 'function' && record.target === rootElement) rootElement.attributeChangedCallback()
+                            }
+                        }))
+                    }
                 }
                 if (!rootElement.shadowRoot) return
             }

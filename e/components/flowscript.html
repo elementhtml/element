@@ -8,6 +8,7 @@
         static splitter = /\n(?!\s+>>)/gm
 
         connectedCallback() {
+            console.log('line 11', this)
             const src = this.src
             Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
                 .then(script => this.compile(script)).then((app) => this.load(app)).then(() => this.run())
