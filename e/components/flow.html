@@ -3,61 +3,53 @@
 <script>
     export default class extends `script` {
 
-        __abortController
-        __cellNames = []
-        __fields = {}
-        __fieldNames = []
-        __handlers = []
-        __keyedAbortControllers = {}
-        __src
-        __statements = []
-        __type
+        #abortController
+        #cellNames = []
+        #fields = {}
+        #fieldNames = []
+        #handlers = []
+        #keyedAbortControllers = {}
+        #statements = []
 
         disconnectedCallback() {
-            if (this.__abortController) this.__abortController.abort()
-            for (const [k, v] of Object.entries(this.__keyedAbortControllers)) v.abort()
+            if (this.#abortController) this.#abortController.abort()
+            for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
         }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('src', 'type') }
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
 
-        get fields() { return this.__fields }
+        get fields() { return this.#fields }
 
-        get keyedAbortControllers() { return this.__keyedAbortControllers }
-
-        get src() { return this.getAttribute('src') || this.__src }
-        set src(value) { this.__src = value }
-
-        get type() { return this.getAttribute('type') || this.__type }
-        set type(value) { this.__type = value }
+        get keyedAbortControllers() { return this.#keyedAbortControllers }
 
         async load(app) {
-            this.__handlers = Object.freeze(app.handlers ?? [])
-            this.__fields ||= {}
-            for (const fieldName of app.fieldNames) this.__fields[fieldName] = this.getField(fieldName)
-            Object.freeze(this.__fields)
-            this.__fieldNames = Object.freeze(app.fieldNames ?? [])
-            this.__cellNames = Object.freeze(app.cellNames ?? [])
-            this.__statements = Object.freeze(app.statements ?? [])
+            this.#handlers = Object.freeze(app.handlers ?? [])
+            this.#fields ||= {}
+            for (const fieldName of app.fieldNames) this.#fields[fieldName] = this.getField(fieldName)
+            Object.freeze(this.#fields)
+            this.#fieldNames = Object.freeze(app.fieldNames ?? [])
+            this.#cellNames = Object.freeze(app.cellNames ?? [])
+            this.#statements = Object.freeze(app.statements ?? [])
         }
 
         run() {
-            if (this.__abortController) this.__abortController.abort()
-            this.__abortController = new AbortController()
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
             const rootNode = this.getRootNode(),
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
                 env = Object.freeze({ fields: {}, cells: {}, context })
-            for (const fieldName of this.__fieldNames) env.fields[fieldName] = this.getField(fieldName)
-            for (const cellName of this.__cellNames) env.cells[cellName] = this.E.getCell(cellName)
+            for (const fieldName of this.#fieldNames) env.fields[fieldName] = this.getField(fieldName)
+            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
             Object.freeze(env.fields)
             Object.freeze(env.cells)
-            for (const [statementIndex, statement] of this.__statements.entries()) {
+            for (const [statementIndex, statement] of this.#statements.entries()) {
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
                     const [labelItem, handlerIndex, defaultValue] = step
                     let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
                     this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = await this.__handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
+                        let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
                                 detail = defaultValue
@@ -88,7 +80,7 @@
                         }
                         labels[`${stepIndex}`] = detail
                         if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                    }, { signal: this.__abortController.signal })
+                    }, { signal: this.#abortController.signal })
                 }
             }
             this.dispatchEvent(new CustomEvent('run'))
@@ -96,7 +88,7 @@
 
         getField(name) {
             if (!name) return
-            if (!this.__fields[name]) {
+            if (!this.#fields[name]) {
                 const field = {
                     type: 'field',
                     eventTarget: new EventTarget(),
@@ -114,9 +106,9 @@
                     },
                     value: undefined, name
                 }
-                this.__fields[name] = field
+                this.#fields[name] = field
             }
-            return this.__fields[name]
+            return this.#fields[name]
         }
 
     }

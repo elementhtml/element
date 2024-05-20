@@ -225,74 +225,35 @@ const ElementHTML = Object.defineProperties({}, {
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
 
-                    this.app.doppel.dom.set(rootElement, document.createElement(isAttr))
-                    const tagDoppel = this.app.doppel.dom.get(rootElement)
-
-                    console.log('line 231', tagDoppel, this.getAllProperties(tagDoppel).difference(this.getAllProperties(rootElement)))
-
-                    const getProxy = (primary, secondary, thisArg) => {
-                        thisArg ??= primary
-                        const primaryProperties = this.getAllProperties(primary), secondaryProperties = this.getAllProperties(secondary),
-                            thisArgProperties = this.getAllProperties(thisArg)
-                        return new Proxy(primary, {
-                            defineProperty: (t, p, descriptor) => Reflect.defineProperty(t[p] != undefined ? primary : secondary, p, descriptor),
-                            deleteProperty: (t, p) => Reflect.deleteProperty(t[p] != undefined ? primary : secondary, p),
-                            get: (t, p) => {
-                                const useAsTarget = primaryProperties.has(p) ? primary : secondary
-                                const useAsThisArg = thisArgProperties.has(p) ? thisArg : (primaryProperties.has(p) ? primary : secondary)
-
-                                console.log('line 244', p, useAsTarget, useAsThisArg)
-
-                                return Reflect.get(useAsTarget, p, useAsThisArg)
-                            },
-                            getOwnPropertyDescriptor: (t, p) => Reflect.getOwnPropertyDescriptor(t[p] != undefined ? primary : secondary, p),
-                            getPrototypeOf: (t) => Reflect.getPrototypeOf(t),
-                            has: (t, p) => Reflect.hash(t[p] != undefined ? primary : secondary, p),
-                            isExtensible: (t) => Reflect.isExtensible(t),
-                            ownKeys: (t) => Array.from(new Set([...Reflect.ownKeys(primary), ...Reflect.ownKeys(secondary)])),
-                            preventExtensions: (t) => Reflect.preventExtensions(t),
-                            set: (t, p, value) => Reflect.set(t[p] != undefined ? primary : secondary, p, value, thisArg),
-                            setPrototypeOf: (t, p) => Reflect.setPrototypeOf(t, p)
-                        })
-                    }, constructorProxy = getProxy(tagDoppel.constructor, rootElement.constructor),
-                        prototypeProxy = getProxy(Reflect.getPrototypeOf(tagDoppel), Reflect.getPrototypeOf(rootElement)),
-                        selfProxy = getProxy(rootElement, tagDoppel, tagDoppel)
-
-                    for (const p of this.getAllProperties(tagDoppel)) {
-                        if (rootElement[p] != undefined) continue
-                        const pd = { ...(Object.getOwnPropertyDescriptor(tagDoppel, p) ?? {}) }
-                        if (pd.get || pd.set) {
-                            if (pd.get) pd.get = pd.get.bind(selfProxy)
-                            if (pd.set) pd.set = pd.set.bind(selfProxy)
-                            delete pd.writable
-                        } else {
-                            const pdValue = pd.value ?? tagDoppel[p], pdValueIsFunction = typeof pdValue === 'function', ds = pdValueIsFunction ? ['get', 'set'] : ['value', 'writable']
-                            if (pdValueIsFunction) {
-                                pd.value = pdValue.bind(selfProxy)
-                            } else {
-                                pd.get = () => tagDoppel[p]
-                                pd.set = (v) => tagDoppel[p] = v
-                            }
-                            for (const d of ds) delete pd[d]
-                        }
-                        Object.defineProperty(rootElement, p, pd)
-                    }
-                    Object.defineProperty(rootElement, 'constructor', { value: constructorProxy })
-                    Object.defineProperty(rootElement, 'prototype', { value: prototypeProxy })
-                    if (typeof rootElement.connectedCallback === 'function') rootElement.connectedCallback()
-                    if (rootElement.disconnectedCallback || rootElement.adoptedCallback || rootElement.attributeChangedCallback) {
+                    const doppelDom = this.app.doppel.dom.set(rootElement, document.createElement(isAttr)).get(rootElement)
+                    for (const a of rootElement.attributes) doppelDom.setAttribute(a.name, a.value)
+                    if (rootElement.innerHTML != undefined) doppelDom.innerHTML = rootElement.innerHTML
+                    doppelDom.E_native = rootElement
+                    if (typeof doppelDom.connectedCallback === 'function') doppelDom.connectedCallback()
+                    if (doppelDom.disconnectedCallback || doppelDom.adoptedCallback || doppelDom.attributeChangedCallback) {
                         this.app.doppel.observers.set(rootElement, new MutationObserver(async records => {
                             for (const record of records) {
-                                if (record.type === 'childList') {
-                                    for (const removedNode of record.removedNodes) {
-                                        if (typeof rootElement.disconnectedCallback === 'function' && removedNode === rootElement) rootElement.disconnectedCallback()
-                                        if (typeof rootElement.adoptedCallback === 'function' && removedNode.ownerDocument !== document) rootElement.adoptedCallback()
-                                    }
+                                switch (record.type) {
+                                    case 'childList':
+                                        for (const removedNode of (record.removedNodes ?? [])) {
+                                            if (typeof doppelDom.disconnectedCallback === 'function') doppelDom.disconnectedCallback()
+                                            if (typeof doppelDom.adoptedCallback === 'function' && removedNode.ownerDocument !== document) doppelDom.adoptedCallback()
+                                        }
+                                        break
+                                    case 'attributes':
+                                        const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
+                                        doppelDom.setAttribute(attrName, attrNewValue)
+                                        if (typeof doppelDom.attributeChangedCallback === 'function') doppelDom.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
+                                        break
+                                    case 'characterData':
+                                        doppelDom.innerHTML = rootElement.innerHTML
+                                        break
                                 }
-                                if (record.type === 'attributes' && typeof rootElement.attributeChangedCallback === 'function' && record.target === rootElement) rootElement.attributeChangedCallback()
                             }
                         }))
+                        this.app.doppel.observers.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
                     }
+
                 }
                 if (!rootElement.shadowRoot) return
             }
@@ -1180,11 +1141,11 @@ const ElementHTML = Object.defineProperties({}, {
 
     _base: {
         value: function (baseClass = globalThis.HTMLElement) {
-            return class extends globalThis.HTMLElement { // baseClass was here
+            return class extends globalThis.HTMLElement {
                 constructor() {
                     super()
                     Object.defineProperty(this, 'E', { value: ElementHTML })
-                    Object.defineProperty(this, 'E_baseClass', { value: baseClass }) // added
+                    Object.defineProperty(this, 'E_baseClass', { value: baseClass })
                     Object.defineProperty(this, 'E_emitValueChange', {
                         value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
                             if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
@@ -1200,7 +1161,7 @@ const ElementHTML = Object.defineProperties({}, {
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id) ?? ''
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                     } catch (e) {
-                        console.log('line 1150', e, this)
+                        console.log('line 1164', e, this)
                     }
                 }
                 static get observedAttributes() { return [] }
