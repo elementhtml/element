@@ -285,6 +285,12 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    dispatchCompoundEvent: {
+        enumerable: true, value: async function (eventName, detail, element) {
+            const event = new CustomEvent(eventName, { detail })
+            return element.dispatchEvent(event) && (element.E_native?.dispatchEvent(event) || this.app.doppel.dom.get(element)?.dispatchEvent(event))
+        }
+    },
     flatten: {
         enumerable: true, value: function (value, key, event) {
             const compile = (plain, complex = []) => {
@@ -452,6 +458,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     getStateGroup: {
         enumerable: true, value: function (expression, type = '#', element) {
+            element = this.app.doppel.get(element) ?? element
             let group
             const getStateTarget = (name) => {
                 const modeFlag = name[name.length - 1],
@@ -569,6 +576,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
             if (data === null) return
+            element = element.E_native ?? element
             const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
             if (typeof data !== 'object') {
                 if (element.constructor.E_ValueProperty) {
@@ -743,6 +751,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScope: {
         enumerable: true, value: function (scopeStatement, element) {
+            element = element.E_native ?? element
             if (!scopeStatement) return element.parentElement
             let scope, root, prop
             switch (scopeStatement) {
@@ -771,6 +780,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
+            element = element.E_native ?? element
             const sMap = { '$': 'root', '#': 'document' }
             let scope = element, selector = scopedSelector
             if (sMap[selector[0]]) selector = `:${sMap[selector[0]]}|${selector}`
@@ -855,8 +865,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (element) {
                 if (transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (transform.includes('$this')) bindings.this = this.flatten(element)
-                if (transform.includes('$root')) bindings.root = this.flatten(element.getRootNode())
-                if (transform.includes('$host')) bindings.host = this.flatten(element.getRootNode().host)
+                if (transform.includes('$root')) bindings.root = this.flatten((element.E_native ?? element).getRootNode())
+                if (transform.includes('$host')) bindings.host = this.flatten((element.E_native ?? element).getRootNode().host)
                 if (transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
             }
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)

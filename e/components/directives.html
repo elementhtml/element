@@ -1,7 +1,15 @@
 <style></style>
 <template></template>
 <script>
-    export default class extends `./flow` {
+    export default class extends `script` {
+
+        #abortController
+        #cellNames = []
+        #fields = {}
+        #fieldNames = []
+        #handlers = []
+        #keyedAbortControllers = {}
+        #statements = []
 
         static labelRegExp = /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/
         static defaultValueRegExp = /\s+\?\?\s+(.+)\s*$/
@@ -11,6 +19,27 @@
             const src = this.src
             Promise.resolve(src ? fetch(src).then(r => r.text()) : this.textContent)
                 .then(script => this.compile(script)).then((app) => this.load(app)).then(() => this.run())
+        }
+
+        disconnectedCallback() {
+            if (this.#abortController) this.#abortController.abort()
+            for (const [k, v] of Object.entries(this.#keyedAbortControllers)) v.abort()
+        }
+
+        static get observedAttributes() { return (super.observedAttributes || []).concat() }
+
+        get fields() { return this.#fields }
+
+        get keyedAbortControllers() { return this.#keyedAbortControllers }
+
+        async load(app) {
+            this.#handlers = Object.freeze(app.handlers ?? [])
+            this.#fields ||= {}
+            for (const fieldName of app.fieldNames) this.#fields[fieldName] = this.getField(fieldName)
+            Object.freeze(this.#fields)
+            this.#fieldNames = Object.freeze(app.fieldNames ?? [])
+            this.#cellNames = Object.freeze(app.cellNames ?? [])
+            this.#statements = Object.freeze(app.statements ?? [])
         }
 
         compile(code) {
@@ -134,6 +163,85 @@
                 statements.push(statement)
             }
             return { handlers, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
+        }
+
+        run() {
+            if (this.#abortController) this.#abortController.abort()
+            this.#abortController = new AbortController()
+            const rootNode = this.getRootNode(),
+                context = Object.freeze(rootNode instanceof ShadowRoot
+                    ? { ...this.E.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.E.env.context),
+                env = Object.freeze({ fields: {}, cells: {}, context })
+            for (const fieldName of this.#fieldNames) env.fields[fieldName] = this.getField(fieldName)
+            for (const cellName of this.#cellNames) env.cells[cellName] = this.E.getCell(cellName)
+            Object.freeze(env.fields)
+            Object.freeze(env.cells)
+            for (const [statementIndex, statement] of this.#statements.entries()) {
+                const { labels = {}, steps = [] } = statement
+                for (const [stepIndex, step] of steps.entries()) {
+                    const [labelItem, handlerIndex, defaultValue] = step
+                    let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
+                    this.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                        let detail = await this.#handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
+                        if (detail == undefined) {
+                            if (typeof defaultValue !== 'string') {
+                                detail = defaultValue
+                            } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
+                                detail = defaultValue.slice(1, -1)
+                            } else if (defaultValue.match(this.E.sys.regexp.hasVariable)) {
+                                detail = this.E.mergeVariables(defaultValue, undefined, labels, env)
+                            } else if (defaultValue.match(this.E.sys.regexp.isJSONObject) || defaultValue.match(this.E.sys.regexp.isNumeric)
+                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                try {
+                                    detail = JSON.parse(defaultValue)
+                                } catch (e) {
+                                    detail = defaultValue
+                                }
+                            } else {
+                                detail = defaultValue
+                            }
+                        }
+                        switch (label[0]) {
+                            case '@':
+                                env.fields[label.slice(1)].set(detail, labelMode)
+                                break
+                            case '#':
+                                env.cells[label.slice(1)].set(detail, labelMode)
+                                break
+                            default:
+                                labels[label] = detail
+                        }
+                        labels[`${stepIndex}`] = detail
+                        if (detail != undefined) this.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                    }, { signal: this.#abortController.signal })
+                }
+            }
+            this.dispatchEvent(new CustomEvent('run'))
+        }
+
+        getField(name) {
+            if (!name) return
+            if (!this.#fields[name]) {
+                const field = {
+                    type: 'field',
+                    eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value, labelMode) {
+                        let isSame = this.value === value
+                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                        if (isSame) {
+                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return this
+                        }
+                        this.value = value
+                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
+                    },
+                    value: undefined, name
+                }
+                this.#fields[name] = field
+            }
+            return this.#fields[name]
         }
 
         #parseRouterExpression(expression, statementIndex, stepIndex) {
