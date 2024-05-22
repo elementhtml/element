@@ -301,9 +301,9 @@ const ElementHTML = Object.defineProperties({}, {
 
     connectDirectives: {
         value: async function (directivesElement) {
-            const app = await this.compileDirectives(directivesElement, directivesElement.src ? await fetch(directivesElement.src).then(r => r.text()) : directivesElement.textContent)
-            await this.loadDirectives(directivesElement, app)
-            await this.runDirectives(directivesElement)
+            this.app.directives.keyedAbortControllers.set(directivesElement) = {}
+            const app = await this.compileDirectives(directivesElement.src ? await fetch(directivesElement.src).then(r => r.text()) : directivesElement.textContent)
+            await this.runDirectives(directivesElement, await this.loadDirectives(directivesElement, app))
         }
     },
     disconnectDirectives: {
@@ -313,20 +313,564 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     compileDirectives: {
-        value: async function (directivesElement, directives) {
-
+        value: async function (directives) {
+            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}
+            let statementIndex = -1
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                statementIndex = statementIndex + 1
+                const statement = { labels: {}, steps: [] }
+                let stepIndex = -1
+                for (let [index, segment] of directive.split(' >> ').entries()) {
+                    segment = segment.trim()
+                    if (!segment) continue
+                    const step = []
+                    let handlerExpression = segment, label, defaultExpression
+                    const labelMatch = handlerExpression.match(this.sys.regexp.label)
+                    if (labelMatch) {
+                        label = labelMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
+                    }
+                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
+                    if (defaultExpressionMatch) {
+                        defaultExpression = defaultExpressionMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
+                        if (defaultExpression[0] === '#') {
+                            const cn = defaultExpression.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                        }
+                    }
+                    label ||= `${index}`
+                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                    if (labelMode) {
+                        label = label.slice(0, -1).trim()
+                        step.push([label, labelMode])
+                    } else {
+                        step.push(label)
+                    }
+                    switch (label[0]) {
+                        case '@':
+                            let fn = label.slice(1).trim()
+                            if (fn) fieldNames.add(fn)
+                            break
+                        case '#':
+                            const cn = label.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                            break
+                        default:
+                            const ln = label.trim()
+                            if (ln) statement.labels[ln] = undefined
+                    }
+                    let handler, handlerIndex
+                    const handlerSignature = handlerExpression
+                    stepIndex = stepIndex + 1
+                    switch (handlerExpression) {
+                        case '#': case '?': case '/': case ':':
+                            handler = this.parseRouterDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                            break
+                        default:
+                            switch (handlerExpression[0]) {
+                                case '`':
+                                    handler = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case '/':
+                                    handler = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case '"': case "'":
+                                    handler = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    break
+                                case "#": case "@":
+                                    let addedFieldNames, addedCellNames
+                                    [handler, addedFieldNames, addedCellNames] = this.parseStateDirectiveExpression(handlerExpression.slice(1),
+                                        handlerExpression[0], statementIndex, stepIndex)
+                                    for (const addedName of addedFieldNames) fieldNames.add(addedName)
+                                    for (const addedName of addedCellNames) cellNames.add(addedName)
+                                    break
+                                case "$":
+                                    if (handlerExpression[1] === "{") {
+                                        handler = this.parseVariableDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                                    } else if (handlerExpression[1] === "(") {
+                                        handler = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
+                                    }
+                                    break
+                                case "(":
+                                    handler = this.parseTransformDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                                    break
+                                case "{": case "[":
+                                    handler = this.parseJSONDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                                    break
+                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
+                                    let t
+                                    switch (handlerExpression) {
+                                        case 'null': case 'true': case 'false':
+                                            t = true
+                                        default:
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) handler = this.parseJSONDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                                    }
+                                    break
+                                case "_":
+                                    if (handlerExpression.endsWith('_')) {
+                                        handler = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
+                                        break
+                                    }
+                                case '~':
+                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
+                                default:
+                                    handler = this.parseNetworkDirectiveExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                            }
+                    }
+                    handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
+                    step.push(handlerIndex)
+                    if (defaultExpression) step.push(defaultExpression)
+                    statement.labels[label] = undefined
+                    statement.labels[`${index}`] = undefined
+                    statement.steps.push(step)
+                }
+                Object.seal(statement.labels)
+                Object.freeze(statement.steps)
+                Object.freeze(statement)
+                statements.push(statement)
+            }
+            return { handlers, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
     },
     loadDirectives: {
         value: async function (directivesElement, application) {
-
+            const handlers = Object.freeze(application.handlers ?? []), fieldNames = Object.freeze(application.fieldNames ?? []),
+                cellNames = Object.freeze(application.cellNames ?? []), statements = Object.freeze(application.statements ?? []),
+                fields = { ...(this.app.directives.fields.get(directivesElement) ?? {}) }
+            for (const fieldName of application.fieldNames) fields[fieldName] = this.getField(directivesElement, fieldName)
+            Object.freeze(fields)
+            this.app.directives.handlers.set(directivesElement, handlers)
+            this.app.directives.fields.set(directivesElement, fields)
+            this.app.directives.fieldNames.set(directivesElement, fieldNames)
+            this.app.directives.cellNames.set(directivesElement, cellNames)
+            this.app.directives.statements.set(directivesElement, statements)
+            return { handlers, fields, fieldNames, cellNames, statements }
         }
     },
     runDirectives: {
-        value: async function (directivesElement) {
-
+        value: async function (directivesElement, loadedApplication) {
+            const { handlers = this.app.directives.handlers.get(directivesElement), fields = this.app.directives.fields.get(directivesElement),
+                fieldNames = this.app.directives.fieldNames.get(directivesElement), cellNames = this.app.directives.cellNames.get(directivesElement),
+                statements = this.app.directives.statements.get(directivesElement) } = loadedApplication
+            this.app.directives.abortController.get(directivesElement)?.abort()
+            const abortController = new AbortController(), signal = abortController.signal
+            this.app.directives.abortController.set(directivesElement, abortController)
+            const rootNode = directivesElement.getRootNode(),
+                context = Object.freeze(rootNode instanceof ShadowRoot
+                    ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context),
+                env = Object.freeze({ fields: {}, cells: {}, context })
+            for (const fieldName of fieldNames) env.fields[fieldName] = this.getField(directivesElement, fieldName)
+            for (const cellName of cellNames) env.cells[cellName] = this.getCell(cellName)
+            Object.freeze(env.fields)
+            Object.freeze(env.cells)
+            for (const [statementIndex, statement] of statements.entries()) {
+                const { labels = {}, steps = [] } = statement
+                for (const [stepIndex, step] of steps.entries()) {
+                    const [labelItem, handlerIndex, defaultValue] = step
+                    let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
+                    directivesElement.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                        let detail = await handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
+                        if (detail == undefined) {
+                            if (typeof defaultValue !== 'string') {
+                                detail = defaultValue
+                            } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
+                                detail = defaultValue.slice(1, -1)
+                            } else if (defaultValue.match(this.sys.regexp.hasVariable)) {
+                                detail = this.mergeVariables(defaultValue, undefined, labels, env)
+                            } else if (defaultValue.match(this.sys.regexp.isJSONObject) || defaultValue.match(this.sys.regexp.isNumeric)
+                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                try {
+                                    detail = JSON.parse(defaultValue)
+                                } catch (e) {
+                                    detail = defaultValue
+                                }
+                            } else {
+                                detail = defaultValue
+                            }
+                        }
+                        switch (label[0]) {
+                            case '@':
+                                env.fields[label.slice(1)].set(detail, labelMode)
+                                break
+                            case '#':
+                                env.cells[label.slice(1)].set(detail, labelMode)
+                                break
+                            default:
+                                labels[label] = detail
+                        }
+                        labels[`${stepIndex}`] = detail
+                        if (detail != undefined) directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                    }, { signal })
+                }
+            }
+            directivesElement.dispatchEvent(new CustomEvent('run'))
         }
     },
+
+
+    getField: {
+        value: async function (directivesElement, fieldName) {
+            if (!fieldName) return
+            const fields = this.app.directives.fields.get(directivesElement)
+            if (!fields[fieldName]) {
+                const field = {
+                    type: 'field',
+                    eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value, labelMode) {
+                        let isSame = this.value === value
+                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                        if (isSame) {
+                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return this
+                        }
+                        this.value = value
+                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
+                    },
+                    value: undefined, fieldName
+                }
+                fields[fieldName] = field
+            }
+            return fields[fieldName]
+        }
+    },
+
+
+
+
+
+
+    parseRouterDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+        keyedAbortControllers[eventKey] = new AbortController()
+        if (expression === '#') window.addEventListener('hashchange', event => this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, document.location.hash, directivesElement),
+            { signal: keyedAbortControllers[eventKey].signal })
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            let prop
+            switch (expression) {
+                case '#':
+                    prop ||= 'hash'
+                case '?':
+                    prop ||= 'search'
+                case '/':
+                    prop ||= 'pathname'
+                    if (value != undefined && (typeof value === 'string')) document.location[prop] = value
+                    return document.location[prop]
+                case ':':
+                    switch (typeof value) {
+                        case 'string':
+                            document.location = value
+                            break
+                        case 'object':
+                            if (!value) break
+                            for (const [k, v] of Object.entries(value)) {
+                                if (k.endsWith(')') && k.includes('(')) {
+                                    let funcName = k.trim().slice(0, -2).trim()
+                                    switch (funcName) {
+                                        case 'assign': case 'replace':
+                                            document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
+                                            break
+                                        case 'back': case 'forward':
+                                            history[funcName]()
+                                            break
+                                        case 'go':
+                                            history[funcName](parseInt(v) || 0)
+                                            break
+                                        case 'pushState': case 'replaceState':
+                                            const useValue = Array.isArray(v) ? v : [v]
+                                            history[funcName](...v)
+                                    }
+                                } else if (typeof v === 'string') {
+                                    document.location[k] = v
+                                    break
+                                }
+                            }
+                    }
+                    return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
+            }
+        }
+    },
+
+    parseProxyDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
+        if (!parentExpression || (childExpression === '')) return
+        let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+        parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+        const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
+        let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
+        if (useHelper) {
+            parentObjectName = parentObjectName.slice(1)
+        } else {
+            [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+            childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+        }
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            if (useHelper) {
+                await this.loadHelper(parentObjectName)
+                return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
+            }
+            if (childMethodName) {
+                if (!(globalThis[parentObjectName] instanceof Object)) return
+                if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
+            }
+            return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
+        }
+    },
+
+    parsePatternDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        expression = expression.trim()
+        if (!expression) return
+        this.app.regexp[expression] ||= this.env.regexp[expression] ?? new RegExp(expression)
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            if (typeof value !== 'string') value = `${value}`
+            const match = value.match(this.app.regexp[expression])
+            return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+        }
+    },
+
+    parseStringDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        return async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
+    },
+
+    parseStateDirectiveExpression(directivesElement, expression, type, statementIndex, stepIndex) {
+        let group = this.getStateGroup(expression, type, directivesElement), getReturnValue,
+            config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
+            addedFields = new Set(), addedCells = new Set(), items = []
+        if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
+        if (config === 'single') group = group[0]
+        switch (config) {
+            case 'single':
+                const fieldOrCell = group[0];
+                (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                getReturnValue = () => fieldOrCell.get()
+                items.push(group)
+                break
+            case 'array':
+                for (const item of group) {
+                    const fieldOrCell = item[0];
+                    (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                }
+                getReturnValue = () => {
+                    const r = group.map(i => i[0].get())
+                    return r.some(rr => rr == undefined) ? undefined : r
+                }
+                items = group
+                break
+            default:
+                for (const [name, item] of Object.entries(group)) {
+                    const fieldOrCell = item[0];
+                    (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
+                }
+                getReturnValue = () => {
+                    const r = Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1][0].get()]))
+                    return Object.values(r).every(rr => rr == undefined) ? undefined : r
+                }
+                items = Object.values(group)
+        }
+        const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+        keyedAbortControllers[eventKey] = new AbortController()
+        for (const item of items) {
+            const fieldOrCell = item[0]
+            fieldOrCell.eventTarget.addEventListener('change', event => {
+                const retval = getReturnValue()
+                if (retval != undefined) this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, retval, directivesElement)
+            }, { signal: keyedAbortControllers[eventKey].signal })
+        }
+        return [async (value, labels, env, statementIndex, stepIndex) => {
+            if (value == undefined) return getReturnValue()
+            switch (config) {
+                case 'single':
+                    const [fieldOrCell, mode] = group
+                    fieldOrCell.set(value, mode)
+                    break
+                case 'array':
+                    if (Array.isArray(value)) {
+                        for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) {
+                            const [fieldOrCell, mode] = group[i]
+                            fieldOrCell.set(v, mode)
+                        }
+                    }
+                    break
+                default:
+                    if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
+                        if (v == undefined) continue
+                        if (group[k]) {
+                            const [fieldOrCell, mode] = group[k]
+                            fieldOrCell.set(v, mode)
+                        }
+                    }
+            }
+            return getReturnValue()
+        }, Array.from(addedFields), Array.from(addedCells)]
+    },
+
+    parseSelectorDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        if (!expression.includes('|')) {
+            switch (expression[0]) {
+                case '#':
+                    expression = `:document|${expression}`
+                    break
+                case '@':
+                    expression = `:root|[name="${expression.slice(1)}"]`
+                    break
+                case '^':
+                    expression = `:root|[style~="${expression.slice(1)}"]`
+                    break
+                case '~':
+                    expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                    break
+                case '.':
+                default:
+                    expression = `:root|${expression}`
+            }
+        }
+        const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
+            scope = this.resolveScope(scopeStatement, this)
+        if (!scope) return []
+        let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+        if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+        const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click']))),
+            eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+        keyedAbortControllers[eventKey] = new AbortController()
+        for (let eventName of eventNames) {
+            let keepDefault = eventName.endsWith('+')
+            if (keepDefault) eventName = eventName.slice(0, -1)
+            scope.addEventListener(eventName, event => {
+                if (selector.endsWith('}') && selector.includes('{')) {
+                    const target = this.resolveSelector(selector, scope)
+                    if (!target || (Array.isArray(target) && !target.length)) return
+                } else if (selector[0] === '$') {
+                    if (selector.length === 1) return
+                    const catchallSelector = this.buildCatchallSelector(selector)
+                    if (!event.target.matches(catchallSelector)) return
+                } else if (selector && !event.target.matches(selector)) { return }
+                let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                if (!eventList && (event.type !== tagDefaultEventType)) return
+                if (!keepDefault) event.preventDefault()
+                this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, this.flatten(event.target, undefined, event), directivesElement)
+            }, { signal: keyedAbortControllers[eventKey].signal })
+        }
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            if (value != undefined) {
+                const target = this.resolveSelector(selector, scope)
+                if (Array.isArray(target)) {
+                    for (const t of target) this.render(t, value)
+                } else if (target) {
+                    this.render(target, value)
+                }
+            }
+            return value
+        }
+    },
+
+    parseJSONDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        let retval
+        try { retval = JSON.parse(expression) } catch (e) { }
+        return async (value, labels, env, statementIndex, stepIndex) => retval
+    },
+
+    parseVariableDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        return async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
+    },
+
+    parseTransformDirectiveExpression(directivesElement, expression, statementIndex, stepIndex) {
+        if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
+        if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
+        if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            const fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(directivesElement) ?? {}).map(f => [f[0], f[1].get()]))),
+                cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()]))),
+                context = Object.freeze({ ...env.context })
+            return this.E.runTransform(expression, value, this, { labels, fields, cells, context })
+        }
+    },
+
+    parseNetworkDirectiveExpression(directivesElement, expression, hasDefault, statementIndex, stepIndex) {
+        const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+        let returnFullRequest
+        if (expression[0] === '~' && expression.endsWith('~')) {
+            returnFullRequest = true
+            expression = expression.slice(1, -1)
+        }
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            let url = this.mergeVariables(expression, value, labels, env)
+            if (!url) return
+            const options = {}
+            if (!((value == undefined) || (expressionIncludesValueAsVariable && typeof value === 'string'))) {
+                Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
+                if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
+                    options.headers ||= {}
+                    options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
+                    delete options['content-type']
+                    delete options.contentType
+                    if (!options.headers['Content-Type']) {
+                        if (typeof options.body === 'string') {
+                            if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
+                                options.headers['Content-Type'] = 'application/json'
+                            } else if (this.sys.regexp.isFormString.test(options.body)) {
+                                options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                            } else if (this.sys.regexp.isDataUrl.test(options.body)) {
+                                options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
+                            }
+                        } else {
+                            options.headers['Content-Type'] = 'application/json'
+                        }
+                    }
+                }
+                if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
+            }
+            return fetch(url, options).then(r => {
+                if (returnFullRequest) {
+                    return r
+                } else {
+                    if (hasDefault && !r.ok) return
+                    return r.ok ? this.parse(r) : undefined
+                }
+            })
+        }
+    },
+
+    parseWaitDirectiveExpression(directivesElement, expression, hasDefault, statementIndex, stepIndex) {
+        return async (value, labels, env, statementIndex, stepIndex) => {
+            const useExpression = this.mergeVariables(expression, value, labels, env)
+            let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')
+            mainWait = this.mergeVariables(mainWait, value, labels, env)
+            override = (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
+            if (mainWait === 'frame') {
+                await new Promise(resolve => window.requestAnimationFrame(resolve))
+                return override
+            } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
+                const [, timeout] = mainWait.split(':')
+                await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
+                return override
+            } else if (mainWait[0] === '+') {
+                ms = parseInt(mainWait.slice(1)) || 0
+            } else if (this.sys.regexp.isNumeric.test(mainWait)) {
+                ms = (parseInt(mainWait) || 0) - now
+            } else {
+                let mainWaitSplit = mainWait.split(':').map(s => s.trim())
+                if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
+                    ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`)
+                    if (ms < 0) ms = (ms + (1000 * 3600 * 24))
+                    ms = ms - now
+                } else {
+                    ms = Date.parse(mainWait) - now
+                }
+            }
+            ms = Math.max(ms, 0)
+            await new Promise(resolve => setTimeout(resolve, ms))
+            return override
+        }
+    },
+
+
+
+
 
 
 
@@ -464,7 +1008,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Blob) return compile(['size', 'type'])
             if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
             if (value instanceof FormData) return Object.fromEntries(value.entries())
-            if (value instanceof Response) return { body: this.E.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
+            if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
             if (value instanceof Object) {
                 let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 return key ? result[key] : result
@@ -702,7 +1246,7 @@ const ElementHTML = Object.defineProperties({}, {
                         continue
                     case '!':
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = element.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[tag] ?? 'click'
+                        if (!eventName) eventName = element.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[tag] ?? 'click'
                         if (v != null) {
                             const eventOptions = (typeof v === 'object' && ('bubbles' in v || 'cancelable' in v || 'detail' in v)) ? v : { detail: v, bubbles: true, cancelable: true }
                             element.dispatchEvent(new CustomEvent(eventName, eventOptions))
