@@ -793,7 +793,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(directivesElement) ?? {}).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()]))),
                     context = Object.freeze({ ...env.context })
-                return this.E.runTransform(expression, value, this, { labels, fields, cells, context })
+                return this.runTransform(expression, value, directivesElement, { labels, fields, cells, context })
             }
         }
     },
