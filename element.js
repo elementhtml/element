@@ -11,13 +11,20 @@ const ElementHTML = Object.defineProperties({}, {
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, tagMatch: /^[a-z0-9\-]+/g
+                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
+                label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/, defaultValue: /\s+\?\?\s+(.+)\s*$/, splitter: /\n(?!\s+>>)/gm, tagMatch: /^[a-z0-9\-]+/g
             })
         })
     },
     app: {
         value: {
-            cells: {}, doppel: { dom: new WeakMap(), observers: new WeakMap }, eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            cells: {},
+            directives: {
+                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(),
+                fieldNames: new WeakMap(), keyedAbortControllers: new WeakMap(), handlers: new WeakMap(), statements: new WeakMap()
+            },
+            doppel: { dom: new WeakMap(), observers: new WeakMap() },
+            eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
     env: {
@@ -259,16 +266,20 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.getCustomTag(element)) this.load(element)
+            for (const element of domTraverser.call(domRoot, '*')) if (this.isDirectivesBlock(element)) { this.connectDirectives(element) } else if (this.getCustomTag(element)) { this.load(element) }
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
-                        if (this.getCustomTag(addedNode)) this.load(addedNode)
+                        if (this.isDirectivesBlock(addedNode)) { this.connectDirectives(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
                         if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
                     }
                     for (const removedNode of (record.removedNodes || [])) {
                         if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
-                        if (this.getCustomTag(removedNode)) if (typeof removedNode?.disconnectedCallback === 'function') removedNode.disconnectedCallback()
+                        if (this.isDirectivesBlock(removedNode)) {
+                            this.disconnectDirectives(removedNode)
+                        } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
+                            removedNode.disconnectedCallback()
+                        }
                     }
                 }
             })
@@ -284,6 +295,43 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+
+
+    connectDirectives: {
+        value: async function (directivesElement) {
+            const app = await this.compileDirectives(directivesElement, directivesElement.src ? await fetch(directivesElement.src).then(r => r.text()) : directivesElement.textContent)
+            await this.loadDirectives(directivesElement, app)
+            await this.runDirectives(directivesElement)
+        }
+    },
+    disconnectDirectives: {
+        value: function (directivesElement) {
+            this.app.directives.abortControllers.get(directivesElement)?.abort()
+            for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(directivesElement) ?? {}))) v.abort()
+        }
+    },
+    compileDirectives: {
+        value: async function (directivesElement, directives) {
+
+        }
+    },
+    loadDirectives: {
+        value: async function (directivesElement, application) {
+
+        }
+    },
+    runDirectives: {
+        value: async function (directivesElement) {
+
+        }
+    },
+
+
+
+
+
 
     dispatchCompoundEvent: {
         enumerable: true, value: async function (eventName, detail, element) {
@@ -966,6 +1014,11 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    isDirectivesBlock: {
+        value: function (element) {
+            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element'))
         }
     },
     getInheritance: {
