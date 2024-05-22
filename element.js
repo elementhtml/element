@@ -510,7 +510,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
     getField: {
         value: async function (directivesElement, fieldName) {
             if (!fieldName) return
@@ -538,9 +537,6 @@ const ElementHTML = Object.defineProperties({}, {
             return fields[fieldName]
         }
     },
-
-
-
 
     parseRouterDirectiveExpression: {
         value: function (directivesElement, expression, statementIndex, stepIndex) {
