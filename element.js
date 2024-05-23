@@ -313,8 +313,8 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     compileDirectives: {
-        value: async function (directivesElement, directives) {
-            const handlers = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}
+        value: async function (directives) {
+            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
@@ -362,43 +362,42 @@ const ElementHTML = Object.defineProperties({}, {
                             const ln = label.trim()
                             if (ln) statement.labels[ln] = undefined
                     }
-                    let handler, handlerIndex
+                    let handler, binder, handlerIndex
                     const handlerSignature = handlerExpression
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            handler = this.parseRouterDirectiveExpression(directivesElement, handlerExpression, statementIndex, stepIndex)
+                            ({ binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    handler = this.parseProxyDirectiveExpression(directivesElement, handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '/':
-                                    handler = this.parsePatternDirectiveExpression(directivesElement, handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '"': case "'":
-                                    handler = this.parseStringDirectiveExpression(directivesElement, handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case "#": case "@":
                                     let addedFieldNames, addedCellNames
-                                    [handler, addedFieldNames, addedCellNames] = this.parseStateDirectiveExpression(directivesElement, handlerExpression.slice(1),
-                                        handlerExpression[0], statementIndex, stepIndex)
+                                    [{ binder, handler }, addedFieldNames, addedCellNames] = this.parseStateDirectiveExpression(handlerExpression.slice(1), handlerExpression[0], statementIndex, stepIndex)
                                     for (const addedName of addedFieldNames) fieldNames.add(addedName)
                                     for (const addedName of addedCellNames) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        handler = this.parseVariableDirectiveExpression(directivesElement, handlerExpression, statementIndex, stepIndex)
+                                        ({ binder, handler }) = this.parseVariableDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                                     } else if (handlerExpression[1] === "(") {
-                                        handler = this.parseSelectorDirectiveExpression(directivesElement, handlerExpression.slice(2, -1), statementIndex, stepIndex)
+                                        ({ binder, handler }) = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), statementIndex, stepIndex)
                                     }
                                     break
                                 case "(":
-                                    handler = this.parseTransformDirectiveExpression(directivesElement, handlerExpression, statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseTransformDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 case "{": case "[":
-                                    handler = this.parseJSONDirectiveExpression(directivesElement, handlerExpression, statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
                                     let t
@@ -406,18 +405,18 @@ const ElementHTML = Object.defineProperties({}, {
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) handler = this.parseJSONDirectiveExpression(directivesElement, handlerExpression, statementIndex, stepIndex)
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) ({ binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        handler = this.parseWaitDirectiveExpression(directivesElement, handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
+                                        ({ binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    handler = this.parseNetworkDirectiveExpression(directivesElement, handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                             }
                     }
                     handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
@@ -539,23 +538,38 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     parseRouterDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
+        value: function (expression, statementIndex, stepIndex) {
             const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
             keyedAbortControllers[eventKey] = new AbortController()
-            if (expression === '#') window.addEventListener('hashchange', event => this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, document.location.hash, directivesElement),
-                { signal: keyedAbortControllers[eventKey].signal })
-            return async (value, labels, env, statementIndex, stepIndex) => {
-                let prop
-                switch (expression) {
-                    case '#':
-                        prop ||= 'hash'
-                    case '?':
-                        prop ||= 'search'
-                    case '/':
-                        prop ||= 'pathname'
-                        if (value != undefined && (typeof value === 'string')) document.location[prop] = value
-                        return document.location[prop]
-                    case ':':
+            // if (expression === '#') window.addEventListener('hashchange', event => directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash })),
+            //     { signal: keyedAbortControllers[eventKey].signal })
+
+            let binder, handler
+            switch (expression) {
+                case '#':
+                    binder = async (de, labels, env, statementIndex, stepIndex) => {
+                        window.addEventListener('hashchange', event => de.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash })),
+                            { signal: this.app.directives.keyedAbortControllers.get(de)[`${statementIndex}-${stepIndex}`].signal })
+                    }
+                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                        if (value != undefined && (typeof value === 'string')) document.location.hash = value
+                        return document.location.hash
+                    }
+                    break
+                case '?':
+                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                        if (value != undefined && (typeof value === 'string')) document.location.search = value
+                        return document.location.search
+                    }
+                    break
+                case '/':
+                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                        if (value != undefined && (typeof value === 'string')) document.location.pathname = value
+                        return document.location.pathname
+                    }
+                    break
+                case ':':
+                    handler = async (value, labels, env, statementIndex, stepIndex) => {
                         switch (typeof value) {
                             case 'string':
                                 document.location = value
@@ -576,8 +590,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                 history[funcName](parseInt(v) || 0)
                                                 break
                                             case 'pushState': case 'replaceState':
-                                                const useValue = Array.isArray(v) ? v : [v]
-                                                history[funcName](...v)
+                                                history[funcName](...(Array.isArray(v) ? v : [v]))
                                         }
                                     } else if (typeof v === 'string') {
                                         document.location[k] = v
@@ -586,12 +599,13 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                         }
                         return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
-                }
+                    }
             }
+            return { binder, handler }
         }
     },
     parseProxyDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
+        value: function (expression, statementIndex, stepIndex) {
             const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
@@ -604,7 +618,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             }
-            return async (value, labels, env, statementIndex, stepIndex) => {
+            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => {
                 if (useHelper) {
                     await this.loadHelper(parentObjectName)
                     return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
@@ -616,23 +630,26 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
             }
+            return { binder, handler }
         }
     },
     parsePatternDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
+        value: function (expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
             this.app.regexp[expression] ||= this.env.regexp[expression] ?? new RegExp(expression)
-            return async (value, labels, env, statementIndex, stepIndex) => {
+            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => {
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(this.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             }
+            return { binder, handler }
         }
     },
     parseStringDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
-            return async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
+        value: function (expression, statementIndex, stepIndex) {
+            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
+            return { binder, handler }
         }
     },
     parseStateDirectiveExpression: {
@@ -677,10 +694,13 @@ const ElementHTML = Object.defineProperties({}, {
                 const fieldOrCell = item[0]
                 fieldOrCell.eventTarget.addEventListener('change', event => {
                     const retval = getReturnValue()
-                    if (retval != undefined) this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, retval, directivesElement)
+                    if (retval != undefined) directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
                 }, { signal: keyedAbortControllers[eventKey].signal })
             }
-            return [async (value, labels, env, statementIndex, stepIndex) => {
+
+            const binder = () => { }
+
+            const handler = async (value, labels, env, statementIndex, stepIndex) => {
                 if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
@@ -705,7 +725,8 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                 }
                 return getReturnValue()
-            }, Array.from(addedFields), Array.from(addedCells)]
+            }
+            return [{ binder, handler }, Array.from(addedFields), Array.from(addedCells)]
         }
     },
     parseSelectorDirectiveExpression: {
@@ -752,7 +773,7 @@ const ElementHTML = Object.defineProperties({}, {
                     let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
                     if (!eventList && (event.type !== tagDefaultEventType)) return
                     if (!keepDefault) event.preventDefault()
-                    this.dispatchCompoundEvent(`done-${statementIndex}-${stepIndex}`, this.flatten(event.target, undefined, event), directivesElement)
+                    directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.flatten(event.target, undefined, event) }))
                 }, { signal: keyedAbortControllers[eventKey].signal })
             }
             return async (value, labels, env, statementIndex, stepIndex) => {
