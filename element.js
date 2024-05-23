@@ -314,7 +314,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     compileDirectives: {
         value: async function (directives) {
-            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}
+            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
@@ -325,7 +325,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
-                    const step = []
+                    const step = {}
                     let handlerExpression = segment, label, defaultExpression
                     const labelMatch = handlerExpression.match(this.sys.regexp.label)
                     if (labelMatch) {
@@ -345,9 +345,12 @@ const ElementHTML = Object.defineProperties({}, {
                     const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
                     if (labelMode) {
                         label = label.slice(0, -1).trim()
-                        step.push([label, labelMode])
+                        step.label = label
+                        step.labelMode = labelMode
+                        // step.push([label, labelMode])
                     } else {
-                        step.push(label)
+                        step.label = label
+                        // step.push(label)
                     }
                     switch (label[0]) {
                         case '@':
@@ -362,7 +365,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const ln = label.trim()
                             if (ln) statement.labels[ln] = undefined
                     }
-                    let handler, binder, handlerIndex
+                    let handler, binder, handlerIndex, binderIndex
                     const handlerSignature = handlerExpression
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
@@ -420,40 +423,46 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                     }
                     handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
-                    step.push(handlerIndex)
-                    if (defaultExpression) step.push(defaultExpression)
+                    step.handlerIndex = handlerIndex
+                    // step.push(handlerIndex)
+                    if (binder) {
+                        binderIndex = (bindMap[handlerSignature] ||= (binders.push(binder)) - 1)
+                        step.binderIndex = binderIndex
+                    }
+                    if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels[label] = undefined
                     statement.labels[`${index}`] = undefined
-                    statement.steps.push(step)
+                    statement.steps.push(Object.freeze(step))
                 }
                 Object.seal(statement.labels)
                 Object.freeze(statement.steps)
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            return { handlers, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
+            return { handlers, binders, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
     },
     loadDirectives: {
         value: async function (directivesElement, application) {
-            const handlers = Object.freeze(application.handlers ?? []), fieldNames = Object.freeze(application.fieldNames ?? []),
-                cellNames = Object.freeze(application.cellNames ?? []), statements = Object.freeze(application.statements ?? []),
-                fields = { ...(this.app.directives.fields.get(directivesElement) ?? {}) }
+            const handlers = Object.freeze(application.handlers ?? []), binders = Object.freeze(application.binders ?? []),
+                fieldNames = Object.freeze(application.fieldNames ?? []), cellNames = Object.freeze(application.cellNames ?? []),
+                statements = Object.freeze(application.statements ?? []), fields = { ...(this.app.directives.fields.get(directivesElement) ?? {}) }
             for (const fieldName of application.fieldNames) fields[fieldName] = this.getField(directivesElement, fieldName)
             Object.freeze(fields)
             this.app.directives.handlers.set(directivesElement, handlers)
+            this.app.directives.binders.set(directivesElement, binders)
             this.app.directives.fields.set(directivesElement, fields)
             this.app.directives.fieldNames.set(directivesElement, fieldNames)
             this.app.directives.cellNames.set(directivesElement, cellNames)
             this.app.directives.statements.set(directivesElement, statements)
-            return { handlers, fields, fieldNames, cellNames, statements }
+            return { handlers, binders, fields, fieldNames, cellNames, statements }
         }
     },
     runDirectives: {
         value: async function (directivesElement, loadedApplication) {
-            const { handlers = this.app.directives.handlers.get(directivesElement), fields = this.app.directives.fields.get(directivesElement),
-                fieldNames = this.app.directives.fieldNames.get(directivesElement), cellNames = this.app.directives.cellNames.get(directivesElement),
-                statements = this.app.directives.statements.get(directivesElement) } = loadedApplication
+            const { handlers = this.app.directives.handlers.get(directivesElement), binders = this.app.directives.binders.get(directivesElement),
+                fields = this.app.directives.fields.get(directivesElement), fieldNames = this.app.directives.fieldNames.get(directivesElement),
+                cellNames = this.app.directives.cellNames.get(directivesElement), statements = this.app.directives.statements.get(directivesElement) } = loadedApplication
             this.app.directives.abortController.get(directivesElement)?.abort()
             const abortController = new AbortController(), signal = abortController.signal
             this.app.directives.abortController.set(directivesElement, abortController)
@@ -468,8 +477,16 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [statementIndex, statement] of statements.entries()) {
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
-                    const [labelItem, handlerIndex, defaultValue] = step
-                    let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
+                    // const [labelItem, handlerIndex, defaultValue, binderIndex] = step
+                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue } = step
+                    // let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
+
+                    if (binderIndex) {
+                        const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+                        keyedAbortControllers[eventKey] = new AbortController()
+                        await binders[binderIndex](directivesElement, labels, env, statementIndex, stepIndex)
+                    }
+
                     directivesElement.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
                         if (detail == undefined) {
@@ -539,11 +556,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     parseRouterDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-            keyedAbortControllers[eventKey] = new AbortController()
-            // if (expression === '#') window.addEventListener('hashchange', event => directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash })),
-            //     { signal: keyedAbortControllers[eventKey].signal })
-
             let binder, handler
             switch (expression) {
                 case '#':
