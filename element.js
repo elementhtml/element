@@ -560,9 +560,9 @@ const ElementHTML = Object.defineProperties({}, {
             let vars, binder, handler
             switch (expression) {
                 case '#':
-                    binder = async (de, position, context) => {
-                        window.addEventListener('hashchange', event => de.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })),
-                            { signal: this.app.directives.keyedAbortControllers.get(de)[`${position}`].signal })
+                    binder = async (block, position, context) => {
+                        window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })),
+                            { signal: this.app.directives.keyedAbortControllers.get(block)[`${position}`].signal })
                     }
                     handler = async (value, position, context) => {
                         if (value != undefined && (typeof value === 'string')) document.location.hash = value
@@ -630,7 +630,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             }
-            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (de, position, context) => {
+            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (block, position, context) => {
                 const { vars } = context, { useHelper, parentObjectName } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
 
@@ -653,23 +653,26 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (expression, statementIndex, stepIndex) {
             expression = expression.trim()
             if (!expression) return
-            this.app.regexp[expression] ||= this.env.regexp[expression] ?? new RegExp(expression)
-            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => {
+            const vars = { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder = async (block, position, context) => {
+                const { vars } = context, { expression, regexp } = vars
+                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
+            }, handler = async (value, position, context) => {
+                const { vars } = context, { expression } = vars
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(this.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             }
-            return { binder, handler }
+            return { vars, binder, handler }
         }
     },
     parseStringDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
-            return { binder, handler }
+            const vars = { expression }, binder = undefined, handler = async (value, position, context) => this.mergeVariables(context.vars.expression, value, context.labels, context.env)
+            return { vars, binder, handler }
         }
     },
     parseStateDirectiveExpression: {
-        value: function (directivesElement, expression, type, statementIndex, stepIndex) {
+        value: function (expression, type, statementIndex, stepIndex) {
             let group = this.getStateGroup(expression, type, directivesElement), getReturnValue,
                 config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
                 addedFields = new Set(), addedCells = new Set(), items = []
