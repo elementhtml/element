@@ -314,7 +314,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     compileDirectives: {
         value: async function (directives) {
-            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
+            const handlers = [], binders = [], varsList = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
@@ -347,10 +347,8 @@ const ElementHTML = Object.defineProperties({}, {
                         label = label.slice(0, -1).trim()
                         step.label = label
                         step.labelMode = labelMode
-                        // step.push([label, labelMode])
                     } else {
                         step.label = label
-                        // step.push(label)
                     }
                     switch (label[0]) {
                         case '@':
@@ -365,29 +363,27 @@ const ElementHTML = Object.defineProperties({}, {
                             const ln = label.trim()
                             if (ln) statement.labels[ln] = undefined
                     }
-                    let handler, binder, handlerIndex, binderIndex
-                    const handlerSignature = handlerExpression
+                    let handler, binder, vars, handlerIndex, binderIndex
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            ({ binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                            ({ vars, binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, statementIndex, stepIndex)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    ({ binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ vars, binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '/':
-                                    ({ binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ vars, binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case '"': case "'":
-                                    ({ binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
+                                    ({ vars, binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex)
                                     break
                                 case "#": case "@":
-                                    let addedFieldNames, addedCellNames
-                                    [{ binder, handler }, addedFieldNames, addedCellNames] = this.parseStateDirectiveExpression(handlerExpression.slice(1), handlerExpression[0], statementIndex, stepIndex)
-                                    for (const addedName of addedFieldNames) fieldNames.add(addedName)
-                                    for (const addedName of addedCellNames) cellNames.add(addedName)
+                                    ({ vars, binder, handler }) = this.parseStateDirectiveExpression(handlerExpression, statementIndex, stepIndex)
+                                    for (const addedName of (vars.addedFieldNames ?? [])) fieldNames.add(addedName)
+                                    for (const addedName of (vars.addedCellNames ?? [])) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
@@ -422,13 +418,9 @@ const ElementHTML = Object.defineProperties({}, {
                                     ({ binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
                             }
                     }
-                    handlerIndex = (handlerMap[handlerSignature] ||= (handlers.push(handler)) - 1)
-                    step.handlerIndex = handlerIndex
-                    // step.push(handlerIndex)
-                    if (binder) {
-                        binderIndex = (bindMap[handlerSignature] ||= (binders.push(binder)) - 1)
-                        step.binderIndex = binderIndex
-                    }
+                    step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
+                    if (binder) step.binderIndex = (binderMap[this.digest(`${binder}`)] ||= (binders.push(binder)) - 1)
+                    if (vars) step.vars = vars
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels[label] = undefined
                     statement.labels[`${index}`] = undefined
@@ -478,15 +470,17 @@ const ElementHTML = Object.defineProperties({}, {
                 const { labels = {}, steps = [] } = statement, position = `${statementIndex}-${stepIndex}`
                 for (const [stepIndex, step] of steps.entries()) {
                     // const [labelItem, handlerIndex, defaultValue, binderIndex] = step
-                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue } = step
+                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars } = step
                     const context = { labels: { ...labels }, env }
                     // let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
 
                     if (binderIndex) {
                         const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
                         keyedAbortControllers[eventKey] = new AbortController()
-                        await binders[binderIndex](directivesElement, position, context)
+                        const extraVars = await binders[binderIndex](directivesElement, position, context)
+                        if (extraVars) vars = { ...(vars ?? {}), ...extraVars }
                     }
+                    context.vars = vars
 
                     directivesElement.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await handlers[handlerIndex](event.detail, position, context)
@@ -633,7 +627,6 @@ const ElementHTML = Object.defineProperties({}, {
             const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (block, position, context) => {
                 const { vars } = context, { useHelper, parentObjectName } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-
             }, handler = async (value, position, context) => {
                 const { vars, labels, env } = context, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
                 const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
@@ -672,17 +665,16 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     parseStateDirectiveExpression: {
-        value: function (expression, type, statementIndex, stepIndex) {
-            let group = this.getStateGroup(expression, type, directivesElement), getReturnValue,
-                config = Array.isArray(group) ? 'array' : ((expression[0] === '{') ? 'object' : 'single'),
-                addedFields = new Set(), addedCells = new Set(), items = []
-            if (config === 'array' && group.length === 1 && expression[0] !== '[') config = 'single'
-            if (config === 'single') group = group[0]
+        value: function (expression, statementIndex, stepIndex) {
+            const type = expression[0]
+            expression = expression.slice(1)
+            let group = this.getStateGroup(expression, type, directivesElement),
+                config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
+                addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
             switch (config) {
                 case 'single':
-                    const fieldOrCell = group[0];
-                    (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
-                    getReturnValue = () => fieldOrCell.get()
+                    (group.type === 'field' ? addedFields : addedCells).add(group.name)
+                    getReturnValue = () => group.get()
                     items.push(group)
                     break
                 case 'array':
@@ -717,9 +709,15 @@ const ElementHTML = Object.defineProperties({}, {
                 }, { signal: keyedAbortControllers[eventKey].signal })
             }
 
-            const binder = () => { }
+            const vars = {}
 
-            const handler = async (value, labels, env, statementIndex, stepIndex) => {
+            const binder = (block, position, context) => {
+                const group = this.getStateGroup(expression, type, block)
+
+                return { group }
+            }
+
+            const handler = async (value, position, context) => {
                 if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
@@ -745,7 +743,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return getReturnValue()
             }
-            return [{ binder, handler }, Array.from(addedFields), Array.from(addedCells)]
+            vars.addedFields = Array.from(addedFields)
+            vars.addedCells = Array.from(addedCells)
+            return { vars, binder, handler }
         }
     },
     parseSelectorDirectiveExpression: {
@@ -921,11 +921,11 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-
-
-
-
-
+    digest: {
+        enumerable: true, value: async function (str) {
+            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
+        }
+    },
     dispatchCompoundEvent: {
         enumerable: true, value: async function (eventName, detail, element) {
             const event = new CustomEvent(eventName, { detail })
@@ -1098,20 +1098,19 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     getStateGroup: {
-        enumerable: true, value: function (expression, type = '#', element) {
+        enumerable: true, value: function (expression, typeDefault = '#', element) {
             element = this.app.doppel.get(element) ?? element
             let group
             const getStateTarget = (name) => {
                 const modeFlag = name[name.length - 1],
                     mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
                 if (mode) name = name.slice(0, -1).trim()
+                if ((name[0] !== '#') && (name[0] !== '@')) name = `${typeDefault}${name}`
                 switch (name[0]) {
                     case '#':
-                        return [this.getCell(name.slice(1)), mode]
+                        return { cell: this.getCell(name.slice(1)), mode }
                     case '@':
-                        return [element.getField(name.slice(1)), mode]
-                    default:
-                        return [type === '@' ? element.getField(name) : this.getCell(name), mode]
+                        return { field: element.getField(name.slice(1)), mode }
                 }
             }
             switch (expression[0]) {
@@ -1136,7 +1135,7 @@ const ElementHTML = Object.defineProperties({}, {
                 default:
                     expression = expression.trim()
                     if (!expression) return
-                    return [getStateTarget(expression)]
+                    return getStateTarget(expression)
             }
         }
     },
