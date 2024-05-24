@@ -475,8 +475,11 @@ const ElementHTML = Object.defineProperties({}, {
                     // let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
 
                     if (binderIndex) {
-                        const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-                        keyedAbortControllers[eventKey] = new AbortController()
+                        if (vars.signal) {
+                            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+                            keyedAbortControllers[eventKey] = new AbortController()
+                            context.signal = keyedAbortControllers[eventKey].signal
+                        }
                         const extraVars = await binders[binderIndex](directivesElement, position, context)
                         if (extraVars) vars = { ...(vars ?? {}), ...extraVars }
                     }
@@ -554,9 +557,10 @@ const ElementHTML = Object.defineProperties({}, {
             let vars, binder, handler
             switch (expression) {
                 case '#':
+                    vars = { signal: true }
                     binder = async (block, position, context) => {
-                        window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })),
-                            { signal: this.app.directives.keyedAbortControllers.get(block)[`${position}`].signal })
+                        const { signal } = context
+                        window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
                     handler = async (value, position, context) => {
                         if (value != undefined && (typeof value === 'string')) document.location.hash = value
@@ -666,8 +670,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parseStateDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            const typeDefault = expression[0], vars = { expression: expression.slice(1), typeDefault }, binder = (block, position, context) => {
-                const { vars } = context, { expression, typeDefault } = vars
+            const typeDefault = expression[0], vars = { expression: expression.slice(1), signal: true, typeDefault }, binder = (block, position, context) => {
+                const { signal, vars } = context, { expression, typeDefault } = vars
                 let group = this.getStateGroup(expression, typeDefault, block),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
                     addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
@@ -694,13 +698,11 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         items = Object.values(group)
                 }
-                // const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-                // keyedAbortControllers[eventKey] = new AbortController()
                 for (const item of items) {
                     item[item.type].eventTarget.addEventListener('change', event => {
                         const detail = getReturnValue()
                         if (detail != undefined) block.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                    }, { signal: this.app.directives.keyedAbortControllers.get(block)[position].signal })
+                    }, { signal })
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
             }, handler = async (value, position, context) => {
@@ -742,15 +744,13 @@ const ElementHTML = Object.defineProperties({}, {
                         expression = `:root|${expression}`
                 }
             }
-            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()), vars = { scopeStatement, selectorStatement },
+            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()), vars = { scopeStatement, selectorStatement, signal: true },
                 binder = async (block, position, context) => {
                     const { vars, signal } = context, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
                     if (!scope) return {}
                     let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                     if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
                     const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
-                    // const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-                    // keyedAbortControllers[eventKey] = new AbortController()
                     for (let eventName of eventNames) {
                         let keepDefault = eventName.endsWith('+')
                         if (keepDefault) eventName = eventName.slice(0, -1)
@@ -786,15 +786,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     parseJSONDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
-            let retval
-            try { retval = JSON.parse(expression) } catch (e) { }
-            return async (value, labels, env, statementIndex, stepIndex) => retval
+        value: function (expression, statementIndex, stepIndex) {
+            let value
+            try { value = JSON.parse(expression) } catch (e) { }
+            const vars = { value }, binder = undefined, handler = async (value, position, context) => context.vars.value
+            return { vars, binder, handler }
         }
     },
     parseVariableDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
-            return async (value, labels, env, statementIndex, stepIndex) => this.mergeVariables(expression, value, labels, env)
+        value: function (expression, statementIndex, stepIndex) {
+            const vars = { expression }, binder = undefined, handler = async (value, position, context) => this.mergeVariables(context.vars.expression, value, context.labels, context.env)
+            return { vars, binder, handler }
         }
     },
     parseTransformDirectiveExpression: {
@@ -802,12 +804,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
             if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
             if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-            return async (value, labels, env, statementIndex, stepIndex) => {
-                const fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(directivesElement) ?? {}).map(f => [f[0], f[1].get()]))),
-                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()]))),
-                    context = Object.freeze({ ...env.context })
-                return this.runTransform(expression, value, directivesElement, { labels, fields, cells, context })
+            const vars = { expression }, binder = async (block, position, context) => ({ block }), handler = async (value, position, context) => {
+                const { block, expression } = context.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
             }
+            return { vars, binder, handler }
         }
     },
     parseNetworkDirectiveExpression: {
