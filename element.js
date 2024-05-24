@@ -666,12 +666,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parseStateDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            const typeDefault = expression[0]
-            expression = expression.slice(1)
-
-            const vars = { expression, typeDefault }
-
-            const binder = (block, position, context) => {
+            const typeDefault = expression[0], vars = { expression: expression.slice(1), typeDefault }, binder = (block, position, context) => {
                 const { vars } = context, { expression, typeDefault } = vars
                 let group = this.getStateGroup(expression, typeDefault, block),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
@@ -708,9 +703,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }, { signal: this.app.directives.keyedAbortControllers.get(block)[position].signal })
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
-            }
-
-            const handler = async (value, position, context) => {
+            }, handler = async (value, position, context) => {
                 const { vars } = context, { getReturnValue, config, group } = vars
                 if (value == undefined) return getReturnValue()
                 switch (config) {
@@ -729,7 +722,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     parseSelectorDirectiveExpression: {
-        value: function (directivesElement, expression, statementIndex, stepIndex) {
+        value: function (expression, statementIndex, stepIndex) {
             if (!expression.includes('|')) {
                 switch (expression[0]) {
                     case '#':
@@ -749,43 +742,47 @@ const ElementHTML = Object.defineProperties({}, {
                         expression = `:root|${expression}`
                 }
             }
-            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()),
-                scope = this.resolveScope(scopeStatement, directivesElement)
-            if (!scope) return []
-            let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
-            if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-            const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click']))),
-                eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-            keyedAbortControllers[eventKey] = new AbortController()
-            for (let eventName of eventNames) {
-                let keepDefault = eventName.endsWith('+')
-                if (keepDefault) eventName = eventName.slice(0, -1)
-                scope.addEventListener(eventName, event => {
-                    if (selector.endsWith('}') && selector.includes('{')) {
-                        const target = this.resolveSelector(selector, scope)
-                        if (!target || (Array.isArray(target) && !target.length)) return
-                    } else if (selector[0] === '$') {
-                        if (selector.length === 1) return
-                        const catchallSelector = this.buildCatchallSelector(selector)
-                        if (!event.target.matches(catchallSelector)) return
-                    } else if (selector && !event.target.matches(selector)) { return }
-                    let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
-                    if (!eventList && (event.type !== tagDefaultEventType)) return
-                    if (!keepDefault) event.preventDefault()
-                    directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: this.flatten(event.target, undefined, event) }))
-                }, { signal: keyedAbortControllers[eventKey].signal })
-            }
-            return async (value, labels, env, statementIndex, stepIndex) => {
-                if (value != undefined) {
-                    const target = this.resolveSelector(selector, scope)
-                    if (Array.isArray(target)) {
-                        for (const t of target) this.render(t, value)
-                    } else if (target) {
-                        this.render(target, value)
+            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()), vars = { scopeStatement, selectorStatement },
+                binder = async (block, position, context) => {
+                    const { vars, signal } = context, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
+                    if (!scope) return {}
+                    let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+                    if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                    const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
+                    // const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+                    // keyedAbortControllers[eventKey] = new AbortController()
+                    for (let eventName of eventNames) {
+                        let keepDefault = eventName.endsWith('+')
+                        if (keepDefault) eventName = eventName.slice(0, -1)
+                        scope.addEventListener(eventName, event => {
+                            if (selector.endsWith('}') && selector.includes('{')) {
+                                const target = this.resolveSelector(selector, scope)
+                                if (!target || (Array.isArray(target) && !target.length)) return
+                            } else if (selector[0] === '$') {
+                                if (selector.length === 1) return
+                                const catchallSelector = this.buildCatchallSelector(selector)
+                                if (!event.target.matches(catchallSelector)) return
+                            } else if (selector && !event.target.matches(selector)) { return }
+                            let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                            if (!eventList && (event.type !== tagDefaultEventType)) return
+                            if (!keepDefault) event.preventDefault()
+                            block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
+                        }, { signal })
                     }
+                    return { selector, scope }
+                }, handler = async (value, position, context) => {
+                    const { vars } = context, { selector, scope } = vars
+                    if (value != undefined) {
+                        const target = this.resolveSelector(selector, scope)
+                        if (Array.isArray(target)) {
+                            for (const t of target) this.render(t, value)
+                        } else if (target) {
+                            this.render(target, value)
+                        }
+                    }
+                    return value
                 }
-                return value
-            }
+            return { vars, binder, handler }
         }
     },
     parseJSONDirectiveExpression: {
