@@ -666,85 +666,65 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parseStateDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            const type = expression[0]
+            const typeDefault = expression[0]
             expression = expression.slice(1)
-            let group = this.getStateGroup(expression, type, directivesElement),
-                config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
-                addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
-            switch (config) {
-                case 'single':
-                    (group.type === 'field' ? addedFields : addedCells).add(group.name)
-                    getReturnValue = () => group.get()
-                    items.push(group)
-                    break
-                case 'array':
-                    for (const item of group) {
-                        const fieldOrCell = item[0];
-                        (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
-                    }
-                    getReturnValue = () => {
-                        const r = group.map(i => i[0].get())
-                        return r.some(rr => rr == undefined) ? undefined : r
-                    }
-                    items = group
-                    break
-                default:
-                    for (const [name, item] of Object.entries(group)) {
-                        const fieldOrCell = item[0];
-                        (fieldOrCell.type === 'field' ? addedFields : addedCells).add(fieldOrCell.name)
-                    }
-                    getReturnValue = () => {
-                        const r = Object.fromEntries(Object.entries(group).map(ent => [ent[0], ent[1][0].get()]))
-                        return Object.values(r).every(rr => rr == undefined) ? undefined : r
-                    }
-                    items = Object.values(group)
-            }
-            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
-            keyedAbortControllers[eventKey] = new AbortController()
-            for (const item of items) {
-                const fieldOrCell = item[0]
-                fieldOrCell.eventTarget.addEventListener('change', event => {
-                    const retval = getReturnValue()
-                    if (retval != undefined) directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: retval }))
-                }, { signal: keyedAbortControllers[eventKey].signal })
-            }
 
-            const vars = {}
+            const vars = { expression, typeDefault }
 
             const binder = (block, position, context) => {
-                const group = this.getStateGroup(expression, type, block)
-
-                return { group }
+                const { vars } = context, { expression, typeDefault } = vars
+                let group = this.getStateGroup(expression, typeDefault, block),
+                    config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
+                    addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
+                switch (config) {
+                    case 'single':
+                        (group.type === 'field' ? addedFields : addedCells).add(group[group.type].name)
+                        getReturnValue = () => group[group.type].get()
+                        items.push(group)
+                        break
+                    case 'array':
+                        for (const g of group) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        getReturnValue = () => {
+                            const r = group.map(g => g[g.type].get())
+                            return r.some(rr => rr == undefined) ? undefined : r
+                        }
+                        items = group
+                        break
+                    default:
+                        for (const g of Object.values(group)) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        getReturnValue = () => {
+                            const r = {}
+                            for (const name in group) r[name] = group[name][group[name].type].get()
+                            return Object.values(r).every(rr => rr == undefined) ? undefined : r
+                        }
+                        items = Object.values(group)
+                }
+                // const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+                // keyedAbortControllers[eventKey] = new AbortController()
+                for (const item of items) {
+                    item[item.type].eventTarget.addEventListener('change', event => {
+                        const detail = getReturnValue()
+                        if (detail != undefined) block.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                    }, { signal: this.app.directives.keyedAbortControllers.get(block)[position].signal })
+                }
+                return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
             }
 
             const handler = async (value, position, context) => {
+                const { vars } = context, { getReturnValue, config, group } = vars
                 if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
-                        const [fieldOrCell, mode] = group
-                        fieldOrCell.set(value, mode)
+                        group[group.type].set(value, group.mode)
                         break
                     case 'array':
-                        if (Array.isArray(value)) {
-                            for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) {
-                                const [fieldOrCell, mode] = group[i]
-                                fieldOrCell.set(v, mode)
-                            }
-                        }
+                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
                         break
                     default:
-                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) {
-                            if (v == undefined) continue
-                            if (group[k]) {
-                                const [fieldOrCell, mode] = group[k]
-                                fieldOrCell.set(v, mode)
-                            }
-                        }
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
                 }
                 return getReturnValue()
             }
-            vars.addedFields = Array.from(addedFields)
-            vars.addedCells = Array.from(addedCells)
             return { vars, binder, handler }
         }
     },
@@ -1108,9 +1088,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((name[0] !== '#') && (name[0] !== '@')) name = `${typeDefault}${name}`
                 switch (name[0]) {
                     case '#':
-                        return { cell: this.getCell(name.slice(1)), mode }
+                        return { cell: this.getCell(name.slice(1)), type: 'cell', mode }
                     case '@':
-                        return { field: element.getField(name.slice(1)), mode }
+                        return { field: element.getField(name.slice(1)), type: 'field', mode }
                 }
             }
             switch (expression[0]) {
