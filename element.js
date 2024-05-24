@@ -409,13 +409,13 @@ const ElementHTML = Object.defineProperties({}, {
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        ({ binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), !!defaultExpression, statementIndex, stepIndex)
+                                        ({ binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), statementIndex, stepIndex, !!defaultExpression)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    ({ binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, !!defaultExpression, statementIndex, stepIndex)
+                                    ({ binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, statementIndex, stepIndex, , !!defaultExpression)
                             }
                     }
                     step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
@@ -813,14 +813,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     parseNetworkDirectiveExpression: {
-        value: function (directivesElement, expression, hasDefault, statementIndex, stepIndex) {
+        value: function (expression, statementIndex, stepIndex, hasDefault) {
             const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
             let returnFullRequest
             if (expression[0] === '~' && expression.endsWith('~')) {
                 returnFullRequest = true
                 expression = expression.slice(1, -1)
             }
-            return async (value, labels, env, statementIndex, stepIndex) => {
+            const vars = { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, binder = undefined, handler = async (value, position, context) => {
+                const { labels, env, vars } = context, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
                 const options = {}
@@ -856,22 +857,26 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 })
             }
+            return { vars, binder, handler }
         }
     },
     parseWaitDirectiveExpression: {
-        value: function (directivesElement, expression, hasDefault, statementIndex, stepIndex) {
-            return async (value, labels, env, statementIndex, stepIndex) => {
-                const useExpression = this.mergeVariables(expression, value, labels, env)
-                let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')
-                mainWait = this.mergeVariables(mainWait, value, labels, env)
-                override = (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
+        value: function (expression, statementIndex, stepIndex, hasDefault) {
+            const vars = { expression, hasDefault }, binder = undefined, handler = async (value, position, context) => {
+                const { labels, env, vars } = context, { expression, hasDefault } = vars
+                const getResult = () => {
+                    const useExpression = this.mergeVariables(expression, value, labels, env)
+                    let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')
+                    mainWait = this.mergeVariables(mainWait, value, labels, env)
+                    return (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
+                }
                 if (mainWait === 'frame') {
                     await new Promise(resolve => window.requestAnimationFrame(resolve))
-                    return override
+                    return getResult()
                 } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
                     const [, timeout] = mainWait.split(':')
                     await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
-                    return override
+                    return getResult()
                 } else if (mainWait[0] === '+') {
                     ms = parseInt(mainWait.slice(1)) || 0
                 } else if (this.sys.regexp.isNumeric.test(mainWait)) {
@@ -888,8 +893,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 ms = Math.max(ms, 0)
                 await new Promise(resolve => setTimeout(resolve, ms))
-                return override
+                return getResult()
             }
+            return { vars, binder, handler }
         }
     },
 
