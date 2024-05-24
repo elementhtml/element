@@ -475,20 +475,21 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(env.fields)
             Object.freeze(env.cells)
             for (const [statementIndex, statement] of statements.entries()) {
-                const { labels = {}, steps = [] } = statement
+                const { labels = {}, steps = [] } = statement, position = `${statementIndex}-${stepIndex}`
                 for (const [stepIndex, step] of steps.entries()) {
                     // const [labelItem, handlerIndex, defaultValue, binderIndex] = step
                     const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue } = step
+                    const context = { labels: { ...labels }, env }
                     // let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
 
                     if (binderIndex) {
                         const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
                         keyedAbortControllers[eventKey] = new AbortController()
-                        await binders[binderIndex](directivesElement, labels, env, statementIndex, stepIndex)
+                        await binders[binderIndex](directivesElement, position, context)
                     }
 
                     directivesElement.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = await handlers[handlerIndex](event.detail, { ...labels }, env, statementIndex, stepIndex)
+                        let detail = await handlers[handlerIndex](event.detail, position, context)
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
                                 detail = defaultValue
@@ -556,32 +557,32 @@ const ElementHTML = Object.defineProperties({}, {
 
     parseRouterDirectiveExpression: {
         value: function (expression, statementIndex, stepIndex) {
-            let binder, handler
+            let vars, binder, handler
             switch (expression) {
                 case '#':
-                    binder = async (de, labels, env, statementIndex, stepIndex) => {
-                        window.addEventListener('hashchange', event => de.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail: document.location.hash })),
-                            { signal: this.app.directives.keyedAbortControllers.get(de)[`${statementIndex}-${stepIndex}`].signal })
+                    binder = async (de, position, context) => {
+                        window.addEventListener('hashchange', event => de.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })),
+                            { signal: this.app.directives.keyedAbortControllers.get(de)[`${position}`].signal })
                     }
-                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                    handler = async (value, position, context) => {
                         if (value != undefined && (typeof value === 'string')) document.location.hash = value
                         return document.location.hash
                     }
                     break
                 case '?':
-                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                    handler = async (value, position, context) => {
                         if (value != undefined && (typeof value === 'string')) document.location.search = value
                         return document.location.search
                     }
                     break
                 case '/':
-                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                    handler = async (value, position, context) => {
                         if (value != undefined && (typeof value === 'string')) document.location.pathname = value
                         return document.location.pathname
                     }
                     break
                 case ':':
-                    handler = async (value, labels, env, statementIndex, stepIndex) => {
+                    handler = async (value, position, context) => {
                         switch (typeof value) {
                             case 'string':
                                 document.location = value
@@ -613,7 +614,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
                     }
             }
-            return { binder, handler }
+            return { vars, binder, handler }
         }
     },
     parseProxyDirectiveExpression: {
@@ -622,7 +623,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!parentExpression || (childExpression === '')) return
             let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
             parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
             let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
             if (useHelper) {
                 parentObjectName = parentObjectName.slice(1)
@@ -630,19 +630,23 @@ const ElementHTML = Object.defineProperties({}, {
                 [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             }
-            const binder = undefined, handler = async (value, labels, env, statementIndex, stepIndex) => {
-                if (useHelper) {
-                    await this.loadHelper(parentObjectName)
-                    return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
-                }
+            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (de, position, context) => {
+                const { vars } = context, { useHelper, parentObjectName } = vars
+                if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
+
+            }, handler = async (value, position, context) => {
+                const { vars, labels, env } = context, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
+                const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
+                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
                 if (childMethodName) {
+                    const { childArgs } = vars
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
                     return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
                 }
                 return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
             }
-            return { binder, handler }
+            return { vars, binder, handler }
         }
     },
     parsePatternDirectiveExpression: {
