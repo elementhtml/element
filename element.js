@@ -475,23 +475,19 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [statementIndex, statement] of statements.entries()) {
                 const { labels = {}, steps = [] } = statement, position = `${statementIndex}-${stepIndex}`
                 for (const [stepIndex, step] of steps.entries()) {
-                    // const [labelItem, handlerIndex, defaultValue, binderIndex] = step
-                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars } = step
-                    const context = { labels: { ...labels }, env }
-                    // let [label, labelMode] = Array.isArray(labelItem) ? labelItem : [labelItem, undefined]
-
+                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars = {} } = step, envelope = { labels: { ...labels }, env }
                     if (binderIndex) {
                         if (vars.signal) {
                             const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(block)
                             keyedAbortControllers[eventKey] = new AbortController()
-                            context.signal = keyedAbortControllers[eventKey].signal
+                            envelope.signal = keyedAbortControllers[eventKey].signal
                         }
-                        const extraVars = await binders[binderIndex](block, position, context)
-                        if (extraVars) vars = { ...(vars ?? {}), ...extraVars }
+                        const extraVars = await binders[binderIndex](block, position, envelope)
+                        if (extraVars) vars = { ...vars, ...extraVars }
                     }
-                    context.vars = vars
+                    envelope.vars = vars
                     block.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = await handlers[handlerIndex](event.detail, position, context)
+                        let detail = await handlers[handlerIndex](event.detail, position, envelope)
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
                                 detail = defaultValue
@@ -563,29 +559,29 @@ const ElementHTML = Object.defineProperties({}, {
             switch (expression) {
                 case '#':
                     vars = { signal: true }
-                    binder = async (block, position, context) => {
-                        const { signal } = context
+                    binder = async (block, position, envelope) => {
+                        const { signal } = envelope
                         window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
-                    handler = async (value, position, context) => {
+                    handler = async (value, position, envelope) => {
                         if (value != undefined && (typeof value === 'string')) document.location.hash = value
                         return document.location.hash
                     }
                     break
                 case '?':
-                    handler = async (value, position, context) => {
+                    handler = async (value, position, envelope) => {
                         if (value != undefined && (typeof value === 'string')) document.location.search = value
                         return document.location.search
                     }
                     break
                 case '/':
-                    handler = async (value, position, context) => {
+                    handler = async (value, position, envelope) => {
                         if (value != undefined && (typeof value === 'string')) document.location.pathname = value
                         return document.location.pathname
                     }
                     break
                 case ':':
-                    handler = async (value, position, context) => {
+                    handler = async (value, position, envelope) => {
                         switch (typeof value) {
                             case 'string':
                                 document.location = value
@@ -633,11 +629,11 @@ const ElementHTML = Object.defineProperties({}, {
                 [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             }
-            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (block, position, context) => {
-                const { vars } = context, { useHelper, parentObjectName } = vars
+            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (block, position, envelope) => {
+                const { vars } = envelope, { useHelper, parentObjectName } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-            }, handler = async (value, position, context) => {
-                const { vars, labels, env } = context, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
+            }, handler = async (value, position, envelope) => {
+                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
                 const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
                 if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
                 if (childMethodName) {
@@ -655,11 +651,11 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (expression, hasDefault) {
             expression = expression.trim()
             if (!expression) return
-            const vars = { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder = async (block, position, context) => {
-                const { vars } = context, { expression, regexp } = vars
+            const vars = { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder = async (block, position, envelope) => {
+                const { vars } = envelope, { expression, regexp } = vars
                 this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
-            }, handler = async (value, position, context) => {
-                const { vars } = context, { expression } = vars
+            }, handler = async (value, position, envelope) => {
+                const { vars } = envelope, { expression } = vars
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(this.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
@@ -669,14 +665,14 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parseStringDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const vars = { expression }, binder = undefined, handler = async (value, position, context) => this.mergeVariables(context.vars.expression, value, context.labels, context.env)
+            const vars = { expression }, binder = undefined, handler = async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
             return { vars, binder, handler }
         }
     },
     parseStateDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const typeDefault = expression[0], vars = { expression: expression.slice(1), signal: true, typeDefault }, binder = (block, position, context) => {
-                const { signal, vars } = context, { expression, typeDefault } = vars
+            const typeDefault = expression[0], vars = { expression: expression.slice(1), signal: true, typeDefault }, binder = (block, position, envelope) => {
+                const { signal, vars } = envelope, { expression, typeDefault } = vars
                 let group = this.getStateGroup(expression, typeDefault, block),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
                     addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
@@ -710,8 +706,8 @@ const ElementHTML = Object.defineProperties({}, {
                     }, { signal })
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
-            }, handler = async (value, position, context) => {
-                const { vars } = context, { getReturnValue, config, group } = vars
+            }, handler = async (value, position, envelope) => {
+                const { vars } = envelope, { getReturnValue, config, group } = vars
                 if (value == undefined) return getReturnValue()
                 switch (config) {
                     case 'single':
@@ -750,8 +746,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()), vars = { scopeStatement, selectorStatement, signal: true },
-                binder = async (block, position, context) => {
-                    const { vars, signal } = context, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
+                binder = async (block, position, envelope) => {
+                    const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
                     if (!scope) return {}
                     let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                     if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
@@ -775,8 +771,8 @@ const ElementHTML = Object.defineProperties({}, {
                         }, { signal })
                     }
                     return { selector, scope }
-                }, handler = async (value, position, context) => {
-                    const { vars } = context, { selector, scope } = vars
+                }, handler = async (value, position, envelope) => {
+                    const { vars } = envelope, { selector, scope } = vars
                     if (value != undefined) {
                         const target = this.resolveSelector(selector, scope)
                         if (Array.isArray(target)) {
@@ -794,13 +790,13 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (expression, hasDefault) {
             let value
             try { value = JSON.parse(expression) } catch (e) { }
-            const vars = { value }, binder = undefined, handler = async (value, position, context) => context.vars.value
+            const vars = { value }, binder = undefined, handler = async (value, position, envelope) => envelope.vars.value
             return { vars, binder, handler }
         }
     },
     parseVariableDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const vars = { expression }, binder = undefined, handler = async (value, position, context) => this.mergeVariables(context.vars.expression, value, context.labels, context.env)
+            const vars = { expression }, binder = undefined, handler = async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
             return { vars, binder, handler }
         }
     },
@@ -809,8 +805,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
             if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
             if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-            const vars = { expression }, binder = async (block, position, context) => ({ block }), handler = async (value, position, context) => {
-                const { block, expression } = context.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
+            const vars = { expression }, binder = async (block, position, envelope) => ({ block }), handler = async (value, position, envelope) => {
+                const { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                 return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
             }
@@ -825,8 +821,8 @@ const ElementHTML = Object.defineProperties({}, {
                 returnFullRequest = true
                 expression = expression.slice(1, -1)
             }
-            const vars = { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, binder = undefined, handler = async (value, position, context) => {
-                const { labels, env, vars } = context, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
+            const vars = { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, binder = undefined, handler = async (value, position, envelope) => {
+                const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
                 const options = {}
@@ -867,8 +863,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parseWaitDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const vars = { expression, hasDefault }, binder = undefined, handler = async (value, position, context) => {
-                const { labels, env, vars } = context, { expression, hasDefault } = vars
+            const vars = { expression, hasDefault }, binder = undefined, handler = async (value, position, envelope) => {
+                const { labels, env, vars } = envelope, { expression, hasDefault } = vars
                 const getResult = () => {
                     const useExpression = this.mergeVariables(expression, value, labels, env)
                     let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')
