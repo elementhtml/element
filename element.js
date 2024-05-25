@@ -266,17 +266,17 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.isDirectivesBlock(element)) { this.connectDirectives(element) } else if (this.getCustomTag(element)) { this.load(element) }
+            for (const element of domTraverser.call(domRoot, '*')) if (this.isDirectivesBlock(element)) { this.connectBlock(element) } else if (this.getCustomTag(element)) { this.load(element) }
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
-                        if (this.isDirectivesBlock(addedNode)) { this.connectDirectives(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
+                        if (this.isDirectivesBlock(addedNode)) { this.connectBlock(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
                         if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
                     }
                     for (const removedNode of (record.removedNodes || [])) {
                         if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
                         if (this.isDirectivesBlock(removedNode)) {
-                            this.disconnectDirectives(removedNode)
+                            this.disconnectBlock(removedNode)
                         } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
                             removedNode.disconnectedCallback()
                         }
@@ -299,17 +299,25 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    connectDirectives: {
-        value: async function (directivesElement) {
-            this.app.directives.keyedAbortControllers.set(directivesElement, {})
-            const app = await this.compileDirectives(directivesElement, directivesElement.src ? await fetch(directivesElement.src).then(r => r.text()) : directivesElement.textContent)
-            await this.runDirectives(directivesElement, await this.loadDirectives(directivesElement, app))
+    connectBlock: {
+        value: async function (block) {
+            this.app.directives.keyedAbortControllers.set(block, {})
+            let applet
+            switch (block.type) {
+                case 'directives/element':
+                    applet = await this.compileDirectives(block.src ? await fetch(block.src).then(r => r.text()) : block.textContent)
+                    break
+                case 'application/element':
+                    applet = await import(block.src)
+                    break
+            }
+            await this.runBlock(block, await this.loadBlock(block, applet))
         }
     },
-    disconnectDirectives: {
-        value: function (directivesElement) {
-            this.app.directives.abortControllers.get(directivesElement)?.abort()
-            for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(directivesElement) ?? {}))) v.abort()
+    disconnectBlock: {
+        value: function (block) {
+            this.app.directives.abortControllers.get(block)?.abort()
+            for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(block) ?? {}))) v.abort()
         }
     },
     compileDirectives: {
@@ -368,36 +376,36 @@ const ElementHTML = Object.defineProperties({}, {
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            ({ vars, binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, hasDefault)
+                            ({ vars = {}, binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, hasDefault)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    ({ vars, binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '/':
-                                    ({ vars, binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '"': case "'":
-                                    ({ vars, binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case "#": case "@":
-                                    ({ vars, binder, handler }) = this.parseStateDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseStateDirectiveExpression(handlerExpression, hasDefault)
                                     for (const addedName of (vars.addedFieldNames ?? [])) fieldNames.add(addedName)
                                     for (const addedName of (vars.addedCellNames ?? [])) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        ({ vars, binder, handler }) = this.parseVariableDirectiveExpression(handlerExpression, hasDefault)
+                                        ({ vars = {}, binder, handler }) = this.parseVariableDirectiveExpression(handlerExpression, hasDefault)
                                     } else if (handlerExpression[1] === "(") {
-                                        ({ vars, binder, handler }) = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), hasDefault)
+                                        ({ vars = {}, binder, handler }) = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), hasDefault)
                                     }
                                     break
                                 case "(":
-                                    ({ vars, binder, handler }) = this.parseTransformDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseTransformDirectiveExpression(handlerExpression, hasDefault)
                                     break
                                 case "{": case "[":
-                                    ({ vars, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
                                     let t
@@ -405,18 +413,18 @@ const ElementHTML = Object.defineProperties({}, {
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) ({ vars, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) ({ vars = {}, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        ({ vars, binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                        ({ vars = {}, binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    ({ vars, binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars = {}, binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, hasDefault)
                             }
                     }
                     step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
@@ -1596,7 +1604,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     isDirectivesBlock: {
         value: function (element) {
-            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element'))
+            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
         }
     },
     getInheritance: {
