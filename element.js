@@ -809,7 +809,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
             if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
             const vars = { expression }, binder = async (block, position, envelope) => ({ block }), handler = async (value, position, envelope) => {
-                const { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
+                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                 return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
             }
