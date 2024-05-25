@@ -333,9 +333,8 @@ const ElementHTML = Object.defineProperties({}, {
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
-                    const step = {}
                     let handlerExpression = segment, label, defaultExpression, hasDefault = false
-                    const labelMatch = handlerExpression.match(this.sys.regexp.label)
+                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -354,11 +353,9 @@ const ElementHTML = Object.defineProperties({}, {
                     const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
                     if (labelMode) {
                         label = label.slice(0, -1).trim()
-                        step.label = label
                         step.labelMode = labelMode
-                    } else {
-                        step.label = label
                     }
+                    step.label = label
                     switch (label[0]) {
                         case '@':
                             let fn = label.slice(1).trim()
@@ -372,7 +369,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const ln = label.trim()
                             if (ln) statement.labels[ln] = undefined
                     }
-                    let handler, binder, vars, handlerIndex, binderIndex
+                    let vars = {}, binder, handler
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
@@ -443,35 +440,35 @@ const ElementHTML = Object.defineProperties({}, {
             return { handlers, binders, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
     },
-    loadDirectives: {
-        value: async function (directivesElement, application) {
-            const handlers = Object.freeze(application.handlers ?? []), binders = Object.freeze(application.binders ?? []),
-                fieldNames = Object.freeze(application.fieldNames ?? []), cellNames = Object.freeze(application.cellNames ?? []),
-                statements = Object.freeze(application.statements ?? []), fields = { ...(this.app.directives.fields.get(directivesElement) ?? {}) }
-            for (const fieldName of application.fieldNames) fields[fieldName] = this.getField(directivesElement, fieldName)
+    loadBlock: {
+        value: async function (block, applet) {
+            const handlers = Object.freeze(applet.handlers ?? []), binders = Object.freeze(applet.binders ?? []),
+                fieldNames = Object.freeze(applet.fieldNames ?? []), cellNames = Object.freeze(applet.cellNames ?? []),
+                statements = Object.freeze(applet.statements ?? []), fields = { ...(this.app.directives.fields.get(block) ?? {}) }
+            for (const fieldName of applet.fieldNames) fields[fieldName] = this.getField(block, fieldName)
             Object.freeze(fields)
-            this.app.directives.handlers.set(directivesElement, handlers)
-            this.app.directives.binders.set(directivesElement, binders)
-            this.app.directives.fields.set(directivesElement, fields)
-            this.app.directives.fieldNames.set(directivesElement, fieldNames)
-            this.app.directives.cellNames.set(directivesElement, cellNames)
-            this.app.directives.statements.set(directivesElement, statements)
+            this.app.directives.handlers.set(block, handlers)
+            this.app.directives.binders.set(block, binders)
+            this.app.directives.fields.set(block, fields)
+            this.app.directives.fieldNames.set(block, fieldNames)
+            this.app.directives.cellNames.set(block, cellNames)
+            this.app.directives.statements.set(block, statements)
             return { handlers, binders, fields, fieldNames, cellNames, statements }
         }
     },
-    runDirectives: {
-        value: async function (directivesElement, loadedApplication) {
-            const { handlers = this.app.directives.handlers.get(directivesElement), binders = this.app.directives.binders.get(directivesElement),
-                fields = this.app.directives.fields.get(directivesElement), fieldNames = this.app.directives.fieldNames.get(directivesElement),
-                cellNames = this.app.directives.cellNames.get(directivesElement), statements = this.app.directives.statements.get(directivesElement) } = loadedApplication
-            this.app.directives.abortController.get(directivesElement)?.abort()
+    runBlock: {
+        value: async function (block, applet) {
+            const { handlers = this.app.directives.handlers.get(block), binders = this.app.directives.binders.get(block),
+                fields = this.app.directives.fields.get(block), fieldNames = this.app.directives.fieldNames.get(block),
+                cellNames = this.app.directives.cellNames.get(block), statements = this.app.directives.statements.get(block) } = applet
+            this.app.directives.abortController.get(block)?.abort()
             const abortController = new AbortController(), signal = abortController.signal
-            this.app.directives.abortController.set(directivesElement, abortController)
-            const rootNode = directivesElement.getRootNode(),
+            this.app.directives.abortController.set(block, abortController)
+            const rootNode = block.getRootNode(),
                 context = Object.freeze(rootNode instanceof ShadowRoot
                     ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context),
                 env = Object.freeze({ fields: {}, cells: {}, context })
-            for (const fieldName of fieldNames) env.fields[fieldName] = this.getField(directivesElement, fieldName)
+            for (const fieldName of fieldNames) env.fields[fieldName] = this.getField(block, fieldName)
             for (const cellName of cellNames) env.cells[cellName] = this.getCell(cellName)
             Object.freeze(env.fields)
             Object.freeze(env.cells)
@@ -485,16 +482,15 @@ const ElementHTML = Object.defineProperties({}, {
 
                     if (binderIndex) {
                         if (vars.signal) {
-                            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(directivesElement)
+                            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(block)
                             keyedAbortControllers[eventKey] = new AbortController()
                             context.signal = keyedAbortControllers[eventKey].signal
                         }
-                        const extraVars = await binders[binderIndex](directivesElement, position, context)
+                        const extraVars = await binders[binderIndex](block, position, context)
                         if (extraVars) vars = { ...(vars ?? {}), ...extraVars }
                     }
                     context.vars = vars
-
-                    directivesElement.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                    block.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                         let detail = await handlers[handlerIndex](event.detail, position, context)
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
@@ -525,18 +521,18 @@ const ElementHTML = Object.defineProperties({}, {
                                 labels[label] = detail
                         }
                         labels[`${stepIndex}`] = detail
-                        if (detail != undefined) directivesElement.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                        if (detail != undefined) block.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
                     }, { signal })
                 }
             }
-            directivesElement.dispatchEvent(new CustomEvent('run'))
+            block.dispatchEvent(new CustomEvent('run'))
         }
     },
 
     getField: {
-        value: async function (directivesElement, fieldName) {
+        value: async function (block, fieldName) {
             if (!fieldName) return
-            const fields = this.app.directives.fields.get(directivesElement)
+            const fields = this.app.directives.fields.get(block)
             if (!fields[fieldName]) {
                 const field = {
                     type: 'field',
@@ -917,6 +913,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     digest: {
         enumerable: true, value: async function (str) {
+            if (typeof str !== 'string') str = `${str}`
             return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
         }
     },
