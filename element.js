@@ -18,10 +18,11 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
+            applets: new WeakMap(),
             cells: {},
             directives: {
-                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(), binders: new WeakMap(),
-                fieldNames: new WeakMap(), keyedAbortControllers: new WeakMap(), handlers: new WeakMap(), statements: new WeakMap()
+                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(),
+                fieldNames: new WeakMap(), keyedAbortControllers: new WeakMap(), statements: new WeakMap()
             },
             doppel: { dom: new WeakMap(), observers: new WeakMap() },
             eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
@@ -220,7 +221,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const hn in this.env.preload) if ((typeof this.env.loaders[hn] === 'function')) await this.loadHelper(hn, this.env.preload[hn])
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
-                for (const f of ['binders', 'handlers']) {
+                for (const f of ['binders', 'handlers', 'parsers']) {
                     for (const b in this[f]) this[f][b] = this[f][b].bind(this)
                     Object.freeze(this[f])
                 }
@@ -307,150 +308,47 @@ const ElementHTML = Object.defineProperties({}, {
     connectBlock: {
         value: async function (block) {
             this.app.directives.keyedAbortControllers.set(block, {})
-            let applet
+            let applet, AppletTemplate
             switch (block.type) {
                 case 'directives/element':
-                    applet = await this.compileDirectives(block.src ? await fetch(block.src).then(r => r.text()) : block.textContent)
+                    let name = block.name || block.getAttribute('name') || undefined
+                    AppletTemplate = await this.compileDirectives(block.src ? await fetch(block.src).then(r => r.text()) : block.textContent, name)
                     break
                 case 'application/element':
-                    applet = await import(block.src)
+                    if (!block.src) break
+                    switch (block.src[0]) {
+                        case '$':
+                            AppletTemplate = this.env.applets[block.src.slice(1)]
+                            break
+                        default:
+                            AppletTemplate = this.app.applets[block.src]?.constructor
+                            AppletTemplate ??= await import(block.src)
+                            break
+                    }
                     break
             }
+            if (!AppletTemplate) return
+            applet = new AppletTemplate()
+
+            console.log('line 336', applet)
+
             await this.runBlock(block, await this.loadBlock(block, applet))
         }
     },
     disconnectBlock: {
         value: function (block) {
-            this.app.directives.abortControllers.get(block)?.abort()
             for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(block) ?? {}))) v.abort()
-        }
-    },
-    compileDirectives: {
-        value: async function (directives) {
-            const fieldNames = new Set(), cellNames = new Set(), statements = []
-            let statementIndex = -1
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
-                directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                statementIndex = statementIndex + 1
-                const statement = { labels: {}, steps: [] }
-                let stepIndex = -1
-                for (let [index, segment] of directive.split(' >> ').entries()) {
-                    segment = segment.trim()
-                    if (!segment) continue
-                    let handlerExpression = segment, label, defaultExpression, hasDefault = false
-                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
-                    if (labelMatch) {
-                        label = labelMatch[1].trim()
-                        handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
-                    }
-                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
-                    if (defaultExpressionMatch) {
-                        defaultExpression = defaultExpressionMatch[1].trim()
-                        handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                        hasDefault = !!defaultExpression
-                        if (defaultExpression[0] === '#') {
-                            const cn = defaultExpression.slice(1).trim()
-                            if (cn) cellNames.add(cn)
-                        }
-                    }
-                    label ||= `${index}`
-                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
-                    if (labelMode) {
-                        label = label.slice(0, -1).trim()
-                        step.labelMode = labelMode
-                    }
-                    step.label = label
-                    switch (label[0]) {
-                        case '@':
-                            let fn = label.slice(1).trim()
-                            if (fn) fieldNames.add(fn)
-                            break
-                        case '#':
-                            const cn = label.slice(1).trim()
-                            if (cn) cellNames.add(cn)
-                            break
-                        default:
-                            const ln = label.trim()
-                            if (ln) statement.labels[ln] = undefined
-                    }
-                    let parsed
-                    stepIndex = stepIndex + 1
-                    switch (handlerExpression) {
-                        case '#': case '?': case '/': case ':':
-                            parsed = this.parseRouterDirectiveExpression(handlerExpression, hasDefault)
-                            break
-                        default:
-                            switch (handlerExpression[0]) {
-                                case '`':
-                                    parsed = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case '/':
-                                    parsed = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case '"': case "'":
-                                    parsed = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case "#": case "@":
-                                    parsed = this.parseStateDirectiveExpression(handlerExpression, hasDefault)
-                                    for (const addedName of (parsed.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
-                                    for (const addedName of (parsed.vars.addedCellNames ?? [])) cellNames.add(addedName)
-                                    break
-                                case "$":
-                                    if (handlerExpression[1] === "{") {
-                                        parsed = this.parseVariableDirectiveExpression(handlerExpression, hasDefault)
-                                    } else if (handlerExpression[1] === "(") {
-                                        parsed = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), hasDefault)
-                                    }
-                                    break
-                                case "(":
-                                    parsed = this.parseTransformDirectiveExpression(handlerExpression, hasDefault)
-                                    break
-                                case "{": case "[":
-                                    parsed = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
-                                    break
-                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
-                                    let t
-                                    switch (handlerExpression) {
-                                        case 'null': case 'true': case 'false':
-                                            t = true
-                                        default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) parsed = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
-                                    }
-                                    break
-                                case "_":
-                                    if (handlerExpression.endsWith('_')) {
-                                        parsed = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
-                                        break
-                                    }
-                                case '~':
-                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
-                                default:
-                                    parsed = this.parseNetworkDirectiveExpression(handlerExpression, hasDefault)
-                            }
-                    }
-                    let { vars, binder, handler } = parsed
-                    // step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
-                    // if (binder) step.binderIndex = (binderMap[this.digest(`${binder}`)] ||= (binders.push(binder)) - 1)
-                    if (vars) step.vars = vars
-                    if (binder) step.binder = binder
-                    step.handler = handler
-                    if (defaultExpression) step.defaultExpression = defaultExpression
-                    statement.labels[label] = undefined
-                    statement.labels[`${index}`] = undefined
-                    statement.steps.push(Object.freeze(step))
-                }
-                Object.seal(statement.labels)
-                Object.freeze(statement.steps)
-                Object.freeze(statement)
-                statements.push(statement)
-            }
-            return { fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
+            this.app.directives.keyedAbortControllers.delete(block)
+            this.app.directives.abortControllers.get(block)?.abort()
+            this.app.directives.abortControllers.delete(block)
         }
     },
     loadBlock: {
         value: async function (block, applet) {
-            const fieldNames = Object.freeze(applet.fieldNames ?? []), cellNames = Object.freeze(applet.cellNames ?? []),
+
+            //everything should be on the Applet instance, and save the instance to the this.app.applets WeakMap with the block as the key
+
+            const fieldNames = Object.freeze([...applet.constructor.fieldNames]), cellNames = Object.freeze([...applet.constructor.cellNames]),
                 statements = Object.freeze(applet.statements ?? []), fields = { ...(this.app.directives.fields.get(block) ?? {}) }
             for (const fieldName of applet.fieldNames) fields[fieldName] = this.getField(block, fieldName)
             Object.freeze(fields)
@@ -531,147 +429,242 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    getField: {
-        value: async function (block, fieldName) {
-            if (!fieldName) return
-            const fields = this.app.directives.fields.get(block)
-            if (!fields[fieldName]) {
-                const field = {
-                    type: 'field',
-                    eventTarget: new EventTarget(),
-                    get: function () { return this.value },
-                    set: function (value, labelMode) {
-                        let isSame = this.value === value
-                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
-                        if (isSame) {
-                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                            return this
+    compileDirectives: {
+        value: async function (directives, name) {
+            const fieldNames = new Set(), cellNames = new Set(), statements = []
+            let statementIndex = -1
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                statementIndex = statementIndex + 1
+                const statement = { labels: {}, steps: [] }
+                let stepIndex = -1
+                for (let [index, segment] of directive.split(' >> ').entries()) {
+                    segment = segment.trim()
+                    if (!segment) continue
+                    let handlerExpression = segment, label, defaultExpression, hasDefault = false
+                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
+                    if (labelMatch) {
+                        label = labelMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
+                    }
+                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
+                    if (defaultExpressionMatch) {
+                        defaultExpression = defaultExpressionMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
+                        hasDefault = !!defaultExpression
+                        if (defaultExpression[0] === '#') {
+                            const cn = defaultExpression.slice(1).trim()
+                            if (cn) cellNames.add(cn)
                         }
-                        this.value = value
-                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                        return this
-                    },
-                    value: undefined, fieldName
+                    }
+                    label ||= `${index}`
+                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                    if (labelMode) {
+                        label = label.slice(0, -1).trim()
+                        step.labelMode = labelMode
+                    }
+                    step.label = label
+                    switch (label[0]) {
+                        case '@':
+                            let fn = label.slice(1).trim()
+                            if (fn) fieldNames.add(fn)
+                            break
+                        case '#':
+                            const cn = label.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                            break
+                        default:
+                            const ln = label.trim()
+                            if (ln) statement.labels[ln] = undefined
+                    }
+                    let parsed
+                    stepIndex = stepIndex + 1
+                    switch (handlerExpression) {
+                        case '#': case '?': case '/': case ':':
+                            parsed = this.parsers.router(handlerExpression, hasDefault)
+                            break
+                        default:
+                            switch (handlerExpression[0]) {
+                                case '`':
+                                    parsed = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case '/':
+                                    parsed = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case '"': case "'":
+                                    parsed = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case "#": case "@":
+                                    parsed = this.parsers.state(handlerExpression, hasDefault)
+                                    for (const addedName of (parsed.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
+                                    for (const addedName of (parsed.vars.addedCellNames ?? [])) cellNames.add(addedName)
+                                    break
+                                case "$":
+                                    if (handlerExpression[1] === "{") {
+                                        parsed = this.parsers.variable(handlerExpression, hasDefault)
+                                    } else if (handlerExpression[1] === "(") {
+                                        parsed = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
+                                    }
+                                    break
+                                case "(":
+                                    parsed = this.parsers.transform(handlerExpression, hasDefault)
+                                    break
+                                case "{": case "[":
+                                    parsed = this.parsers.json(handlerExpression, hasDefault)
+                                    break
+                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
+                                    let t
+                                    switch (handlerExpression) {
+                                        case 'null': case 'true': case 'false':
+                                            t = true
+                                        default:
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) parsed = this.parsers.json(handlerExpression, hasDefault)
+                                    }
+                                    break
+                                case "_":
+                                    if (handlerExpression.endsWith('_')) {
+                                        parsed = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
+                                        break
+                                    }
+                                case '~':
+                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
+                                default:
+                                    parsed = this.parsers.network(handlerExpression, hasDefault)
+                            }
+                    }
+                    let { vars, binder, handler } = parsed
+                    if (vars) step.vars = vars
+                    if (binder) step.binder = binder
+                    step.handler = handler
+                    if (defaultExpression) step.defaultExpression = defaultExpression
+                    statement.labels[label] = undefined
+                    statement.labels[`${index}`] = undefined
+                    statement.steps.push(Object.freeze(step))
                 }
-                fields[fieldName] = field
+                Object.seal(statement.labels)
+                Object.freeze(statement.steps)
+                Object.freeze(statement)
+                statements.push(statement)
             }
-            return fields[fieldName]
-        }
-    },
-
-    parseRouterDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            let vars, binder, handler
-            switch (expression) {
-                case '#':
-                    vars = { signal: true }
-                    binder = 'routerhash'
-                    handler = 'routerhash'
-                    break
-                case '?':
-                    handler = 'routersearch'
-                    break
-                case '/':
-                    handler = 'routerpathname'
-                    break
-                case ':':
-                    handler = 'router'
+            const Applet = class extends this.Applet {
+                static fieldNames = Array.from(fieldNames)
+                static cellNames = Array.from(cellNames)
+                static statements = statements
+                static name = name || undefined
             }
-            return { vars, binder, handler }
+            return Applet
         }
     },
-    parseProxyDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
-            if (!parentExpression || (childExpression === '')) return
-            let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
-            parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-            let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
-            if (useHelper) {
-                parentObjectName = parentObjectName.slice(1)
-            } else {
-                [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-                childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+    Applet: {
+        value: class {
+            fieldNames = []
+            cellNames = []
+            statements = []
+            constructor() {
+                this.statements = this.constructor.statements
+                for (const statement of this.constructor.statements) {
+                    const thisStatement = { labels: Object.assign({}, statement.labels), steps: [] }
+                    for (const step of statement.steps) thisStatement.steps.push({ ...step, vars: Object.assign({}, step.vars) })
+                }
             }
-            return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
         }
     },
-    parsePatternDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            expression = expression.trim()
-            if (!expression) return
-            return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
-        }
-    },
-    parseStringDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            return { vars: { expression }, handler: 'string' }
-        }
-    },
-    parseStateDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
-        }
-    },
-    parseSelectorDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            if (!expression.includes('|')) {
-                switch (expression[0]) {
+    parsers: {
+        value: {
+            json: function (expression, hasDefault) {
+                let value = null
+                try { value = JSON.parse(expression) } catch (e) { }
+                return { vars: { value }, handler: 'json' }
+            },
+            network: function (expression, hasDefault) {
+                const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+                let returnFullRequest
+                if (expression[0] === '~' && expression.endsWith('~')) {
+                    returnFullRequest = true
+                    expression = expression.slice(1, -1)
+                }
+                return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
+            },
+            pattern: function (expression, hasDefault) {
+                expression = expression.trim()
+                if (!expression) return
+                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
+            },
+            proxy: function (expression, hasDefault) {
+                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
+                if (!parentExpression || (childExpression === '')) return
+                let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+                parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+                let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
+                if (useHelper) {
+                    parentObjectName = parentObjectName.slice(1)
+                } else {
+                    [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+                    childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+                }
+                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
+            },
+            router: function (expression, hasDefault) {
+                let vars, binder, handler
+                switch (expression) {
                     case '#':
-                        expression = `:document|${expression}`
+                        vars = { signal: true }
+                        binder = 'routerhash'
+                        handler = 'routerhash'
                         break
-                    case '@':
-                        expression = `:root|[name="${expression.slice(1)}"]`
+                    case '?':
+                        handler = 'routersearch'
                         break
-                    case '^':
-                        expression = `:root|[style~="${expression.slice(1)}"]`
+                    case '/':
+                        handler = 'routerpathname'
                         break
-                    case '~':
-                        expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
-                        break
-                    case '.':
-                    default:
-                        expression = `:root|${expression}`
+                    case ':':
+                        handler = 'router'
                 }
+                return { vars, binder, handler }
+            },
+            selector: function (expression, hasDefault) {
+                if (!expression.includes('|')) {
+                    switch (expression[0]) {
+                        case '#':
+                            expression = `:document|${expression}`
+                            break
+                        case '@':
+                            expression = `:root|[name="${expression.slice(1)}"]`
+                            break
+                        case '^':
+                            expression = `:root|[style~="${expression.slice(1)}"]`
+                            break
+                        case '~':
+                            expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                            break
+                        case '.':
+                        default:
+                            expression = `:root|${expression}`
+                    }
+                }
+                const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
+                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
+            },
+            state: function (expression, hasDefault) {
+                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
+            },
+            string: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'string' }
+            },
+            transform: function (expression, hasDefault) {
+                if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
+                if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
+                if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
+                return { vars: { expression }, binder: 'transform', handler: 'transform' }
+            },
+            variable: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'variable' }
+            },
+            wait: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'wait' }
             }
-            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-            return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
-        }
-    },
-    parseJSONDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            let value = null
-            try { value = JSON.parse(expression) } catch (e) { }
-            return { vars: { value }, handler: 'json' }
-        }
-    },
-    parseVariableDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            return { vars: { expression }, handler: 'variable' }
-        }
-    },
-    parseTransformDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-            if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
-            if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-            return { vars: { expression }, binder: 'transform', handler: 'transform' }
-        }
-    },
-    parseNetworkDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
-            let returnFullRequest
-            if (expression[0] === '~' && expression.endsWith('~')) {
-                returnFullRequest = true
-                expression = expression.slice(1, -1)
-            }
-            return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
-        }
-    },
-    parseWaitDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            return { vars: { expression }, handler: 'wait' }
         }
     },
 
@@ -1100,6 +1093,33 @@ const ElementHTML = Object.defineProperties({}, {
                 this.app.cells[name] = cell
             }
             return this.app.cells[name]
+        }
+    },
+    getField: {
+        enumerable: true, value: async function (block, fieldName) {
+            if (!fieldName) return
+            const fields = this.app.directives.fields.get(block)
+            if (!fields[fieldName]) {
+                const field = {
+                    type: 'field',
+                    eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value, labelMode) {
+                        let isSame = this.value === value
+                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                        if (isSame) {
+                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return this
+                        }
+                        this.value = value
+                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
+                    },
+                    value: undefined, fieldName
+                }
+                fields[fieldName] = field
+            }
+            return fields[fieldName]
         }
     },
     getStateGroup: {
