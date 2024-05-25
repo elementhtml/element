@@ -867,10 +867,11 @@ const ElementHTML = Object.defineProperties({}, {
                 const { labels, env, vars } = envelope, { expression, hasDefault } = vars
                 const getResult = () => {
                     const useExpression = this.mergeVariables(expression, value, labels, env)
-                    let ms = 0, now = Date.now(), [mainWait, override] = useExpression.split('(')
+                    let [mainWait, override] = useExpression.split('(')
                     mainWait = this.mergeVariables(mainWait, value, labels, env)
                     return (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
                 }
+                let ms = 0, now = Date.now()
                 if (mainWait === 'frame') {
                     await new Promise(resolve => window.requestAnimationFrame(resolve))
                     return getResult()
