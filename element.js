@@ -562,59 +562,17 @@ const ElementHTML = Object.defineProperties({}, {
             switch (expression) {
                 case '#':
                     vars = { signal: true }
-                    binder = async (block, position, envelope) => {
-                        const { signal } = envelope
-                        window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
-                    }
-                    handler = async (value, position, envelope) => {
-                        if (value != undefined && (typeof value === 'string')) document.location.hash = value
-                        return document.location.hash
-                    }
+                    binder = 'routerhash'
+                    handler = 'routerhash'
                     break
                 case '?':
-                    handler = async (value, position, envelope) => {
-                        if (value != undefined && (typeof value === 'string')) document.location.search = value
-                        return document.location.search
-                    }
+                    handler = 'routersearch'
                     break
                 case '/':
-                    handler = async (value, position, envelope) => {
-                        if (value != undefined && (typeof value === 'string')) document.location.pathname = value
-                        return document.location.pathname
-                    }
+                    handler = 'routerpathname'
                     break
                 case ':':
-                    handler = async (value, position, envelope) => {
-                        switch (typeof value) {
-                            case 'string':
-                                document.location = value
-                                break
-                            case 'object':
-                                if (!value) break
-                                for (const [k, v] of Object.entries(value)) {
-                                    if (k.endsWith(')') && k.includes('(')) {
-                                        let funcName = k.trim().slice(0, -2).trim()
-                                        switch (funcName) {
-                                            case 'assign': case 'replace':
-                                                document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
-                                                break
-                                            case 'back': case 'forward':
-                                                history[funcName]()
-                                                break
-                                            case 'go':
-                                                history[funcName](parseInt(v) || 0)
-                                                break
-                                            case 'pushState': case 'replaceState':
-                                                history[funcName](...(Array.isArray(v) ? v : [v]))
-                                        }
-                                    } else if (typeof v === 'string') {
-                                        document.location[k] = v
-                                        break
-                                    }
-                                }
-                        }
-                        return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
-                    }
+                    handler = 'router'
             }
             return { vars, binder, handler }
         }
@@ -632,49 +590,132 @@ const ElementHTML = Object.defineProperties({}, {
                 [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                 childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
             }
-            const vars = { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder = async (block, position, envelope) => {
-                const { vars } = envelope, { useHelper, parentObjectName } = vars
-                if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-            }, handler = async (value, position, envelope) => {
-                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
-                const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
-                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
-                if (childMethodName) {
-                    const { childArgs } = vars
-                    if (!(globalThis[parentObjectName] instanceof Object)) return
-                    if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
-                }
-                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
-            }
-            return { vars, binder, handler }
+            return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
         }
     },
     parsePatternDirectiveExpression: {
         value: function (expression, hasDefault) {
             expression = expression.trim()
             if (!expression) return
-            const vars = { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder = async (block, position, envelope) => {
-                const { vars } = envelope, { expression, regexp } = vars
-                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
-            }, handler = async (value, position, envelope) => {
-                const { vars } = envelope, { expression } = vars
-                if (typeof value !== 'string') value = `${value}`
-                const match = value.match(this.app.regexp[expression])
-                return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
-            }
-            return { vars, binder, handler }
+            return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
         }
     },
     parseStringDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const vars = { expression }, binder = undefined, handler = async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
-            return { vars, binder, handler }
+            return { vars: { expression }, handler: 'string' }
         }
     },
     parseStateDirectiveExpression: {
         value: function (expression, hasDefault) {
-            const typeDefault = expression[0], vars = { expression: expression.slice(1), signal: true, typeDefault }, binder = (block, position, envelope) => {
+            return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
+        }
+    },
+    parseSelectorDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            if (!expression.includes('|')) {
+                switch (expression[0]) {
+                    case '#':
+                        expression = `:document|${expression}`
+                        break
+                    case '@':
+                        expression = `:root|[name="${expression.slice(1)}"]`
+                        break
+                    case '^':
+                        expression = `:root|[style~="${expression.slice(1)}"]`
+                        break
+                    case '~':
+                        expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                        break
+                    case '.':
+                    default:
+                        expression = `:root|${expression}`
+                }
+            }
+            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
+            return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
+        }
+    },
+    parseJSONDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            let value = null
+            try { value = JSON.parse(expression) } catch (e) { }
+            return { vars: { value }, handler: 'json' }
+        }
+    },
+    parseVariableDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            return { vars: { expression }, handler: 'variable' }
+        }
+    },
+    parseTransformDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
+            if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
+            if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
+            return { vars: { expression }, binder: 'transform', handler: 'transform' }
+        }
+    },
+    parseNetworkDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+            let returnFullRequest
+            if (expression[0] === '~' && expression.endsWith('~')) {
+                returnFullRequest = true
+                expression = expression.slice(1, -1)
+            }
+            return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
+        }
+    },
+    parseWaitDirectiveExpression: {
+        value: function (expression, hasDefault) {
+            return { vars: { expression }, handler: 'wait' }
+        }
+    },
+
+
+
+
+    binders: {
+        value: Object.freeze({
+            pattern: async (block, position, envelope) => {
+                const { vars } = envelope, { expression, regexp } = vars
+                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
+            },
+            proxy: async (block, position, envelope) => {
+                const { vars } = envelope, { useHelper, parentObjectName } = vars
+                if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
+            },
+            routerhash: async (block, position, envelope) => {
+                const { signal } = envelope
+                window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+            },
+            selector: async (block, position, envelope) => {
+                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
+                if (!scope) return {}
+                let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+                if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
+                for (let eventName of eventNames) {
+                    let keepDefault = eventName.endsWith('+')
+                    if (keepDefault) eventName = eventName.slice(0, -1)
+                    scope.addEventListener(eventName, event => {
+                        if (selector.endsWith('}') && selector.includes('{')) {
+                            const target = this.resolveSelector(selector, scope)
+                            if (!target || (Array.isArray(target) && !target.length)) return
+                        } else if (selector[0] === '$') {
+                            if (selector.length === 1) return
+                            const catchallSelector = this.buildCatchallSelector(selector)
+                            if (!event.target.matches(catchallSelector)) return
+                        } else if (selector && !event.target.matches(selector)) { return }
+                        let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                        if (!eventList && (event.type !== tagDefaultEventType)) return
+                        if (!keepDefault) event.preventDefault()
+                        block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
+                    }, { signal })
+                }
+                return { selector, scope }
+            },
+            state: async (block, position, envelope) => {
                 const { signal, vars } = envelope, { expression, typeDefault } = vars
                 let group = this.getStateGroup(expression, typeDefault, block),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
@@ -709,122 +750,15 @@ const ElementHTML = Object.defineProperties({}, {
                     }, { signal })
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
-            }, handler = async (value, position, envelope) => {
-                const { vars } = envelope, { getReturnValue, config, group } = vars
-                if (value == undefined) return getReturnValue()
-                switch (config) {
-                    case 'single':
-                        group[group.type].set(value, group.mode)
-                        break
-                    case 'array':
-                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
-                        break
-                    default:
-                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
-                }
-                return getReturnValue()
-            }
-            return { vars, binder, handler }
-        }
+            },
+            transform: async (block, position, envelope) => ({ block })
+        })
     },
-    parseSelectorDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            if (!expression.includes('|')) {
-                switch (expression[0]) {
-                    case '#':
-                        expression = `:document|${expression}`
-                        break
-                    case '@':
-                        expression = `:root|[name="${expression.slice(1)}"]`
-                        break
-                    case '^':
-                        expression = `:root|[style~="${expression.slice(1)}"]`
-                        break
-                    case '~':
-                        expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
-                        break
-                    case '.':
-                    default:
-                        expression = `:root|${expression}`
-                }
-            }
-            const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim()), vars = { scopeStatement, selectorStatement, signal: true },
-                binder = async (block, position, envelope) => {
-                    const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
-                    if (!scope) return {}
-                    let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
-                    if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-                    const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
-                    for (let eventName of eventNames) {
-                        let keepDefault = eventName.endsWith('+')
-                        if (keepDefault) eventName = eventName.slice(0, -1)
-                        scope.addEventListener(eventName, event => {
-                            if (selector.endsWith('}') && selector.includes('{')) {
-                                const target = this.resolveSelector(selector, scope)
-                                if (!target || (Array.isArray(target) && !target.length)) return
-                            } else if (selector[0] === '$') {
-                                if (selector.length === 1) return
-                                const catchallSelector = this.buildCatchallSelector(selector)
-                                if (!event.target.matches(catchallSelector)) return
-                            } else if (selector && !event.target.matches(selector)) { return }
-                            let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
-                            if (!eventList && (event.type !== tagDefaultEventType)) return
-                            if (!keepDefault) event.preventDefault()
-                            block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
-                        }, { signal })
-                    }
-                    return { selector, scope }
-                }, handler = async (value, position, envelope) => {
-                    const { vars } = envelope, { selector, scope } = vars
-                    if (value != undefined) {
-                        const target = this.resolveSelector(selector, scope)
-                        if (Array.isArray(target)) {
-                            for (const t of target) this.render(t, value)
-                        } else if (target) {
-                            this.render(target, value)
-                        }
-                    }
-                    return value
-                }
-            return { vars, binder, handler }
-        }
-    },
-    parseJSONDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            let value
-            try { value = JSON.parse(expression) } catch (e) { }
-            const vars = { value }, binder = undefined, handler = async (value, position, envelope) => envelope.vars.value
-            return { vars, binder, handler }
-        }
-    },
-    parseVariableDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            const vars = { expression }, binder = undefined, handler = async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
-            return { vars, binder, handler }
-        }
-    },
-    parseTransformDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-            if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
-            if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-            const vars = { expression }, binder = async (block, position, envelope) => ({ block }), handler = async (value, position, envelope) => {
-                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
-                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
-            }
-            return { vars, binder, handler }
-        }
-    },
-    parseNetworkDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
-            let returnFullRequest
-            if (expression[0] === '~' && expression.endsWith('~')) {
-                returnFullRequest = true
-                expression = expression.slice(1, -1)
-            }
-            const vars = { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, binder = undefined, handler = async (value, position, envelope) => {
+
+    handlers: {
+        value: Object.freeze({
+            json: async (value, position, envelope) => envelope.vars.value,
+            network: async (value, position, envelope) => {
                 const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
@@ -860,14 +794,97 @@ const ElementHTML = Object.defineProperties({}, {
                         return r.ok ? this.parse(r) : undefined
                     }
                 })
-            }
-            return { vars, binder, handler }
-        }
-    },
-    parseWaitDirectiveExpression: {
-        value: function (expression, hasDefault) {
-            const vars = { expression, hasDefault }, binder = undefined, handler = async (value, position, envelope) => {
-                const { labels, env, vars } = envelope, { expression, hasDefault } = vars
+            },
+            pattern: async (value, position, envelope) => {
+                const { vars } = envelope, { expression } = vars
+                if (typeof value !== 'string') value = `${value}`
+                const match = value.match(this.app.regexp[expression])
+                return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+            },
+            proxy: async (value, position, envelope) => {
+                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
+                const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
+                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
+                if (childMethodName) {
+                    const { childArgs } = vars
+                    if (!(globalThis[parentObjectName] instanceof Object)) return
+                    if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
+                }
+                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
+            },
+            router: async (value, position, envelope) => {
+                switch (typeof value) {
+                    case 'string':
+                        document.location = value
+                        break
+                    case 'object':
+                        if (!value) break
+                        for (const [k, v] of Object.entries(value)) {
+                            if (k.endsWith(')') && k.includes('(')) {
+                                let funcName = k.trim().slice(0, -2).trim()
+                                switch (funcName) {
+                                    case 'assign': case 'replace':
+                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
+                                        break
+                                    case 'back': case 'forward':
+                                        history[funcName]()
+                                        break
+                                    case 'go':
+                                        history[funcName](parseInt(v) || 0)
+                                        break
+                                    case 'pushState': case 'replaceState':
+                                        history[funcName](...(Array.isArray(v) ? v : [v]))
+                                }
+                            } else if (typeof v === 'string') {
+                                document.location[k] = v
+                                break
+                            }
+                        }
+                }
+                return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
+            },
+            ...Object.fromEntries(
+                ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async (value, position, envelope) => {
+                    if (value != undefined && (typeof value === 'string')) document.location[k] = value
+                    return document.location[k]
+                }]))),
+            selector: async (value, position, envelope) => {
+                const { vars } = envelope, { selector, scope } = vars
+                if (value != undefined) {
+                    const target = this.resolveSelector(selector, scope)
+                    if (Array.isArray(target)) {
+                        for (const t of target) this.render(t, value)
+                    } else if (target) {
+                        this.render(target, value)
+                    }
+                }
+                return value
+            },
+            state: async (value, position, envelope) => {
+                const { vars } = envelope, { getReturnValue, config, group } = vars
+                if (value == undefined) return getReturnValue()
+                switch (config) {
+                    case 'single':
+                        group[group.type].set(value, group.mode)
+                        break
+                    case 'array':
+                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
+                        break
+                    default:
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
+                }
+                return getReturnValue()
+            },
+            string: async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env),
+            transform: async (value, position, envelope) => {
+                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
+            },
+            variable: async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env),
+            wait: async (value, position, envelope) => {
+                const { labels, env, vars } = envelope, { expression } = vars
                 const getResult = () => {
                     const useExpression = this.mergeVariables(expression, value, labels, env)
                     let [mainWait, override] = useExpression.split('(')
@@ -900,14 +917,8 @@ const ElementHTML = Object.defineProperties({}, {
                 await new Promise(resolve => setTimeout(resolve, ms))
                 return getResult()
             }
-            return { vars, binder, handler }
-        }
+        })
     },
-
-
-
-
-
 
 
 
