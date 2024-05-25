@@ -322,7 +322,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     compileDirectives: {
         value: async function (directives) {
-            const handlers = [], binders = [], varsList = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
+            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
@@ -369,40 +369,40 @@ const ElementHTML = Object.defineProperties({}, {
                             const ln = label.trim()
                             if (ln) statement.labels[ln] = undefined
                     }
-                    let vars = {}, binder, handler
+                    let vars, binder, handler
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            ({ vars = {}, binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, hasDefault)
+                            ({ vars, binder, handler }) = this.parseRouterDirectiveExpression(handlerExpression, hasDefault)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    ({ vars = {}, binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars, binder, handler }) = this.parseProxyDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '/':
-                                    ({ vars = {}, binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars, binder, handler }) = this.parsePatternDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '"': case "'":
-                                    ({ vars = {}, binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                    ({ vars, binder, handler }) = this.parseStringDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case "#": case "@":
-                                    ({ vars = {}, binder, handler }) = this.parseStateDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars: vars = {}, binder, handler }) = this.parseStateDirectiveExpression(handlerExpression, hasDefault)
                                     for (const addedName of (vars.addedFieldNames ?? [])) fieldNames.add(addedName)
                                     for (const addedName of (vars.addedCellNames ?? [])) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        ({ vars = {}, binder, handler }) = this.parseVariableDirectiveExpression(handlerExpression, hasDefault)
+                                        ({ vars, binder, handler }) = this.parseVariableDirectiveExpression(handlerExpression, hasDefault)
                                     } else if (handlerExpression[1] === "(") {
-                                        ({ vars = {}, binder, handler }) = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), hasDefault)
+                                        ({ vars, binder, handler }) = this.parseSelectorDirectiveExpression(handlerExpression.slice(2, -1), hasDefault)
                                     }
                                     break
                                 case "(":
-                                    ({ vars = {}, binder, handler }) = this.parseTransformDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars, binder, handler }) = this.parseTransformDirectiveExpression(handlerExpression, hasDefault)
                                     break
                                 case "{": case "[":
-                                    ({ vars = {}, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
                                     let t
@@ -410,18 +410,18 @@ const ElementHTML = Object.defineProperties({}, {
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) ({ vars = {}, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) ({ vars, binder, handler }) = this.parseJSONDirectiveExpression(handlerExpression, hasDefault)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        ({ vars = {}, binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
+                                        ({ vars, binder, handler }) = this.parseWaitDirectiveExpression(handlerExpression.slice(1, -1), hasDefault)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    ({ vars = {}, binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, hasDefault)
+                                    ({ vars, binder, handler }) = this.parseNetworkDirectiveExpression(handlerExpression, hasDefault)
                             }
                     }
                     step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
@@ -458,9 +458,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runBlock: {
         value: async function (block, applet) {
-            const { handlers = this.app.directives.handlers.get(block), binders = this.app.directives.binders.get(block),
-                fields = this.app.directives.fields.get(block), fieldNames = this.app.directives.fieldNames.get(block),
-                cellNames = this.app.directives.cellNames.get(block), statements = this.app.directives.statements.get(block) } = applet
+            const { handlers: handlers = this.app.directives.handlers.get(block), binders: binders = this.app.directives.binders.get(block),
+                fields: fields = this.app.directives.fields.get(block), fieldNames: fieldNames = this.app.directives.fieldNames.get(block),
+                cellNames: cellNames = this.app.directives.cellNames.get(block), statements: statements = this.app.directives.statements.get(block) } = applet
             this.app.directives.abortController.get(block)?.abort()
             const abortController = new AbortController(), signal = abortController.signal
             this.app.directives.abortController.set(block, abortController)
