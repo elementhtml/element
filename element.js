@@ -220,6 +220,10 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const hn in this.env.preload) if ((typeof this.env.loaders[hn] === 'function')) await this.loadHelper(hn, this.env.preload[hn])
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
+                for (const f of ['binders', 'handlers']) {
+                    for (const b in this[f]) this[f][b] = this[f][b].bind(this)
+                    Object.freeze(this[f])
+                }
                 Object.freeze(this)
                 if (!this.env.errors) {
                     console.log = () => { }
@@ -323,7 +327,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     compileDirectives: {
         value: async function (directives) {
-            const handlers = [], binders = [], fieldNames = new Set(), cellNames = new Set(), statements = [], handlerMap = {}, binderMap = {}
+            const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
@@ -426,9 +430,11 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                     }
                     let { vars, binder, handler } = parsed
-                    step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
-                    if (binder) step.binderIndex = (binderMap[this.digest(`${binder}`)] ||= (binders.push(binder)) - 1)
+                    // step.handlerIndex = (handlerMap[this.digest(`${handler}`)] ||= (handlers.push(handler)) - 1)
+                    // if (binder) step.binderIndex = (binderMap[this.digest(`${binder}`)] ||= (binders.push(binder)) - 1)
                     if (vars) step.vars = vars
+                    if (binder) step.binder = binder
+                    step.handler = handler
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels[label] = undefined
                     statement.labels[`${index}`] = undefined
@@ -439,29 +445,25 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            return { handlers, binders, fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
+            return { fieldNames: Array.from(fieldNames), cellNames: Array.from(cellNames), statements }
         }
     },
     loadBlock: {
         value: async function (block, applet) {
-            const handlers = Object.freeze(applet.handlers ?? []), binders = Object.freeze(applet.binders ?? []),
-                fieldNames = Object.freeze(applet.fieldNames ?? []), cellNames = Object.freeze(applet.cellNames ?? []),
+            const fieldNames = Object.freeze(applet.fieldNames ?? []), cellNames = Object.freeze(applet.cellNames ?? []),
                 statements = Object.freeze(applet.statements ?? []), fields = { ...(this.app.directives.fields.get(block) ?? {}) }
             for (const fieldName of applet.fieldNames) fields[fieldName] = this.getField(block, fieldName)
             Object.freeze(fields)
-            this.app.directives.handlers.set(block, handlers)
-            this.app.directives.binders.set(block, binders)
             this.app.directives.fields.set(block, fields)
             this.app.directives.fieldNames.set(block, fieldNames)
             this.app.directives.cellNames.set(block, cellNames)
             this.app.directives.statements.set(block, statements)
-            return { handlers, binders, fields, fieldNames, cellNames, statements }
+            return { fields, fieldNames, cellNames, statements }
         }
     },
     runBlock: {
         value: async function (block, applet) {
-            const { handlers: handlers = this.app.directives.handlers.get(block), binders: binders = this.app.directives.binders.get(block),
-                fields: fields = this.app.directives.fields.get(block), fieldNames: fieldNames = this.app.directives.fieldNames.get(block),
+            const { fields: fields = this.app.directives.fields.get(block), fieldNames: fieldNames = this.app.directives.fieldNames.get(block),
                 cellNames: cellNames = this.app.directives.cellNames.get(block), statements: statements = this.app.directives.statements.get(block) } = applet
             this.app.directives.abortController.get(block)?.abort()
             const abortController = new AbortController(), signal = abortController.signal
@@ -477,20 +479,21 @@ const ElementHTML = Object.defineProperties({}, {
             for (const [statementIndex, statement] of statements.entries()) {
                 const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
-                    const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars = {} } = step,
+                    const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
                         envelope = { labels: { ...labels }, env }
-                    if (binderIndex) {
+                    let { vars: vars = {} } = step
+                    if (binder) {
                         if (vars.signal) {
                             const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(block)
                             keyedAbortControllers[eventKey] = new AbortController()
                             envelope.signal = keyedAbortControllers[eventKey].signal
                         }
-                        const extraVars = await binders[binderIndex](block, position, envelope)
+                        const extraVars = await this.binders[binder](block, position, envelope)
                         if (extraVars) vars = { ...vars, ...extraVars }
                     }
                     envelope.vars = vars
                     block.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = await handlers[handlerIndex](event.detail, position, envelope)
+                        let detail = await this.handlers[handler](event.detail, position, envelope)
                         if (detail == undefined) {
                             if (typeof defaultValue !== 'string') {
                                 detail = defaultValue
@@ -676,20 +679,20 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     binders: {
-        value: Object.freeze({
-            pattern: async (block, position, envelope) => {
+        value: {
+            pattern: async function (block, position, envelope) {
                 const { vars } = envelope, { expression, regexp } = vars
                 this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
             },
-            proxy: async (block, position, envelope) => {
+            proxy: async function (block, position, envelope) {
                 const { vars } = envelope, { useHelper, parentObjectName } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
             },
-            routerhash: async (block, position, envelope) => {
+            routerhash: async function (block, position, envelope) {
                 const { signal } = envelope
                 window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
             },
-            selector: async (block, position, envelope) => {
+            selector: async function (block, position, envelope) {
                 const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
                 if (!scope) return {}
                 let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
@@ -715,7 +718,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return { selector, scope }
             },
-            state: async (block, position, envelope) => {
+            state: async function (block, position, envelope) {
                 const { signal, vars } = envelope, { expression, typeDefault } = vars
                 let group = this.getStateGroup(expression, typeDefault, block),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
@@ -751,14 +754,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
             },
-            transform: async (block, position, envelope) => ({ block })
-        })
+            transform: async function (block, position, envelope) { return { block } }
+        }
     },
 
     handlers: {
-        value: Object.freeze({
-            json: async (value, position, envelope) => envelope.vars.value,
-            network: async (value, position, envelope) => {
+        value: {
+            json: async function (value, position, envelope) { return envelope.vars.value },
+            network: async function (value, position, envelope) {
                 const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
@@ -795,13 +798,13 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 })
             },
-            pattern: async (value, position, envelope) => {
+            pattern: async function (value, position, envelope) {
                 const { vars } = envelope, { expression } = vars
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(this.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             },
-            proxy: async (value, position, envelope) => {
+            proxy: async function (value, position, envelope) {
                 const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
                 const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
                 if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
@@ -813,7 +816,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
             },
-            router: async (value, position, envelope) => {
+            router: async function (value, position, envelope) {
                 switch (typeof value) {
                     case 'string':
                         document.location = value
@@ -845,11 +848,11 @@ const ElementHTML = Object.defineProperties({}, {
                 return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
             },
             ...Object.fromEntries(
-                ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async (value, position, envelope) => {
+                ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async function (value, position, envelope) {
                     if (value != undefined && (typeof value === 'string')) document.location[k] = value
                     return document.location[k]
                 }]))),
-            selector: async (value, position, envelope) => {
+            selector: async function (value, position, envelope) {
                 const { vars } = envelope, { selector, scope } = vars
                 if (value != undefined) {
                     const target = this.resolveSelector(selector, scope)
@@ -861,7 +864,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return value
             },
-            state: async (value, position, envelope) => {
+            state: async function (value, position, envelope) {
                 const { vars } = envelope, { getReturnValue, config, group } = vars
                 if (value == undefined) return getReturnValue()
                 switch (config) {
@@ -876,14 +879,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return getReturnValue()
             },
-            string: async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env),
-            transform: async (value, position, envelope) => {
+            string: async function (value, position, envelope) { return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env) },
+            transform: async function (value, position, envelope) {
                 const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                 return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
             },
-            variable: async (value, position, envelope) => this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env),
-            wait: async (value, position, envelope) => {
+            variable: async function (value, position, envelope) { return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env) },
+            wait: async function (value, position, envelope) {
                 const { labels, env, vars } = envelope, { expression } = vars
                 const getResult = () => {
                     const useExpression = this.mergeVariables(expression, value, labels, env)
@@ -917,7 +920,7 @@ const ElementHTML = Object.defineProperties({}, {
                 await new Promise(resolve => setTimeout(resolve, ms))
                 return getResult()
             }
-        })
+        }
     },
 
 
