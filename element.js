@@ -20,13 +20,14 @@ const ElementHTML = Object.defineProperties({}, {
         value: {
             cells: {},
             directives: {
-                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(),
+                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(), binders: new WeakMap(),
                 fieldNames: new WeakMap(), keyedAbortControllers: new WeakMap(), handlers: new WeakMap(), statements: new WeakMap()
             },
             doppel: { dom: new WeakMap(), observers: new WeakMap() },
             eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
+
     env: {
         enumerable: true, value: {
             context: {},
@@ -474,9 +475,10 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(env.fields)
             Object.freeze(env.cells)
             for (const [statementIndex, statement] of statements.entries()) {
-                const { labels = {}, steps = [] } = statement, position = `${statementIndex}-${stepIndex}`
+                const { labels = {}, steps = [] } = statement
                 for (const [stepIndex, step] of steps.entries()) {
-                    const { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars = {} } = step, envelope = { labels: { ...labels }, env }
+                    const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handlerIndex, binderIndex, defaultExpression: defaultValue, vars = {} } = step,
+                        envelope = { labels: { ...labels }, env }
                     if (binderIndex) {
                         if (vars.signal) {
                             const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(block)
