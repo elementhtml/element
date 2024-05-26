@@ -12,7 +12,7 @@ const ElementHTML = Object.defineProperties({}, {
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
-                label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/, defaultValue: /\s+\?\?\s+(.+)\s*$/, splitter: /\n(?!\s+>>)/gm, tagMatch: /^[a-z0-9\-]+/g
+                label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/, defaultValue: /\s+\?\?\s+(.+)\s*$/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g
             })
         })
     },
@@ -239,7 +239,6 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-
                     const doppelDom = this.app.doppel.dom.set(rootElement, document.createElement(isAttr)).get(rootElement)
                     for (const a of rootElement.attributes) doppelDom.setAttribute(a.name, a.value)
                     if (rootElement.innerHTML != undefined) doppelDom.innerHTML = rootElement.innerHTML
@@ -268,7 +267,6 @@ const ElementHTML = Object.defineProperties({}, {
                         }))
                         this.app.doppel.observers.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
                     }
-
                 }
                 if (!rootElement.shadowRoot) return
             }
@@ -305,46 +303,55 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
+    canonicalizeDirectives: {
+        value: function (directives) {
+            directives = directives.trim()
+            const canonicalizeDirectives = []
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
+            }
+            return canonicalizeDirectives.join('\n').trim()
+        }
+    },
+
 
 
     mountFacet: {
         value: async function (facetContainer) {
             const { type, src, textContent } = facetContainer
-            let facetInstance, FacetClass
+            let facetInstance, FacetClass, facetId
             switch (type) {
                 case 'directives/element':
-                    FacetClass = await this.compileFacet(src ? await fetch(src).then(r => r.text()) : textContent)
+                    const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
+                    if (!directives) break
+                    facetId = await this.digest(directives)
+                    this.app.facets.classes[facetId] ??= await this.compileFacet(directives, facetId)
                     break
                 case 'application/element':
                     if (!src) break
                     switch (src[0]) {
                         case '$':
-                            FacetClass = this.env.facets[src.slice(1)]
+                            this.app.facets.classes[facetId] ??= this.env.facets[src.slice(1)]
                             break
                         default:
-                            FacetClass = this.app.facets.classes[src]
-                            if (!FacetClass) {
-                                FacetClass = await import(src)
-                                if (FacetClass && FacetClass.prototype instanceof this.Facet) this.app.facets.classes[src] = FacetClass
-                            }
+                            this.app.facets.classes[facetId] ??= await import(facetId)
                             break
                     }
                     break
             }
+            FacetClass = this.app.facets.classes[facetId]
             if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
             facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
-
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
                 context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
             for (const fieldName of FacetClass.fieldNames) fields[fieldName] = this.getField(facetInstance, fieldName)
             for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
             Object.freeze(fields)
             Object.freeze(cells)
-
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
-
-            console.log('line 346', facetInstance)
         }
     },
     unmountFacet: {
@@ -425,12 +432,11 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     compileFacet: {
-        value: async function (directives) {
+        value: async function (directives, hash, raw) {
+            if (raw) directives = this.canonicalizeDirectives(directives)
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
-                directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
                 statementIndex = statementIndex + 1
                 const statement = { labels: {}, steps: [] }
                 let stepIndex = -1
@@ -542,11 +548,13 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(statement)
                 statements.push(statement)
             }
+            hash ??= await this.digest(directives)
             const FacetClass = class extends this.Facet {
                 static E = ElementHTML
                 static fieldNames = Array.from(fieldNames)
                 static cellNames = Array.from(cellNames)
                 static statements = statements
+                static hash = hash
             }
             return FacetClass
         }
