@@ -303,21 +303,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
-    canonicalizeDirectives: {
-        value: function (directives) {
-            directives = directives.trim()
-            const canonicalizeDirectives = []
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
-                directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
-            }
-            return canonicalizeDirectives.join('\n').trim()
-        }
-    },
-
-
-
     mountFacet: {
         value: async function (facetContainer) {
             const { type, src, textContent } = facetContainer
@@ -361,7 +346,6 @@ const ElementHTML = Object.defineProperties({}, {
             this.facetInstance.controller.abort()
         }
     },
-
     Facet: {
         value: class {
             controller
@@ -430,7 +414,18 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
-
+    canonicalizeDirectives: {
+        value: function (directives) {
+            directives = directives.trim()
+            const canonicalizeDirectives = []
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
+            }
+            return canonicalizeDirectives.join('\n').trim()
+        }
+    },
     compileFacet: {
         value: async function (directives, hash, raw) {
             if (raw) directives = this.canonicalizeDirectives(directives)
@@ -559,8 +554,6 @@ const ElementHTML = Object.defineProperties({}, {
             return FacetClass
         }
     },
-
-
     parsers: {
         value: {
             json: function (expression, hasDefault) {
@@ -1840,7 +1833,7 @@ const ElementHTML = Object.defineProperties({}, {
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id) ?? ''
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
                     } catch (e) {
-                        console.log('line 1164', e, this)
+                        console.log('line 1836', e, this)
                     }
                 }
                 static get observedAttributes() { return [] }
