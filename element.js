@@ -368,7 +368,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             async run(container, env) {
-                const signal = this.abortController.signal
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
                     const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
                     for (const [stepIndex, step] of steps.entries()) {
@@ -415,7 +414,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             labels[`${stepIndex}`] = detail
                             if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                        }, { signal })
+                        }, { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
@@ -641,7 +640,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
                 if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
                 if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-                return { vars: { expression }, binder: 'transform', handler: 'transform' }
+                return { vars: { expression }, handler: 'transform' }
             },
             variable: function (expression, hasDefault) {
                 return { vars: { expression }, handler: 'variable' }
