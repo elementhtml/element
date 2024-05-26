@@ -273,17 +273,17 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.connectFacet(element) } else if (this.getCustomTag(element)) { this.load(element) }
+            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.load(element) }
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
-                        if (this.isFacetContainer(addedNode)) { this.connectFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
+                        if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
                         if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
                     }
                     for (const removedNode of (record.removedNodes || [])) {
                         if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
                         if (this.isFacetContainer(removedNode)) {
-                            this.disconnectFacet(removedNode)
+                            this.unmountFacet(removedNode)
                         } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
                             removedNode.disconnectedCallback()
                         }
@@ -306,133 +306,127 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    connectApplet: {
-        value: async function (container) {
-            let appletInstance, AppletClass
-            switch (container.type) {
+    mountFacet: {
+        value: async function (facetContainer) {
+            const { type, src, textContent } = facetContainer
+            let facetInstance, FacetClass
+            switch (type) {
                 case 'directives/element':
-                    AppletClass = await this.compileDirectives(container.src ? await fetch(container.src).then(r => r.text()) : container.textContent, container.name || container.getAttribute('name') || undefined)
+                    FacetClass = await this.compileFacet(src ? await fetch(src).then(r => r.text()) : textContent)
                     break
                 case 'application/element':
-                    if (!container.src) break
-                    switch (container.src[0]) {
+                    if (!src) break
+                    switch (src[0]) {
                         case '$':
-                            AppletClass = this.env.applets[container.src.slice(1)]
+                            FacetClass = this.env.facets[src.slice(1)]
                             break
                         default:
-                            AppletClass = this.app.applets[container.src]?.constructor
-                            AppletClass ??= await import(container.src)
+                            FacetClass = this.app.facets.classes[src]
+                            if (!FacetClass) {
+                                FacetClass = await import(src)
+                                if (FacetClass && FacetClass.prototype instanceof this.Facet) this.app.facets.classes[src] = FacetClass
+                            }
                             break
                     }
                     break
             }
-            if (!AppletClass) return
-            appletInstance = new AppletClass()
+            if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
+            facetInstance = new FacetClass()
+            this.app.facets.instances.set(facetContainer, facetInstance)
 
-            console.log('line 332', appletInstance)
-
-            await this.runAppletInstance(container, await this.loadBlock(block, applet))
-        }
-    },
-    disconnectApplet: {
-        value: function (container) {
-
-            const appletInstance = this.app.applets.get(container)
-
-            for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(block) ?? {}))) v.abort()
-            this.app.directives.keyedAbortControllers.delete(block)
-            this.app.directives.abortControllers.get(block)?.abort()
-            this.app.directives.abortControllers.delete(block)
-        }
-    },
-    loadBlock: {
-        value: async function (block, applet) {
-
-            //everything should be on the Applet instance, and save the instance to the this.app.applets WeakMap with the block as the key
-
-            const fieldNames = Object.freeze([...applet.constructor.fieldNames]), cellNames = Object.freeze([...applet.constructor.cellNames]),
-                statements = Object.freeze(applet.statements ?? []), fields = { ...(this.app.directives.fields.get(block) ?? {}) }
-            for (const fieldName of applet.fieldNames) fields[fieldName] = this.getField(block, fieldName)
+            const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
+                context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
+            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = this.getField(facetInstance, fieldName)
+            for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
             Object.freeze(fields)
-            this.app.directives.fields.set(block, fields)
-            this.app.directives.fieldNames.set(block, fieldNames)
-            this.app.directives.cellNames.set(block, cellNames)
-            this.app.directives.statements.set(block, statements)
-            return { fields, fieldNames, cellNames, statements }
+            Object.freeze(cells)
+
+            await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
+
+            console.log('line 346', facetInstance)
         }
     },
-    runBlock: {
-        value: async function (block, applet) {
-            const { fields: fields = this.app.directives.fields.get(block), fieldNames: fieldNames = this.app.directives.fieldNames.get(block),
-                cellNames: cellNames = this.app.directives.cellNames.get(block), statements: statements = this.app.directives.statements.get(block) } = applet
-            this.app.directives.abortController.get(block)?.abort()
-            const abortController = new AbortController(), signal = abortController.signal
-            this.app.directives.abortController.set(block, abortController)
-            const rootNode = block.getRootNode(),
-                context = Object.freeze(rootNode instanceof ShadowRoot
-                    ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context),
-                env = Object.freeze({ fields: {}, cells: {}, context })
-            for (const fieldName of fieldNames) env.fields[fieldName] = this.getField(block, fieldName)
-            for (const cellName of cellNames) env.cells[cellName] = this.getCell(cellName)
-            Object.freeze(env.fields)
-            Object.freeze(env.cells)
-            for (const [statementIndex, statement] of statements.entries()) {
-                const { labels = {}, steps = [] } = statement
-                for (const [stepIndex, step] of steps.entries()) {
-                    const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
-                        envelope = { labels: { ...labels }, env }
-                    let { vars: vars = {} } = step
-                    if (binder) {
-                        if (vars.signal) {
-                            const eventKey = `${statementIndex}-${stepIndex}`, keyedAbortControllers = this.app.directives.keyedAbortControllers.get(block)
-                            keyedAbortControllers[eventKey] = new AbortController()
-                            envelope.signal = keyedAbortControllers[eventKey].signal
+    unmountFacet: {
+        value: function (facetContainer) {
+            const facetInstance = this.app.facets.instances.get(facetContainer)
+            for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
+            this.facetInstance.controller.abort()
+        }
+    },
+
+    Facet: {
+        value: class {
+            container
+            controller
+            controllers = {}
+            fields = {}
+            vars = {}
+            constructor() {
+                this.controller = new AbortController()
+                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
+                Object.freeze(this.fields)
+            }
+
+            async run(container, env) {
+                const signal = this.abortController.signal
+                for (const [statementIndex, statement] of this.constructor.statements.entries()) {
+                    const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
+                    for (const [stepIndex, step] of steps.entries()) {
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
+                            envelope = { labels: { ...labels }, env }
+                        this.vars[position] = { ...(step.vars ?? {}) }
+                        if (binder) {
+                            if (this.vars[position].signal) {
+                                this.controllers[position] = new AbortController()
+                                envelope.signal = this.controllers[position].signal
+                            }
+                            Object.assign(this.vars[position], await this.constructor.E.binders[binder](container, position, envelope))
                         }
-                        const extraVars = await this.binders[binder](block, position, envelope)
-                        if (extraVars) vars = { ...vars, ...extraVars }
-                    }
-                    envelope.vars = vars
-                    block.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                        let detail = await this.handlers[handler](event.detail, position, envelope)
-                        if (detail == undefined) {
-                            if (typeof defaultValue !== 'string') {
-                                detail = defaultValue
-                            } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
-                                detail = defaultValue.slice(1, -1)
-                            } else if (defaultValue.match(this.sys.regexp.hasVariable)) {
-                                detail = this.mergeVariables(defaultValue, undefined, labels, env)
-                            } else if (defaultValue.match(this.sys.regexp.isJSONObject) || defaultValue.match(this.sys.regexp.isNumeric)
-                                || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
-                                try {
-                                    detail = JSON.parse(defaultValue)
-                                } catch (e) {
+                        envelope.vars = this.vars[position]
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                            let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
+                            if (detail == undefined) {
+                                if (typeof defaultValue !== 'string') {
+                                    detail = defaultValue
+                                } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
+                                    detail = defaultValue.slice(1, -1)
+                                } else if (defaultValue.match(this.constructor.E.sys.regexp.hasVariable)) {
+                                    detail = this.constructor.E.mergeVariables(defaultValue, undefined, labels, env)
+                                } else if (defaultValue.match(this.constructor.E.sys.regexp.isJSONObject) || defaultValue.match(this.constructor.E.sys.regexp.isNumeric)
+                                    || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                    try {
+                                        detail = JSON.parse(defaultValue)
+                                    } catch (e) {
+                                        detail = defaultValue
+                                    }
+                                } else {
                                     detail = defaultValue
                                 }
-                            } else {
-                                detail = defaultValue
                             }
-                        }
-                        switch (label[0]) {
-                            case '@':
-                                env.fields[label.slice(1)].set(detail, labelMode)
-                                break
-                            case '#':
-                                env.cells[label.slice(1)].set(detail, labelMode)
-                                break
-                            default:
-                                labels[label] = detail
-                        }
-                        labels[`${stepIndex}`] = detail
-                        if (detail != undefined) block.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                    }, { signal })
+                            switch (label[0]) {
+                                case '@':
+                                    env.fields[label.slice(1)].set(detail, labelMode)
+                                    break
+                                case '#':
+                                    env.cells[label.slice(1)].set(detail, labelMode)
+                                    break
+                                default:
+                                    labels[label] = detail
+                            }
+                            labels[`${stepIndex}`] = detail
+                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                        }, { signal })
+                    }
                 }
+                container.dispatchEvent(new CustomEvent('run'))
             }
-            block.dispatchEvent(new CustomEvent('run'))
         }
     },
 
-    compileDirectives: {
-        value: async function (directives, name) {
+
+
+    compileFacet: {
+        value: async function (directives) {
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -549,30 +543,17 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            const Applet = class extends this.Applet {
+            const FacetClass = class extends this.Facet {
+                static E = ElementHTML
                 static fieldNames = Array.from(fieldNames)
                 static cellNames = Array.from(cellNames)
                 static statements = statements
-                static name = name || undefined
             }
-            return Applet
+            return FacetClass
         }
     },
-    Applet: {
-        value: class {
-            fieldNames = []
-            cellNames = []
-            statements = []
-            abortControllers = {}
-            constructor() {
-                this.statements = this.constructor.statements
-                for (const statement of this.constructor.statements) {
-                    const thisStatement = { labels: Object.assign({}, statement.labels), steps: [] }
-                    for (const step of statement.steps) thisStatement.steps.push({ ...step, vars: Object.assign({}, step.vars) })
-                }
-            }
-        }
-    },
+
+
     parsers: {
         value: {
             json: function (expression, hasDefault) {
@@ -676,20 +657,20 @@ const ElementHTML = Object.defineProperties({}, {
 
     binders: {
         value: {
-            pattern: async function (block, position, envelope) {
+            pattern: async function (container, position, envelope) {
                 const { vars } = envelope, { expression, regexp } = vars
                 this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
             },
-            proxy: async function (block, position, envelope) {
+            proxy: async function (container, position, envelope) {
                 const { vars } = envelope, { useHelper, parentObjectName } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
             },
-            routerhash: async function (block, position, envelope) {
+            routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
-                window.addEventListener('hashchange', event => block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+                window.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
             },
-            selector: async function (block, position, envelope) {
-                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, block)
+            selector: async function (container, position, envelope) {
+                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
                 if (!scope) return {}
                 let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                 if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
@@ -709,14 +690,14 @@ const ElementHTML = Object.defineProperties({}, {
                         let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
                         if (!eventList && (event.type !== tagDefaultEventType)) return
                         if (!keepDefault) event.preventDefault()
-                        block.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
+                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
                     }, { signal })
                 }
                 return { selector, scope }
             },
-            state: async function (block, position, envelope) {
+            state: async function (container, position, envelope) {
                 const { signal, vars } = envelope, { expression, typeDefault } = vars
-                let group = this.getStateGroup(expression, typeDefault, block),
+                let group = this.getStateGroup(expression, typeDefault, container),
                     config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
                     addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
                 switch (config) {
@@ -745,19 +726,18 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const item of items) {
                     item[item.type].eventTarget.addEventListener('change', event => {
                         const detail = getReturnValue()
-                        if (detail != undefined) block.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                        if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                     }, { signal })
                 }
                 return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
-            },
-            transform: async function (block, position, envelope) { return { block } }
+            }
         }
     },
 
     handlers: {
         value: {
-            json: async function (value, position, envelope) { return envelope.vars.value },
-            network: async function (value, position, envelope) {
+            json: async function (container, position, envelope, value) { return envelope.vars.value },
+            network: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
@@ -794,13 +774,13 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 })
             },
-            pattern: async function (value, position, envelope) {
+            pattern: async function (container, position, envelope, value) {
                 const { vars } = envelope, { expression } = vars
                 if (typeof value !== 'string') value = `${value}`
                 const match = value.match(this.app.regexp[expression])
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             },
-            proxy: async function (value, position, envelope) {
+            proxy: async function (container, position, envelope, value) {
                 const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
                 const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
                 if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
@@ -812,7 +792,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
             },
-            router: async function (value, position, envelope) {
+            router: async function (container, position, envelope, value) {
                 switch (typeof value) {
                     case 'string':
                         document.location = value
@@ -848,7 +828,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (value != undefined && (typeof value === 'string')) document.location[k] = value
                     return document.location[k]
                 }]))),
-            selector: async function (value, position, envelope) {
+            selector: async function (container, position, envelope, value) {
                 const { vars } = envelope, { selector, scope } = vars
                 if (value != undefined) {
                     const target = this.resolveSelector(selector, scope)
@@ -860,7 +840,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return value
             },
-            state: async function (value, position, envelope) {
+            state: async function (container, position, envelope, value) {
                 const { vars } = envelope, { getReturnValue, config, group } = vars
                 if (value == undefined) return getReturnValue()
                 switch (config) {
@@ -875,14 +855,18 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return getReturnValue()
             },
-            string: async function (value, position, envelope) { return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env) },
-            transform: async function (value, position, envelope) {
-                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries(this.app.directives.fields.get(block) ?? {}).map(f => [f[0], f[1].get()]))),
-                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                return this.runTransform(expression, value, block, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
+            string: async function (container, position, envelope, value) {
+                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
             },
-            variable: async function (value, position, envelope) { return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env) },
-            wait: async function (value, position, envelope) {
+            transform: async function (container, position, envelope, value) {
+                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries((this.app.facets.instances.get(container) ?? {}).fields).map(f => [f[0], f[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                return this.runTransform(expression, value, container, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
+            },
+            variable: async function (container, position, envelope, value) {
+                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
+            },
+            wait: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { expression } = vars
                 const getResult = () => {
                     const useExpression = this.mergeVariables(expression, value, labels, env)
@@ -1099,9 +1083,14 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     getField: {
-        enumerable: true, value: async function (block, fieldName) {
+        enumerable: true, value: async function (facetInstanceOrContainer, fieldName) {
             if (!fieldName) return
-            const fields = this.app.directives.fields.get(block)
+            let fields
+            if (facetInstanceOrContainer instanceof this.Facet) {
+                fields = facetInstanceOrContainer.fields
+            } else if (facetInstanceOrContainer instanceof HTMLElement) {
+                fields = this.app.facets.instances.get(facetInstanceOrContainer).fields
+            }
             if (!fields[fieldName]) {
                 const field = {
                     type: 'field',
@@ -1138,7 +1127,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case '#':
                         return { cell: this.getCell(name.slice(1)), type: 'cell', mode }
                     case '@':
-                        return { field: element.getField(name.slice(1)), type: 'field', mode }
+                        return { field: this.getField(element, name.slice(1)), type: 'field', mode }
                 }
             }
             switch (expression[0]) {
