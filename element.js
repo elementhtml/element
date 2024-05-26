@@ -18,7 +18,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
-            applets: new WeakMap(),
+            facets: { classes: {}, instances: new WeakMap() },
             cells: {},
             directives: {
                 abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(),
@@ -32,6 +32,7 @@ const ElementHTML = Object.defineProperties({}, {
     env: {
         enumerable: true, value: {
             context: {},
+            facets: {},
             helpers: {
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
@@ -272,17 +273,17 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.isDirectivesBlock(element)) { this.connectBlock(element) } else if (this.getCustomTag(element)) { this.load(element) }
+            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.connectFacet(element) } else if (this.getCustomTag(element)) { this.load(element) }
             observerRoot._observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
-                        if (this.isDirectivesBlock(addedNode)) { this.connectBlock(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
+                        if (this.isFacetContainer(addedNode)) { this.connectFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
                         if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
                     }
                     for (const removedNode of (record.removedNodes || [])) {
                         if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
-                        if (this.isDirectivesBlock(removedNode)) {
-                            this.disconnectBlock(removedNode)
+                        if (this.isFacetContainer(removedNode)) {
+                            this.disconnectFacet(removedNode)
                         } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
                             removedNode.disconnectedCallback()
                         }
@@ -305,38 +306,39 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    connectBlock: {
-        value: async function (block) {
-            this.app.directives.keyedAbortControllers.set(block, {})
-            let applet, AppletTemplate
-            switch (block.type) {
+    connectApplet: {
+        value: async function (container) {
+            let appletInstance, AppletClass
+            switch (container.type) {
                 case 'directives/element':
-                    let name = block.name || block.getAttribute('name') || undefined
-                    AppletTemplate = await this.compileDirectives(block.src ? await fetch(block.src).then(r => r.text()) : block.textContent, name)
+                    AppletClass = await this.compileDirectives(container.src ? await fetch(container.src).then(r => r.text()) : container.textContent, container.name || container.getAttribute('name') || undefined)
                     break
                 case 'application/element':
-                    if (!block.src) break
-                    switch (block.src[0]) {
+                    if (!container.src) break
+                    switch (container.src[0]) {
                         case '$':
-                            AppletTemplate = this.env.applets[block.src.slice(1)]
+                            AppletClass = this.env.applets[container.src.slice(1)]
                             break
                         default:
-                            AppletTemplate = this.app.applets[block.src]?.constructor
-                            AppletTemplate ??= await import(block.src)
+                            AppletClass = this.app.applets[container.src]?.constructor
+                            AppletClass ??= await import(container.src)
                             break
                     }
                     break
             }
-            if (!AppletTemplate) return
-            applet = new AppletTemplate()
+            if (!AppletClass) return
+            appletInstance = new AppletClass()
 
-            console.log('line 336', applet)
+            console.log('line 332', appletInstance)
 
-            await this.runBlock(block, await this.loadBlock(block, applet))
+            await this.runAppletInstance(container, await this.loadBlock(block, applet))
         }
     },
-    disconnectBlock: {
-        value: function (block) {
+    disconnectApplet: {
+        value: function (container) {
+
+            const appletInstance = this.app.applets.get(container)
+
             for (const [k, v] of Object.entries((this.app.directives.keyedAbortControllers.get(block) ?? {}))) v.abort()
             this.app.directives.keyedAbortControllers.delete(block)
             this.app.directives.abortControllers.get(block)?.abort()
@@ -561,6 +563,7 @@ const ElementHTML = Object.defineProperties({}, {
             fieldNames = []
             cellNames = []
             statements = []
+            abortControllers = {}
             constructor() {
                 this.statements = this.constructor.statements
                 for (const statement of this.constructor.statements) {
@@ -1633,7 +1636,7 @@ const ElementHTML = Object.defineProperties({}, {
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
         }
     },
-    isDirectivesBlock: {
+    isFacetContainer: {
         value: function (element) {
             return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
         }
