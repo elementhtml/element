@@ -357,7 +357,6 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
                 Object.freeze(this.fields)
             }
-
             async run(container, env) {
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
                     const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
@@ -412,7 +411,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
 
     canonicalizeDirectives: {
         value: function (directives) {
@@ -652,9 +650,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
-
     binders: {
         value: {
             pattern: async function (container, position, envelope) {
@@ -733,7 +728,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     handlers: {
         value: {
             json: async function (container, position, envelope, value) { return envelope.vars.value },
@@ -902,8 +896,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
 
     digest: {
         enumerable: true, value: async function (str) {
