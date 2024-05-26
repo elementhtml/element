@@ -356,7 +356,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     Facet: {
         value: class {
-            container
             controller
             controllers = {}
             fields = {}
