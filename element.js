@@ -18,14 +18,15 @@ const ElementHTML = Object.defineProperties({}, {
     },
     app: {
         value: {
-            facets: { classes: {}, instances: new WeakMap() },
             cells: {},
-            directives: {
-                abortController: new WeakMap(), cellNames: new WeakMap(), fields: new WeakMap(),
-                fieldNames: new WeakMap(), keyedAbortControllers: new WeakMap(), statements: new WeakMap()
+            doppel: {
+                dom: new WeakMap(), observers: new WeakMap()
             },
-            doppel: { dom: new WeakMap(), observers: new WeakMap() },
-            eventTarget: new EventTarget(), helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            eventTarget: new EventTarget(),
+            facets: {
+                classes: {}, instances: new WeakMap()
+            },
+            helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {},
         }
     },
 
