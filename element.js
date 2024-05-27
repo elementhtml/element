@@ -1248,7 +1248,7 @@ const ElementHTML = Object.defineProperties({}, {
             [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
             for (const id in this.ids) {
                 this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this.Component(this.classes[id])
+                this.constructors[id] = this.ComponentFactory(this.classes[id])
             }
         }
     },
@@ -1522,9 +1522,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Component: {
+    ComponentFactory: {
         value: function (baseClass = globalThis.HTMLElement) {
-            return class extends globalThis.HTMLElement {
+            return class Component extends globalThis.HTMLElement {
                 constructor() {
                     super()
                     Object.defineProperty(this, 'E', { value: ElementHTML })
@@ -1543,9 +1543,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const templateNode = document.createElement('template')
                         templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id) ?? ''
                         this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    } catch (e) {
-                        console.log('line 1836', e, this)
-                    }
+                    } catch (e) { }
                 }
                 static get observedAttributes() { return [] }
                 static get E_FlattenableProperties() { return this.observedAttributes }
@@ -1558,6 +1556,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Facet: {
         value: class {
+            static E
             controller
             controllers = {}
             fields = {}
@@ -1749,6 +1748,11 @@ const ElementHTML = Object.defineProperties({}, {
                 static hash = hash
             }
             return FacetClass
+        }
+    },
+    exportFacet: {
+        value: async function () {
+
         }
     },
     parsers: {
