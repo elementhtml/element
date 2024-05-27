@@ -167,6 +167,15 @@ const ElementHTML = Object.defineProperties({}, {
                                     const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
                                     this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                             }
+                            if (a === 'facets' && packageContents[a][aa] && (typeof packageContents[a][aa] === 'object')) {
+                                this.env[a][aa] = class extends this.Facet {
+                                    static E = this
+                                    static fieldNames = Array.from(packageContents[a][aa].fieldNames ?? [])
+                                    static cellNames = Array.from(packageContents[a][aa].cellNames ?? [])
+                                    static statements = packageContents[a][aa].statements ?? []
+                                    static hash = packageContents[a][aa].hash
+                                }
+                            }
                         }
                         break
                     case 'templates':
@@ -1751,8 +1760,20 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportFacet: {
-        value: async function () {
-
+        value: async function (source) {
+            const facetSignature = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
+            if (!source) return facetSignature
+            let facetClass
+            switch (typeof source) {
+                case 'string':
+                    facetClass = this.app.facets.classes[source] ?? this.env.facets[source]
+                case 'function':
+                    facetClass ??= source
+                case 'object':
+                    if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
+                    if (facetClass) for (const p in facetSignature) facetSignature[p] = facetClass[p]
+            }
+            return facetSignature
         }
     },
     parsers: {
