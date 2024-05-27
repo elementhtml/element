@@ -106,9 +106,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: {
         enumerable: true, value: function (name = 'E') {
-            if (!(name && typeof name === 'string')) name = 'E'
-            window[name] ||= this
-            this.env.errors = true
+            window[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
     ImportPackage: {
