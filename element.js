@@ -127,6 +127,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    Dev: {
+        enumerable: true, value: function () {
+            this.env.errors = true
+        }
+    },
     Expose: {
         enumerable: true, value: function (name = 'E') {
             if (!(name && typeof name === 'string')) name = 'E'
@@ -140,14 +145,25 @@ const ElementHTML = Object.defineProperties({}, {
             if (!packageContents || (typeof packageContents !== 'object')) return
             if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const a of ['helpers', 'loaders', 'templates']) {
+            for (const a of ['helpers', 'loaders', 'templates', 'facets']) {
                 if (typeof packageContents[a] !== 'string') continue
                 const importUrl = this.resolveUrl(packageContents[a], packageUrl), exports = getExports(importUrl)
                 packageContents[a] = {}
                 if (!exports || (typeof exports !== 'object')) continue
                 for (const aa in exports) {
-                    const typeCheck = a === 'templates' ? ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement)) : (typeof exports[aa] === 'function')
-                    if (typeCheck) packageContents.templates[aa] = exports[aa]
+                    if (!exports[aa]) continue
+                    let typeCheck
+                    switch (a) {
+                        case 'facets':
+                            typeCheck = (exports[aa].prototype instanceof this.Facet)
+                            break
+                        case 'templates':
+                            typeCheck = ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement))
+                            break
+                        default:
+                            typeCheck = (typeof exports[aa] === 'function')
+                    }
+                    if (typeCheck) packageContents[a][aa] = exports[aa]
                 }
             }
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
@@ -168,8 +184,9 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    case 'helpers': case 'loaders':
+                    case 'helpers': case 'loaders': case 'facets':
                         for (const aa in packageContents[a]) {
+                            if (!packageContents[a][aa]) continue
                             switch (typeof packageContents[a][aa]) {
                                 case 'function':
                                     this.env[a][aa] = packageContents[a][aa]
@@ -230,9 +247,7 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(this)
                 if (!this.env.errors) {
                     console.log = () => { }
-                    window.addEventListener('unhandledrejection', event => {
-                        event.preventDefault()
-                    })
+                    window.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
                 this.encapsulateNative()
             } else {
@@ -1866,6 +1881,7 @@ if (metaOptions.has('packages')) {
     await Promise.all(Object.values(importPromises))
     for (const url in importPromises) await ElementHTML.ImportPackage(await importPromises[url], url, importKeys[url])
 }
+if (metaOptions.has('dev')) ElementHTML.Dev(metaOptions.get('dev'))
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
