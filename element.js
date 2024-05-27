@@ -2,34 +2,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '1.2.0' },
 
-    sys: {
-        value: Object.freeze({
-            defaultEventTypes: Object.freeze({
-                audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
-                meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
-            }),
-            regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
-                hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
-                label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/, defaultValue: /\s+\?\?\s+(.+)\s*$/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g
-            })
-        })
-    },
-    app: {
-        value: {
-            cells: {},
-            doppel: {
-                dom: new WeakMap(), observers: new WeakMap()
-            },
-            eventTarget: new EventTarget(),
-            facets: {
-                classes: {}, instances: new WeakMap()
-            },
-            helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {},
-        }
-    },
-
     env: {
         enumerable: true, value: {
             context: {},
@@ -317,601 +289,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-    mountFacet: {
-        value: async function (facetContainer) {
-            const { type, src, textContent } = facetContainer
-            let facetInstance, FacetClass, facetId
-            switch (type) {
-                case 'directives/element':
-                    const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
-                    if (!directives) break
-                    facetId = await this.digest(directives)
-                    this.app.facets.classes[facetId] ??= await this.compileFacet(directives, facetId)
-                    break
-                case 'application/element':
-                    if (!src) break
-                    switch (src[0]) {
-                        case '$':
-                            this.app.facets.classes[facetId] ??= this.env.facets[src.slice(1)]
-                            break
-                        default:
-                            this.app.facets.classes[facetId] ??= await import(facetId)
-                            break
-                    }
-                    break
-            }
-            FacetClass = this.app.facets.classes[facetId]
-            if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
-            facetInstance = new FacetClass()
-            this.app.facets.instances.set(facetContainer, facetInstance)
-            const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
-                context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
-            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = this.getField(facetInstance, fieldName)
-            for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
-            Object.freeze(fields)
-            Object.freeze(cells)
-            await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
-        }
-    },
-    unmountFacet: {
-        value: function (facetContainer) {
-            const facetInstance = this.app.facets.instances.get(facetContainer)
-            for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
-            this.facetInstance.controller.abort()
-        }
-    },
-    Facet: {
-        value: class {
-            controller
-            controllers = {}
-            fields = {}
-            vars = {}
-            constructor() {
-                this.controller = new AbortController()
-                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
-                Object.freeze(this.fields)
-            }
-            async run(container, env) {
-                for (const [statementIndex, statement] of this.constructor.statements.entries()) {
-                    const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
-                    for (const [stepIndex, step] of steps.entries()) {
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
-                            envelope = { labels: { ...labels }, env }
-                        this.vars[position] = { ...(step.vars ?? {}) }
-                        if (binder) {
-                            if (this.vars[position].signal) {
-                                this.controllers[position] = new AbortController()
-                                envelope.signal = this.controllers[position].signal
-                            }
-                            Object.assign(this.vars[position], await this.constructor.E.binders[binder](container, position, envelope))
-                        }
-                        envelope.vars = this.vars[position]
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                            let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
-                            if (detail == undefined) {
-                                if (typeof defaultValue !== 'string') {
-                                    detail = defaultValue
-                                } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
-                                    detail = defaultValue.slice(1, -1)
-                                } else if (defaultValue.match(this.constructor.E.sys.regexp.hasVariable)) {
-                                    detail = this.constructor.E.mergeVariables(defaultValue, undefined, labels, env)
-                                } else if (defaultValue.match(this.constructor.E.sys.regexp.isJSONObject) || defaultValue.match(this.constructor.E.sys.regexp.isNumeric)
-                                    || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
-                                    try {
-                                        detail = JSON.parse(defaultValue)
-                                    } catch (e) {
-                                        detail = defaultValue
-                                    }
-                                } else {
-                                    detail = defaultValue
-                                }
-                            }
-                            switch (label[0]) {
-                                case '@':
-                                    env.fields[label.slice(1)].set(detail, labelMode)
-                                    break
-                                case '#':
-                                    env.cells[label.slice(1)].set(detail, labelMode)
-                                    break
-                                default:
-                                    labels[label] = detail
-                            }
-                            labels[`${stepIndex}`] = detail
-                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
-                        }, { signal: this.controller.signal })
-                    }
-                }
-                container.dispatchEvent(new CustomEvent('run'))
-            }
-        }
-    },
-
-    canonicalizeDirectives: {
-        value: function (directives) {
-            directives = directives.trim()
-            const canonicalizeDirectives = []
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
-                directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
-            }
-            return canonicalizeDirectives.join('\n').trim()
-        }
-    },
-    compileFacet: {
-        value: async function (directives, hash, raw) {
-            if (raw) directives = this.canonicalizeDirectives(directives)
-            const fieldNames = new Set(), cellNames = new Set(), statements = []
-            let statementIndex = -1
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
-                statementIndex = statementIndex + 1
-                const statement = { labels: {}, steps: [] }
-                let stepIndex = -1
-                for (let [index, segment] of directive.split(' >> ').entries()) {
-                    segment = segment.trim()
-                    if (!segment) continue
-                    let handlerExpression = segment, label, defaultExpression, hasDefault = false
-                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
-                    if (labelMatch) {
-                        label = labelMatch[1].trim()
-                        handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
-                    }
-                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
-                    if (defaultExpressionMatch) {
-                        defaultExpression = defaultExpressionMatch[1].trim()
-                        handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                        hasDefault = !!defaultExpression
-                        if (defaultExpression[0] === '#') {
-                            const cn = defaultExpression.slice(1).trim()
-                            if (cn) cellNames.add(cn)
-                        }
-                    }
-                    label ||= `${index}`
-                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
-                    if (labelMode) {
-                        label = label.slice(0, -1).trim()
-                        step.labelMode = labelMode
-                    }
-                    step.label = label
-                    switch (label[0]) {
-                        case '@':
-                            let fn = label.slice(1).trim()
-                            if (fn) fieldNames.add(fn)
-                            break
-                        case '#':
-                            const cn = label.slice(1).trim()
-                            if (cn) cellNames.add(cn)
-                            break
-                        default:
-                            const ln = label.trim()
-                            if (ln) statement.labels[ln] = undefined
-                    }
-                    let parsed
-                    stepIndex = stepIndex + 1
-                    switch (handlerExpression) {
-                        case '#': case '?': case '/': case ':':
-                            parsed = this.parsers.router(handlerExpression, hasDefault)
-                            break
-                        default:
-                            switch (handlerExpression[0]) {
-                                case '`':
-                                    parsed = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case '/':
-                                    parsed = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case '"': case "'":
-                                    parsed = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
-                                    break
-                                case "#": case "@":
-                                    parsed = this.parsers.state(handlerExpression, hasDefault)
-                                    for (const addedName of (parsed.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
-                                    for (const addedName of (parsed.vars.addedCellNames ?? [])) cellNames.add(addedName)
-                                    break
-                                case "$":
-                                    if (handlerExpression[1] === "{") {
-                                        parsed = this.parsers.variable(handlerExpression, hasDefault)
-                                    } else if (handlerExpression[1] === "(") {
-                                        parsed = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
-                                    }
-                                    break
-                                case "(":
-                                    parsed = this.parsers.transform(handlerExpression, hasDefault)
-                                    break
-                                case "{": case "[":
-                                    parsed = this.parsers.json(handlerExpression, hasDefault)
-                                    break
-                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
-                                    let t
-                                    switch (handlerExpression) {
-                                        case 'null': case 'true': case 'false':
-                                            t = true
-                                        default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) parsed = this.parsers.json(handlerExpression, hasDefault)
-                                    }
-                                    break
-                                case "_":
-                                    if (handlerExpression.endsWith('_')) {
-                                        parsed = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
-                                        break
-                                    }
-                                case '~':
-                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
-                                default:
-                                    parsed = this.parsers.network(handlerExpression, hasDefault)
-                            }
-                    }
-                    let { vars, binder, handler } = parsed
-                    if (vars) step.vars = vars
-                    if (binder) step.binder = binder
-                    step.handler = handler
-                    if (defaultExpression) step.defaultExpression = defaultExpression
-                    statement.labels[label] = undefined
-                    statement.labels[`${index}`] = undefined
-                    statement.steps.push(Object.freeze(step))
-                }
-                Object.seal(statement.labels)
-                Object.freeze(statement.steps)
-                Object.freeze(statement)
-                statements.push(statement)
-            }
-            hash ??= await this.digest(directives)
-            const FacetClass = class extends this.Facet {
-                static E = ElementHTML
-                static fieldNames = Array.from(fieldNames)
-                static cellNames = Array.from(cellNames)
-                static statements = statements
-                static hash = hash
-            }
-            return FacetClass
-        }
-    },
-    parsers: {
-        value: {
-            json: function (expression, hasDefault) {
-                let value = null
-                try { value = JSON.parse(expression) } catch (e) { }
-                return { vars: { value }, handler: 'json' }
-            },
-            network: function (expression, hasDefault) {
-                const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
-                let returnFullRequest
-                if (expression[0] === '~' && expression.endsWith('~')) {
-                    returnFullRequest = true
-                    expression = expression.slice(1, -1)
-                }
-                return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
-            },
-            pattern: function (expression, hasDefault) {
-                expression = expression.trim()
-                if (!expression) return
-                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
-            },
-            proxy: function (expression, hasDefault) {
-                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
-                if (!parentExpression || (childExpression === '')) return
-                let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
-                parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-                let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
-                if (useHelper) {
-                    parentObjectName = parentObjectName.slice(1)
-                } else {
-                    [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-                    childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-                }
-                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
-            },
-            router: function (expression, hasDefault) {
-                let vars, binder, handler
-                switch (expression) {
-                    case '#':
-                        vars = { signal: true }
-                        binder = 'routerhash'
-                        handler = 'routerhash'
-                        break
-                    case '?':
-                        handler = 'routersearch'
-                        break
-                    case '/':
-                        handler = 'routerpathname'
-                        break
-                    case ':':
-                        handler = 'router'
-                }
-                return { vars, binder, handler }
-            },
-            selector: function (expression, hasDefault) {
-                if (!expression.includes('|')) {
-                    switch (expression[0]) {
-                        case '#':
-                            expression = `:document|${expression}`
-                            break
-                        case '@':
-                            expression = `:root|[name="${expression.slice(1)}"]`
-                            break
-                        case '^':
-                            expression = `:root|[style~="${expression.slice(1)}"]`
-                            break
-                        case '~':
-                            expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
-                            break
-                        case '.':
-                        default:
-                            expression = `:root|${expression}`
-                    }
-                }
-                const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
-            },
-            state: function (expression, hasDefault) {
-                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
-            },
-            string: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'string' }
-            },
-            transform: function (expression, hasDefault) {
-                if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-                if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
-                if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-                return { vars: { expression }, handler: 'transform' }
-            },
-            variable: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'variable' }
-            },
-            wait: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'wait' }
-            }
-        }
-    },
-
-    binders: {
-        value: {
-            pattern: async function (container, position, envelope) {
-                const { vars } = envelope, { expression, regexp } = vars
-                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
-            },
-            proxy: async function (container, position, envelope) {
-                const { vars } = envelope, { useHelper, parentObjectName } = vars
-                if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-            },
-            routerhash: async function (container, position, envelope) {
-                const { signal } = envelope
-                window.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
-            },
-            selector: async function (container, position, envelope) {
-                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
-                if (!scope) return {}
-                let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
-                if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
-                const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
-                for (let eventName of eventNames) {
-                    let keepDefault = eventName.endsWith('+')
-                    if (keepDefault) eventName = eventName.slice(0, -1)
-                    scope.addEventListener(eventName, event => {
-                        if (selector.endsWith('}') && selector.includes('{')) {
-                            const target = this.resolveSelector(selector, scope)
-                            if (!target || (Array.isArray(target) && !target.length)) return
-                        } else if (selector[0] === '$') {
-                            if (selector.length === 1) return
-                            const catchallSelector = this.buildCatchallSelector(selector)
-                            if (!event.target.matches(catchallSelector)) return
-                        } else if (selector && !event.target.matches(selector)) { return }
-                        let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
-                        if (!eventList && (event.type !== tagDefaultEventType)) return
-                        if (!keepDefault) event.preventDefault()
-                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
-                    }, { signal })
-                }
-                return { selector, scope }
-            },
-            state: async function (container, position, envelope) {
-                const { signal, vars } = envelope, { expression, typeDefault } = vars
-                let group = this.getStateGroup(expression, typeDefault, container),
-                    config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
-                    addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
-                switch (config) {
-                    case 'single':
-                        (group.type === 'field' ? addedFields : addedCells).add(group[group.type].name)
-                        getReturnValue = () => group[group.type].get()
-                        items.push(group)
-                        break
-                    case 'array':
-                        for (const g of group) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
-                        getReturnValue = () => {
-                            const r = group.map(g => g[g.type].get())
-                            return r.some(rr => rr == undefined) ? undefined : r
-                        }
-                        items = group
-                        break
-                    default:
-                        for (const g of Object.values(group)) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
-                        getReturnValue = () => {
-                            const r = {}
-                            for (const name in group) r[name] = group[name][group[name].type].get()
-                            return Object.values(r).every(rr => rr == undefined) ? undefined : r
-                        }
-                        items = Object.values(group)
-                }
-                for (const item of items) {
-                    item[item.type].eventTarget.addEventListener('change', event => {
-                        const detail = getReturnValue()
-                        if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                    }, { signal })
-                }
-                return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
-            }
-        }
-    },
-    handlers: {
-        value: {
-            json: async function (container, position, envelope, value) { return envelope.vars.value },
-            network: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
-                let url = this.mergeVariables(expression, value, labels, env)
-                if (!url) return
-                const options = {}
-                if (!((value == undefined) || (expressionIncludesValueAsVariable && typeof value === 'string'))) {
-                    Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
-                    if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
-                        options.headers ||= {}
-                        options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
-                        delete options['content-type']
-                        delete options.contentType
-                        if (!options.headers['Content-Type']) {
-                            if (typeof options.body === 'string') {
-                                if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
-                                    options.headers['Content-Type'] = 'application/json'
-                                } else if (this.sys.regexp.isFormString.test(options.body)) {
-                                    options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-                                } else if (this.sys.regexp.isDataUrl.test(options.body)) {
-                                    options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
-                                }
-                            } else {
-                                options.headers['Content-Type'] = 'application/json'
-                            }
-                        }
-                    }
-                    if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
-                }
-                return fetch(url, options).then(r => {
-                    if (returnFullRequest) {
-                        return r
-                    } else {
-                        if (hasDefault && !r.ok) return
-                        return r.ok ? this.parse(r) : undefined
-                    }
-                })
-            },
-            pattern: async function (container, position, envelope, value) {
-                const { vars } = envelope, { expression } = vars
-                if (typeof value !== 'string') value = `${value}`
-                const match = value.match(this.app.regexp[expression])
-                return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
-            },
-            proxy: async function (container, position, envelope, value) {
-                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars
-                const getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
-                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
-                if (childMethodName) {
-                    const { childArgs } = vars
-                    if (!(globalThis[parentObjectName] instanceof Object)) return
-                    if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
-                }
-                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
-            },
-            router: async function (container, position, envelope, value) {
-                switch (typeof value) {
-                    case 'string':
-                        document.location = value
-                        break
-                    case 'object':
-                        if (!value) break
-                        for (const [k, v] of Object.entries(value)) {
-                            if (k.endsWith(')') && k.includes('(')) {
-                                let funcName = k.trim().slice(0, -2).trim()
-                                switch (funcName) {
-                                    case 'assign': case 'replace':
-                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
-                                        break
-                                    case 'back': case 'forward':
-                                        history[funcName]()
-                                        break
-                                    case 'go':
-                                        history[funcName](parseInt(v) || 0)
-                                        break
-                                    case 'pushState': case 'replaceState':
-                                        history[funcName](...(Array.isArray(v) ? v : [v]))
-                                }
-                            } else if (typeof v === 'string') {
-                                document.location[k] = v
-                                break
-                            }
-                        }
-                }
-                return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
-            },
-            ...Object.fromEntries(
-                ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async function (value, position, envelope) {
-                    if (value != undefined && (typeof value === 'string')) document.location[k] = value
-                    return document.location[k]
-                }]))),
-            selector: async function (container, position, envelope, value) {
-                const { vars } = envelope, { selector, scope } = vars
-                if (value != undefined) {
-                    const target = this.resolveSelector(selector, scope)
-                    if (Array.isArray(target)) {
-                        for (const t of target) this.render(t, value)
-                    } else if (target) {
-                        this.render(target, value)
-                    }
-                }
-                return value
-            },
-            state: async function (container, position, envelope, value) {
-                const { vars } = envelope, { getReturnValue, config, group } = vars
-                if (value == undefined) return getReturnValue()
-                switch (config) {
-                    case 'single':
-                        group[group.type].set(value, group.mode)
-                        break
-                    case 'array':
-                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
-                        break
-                    default:
-                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
-                }
-                return getReturnValue()
-            },
-            string: async function (container, position, envelope, value) {
-                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
-            },
-            transform: async function (container, position, envelope, value) {
-                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries((this.app.facets.instances.get(container) ?? {}).fields).map(f => [f[0], f[1].get()]))),
-                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                return this.runTransform(expression, value, container, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
-            },
-            variable: async function (container, position, envelope, value) {
-                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
-            },
-            wait: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression } = vars
-                const getResult = () => {
-                    const useExpression = this.mergeVariables(expression, value, labels, env)
-                    let [mainWait, override] = useExpression.split('(')
-                    mainWait = this.mergeVariables(mainWait, value, labels, env)
-                    return (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
-                }
-                let ms = 0, now = Date.now()
-                if (mainWait === 'frame') {
-                    await new Promise(resolve => window.requestAnimationFrame(resolve))
-                    return getResult()
-                } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
-                    const [, timeout] = mainWait.split(':')
-                    await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
-                    return getResult()
-                } else if (mainWait[0] === '+') {
-                    ms = parseInt(mainWait.slice(1)) || 0
-                } else if (this.sys.regexp.isNumeric.test(mainWait)) {
-                    ms = (parseInt(mainWait) || 0) - now
-                } else {
-                    let mainWaitSplit = mainWait.split(':').map(s => s.trim())
-                    if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
-                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`)
-                        if (ms < 0) ms = (ms + (1000 * 3600 * 24))
-                        ms = ms - now
-                    } else {
-                        ms = Date.parse(mainWait) - now
-                    }
-                }
-                ms = Math.max(ms, 0)
-                await new Promise(resolve => setTimeout(resolve, ms))
-                return getResult()
-            }
-        }
-    },
-
     digest: {
         enumerable: true, value: async function (str) {
             if (typeof str !== 'string') str = `${str}`
@@ -1056,6 +433,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    getAllProperties: {
+        enumerable: true, value: function (obj) {
+            const properties = new Set()
+            let currentObj = obj, temp
+            while (currentObj !== null) Object.getOwnPropertyNames((temp = currentObj, currentObj = Object.getPrototypeOf(currentObj), temp)).forEach(prop => properties.add(prop))
+            return properties
+        }
+    },
     getCell: {
         enumerable: true, value: function (name) {
             if (!name) return
@@ -1119,48 +504,6 @@ const ElementHTML = Object.defineProperties({}, {
                 fields[fieldName] = field
             }
             return fields[fieldName]
-        }
-    },
-    getStateGroup: {
-        enumerable: true, value: function (expression, typeDefault = '#', element) {
-            element = this.app.doppel.get(element) ?? element
-            let group
-            const getStateTarget = (name) => {
-                const modeFlag = name[name.length - 1],
-                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
-                if (mode) name = name.slice(0, -1).trim()
-                if ((name[0] !== '#') && (name[0] !== '@')) name = `${typeDefault}${name}`
-                switch (name[0]) {
-                    case '#':
-                        return { cell: this.getCell(name.slice(1)), type: 'cell', mode }
-                    case '@':
-                        return { field: this.getField(element, name.slice(1)), type: 'field', mode }
-                }
-            }
-            switch (expression[0]) {
-                case '{':
-                    group = {}
-                    for (const pair of expression.slice(1, -1).trim().split(',')) {
-                        let [key, name] = pair.trim().split(':').map(s => s.trim())
-                        if (!name) name = key
-                        const keyEndsWith = key[key.length - 1]
-                        if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                        group[key] = getStateTarget(name)
-                    }
-                    return group
-                case '[':
-                    group = []
-                    for (let t of expression.slice(1, -1).split(',')) {
-                        t = t.trim()
-                        if (!t) continue
-                        group.push(getStateTarget(t))
-                    }
-                    return group
-                default:
-                    expression = expression.trim()
-                    if (!expression) return
-                    return getStateTarget(expression)
-            }
         }
     },
     loadHelper: {
@@ -1553,6 +896,13 @@ const ElementHTML = Object.defineProperties({}, {
             return this.useHelper(contentType, input, true) ?? `${input}`
         }
     },
+    sortByInheritance: {
+        enumerable: true, value: function (idList) {
+            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
+                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
+                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
+        }
+    },
     useHelper: {
         enumerable: true, value: function (name, ...args) {
             if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
@@ -1561,13 +911,285 @@ const ElementHTML = Object.defineProperties({}, {
 
     _styles: { value: {} },
     _templates: { value: {} },
+    app: {
+        value: {
+            cells: {},
+            doppel: {
+                dom: new WeakMap(), observers: new WeakMap()
+            },
+            eventTarget: new EventTarget(),
+            facets: {
+                classes: {}, instances: new WeakMap()
+            },
+            helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {},
+        }
+    },
+    binders: {
+        value: {
+            pattern: async function (container, position, envelope) {
+                const { vars } = envelope, { expression, regexp } = vars
+                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
+            },
+            proxy: async function (container, position, envelope) {
+                const { vars } = envelope, { useHelper, parentObjectName } = vars
+                if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
+            },
+            routerhash: async function (container, position, envelope) {
+                const { signal } = envelope
+                window.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+            },
+            selector: async function (container, position, envelope) {
+                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
+                if (!scope) return {}
+                let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+                if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
+                for (let eventName of eventNames) {
+                    let keepDefault = eventName.endsWith('+')
+                    if (keepDefault) eventName = eventName.slice(0, -1)
+                    scope.addEventListener(eventName, event => {
+                        if (selector.endsWith('}') && selector.includes('{')) {
+                            const target = this.resolveSelector(selector, scope)
+                            if (!target || (Array.isArray(target) && !target.length)) return
+                        } else if (selector[0] === '$') {
+                            if (selector.length === 1) return
+                            const catchallSelector = this.buildCatchallSelector(selector)
+                            if (!event.target.matches(catchallSelector)) return
+                        } else if (selector && !event.target.matches(selector)) { return }
+                        let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                        if (!eventList && (event.type !== tagDefaultEventType)) return
+                        if (!keepDefault) event.preventDefault()
+                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
+                    }, { signal })
+                }
+                return { selector, scope }
+            },
+            state: async function (container, position, envelope) {
+                const { signal, vars } = envelope, { expression, typeDefault } = vars
+                let group = this.getStateGroup(expression, typeDefault, container),
+                    config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
+                    addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
+                switch (config) {
+                    case 'single':
+                        (group.type === 'field' ? addedFields : addedCells).add(group[group.type].name)
+                        getReturnValue = () => group[group.type].get()
+                        items.push(group)
+                        break
+                    case 'array':
+                        for (const g of group) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        getReturnValue = () => {
+                            const r = group.map(g => g[g.type].get())
+                            return r.some(rr => rr == undefined) ? undefined : r
+                        }
+                        items = group
+                        break
+                    default:
+                        for (const g of Object.values(group)) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        getReturnValue = () => {
+                            const r = {}
+                            for (const name in group) r[name] = group[name][group[name].type].get()
+                            return Object.values(r).every(rr => rr == undefined) ? undefined : r
+                        }
+                        items = Object.values(group)
+                }
+                for (const item of items) {
+                    item[item.type].eventTarget.addEventListener('change', event => {
+                        const detail = getReturnValue()
+                        if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                    }, { signal })
+                }
+                return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
+            }
+        }
+    },
     classes: { value: {} },
     constructors: { value: {} },
     extends: { value: {} },
     files: { value: {} },
+    handlers: {
+        value: {
+            json: async function (container, position, envelope, value) { return envelope.vars.value },
+            network: async function (container, position, envelope, value) {
+                const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
+                let url = this.mergeVariables(expression, value, labels, env)
+                if (!url) return
+                const options = {}
+                if (!((value == undefined) || (expressionIncludesValueAsVariable && typeof value === 'string'))) {
+                    Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
+                    if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
+                        options.headers ||= {}
+                        options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
+                        delete options['content-type']
+                        delete options.contentType
+                        if (!options.headers['Content-Type']) {
+                            if (typeof options.body === 'string') {
+                                if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
+                                    options.headers['Content-Type'] = 'application/json'
+                                } else if (this.sys.regexp.isFormString.test(options.body)) {
+                                    options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                                } else if (this.sys.regexp.isDataUrl.test(options.body)) {
+                                    options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
+                                }
+                            } else {
+                                options.headers['Content-Type'] = 'application/json'
+                            }
+                        }
+                    }
+                    if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
+                }
+                return fetch(url, options).then(r => {
+                    if (returnFullRequest) {
+                        return r
+                    } else {
+                        if (hasDefault && !r.ok) return
+                        return r.ok ? this.parse(r) : undefined
+                    }
+                })
+            },
+            pattern: async function (container, position, envelope, value) {
+                const { vars } = envelope, { expression } = vars
+                if (typeof value !== 'string') value = `${value}`
+                const match = value.match(this.app.regexp[expression])
+                return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+            },
+            proxy: async function (container, position, envelope, value) {
+                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars,
+                    getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
+                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
+                if (childMethodName) {
+                    const { childArgs } = vars
+                    if (!(globalThis[parentObjectName] instanceof Object)) return
+                    if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
+                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
+                }
+                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
+            },
+            router: async function (container, position, envelope, value) {
+                switch (typeof value) {
+                    case 'string':
+                        document.location = value
+                        break
+                    case 'object':
+                        if (!value) break
+                        for (const [k, v] of Object.entries(value)) {
+                            if (k.endsWith(')') && k.includes('(')) {
+                                let funcName = k.trim().slice(0, -2).trim()
+                                switch (funcName) {
+                                    case 'assign': case 'replace':
+                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
+                                        break
+                                    case 'back': case 'forward':
+                                        history[funcName]()
+                                        break
+                                    case 'go':
+                                        history[funcName](parseInt(v) || 0)
+                                        break
+                                    case 'pushState': case 'replaceState':
+                                        history[funcName](...(Array.isArray(v) ? v : [v]))
+                                }
+                            } else if (typeof v === 'string') {
+                                document.location[k] = v
+                                break
+                            }
+                        }
+                }
+                return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
+            },
+            ...Object.fromEntries(
+                ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async function (container, position, envelope, value) {
+                    if (value != undefined && (typeof value === 'string')) document.location[k] = value
+                    return document.location[k]
+                }]))),
+            selector: async function (container, position, envelope, value) {
+                const { vars } = envelope, { selector, scope } = vars
+                if (value != undefined) {
+                    const target = this.resolveSelector(selector, scope)
+                    if (Array.isArray(target)) {
+                        for (const t of target) this.render(t, value)
+                    } else if (target) {
+                        this.render(target, value)
+                    }
+                }
+                return value
+            },
+            state: async function (container, position, envelope, value) {
+                const { vars } = envelope, { getReturnValue, config, group } = vars
+                if (value == undefined) return getReturnValue()
+                switch (config) {
+                    case 'single':
+                        group[group.type].set(value, group.mode)
+                        break
+                    case 'array':
+                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
+                        break
+                    default:
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
+                }
+                return getReturnValue()
+            },
+            string: async function (container, position, envelope, value) {
+                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
+            },
+            transform: async function (container, position, envelope, value) {
+                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries((this.app.facets.instances.get(container) ?? {}).fields).map(f => [f[0], f[1].get()]))),
+                    cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                return this.runTransform(expression, value, container, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
+            },
+            variable: async function (container, position, envelope, value) {
+                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
+            },
+            wait: async function (container, position, envelope, value) {
+                const { labels, env, vars } = envelope, { expression } = vars, getResult = () => {
+                    const useExpression = this.mergeVariables(expression, value, labels, env)
+                    let [mainWait, override] = useExpression.split('(')
+                    mainWait = this.mergeVariables(mainWait, value, labels, env)
+                    return (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
+                }
+                let ms = 0, now = Date.now()
+                if (mainWait === 'frame') {
+                    await new Promise(resolve => window.requestAnimationFrame(resolve))
+                    return getResult()
+                } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
+                    const [, timeout] = mainWait.split(':')
+                    await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
+                    return getResult()
+                } else if (mainWait[0] === '+') {
+                    ms = parseInt(mainWait.slice(1)) || 0
+                } else if (this.sys.regexp.isNumeric.test(mainWait)) {
+                    ms = (parseInt(mainWait) || 0) - now
+                } else {
+                    let mainWaitSplit = mainWait.split(':').map(s => s.trim())
+                    if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
+                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`)
+                        if (ms < 0) ms = (ms + (1000 * 3600 * 24))
+                        ms = ms - now
+                    } else {
+                        ms = Date.parse(mainWait) - now
+                    }
+                }
+                ms = Math.max(ms, 0)
+                await new Promise(resolve => setTimeout(resolve, ms))
+                return getResult()
+            }
+        }
+    },
     ids: { value: {} },
     scripts: { value: {} },
     styles: { value: {} },
+    sys: {
+        value: Object.freeze({
+            defaultEventTypes: Object.freeze({
+                audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
+                meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
+            }),
+            regexp: Object.freeze({
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/,
+                hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
+                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
+                label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/, defaultValue: /\s+\?\?\s+(.+)\s*$/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g
+            })
+        })
+    },
     tags: { value: {} },
     templates: { value: {} },
 
@@ -1587,6 +1209,18 @@ const ElementHTML = Object.defineProperties({}, {
             const selectorMain = selector.slice(1)
             if (!selectorMain) return selector
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
+        }
+    },
+    canonicalizeDirectives: {
+        value: function (directives) {
+            directives = directives.trim()
+            const canonicalizeDirectives = []
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
+            }
+            return canonicalizeDirectives.join('\n').trim()
         }
     },
     encapsulateNative: {
@@ -1614,22 +1248,56 @@ const ElementHTML = Object.defineProperties({}, {
             [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
             for (const id in this.ids) {
                 this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this._base(this.classes[id])
+                this.constructors[id] = this.Component(this.classes[id])
             }
-        }
-    },
-    getAllProperties: {
-        value: function (obj) {
-            const properties = new Set()
-            let currentObj = obj, temp
-            while (currentObj !== null) Object.getOwnPropertyNames((temp = currentObj, currentObj = Object.getPrototypeOf(currentObj), temp)).forEach(prop => properties.add(prop))
-            return properties
         }
     },
     getCustomTag: {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    getStateGroup: {
+        value: function (expression, typeDefault = '#', element) {
+            element = this.app.doppel.get(element) ?? element
+            let group
+            const getStateTarget = (name) => {
+                const modeFlag = name[name.length - 1],
+                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
+                if (mode) name = name.slice(0, -1).trim()
+                if ((name[0] !== '#') && (name[0] !== '@')) name = `${typeDefault}${name}`
+                switch (name[0]) {
+                    case '#':
+                        return { cell: this.getCell(name.slice(1)), type: 'cell', mode }
+                    case '@':
+                        return { field: this.getField(element, name.slice(1)), type: 'field', mode }
+                }
+            }
+            switch (expression[0]) {
+                case '{':
+                    group = {}
+                    for (const pair of expression.slice(1, -1).trim().split(',')) {
+                        let [key, name] = pair.trim().split(':').map(s => s.trim())
+                        if (!name) name = key
+                        const keyEndsWith = key[key.length - 1]
+                        if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
+                        group[key] = getStateTarget(name)
+                    }
+                    return group
+                case '[':
+                    group = []
+                    for (let t of expression.slice(1, -1).split(',')) {
+                        t = t.trim()
+                        if (!t) continue
+                        group.push(getStateTarget(t))
+                    }
+                    return group
+                default:
+                    expression = expression.trim()
+                    if (!expression) return
+                    return getStateTarget(expression)
+            }
         }
     },
     isFacetContainer: {
@@ -1655,7 +1323,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     getVariable: {
-        enumerable: true, value: function (expression, value, labels, env) {
+        value: function (expression, value, labels, env) {
             if (!expression) return value
             switch (expression[0]) {
                 case '"': case "'":
@@ -1720,6 +1388,42 @@ const ElementHTML = Object.defineProperties({}, {
             return true
         }
     },
+    mountFacet: {
+        value: async function (facetContainer) {
+            const { type, src, textContent } = facetContainer
+            let facetInstance, FacetClass, facetId
+            switch (type) {
+                case 'directives/element':
+                    const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
+                    if (!directives) break
+                    facetId = await this.digest(directives)
+                    this.app.facets.classes[facetId] ??= await this.compileFacet(directives, facetId)
+                    break
+                case 'application/element':
+                    if (!src) break
+                    switch (src[0]) {
+                        case '$':
+                            this.app.facets.classes[facetId] ??= this.env.facets[src.slice(1)]
+                            break
+                        default:
+                            this.app.facets.classes[facetId] ??= await import(facetId)
+                            break
+                    }
+                    break
+            }
+            FacetClass = this.app.facets.classes[facetId]
+            if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
+            facetInstance = new FacetClass()
+            this.app.facets.instances.set(facetContainer, facetInstance)
+            const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
+                context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
+            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = this.getField(facetInstance, fieldName)
+            for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
+            Object.freeze(fields)
+            Object.freeze(cells)
+            await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
+        }
+    },
     renderWithTemplate: {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
@@ -1769,13 +1473,6 @@ const ElementHTML = Object.defineProperties({}, {
             return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
         }
     },
-    sortByInheritance: {
-        value: function (idList) {
-            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
-                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
-                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
-        }
-    },
     stackStyles: {
         value: function (id) {
             if (typeof this._styles[id] === 'string') return this._styles[id]
@@ -1817,8 +1514,15 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    unmountFacet: {
+        value: function (facetContainer) {
+            const facetInstance = this.app.facets.instances.get(facetContainer)
+            for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
+            this.facetInstance.controller.abort()
+        }
+    },
 
-    _base: {
+    Component: {
         value: function (baseClass = globalThis.HTMLElement) {
             return class extends globalThis.HTMLElement {
                 constructor() {
@@ -1851,7 +1555,300 @@ const ElementHTML = Object.defineProperties({}, {
                 valueOf() { return this.E.flatten(this) }
             }
         }
-    }
+    },
+    Facet: {
+        value: class {
+            controller
+            controllers = {}
+            fields = {}
+            vars = {}
+            constructor() {
+                this.controller = new AbortController()
+                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
+                Object.freeze(this.fields)
+            }
+            async run(container, env) {
+                for (const [statementIndex, statement] of this.constructor.statements.entries()) {
+                    const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
+                    for (const [stepIndex, step] of steps.entries()) {
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
+                            envelope = { labels: { ...labels }, env }
+                        this.vars[position] = { ...(step.vars ?? {}) }
+                        if (binder) {
+                            if (this.vars[position].signal) {
+                                this.controllers[position] = new AbortController()
+                                envelope.signal = this.controllers[position].signal
+                            }
+                            Object.assign(this.vars[position], await this.constructor.E.binders[binder](container, position, envelope))
+                        }
+                        envelope.vars = this.vars[position]
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                            let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
+                            if (detail == undefined) {
+                                if (typeof defaultValue !== 'string') {
+                                    detail = defaultValue
+                                } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
+                                    detail = defaultValue.slice(1, -1)
+                                } else if (defaultValue.match(this.constructor.E.sys.regexp.hasVariable)) {
+                                    detail = this.constructor.E.mergeVariables(defaultValue, undefined, labels, env)
+                                } else if (defaultValue.match(this.constructor.E.sys.regexp.isJSONObject) || defaultValue.match(this.constructor.E.sys.regexp.isNumeric)
+                                    || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                    try {
+                                        detail = JSON.parse(defaultValue)
+                                    } catch (e) {
+                                        detail = defaultValue
+                                    }
+                                } else {
+                                    detail = defaultValue
+                                }
+                            }
+                            switch (label[0]) {
+                                case '@':
+                                    env.fields[label.slice(1)].set(detail, labelMode)
+                                    break
+                                case '#':
+                                    env.cells[label.slice(1)].set(detail, labelMode)
+                                    break
+                                default:
+                                    labels[label] = detail
+                            }
+                            labels[`${stepIndex}`] = detail
+                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                        }, { signal: this.controller.signal })
+                    }
+                }
+                container.dispatchEvent(new CustomEvent('run'))
+            }
+        }
+    },
+
+    /* begin compile lazy module */
+    compileFacet: {
+        value: async function (directives, hash, raw) {
+            if (raw) directives = this.canonicalizeDirectives(directives)
+            const fieldNames = new Set(), cellNames = new Set(), statements = []
+            let statementIndex = -1
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                statementIndex = statementIndex + 1
+                const statement = { labels: {}, steps: [] }
+                let stepIndex = -1
+                for (let [index, segment] of directive.split(' >> ').entries()) {
+                    segment = segment.trim()
+                    if (!segment) continue
+                    let handlerExpression = segment, label, defaultExpression, hasDefault = false
+                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
+                    if (labelMatch) {
+                        label = labelMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
+                    }
+                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
+                    if (defaultExpressionMatch) {
+                        defaultExpression = defaultExpressionMatch[1].trim()
+                        handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
+                        hasDefault = !!defaultExpression
+                        if (defaultExpression[0] === '#') {
+                            const cn = defaultExpression.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                        }
+                    }
+                    label ||= `${index}`
+                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                    if (labelMode) {
+                        label = label.slice(0, -1).trim()
+                        step.labelMode = labelMode
+                    }
+                    step.label = label
+                    switch (label[0]) {
+                        case '@':
+                            let fn = label.slice(1).trim()
+                            if (fn) fieldNames.add(fn)
+                            break
+                        case '#':
+                            const cn = label.slice(1).trim()
+                            if (cn) cellNames.add(cn)
+                            break
+                        default:
+                            const ln = label.trim()
+                            if (ln) statement.labels[ln] = undefined
+                    }
+                    let parsed
+                    stepIndex = stepIndex + 1
+                    switch (handlerExpression) {
+                        case '#': case '?': case '/': case ':':
+                            parsed = this.parsers.router(handlerExpression, hasDefault)
+                            break
+                        default:
+                            switch (handlerExpression[0]) {
+                                case '`':
+                                    parsed = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case '/':
+                                    parsed = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case '"': case "'":
+                                    parsed = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
+                                    break
+                                case "#": case "@":
+                                    parsed = this.parsers.state(handlerExpression, hasDefault)
+                                    for (const addedName of (parsed.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
+                                    for (const addedName of (parsed.vars.addedCellNames ?? [])) cellNames.add(addedName)
+                                    break
+                                case "$":
+                                    if (handlerExpression[1] === "{") {
+                                        parsed = this.parsers.variable(handlerExpression, hasDefault)
+                                    } else if (handlerExpression[1] === "(") {
+                                        parsed = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
+                                    }
+                                    break
+                                case "(":
+                                    parsed = this.parsers.transform(handlerExpression, hasDefault)
+                                    break
+                                case "{": case "[":
+                                    parsed = this.parsers.json(handlerExpression, hasDefault)
+                                    break
+                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
+                                    let t
+                                    switch (handlerExpression) {
+                                        case 'null': case 'true': case 'false':
+                                            t = true
+                                        default:
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) parsed = this.parsers.json(handlerExpression, hasDefault)
+                                    }
+                                    break
+                                case "_":
+                                    if (handlerExpression.endsWith('_')) {
+                                        parsed = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
+                                        break
+                                    }
+                                case '~':
+                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
+                                default:
+                                    parsed = this.parsers.network(handlerExpression, hasDefault)
+                            }
+                    }
+                    let { vars, binder, handler } = parsed
+                    if (vars) step.vars = vars
+                    if (binder) step.binder = binder
+                    step.handler = handler
+                    if (defaultExpression) step.defaultExpression = defaultExpression
+                    statement.labels[label] = undefined
+                    statement.labels[`${index}`] = undefined
+                    statement.steps.push(Object.freeze(step))
+                }
+                Object.seal(statement.labels)
+                Object.freeze(statement.steps)
+                Object.freeze(statement)
+                statements.push(statement)
+            }
+            hash ??= await this.digest(directives)
+            const FacetClass = class extends this.Facet {
+                static E = ElementHTML
+                static fieldNames = Array.from(fieldNames)
+                static cellNames = Array.from(cellNames)
+                static statements = statements
+                static hash = hash
+            }
+            return FacetClass
+        }
+    },
+    parsers: {
+        value: {
+            json: function (expression, hasDefault) {
+                let value = null
+                try { value = JSON.parse(expression) } catch (e) { }
+                return { vars: { value }, handler: 'json' }
+            },
+            network: function (expression, hasDefault) {
+                const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+                let returnFullRequest
+                if (expression[0] === '~' && expression.endsWith('~')) {
+                    returnFullRequest = true
+                    expression = expression.slice(1, -1)
+                }
+                return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
+            },
+            pattern: function (expression, hasDefault) {
+                expression = expression.trim()
+                if (!expression) return
+                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
+            },
+            proxy: function (expression, hasDefault) {
+                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
+                if (!parentExpression || (childExpression === '')) return
+                let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
+                parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+                let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
+                if (useHelper) {
+                    parentObjectName = parentObjectName.slice(1)
+                } else {
+                    [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
+                    childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
+                }
+                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
+            },
+            router: function (expression, hasDefault) {
+                let vars, binder, handler
+                switch (expression) {
+                    case '#':
+                        vars = { signal: true }
+                        binder = 'routerhash'
+                        handler = 'routerhash'
+                        break
+                    case '?':
+                        handler = 'routersearch'
+                        break
+                    case '/':
+                        handler = 'routerpathname'
+                        break
+                    case ':':
+                        handler = 'router'
+                }
+                return { vars, binder, handler }
+            },
+            selector: function (expression, hasDefault) {
+                if (!expression.includes('|')) {
+                    switch (expression[0]) {
+                        case '#':
+                            expression = `:document|${expression}`
+                            break
+                        case '@':
+                            expression = `:root|[name="${expression.slice(1)}"]`
+                            break
+                        case '^':
+                            expression = `:root|[style~="${expression.slice(1)}"]`
+                            break
+                        case '~':
+                            expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                            break
+                        case '.':
+                        default:
+                            expression = `:root|${expression}`
+                    }
+                }
+                const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
+                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
+            },
+            state: function (expression, hasDefault) {
+                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
+            },
+            string: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'string' }
+            },
+            transform: function (expression, hasDefault) {
+                if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
+                if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
+                if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
+                return { vars: { expression }, handler: 'transform' }
+            },
+            variable: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'variable' }
+            },
+            wait: function (expression, hasDefault) {
+                return { vars: { expression }, handler: 'wait' }
+            }
+        }
+    },
+    /* end compile lazy module */
 
 })
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
