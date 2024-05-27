@@ -1630,7 +1630,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    /* begin compile lazy module */
+    /* begin compile module */
     compileFacet: {
         value: async function (directives, hash, raw) {
             if (raw) directives = this.canonicalizeDirectives(directives)
@@ -1759,23 +1759,6 @@ const ElementHTML = Object.defineProperties({}, {
             return FacetClass
         }
     },
-    exportFacet: {
-        value: async function (source) {
-            const facetSignature = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
-            if (!source) return facetSignature
-            let facetClass
-            switch (typeof source) {
-                case 'string':
-                    facetClass = this.app.facets.classes[source] ?? this.env.facets[source]
-                case 'function':
-                    facetClass ??= source
-                case 'object':
-                    if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
-                    if (facetClass) for (const p in facetSignature) facetSignature[p] = facetClass[p]
-            }
-            return facetSignature
-        }
-    },
     parsers: {
         value: {
             json: function (expression, hasDefault) {
@@ -1873,7 +1856,29 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    /* end compile lazy module */
+    /* end compile module */
+
+    /* start dev module */
+    exportFacet: {
+        value: async function (source) {
+            const facetSignature = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
+            if (!source) return facetSignature
+            let facetClass
+            switch (typeof source) {
+                case 'string':
+                    facetClass = this.app.facets.classes[source] ?? this.env.facets[source]
+                case 'function':
+                    facetClass ??= source
+                case 'object':
+                    if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
+                    if (facetClass) for (const p in facetSignature) facetSignature[p] = facetClass[p]
+            }
+            return facetSignature
+        }
+    },
+
+
+    /* end dev module */
 
 })
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
