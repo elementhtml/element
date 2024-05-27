@@ -1863,10 +1863,17 @@ const ElementHTML = Object.defineProperties({}, {
     /* end compile module */
 
     /* start dev module */
+    exportComponent: {
+        value: async function (id) {
+            const componentManifest = {}
+
+            return componentManifest
+        }
+    },
     exportFacet: {
         value: async function (source) {
-            const facetSignature = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
-            if (!source) return facetSignature
+            const facetManifest = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
+            if (!source) return facetManifest
             let facetClass
             switch (typeof source) {
                 case 'string':
@@ -1875,9 +1882,22 @@ const ElementHTML = Object.defineProperties({}, {
                     facetClass ??= source
                 case 'object':
                     if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
-                    if (facetClass) for (const p in facetSignature) facetSignature[p] = facetClass[p]
+                    if (facetClass) for (const p in facetManifest) facetManifest[p] = facetClass[p]
             }
-            return facetSignature
+            return facetManifest
+        }
+    },
+    exportPackage: {
+        value: async function (namespace, dimensions = []) {
+            const packageManifest = {}
+
+            return packageManifest
+        }
+    },
+    publishApplication: {
+        value: async function (namespace) {
+            const applicationManifest = {}
+
         }
     },
 
