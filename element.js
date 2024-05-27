@@ -99,9 +99,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    Compile: {
+        enumerable: true, value: function () {
+            //pre-emptively turns on compile mode and loads compile module
+        }
+    },
     Dev: {
         enumerable: true, value: function () {
             this.env.errors = true
+            //loads dev module
         }
     },
     Expose: {
