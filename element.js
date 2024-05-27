@@ -1863,15 +1863,16 @@ const ElementHTML = Object.defineProperties({}, {
     /* end compile module */
 
     /* start dev module */
+    //export format may be plain object 'plain', JSON-serialized object 'json' or XDR-serialized object 'xdr', defaults to plain object
     exportComponent: {
-        value: async function (id) {
+        value: async function (id, format = 'plain') {
             const componentManifest = {}
 
             return componentManifest
         }
     },
     exportFacet: {
-        value: async function (source) {
+        value: async function (source, format = 'plain') {
             const facetManifest = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
             if (!source) return facetManifest
             let facetClass
@@ -1888,15 +1889,27 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportPackage: {
-        value: async function (namespace, dimensions = []) {
+        value: async function (namespace, dimensions = [], format = 'plain') {
             const packageManifest = {}
 
             return packageManifest
         }
     },
-    publishApplication: {
-        value: async function (namespace) {
+    exportApplication: {
+        value: async function (format = 'plain') {
             const applicationManifest = {}
+
+        }
+    },
+    publishApplication: {
+        value: async function (options = {}, target = {}) {
+            const applicationManifest = await this.exportApplication()
+
+            // `options` may include `sitemap` list of pages to prerender and bundle
+
+            // `options` may include `pwa` params as object to trigger PWA rendering
+
+            //now publish application bundle to the target hosting platform using the information provided in `target`
 
         }
     },
