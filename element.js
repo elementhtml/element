@@ -1912,9 +1912,7 @@ const ElementHTML = Object.defineProperties({}, {
             //now publish application bundle to the target hosting platform using the information provided in `target`
 
         }
-    },
-
-
+    }
     /* end dev module */
 
 })
