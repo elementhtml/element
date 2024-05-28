@@ -183,7 +183,7 @@ const ElementHTML = Object.defineProperties({}, {
                                             this.env[a][aa] = JSON.parse(packageContents[a][aa])
                                         } else {
                                             await this.loadHelper('application/xdr')
-                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getComponentManifestType())
+                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getXdrType('ComponentManifest'))
                                         }
                                     }
                                     if (!this.env[a][aa]) {
@@ -1337,19 +1337,53 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getComponentManifestType: {
-        value: async function () {
+    getXdrType: {
+        value: async function (manifest, entry, name, namespace = 'element') {
+            if (typeof manifest === 'string') entry = manifest
+            name ??= entry
             await this.loadHelper('application/xdr')
-            const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
+            switch (name) {
+                case 'ComponentManifest':
+                    const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
+                    manifest = {
+                        entry, name, namespace,
+                        structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
+                        unions: {}, typedefs: {}, enums: {}
+                    }
+                    break
+                case 'FacetManifest':
+                    manifest = { entry, name, namespace, structs: {}, unions: {}, typedefs: {}, enums: {} }
+                    const xCode = `
+                    typedef string Name<>;
+
+                    struct Step {
+                        string handler<>;
+                        string label<>;
+                        string vars<>;
+                    };
+
+                    struct Statement {
+                        Name labels<>;
+                        Step steps<>;
+                    };
+
+                    struct FacetManifest {
+                        Name cellNames<>;
+                        Name fieldNames<>;
+                        string hash[64];
+                        Statement statements<>;
+                    };
+                    `
+                    const FacetManifestType = await this.app.libraries['application/xdr'].factory(xCode, 'FacetManifest')
+                    console.log('line 1358', FacetManifestType.manifest)
+                    return FacetManifestType
+                    break
+            }
             return class extends this.app.libraries['application/xdr'].types._base.Composite {
-                static entry = 'ComponentManifest'
-                static name = 'ComponentManifest'
-                static namespace = 'element'
-                static manifest = {
-                    entry: 'ComponentManifest', name: 'ComponentManifest', namespace: 'element',
-                    structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
-                    unions: {}, typedefs: {}, enums: {}
-                }
+                static entry = entry
+                static name = name
+                static namespace = namespace
+                static manifest = manifest
             }
         }
     },
@@ -1978,7 +2012,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (componentManifest.class instanceof Function) componentManifest.class = componentManifest.class.toString()
                     if (format === 'json') return JSON.stringify(componentManifest)
                     await this.loadHelper('application/xdr')
-                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getComponentManifestType())
+                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getXdrType('ComponentManifest'))
                 default:
                     return componentManifest
             }
@@ -1998,7 +2032,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
                     if (facetClass) for (const p in facetManifest) facetManifest[p] = facetClass[p]
             }
-            return facetManifest
+            switch (format) {
+                case 'json': case 'xdr':
+                    if (format === 'json') return JSON.stringify(facetManifest)
+                    await this.loadHelper('application/xdr')
+                    return this.useHelper('application/xdr', 'stringify', facetManifest, await this.getXdrType('FacetManifest'))
+                default:
+                    return facetManifest
+            }
         }
     },
     exportPackage: {
