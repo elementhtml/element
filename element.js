@@ -25,6 +25,9 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return expression
                 },
+                'application/xdr': function (operation, ...args) {
+                    return this.app.libraries['application/xdr'][operation](...args)
+                },
                 'ipfs://': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
                     return `https://${cid}.ipfs.${gateway}/${path.join('/')}}`
@@ -58,6 +61,9 @@ const ElementHTML = Object.defineProperties({}, {
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                     await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
+                },
+                'application/xdr': async function () {
+                    this.app.libraries['application/xdr'] = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
                 },
                 'ipfs://': async function () {
                     if (this.env.options['ipfs://']?.gateway) return
@@ -1265,10 +1271,33 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    getComponentManifestType: {
+        value: async function () {
+            await this.loadHelper('application/xdr')
+            const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
+            return class extends this.app.libraries['application/xdr'].types._base.Composite {
+                static entry = 'ComponentManifest'
+                static name = 'ComponentManifest'
+                static namespace = 'element'
+                static manifest = {
+                    entry: 'ComponentManifest', name: 'ComponentManifest', namespace: 'element',
+                    structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
+                    unions: {}, typedefs: {}, enums: {}
+                }
+            }
+        }
+    },
     getCustomTag: {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    getInheritance: {
+        value: function (id = 'HTMLElement') {
+            const inheritance = [id]
+            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
+            return inheritance
         }
     },
     getStateGroup: {
@@ -1311,18 +1340,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!expression) return
                     return getStateTarget(expression)
             }
-        }
-    },
-    isFacetContainer: {
-        value: function (element) {
-            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
-        }
-    },
-    getInheritance: {
-        value: function (id = 'HTMLElement') {
-            const inheritance = [id]
-            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
-            return inheritance
         }
     },
     getTagId: {
@@ -1368,6 +1385,11 @@ const ElementHTML = Object.defineProperties({}, {
                 default:
                     return labels[expression]
             }
+        }
+    },
+    isFacetContainer: {
+        value: function (element) {
+            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
         }
     },
     loadTagAssetsFromId: {
@@ -1536,35 +1558,44 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     ComponentFactory: {
-        value: function (baseClass = globalThis.HTMLElement) {
-            return class Component extends globalThis.HTMLElement {
-                constructor() {
-                    super()
-                    Object.defineProperty(this, 'E', { value: ElementHTML })
-                    Object.defineProperty(this, 'E_baseClass', { value: baseClass })
-                    Object.defineProperty(this, 'E_emitValueChange', {
-                        value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
-                            if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
-                            this.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
-                            return value
-                        }
-                    })
-                    try {
-                        this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
-                        this.shadowRoot.textContent = ''
-                        this.shadowRoot.appendChild(document.createElement('style')).textContent = ElementHTML._styles[this.constructor.id] ?? ElementHTML.stackStyles(this.constructor.id)
-                        const templateNode = document.createElement('template')
-                        templateNode.innerHTML = ElementHTML._templates[this.constructor.id] ?? ElementHTML.stackTemplates(this.constructor.id) ?? ''
-                        this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    } catch (e) { }
-                }
-                static get observedAttributes() { return [] }
-                static get E_FlattenableProperties() { return this.observedAttributes }
-                static E = ElementHTML
-                async connectedCallback() { }
-                attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-                valueOf() { return this.E.flatten(this) }
+        value: function (baseClass = globalThis.HTMLElement, shadowRootContent = '') {
+            return class extends this.Component {
+                static E_baseClass = baseClass
+                static E_shadowRootContent = shadowRootContent
             }
+        }
+    },
+    Component: {
+        value: class extends globalThis.HTMLElement {
+            constructor() {
+                super()
+                Object.defineProperty(this, 'E', { value: this.constructor.E })
+                Object.defineProperty(this, 'E_baseClass', { value: this.constructor.E_baseClass ?? globalThis.HTMLElement })
+                Object.defineProperty(this, 'E_emitValueChange', {
+                    value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
+                        if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
+                        this.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+                        return value
+                    }
+                })
+                try {
+                    this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
+                    if (this.constructor.E_shadowRootContent) {
+                        this.shadowRoot.textContent = this.constructor.E_shadowRootContent
+                    } else {
+                        this.shadowRoot.textContent = ''
+                        this.shadowRoot.appendChild(document.createElement('style')).textContent = this.E._styles[this.constructor.id] ?? this.E.stackStyles(this.constructor.id)
+                        const templateNode = document.createElement('template')
+                        templateNode.innerHTML = this.E._templates[this.constructor.id] ?? this.E.stackTemplates(this.constructor.id) ?? ''
+                        this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                    }
+                } catch (e) { }
+            }
+            static get observedAttributes() { return [] }
+            static get E_FlattenableProperties() { return this.observedAttributes }
+            async connectedCallback() { }
+            attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
+            valueOf() { return this.E.flatten(this) }
         }
     },
     Facet: {
@@ -1864,11 +1895,27 @@ const ElementHTML = Object.defineProperties({}, {
 
     /* start dev module */
     //export format may be plain object 'plain', JSON-serialized object 'json' or XDR-serialized object 'xdr', defaults to plain object
+
     exportComponent: {
         value: async function (id, format = 'plain') {
-            const componentManifest = {}
-
-            return componentManifest
+            if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.doppel.dom.get(id)?.constructor?.id)
+            const componentManifest = {
+                id, extends: this.extends[id],
+                style: this.styles[id],
+                template: this.templates[id],
+                class: this.classes[id]
+            }
+            switch (format) {
+                case 'json': case 'xdr':
+                    if (componentManifest.style instanceof HTMLStyleElement) componentManifest.style = componentManifest.style.textContent
+                    if (componentManifest.template instanceof HTMLTemplateElement) componentManifest.template = componentManifest.template.content.cloneNode(true).textContent
+                    if (componentManifest.class instanceof Function) componentManifest.class = componentManifest.class.toString()
+                    if (format === 'json') return JSON.stringify(componentManifest)
+                    await this.loadHelper('application/xdr')
+                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getComponentManifestType())
+                default:
+                    return componentManifest
+            }
         }
     },
     exportFacet: {
@@ -1916,6 +1963,7 @@ const ElementHTML = Object.defineProperties({}, {
     /* end dev module */
 
 })
+ElementHTML.Component.E = ElementHTML
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
