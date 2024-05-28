@@ -4,6 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
+            components: {},
             context: {},
             facets: {},
             helpers: {
@@ -127,7 +128,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!packageContents || (typeof packageContents !== 'object')) return
             if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const a of ['helpers', 'loaders', 'templates', 'facets']) {
+            for (const a of ['helpers', 'loaders', 'templates', 'facets', 'components']) {
                 if (typeof packageContents[a] !== 'string') continue
                 const importUrl = this.resolveUrl(packageContents[a], packageUrl), exports = getExports(importUrl)
                 packageContents[a] = {}
@@ -136,6 +137,9 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!exports[aa]) continue
                     let typeCheck
                     switch (a) {
+                        case 'components':
+                            typeCheck = (exports[aa].prototype instanceof this.Component || (typeof exports[aa] === 'object'))
+                            break
                         case 'facets':
                             typeCheck = (exports[aa].prototype instanceof this.Facet || (typeof exports[aa] === 'object'))
                             break
@@ -177,13 +181,65 @@ const ElementHTML = Object.defineProperties({}, {
                                     const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
                                     this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                             }
-                            if (a === 'facets' && ((packageContents[a][aa].prototype instanceof this.Facet) || (packageContents[a][aa] && (typeof packageContents[a][aa] === 'object')))) {
-                                this.env[a][aa] = class extends this.Facet {
-                                    static E = this
-                                    static fieldNames = Array.from(packageContents[a][aa].fieldNames ?? [])
-                                    static cellNames = Array.from(packageContents[a][aa].cellNames ?? [])
-                                    static statements = packageContents[a][aa].statements ?? []
-                                    static hash = packageContents[a][aa].hash
+                            const typeofEnvAAa = typeof this.env[a][aa]
+                            if ((a === 'components' || a === 'facets') && (typeofEnvAAa === 'object') || (typeofEnvAAa === 'function')) {
+                                switch (a) {
+                                    case 'facets':
+                                        if (this.env[a][aa].prototype instanceof this.Facet) {
+                                            this.env[a][aa].E ??= this
+                                        } else {
+                                            this.env[a][aa] = class extends this.Facet {
+                                                static E = this
+                                                static fieldNames = Array.from(this.env[a][aa].fieldNames ?? [])
+                                                static cellNames = Array.from(this.env[a][aa].cellNames ?? [])
+                                                static statements = this.env[a][aa].statements ?? []
+                                                static hash = this.env[a][aa].hash
+                                            }
+                                        }
+                                        break
+                                    case 'components':
+                                        if (this.env[a][aa].prototype instanceof this.Component) {
+                                            this.env[a][aa].id ??= aa
+                                        } else {
+                                            const { id: componentId = aa, extends: extendsId, style, template, class: classObj, baseClass = 'HTMLElement' } = this.env[a][aa],
+                                                componentTag = `${packageKey}-${aa}`
+                                            this._styles[componentId] = this.styles[componentId] = style
+                                            this._templates[componentId] = this.templates[componentId] = template
+                                            this.extends[componentId] = extendsId
+                                            this.ids[componentTag] = componentId
+                                            this.tags[componentId] = componentTag
+                                            switch (typeof classObj) {
+                                                case 'string':
+                                                    const classObjAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${classObj}`,
+                                                        classObjAsUrl = URL.createObjectURL(new Blob([classObjAsModule], { type: 'text/javascript' })), classModule = await import(classObjAsUrl)
+                                                    URL.revokeObjectURL(classObjAsUrl)
+                                                    this.env[a][aa] = classModule.default
+                                                    this.env[a][aa].id = componentId
+                                                    this.env[a][aa].E = this
+                                                    break
+                                                case 'function':
+                                                    this.env[a][aa] = await classObj(this.env[a][aa])
+                                                    break
+                                                case 'object':
+                                                    const { static: staticProperties = {} } = classObj
+                                                    delete classObj.static
+                                                    this.env[a][aa] = class extends this.Component {
+                                                        static E_shadowRootContent = `<style>${style}</style><template>${template}</template>`
+                                                        constructor() {
+                                                            super()
+                                                            for (const p in classObj) this[p] = typeof classObj[p] === 'function' ? classObj[p].bind(this) : classObj[p]
+                                                        }
+                                                    }
+                                                    for (const p in staticProperties) this.env[a][aa][p] = typeof staticProperties[p] === 'function' ? staticProperties[p].bind(this.env[a][aa]) : staticProperties[p]
+                                            }
+                                            this.env[a][aa].id = componentId
+                                            this.env[a][aa].E = this
+                                            this.env[a][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
+                                            this.classes[componentId] = this.env[a][aa]
+                                            this.constructors[componentId] = class extends this.classes[componentId] { constructor() { super() } }
+                                            globalThis.customElements.define(tag, this.constructors[componentId])
+                                        }
+                                        break
                                 }
                             }
                         }
@@ -245,33 +301,33 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-                    const doppelDom = this.app.doppel.dom.set(rootElement, document.createElement(isAttr)).get(rootElement)
-                    for (const a of rootElement.attributes) doppelDom.setAttribute(a.name, a.value)
-                    if (rootElement.innerHTML != undefined) doppelDom.innerHTML = rootElement.innerHTML
-                    doppelDom.E_native = rootElement
-                    if (typeof doppelDom.connectedCallback === 'function') doppelDom.connectedCallback()
-                    if (doppelDom.disconnectedCallback || doppelDom.adoptedCallback || doppelDom.attributeChangedCallback) {
-                        this.app.doppel.observers.set(rootElement, new MutationObserver(async records => {
+                    const componentInstance = this.app.components.instances.set(rootElement, document.createElement(isAttr)).get(rootElement)
+                    for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
+                    if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
+                    componentInstance.E_native = rootElement
+                    if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
+                    if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
+                        this.app.components.observers.set(rootElement, new MutationObserver(async records => {
                             for (const record of records) {
                                 switch (record.type) {
                                     case 'childList':
                                         for (const removedNode of (record.removedNodes ?? [])) {
-                                            if (typeof doppelDom.disconnectedCallback === 'function') doppelDom.disconnectedCallback()
-                                            if (typeof doppelDom.adoptedCallback === 'function' && removedNode.ownerDocument !== document) doppelDom.adoptedCallback()
+                                            if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
+                                            if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
                                         }
                                         break
                                     case 'attributes':
                                         const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
-                                        doppelDom.setAttribute(attrName, attrNewValue)
-                                        if (typeof doppelDom.attributeChangedCallback === 'function') doppelDom.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
+                                        componentInstance.setAttribute(attrName, attrNewValue)
+                                        if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
                                         break
                                     case 'characterData':
-                                        doppelDom.innerHTML = rootElement.innerHTML
+                                        componentInstance.innerHTML = rootElement.innerHTML
                                         break
                                 }
                             }
                         }))
-                        this.app.doppel.observers.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                        this.app.components.observers.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
                     }
                 }
                 if (!rootElement.shadowRoot) return
@@ -317,7 +373,7 @@ const ElementHTML = Object.defineProperties({}, {
     dispatchCompoundEvent: {
         enumerable: true, value: async function (eventName, detail, element) {
             const event = new CustomEvent(eventName, { detail })
-            return element.dispatchEvent(event) && (element.E_native?.dispatchEvent(event) || this.app.doppel.dom.get(element)?.dispatchEvent(event))
+            return element.dispatchEvent(event) && (element.E_native?.dispatchEvent(event) || this.app.components.instances.get(element)?.dispatchEvent(event))
         }
     },
     flatten: {
@@ -933,8 +989,8 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: {
             cells: {},
-            doppel: {
-                dom: new WeakMap(), observers: new WeakMap()
+            components: {
+                instances: new WeakMap(), observers: new WeakMap()
             },
             eventTarget: new EventTarget(),
             facets: {
@@ -1302,7 +1358,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     getStateGroup: {
         value: function (expression, typeDefault = '#', element) {
-            element = this.app.doppel.get(element) ?? element
+            element = this.app.components.get(element) ?? element
             let group
             const getStateTarget = (name) => {
                 const modeFlag = name[name.length - 1],
@@ -1898,7 +1954,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     exportComponent: {
         value: async function (id, format = 'plain') {
-            if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.doppel.dom.get(id)?.constructor?.id)
+            if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.components.instances.get(id)?.constructor?.id)
             const componentManifest = {
                 id, extends: this.extends[id],
                 style: this.styles[id],
