@@ -131,7 +131,7 @@ const ElementHTML = Object.defineProperties({}, {
                     let typeCheck
                     switch (a) {
                         case 'facets':
-                            typeCheck = (exports[aa].prototype instanceof this.Facet)
+                            typeCheck = (exports[aa].prototype instanceof this.Facet || (typeof exports[aa] === 'object'))
                             break
                         case 'templates':
                             typeCheck = ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement))
@@ -171,7 +171,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
                                     this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                             }
-                            if (a === 'facets' && packageContents[a][aa] && (typeof packageContents[a][aa] === 'object')) {
+                            if (a === 'facets' && ((packageContents[a][aa].prototype instanceof this.Facet) || (packageContents[a][aa] && (typeof packageContents[a][aa] === 'object')))) {
                                 this.env[a][aa] = class extends this.Facet {
                                     static E = this
                                     static fieldNames = Array.from(packageContents[a][aa].fieldNames ?? [])
