@@ -170,7 +170,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    case 'helpers': case 'loaders': case 'facets':
+                    case 'helpers': case 'loaders': case 'facets': case 'components':
                         for (const aa in packageContents[a]) {
                             if (!packageContents[a][aa]) continue
                             switch (typeof packageContents[a][aa]) {
@@ -178,8 +178,13 @@ const ElementHTML = Object.defineProperties({}, {
                                     this.env[a][aa] = packageContents[a][aa]
                                     break
                                 case `string`:
-                                    const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
-                                    this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
+                                    if ((packageContents[a][aa].length > 100) && (!packageContents[a][aa].includes('.') && !packageContents[a][aa].includes(':'))) {
+                                        await this.loadHelper('application/xdr')
+                                        this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getComponentManifestType())
+                                    } else {
+                                        const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
+                                        this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
+                                    }
                             }
                             const typeofEnvAAa = typeof this.env[a][aa]
                             if ((a === 'components' || a === 'facets') && (typeofEnvAAa === 'object') || (typeofEnvAAa === 'function')) {
@@ -233,12 +238,12 @@ const ElementHTML = Object.defineProperties({}, {
                                                     for (const p in staticProperties) this.env[a][aa][p] = typeof staticProperties[p] === 'function' ? staticProperties[p].bind(this.env[a][aa]) : staticProperties[p]
                                             }
                                             this.env[a][aa].id = componentId
-                                            this.env[a][aa].E = this
-                                            this.env[a][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
-                                            this.classes[componentId] = this.env[a][aa]
-                                            this.constructors[componentId] = class extends this.classes[componentId] { constructor() { super() } }
-                                            globalThis.customElements.define(tag, this.constructors[componentId])
                                         }
+                                        this.env[a][aa].E = this
+                                        this.env[a][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
+                                        this.classes[componentId] = this.env[a][aa]
+                                        this.constructors[componentId] = class extends this.classes[componentId] { constructor() { super() } }
+                                        globalThis.customElements.define(tag, this.constructors[componentId])
                                         break
                                 }
                             }
@@ -1956,9 +1961,9 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (id, format = 'plain') {
             if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.components.instances.get(id)?.constructor?.id)
             const componentManifest = {
-                id, extends: this.extends[id],
-                style: this.styles[id],
-                template: this.templates[id],
+                id, extends: this.extends[id] ?? 'HTMLElement',
+                style: this.styles[id] ?? '',
+                template: this.templates[id] ?? '',
                 class: this.classes[id]
             }
             switch (format) {
