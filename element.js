@@ -178,11 +178,16 @@ const ElementHTML = Object.defineProperties({}, {
                                     this.env[a][aa] = packageContents[a][aa]
                                     break
                                 case `string`:
-                                    if ((packageContents[a][aa].length > 100) && (!packageContents[a][aa].includes('.') && !packageContents[a][aa].includes(':'))) {
-                                        await this.loadHelper('application/xdr')
-                                        this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getComponentManifestType())
-                                    } else {
-                                        const importUrl = this.resolveUrl(packageContents[a][aa], packageUrl), exports = getExports(importUrl)
+                                    if ((packageContents[a][aa].length > 100)) {
+                                        if (packageContents[a][aa][0] === '{') {
+                                            this.env[a][aa] = JSON.parse(packageContents[a][aa])
+                                        } else {
+                                            await this.loadHelper('application/xdr')
+                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getComponentManifestType())
+                                        }
+                                    }
+                                    if (!this.env[a][aa]) {
+                                        const exports = getExports(this.resolveUrl(packageContents[a][aa], packageUrl))
                                         this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                                     }
                             }
