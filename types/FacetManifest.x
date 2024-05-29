@@ -130,7 +130,7 @@ union Params switch(HandlerType handler) {
 
 struct Step {
     string *defaultExpression<>;
-    string label<>;
+    Name label;
     LabelMode *labelMode;
     Params params;
 };
