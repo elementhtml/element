@@ -59,77 +59,80 @@ struct VarsExpression {
     string expression<>;
 };
 
-union Step switch(HandlerType handler) {
+
+
+struct CtxJson {
+    VarsJson vars;        
+};
+
+struct CtxNetwork {
+    VarsNetwork vars;
+};
+
+struct CtxPattern {
+    bool binder<>;
+    VarsPattern vars;
+};
+
+struct CtxProxy {
+    bool binder<>;
+    VarsProxy vars;
+};
+
+struct CtxRouterHash {
+    bool binder<>;
+};
+
+struct CtxSelector {
+    bool binder<>;
+    VarsSelector vars;
+};
+
+struct CtxState {
+    bool binder<>;
+    VarsState vars;
+};
+
+struct CtxExpression {
+    VarsExpression vars;        
+};
+
+union Params switch(HandlerType handler) {
     case json: 
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsJson vars;
+        CtxJson ctx;
     case network: 
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsNetwork vars;
+        CtxNetwork ctx;
     case pattern: 
-        bool binder<>;
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsPattern vars;
+        CtxPattern ctx;
     case proxy: 
-        bool binder<>;
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsProxy vars;
-    case router:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
+        CtxProxy ctx;
     case routerhash: 
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
+        CtxRouterHash ctx;
     case routersearch: 
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
+        void;
     case routerpathname:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
+        void;
+    case router:
+        void;
     case selector:
-        bool binder<>;
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsSelector vars;
+        CtxSelector ctx;
     case state:
-        bool binder<>;
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsState vars;
+        CtxState ctx;
     case string:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsExpression vars;
+        CtxExpression ctx;
     case transform:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsExpression vars;
+        CtxExpression ctx;
     case variable:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsExpression vars;
+        CtxExpression ctx;
     case wait:
-        string *defaultExpression<>;
-        string label<>;
-        LabelMode *labelMode;
-        VarsExpression vars;
+        CtxExpression ctx;
+};
+
+struct Step {
+    string *defaultExpression<>;
+    string label<>;
+    LabelMode *labelMode;
+    Params params;
 };
 
 struct Statement {

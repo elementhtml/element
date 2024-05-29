@@ -1337,34 +1337,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getXdrType: {
-        value: async function (manifest, entry, name, namespace = 'element') {
-            if (typeof manifest === 'string') entry = manifest
-            name ??= entry
-            await this.loadHelper('application/xdr')
-            switch (name) {
-                case 'ComponentManifest':
-                    const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
-                    manifest = {
-                        entry, name, namespace,
-                        structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
-                        unions: {}, typedefs: {}, enums: {}
-                    }
-                    break
-                case 'FacetManifest':
-                    manifest = { entry, name, namespace, structs: {}, unions: {}, typedefs: {}, enums: {} }
-                    const FacetManifestType = await this.app.libraries['application/xdr'].factory('../element/types/FacetManifest.x', 'FacetManifest')
-                    return FacetManifestType
-                    break
-            }
-            return class extends this.app.libraries['application/xdr'].types._base.Composite {
-                static entry = entry
-                static name = name
-                static namespace = namespace
-                static manifest = manifest
-            }
-        }
-    },
     getCustomTag: {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
@@ -1462,6 +1434,34 @@ const ElementHTML = Object.defineProperties({}, {
                     return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
                 default:
                     return labels[expression]
+            }
+        }
+    },
+    getXdrType: {
+        value: async function (manifest, entry, name, namespace = 'element') {
+            if (typeof manifest === 'string') entry = manifest
+            name ??= entry
+            await this.loadHelper('application/xdr')
+            switch (name) {
+                case 'ComponentManifest':
+                    const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
+                    manifest = {
+                        entry, name, namespace,
+                        structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
+                        unions: {}, typedefs: {}, enums: {}
+                    }
+                    break
+                case 'FacetManifest':
+                    manifest = { entry, name, namespace, structs: {}, unions: {}, typedefs: {}, enums: {} }
+                    const FacetManifestType = await this.app.libraries['application/xdr'].factory('../element/types/FacetManifest.x', 'FacetManifest')
+                    return FacetManifestType
+                    break
+            }
+            return class extends this.app.libraries['application/xdr'].types._base.Composite {
+                static entry = entry
+                static name = name
+                static namespace = namespace
+                static manifest = manifest
             }
         }
     },
