@@ -1452,110 +1452,52 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     break
                 case 'FacetManifest':
+                    const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }
                     const fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false }
                     const variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }
                     const variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false }
+
                     const nameTypeDec = { type: 'Name', parameters: variableReqParams }
+                    const variableReqString = { type: 'string', parameters: variableReqParams }
+                    const variableOptString = { type: 'string', parameters: variableOptParams }
+
+                    const handlerTypes = {
+                        json: 'CtxJson', network: 'CtxNetwork', pattern: 'CtxPattern', proxy: 'CtxProxy',
+                        router: 'void', routerhash: 'CtxRouterHash', routersearch: 'void', routerpathname: 'void', selector: 'CtxSelector', state: 'CtxState',
+                        string: 'CtxExpression', transform: 'CtxExpression', variable: 'CtxExpression', wait: 'CtxExpression'
+                    }
                     manifest = {
                         entry, name, namespace, structs: {
                             FacetManifest: new Map([
-                                ['cellNames', nameTypeDec],
-                                ['fieldNames', nameTypeDec],
-                                ['hash', { type: 'string', parameters: { length: 64, mode: 'fixed', optional: false, unsigned: false } }],
-                                ['statements', { type: 'Statement', parameters: variableReqParams }]
+                                ['cellNames', nameTypeDec], ['fieldNames', nameTypeDec],
+                                ['hash', { type: 'string', parameters: { ...fixedReqParams, length: 64 } }], ['statements', { type: 'Statement', parameters: variableReqParams }]
                             ]),
-                            Statement: new Map([
-                                ['labels', nameTypeDec],
-                                ['steps', { type: 'Step', parameters: variableReqParams }]
-                            ]),
-                            Step: new Map([
-                                ['defaultExpression', { type: 'string', parameters: variableOptParams }],
-                                ['label', { type: 'Name' }],
-                                ['labelMode', { type: 'LabelMode', parameters: fixedOptParams }],
-                                ['params', { type: 'Params' }]
-                            ]),
+                            Statement: new Map([['labels', nameTypeDec], ['steps', { type: 'Step', parameters: variableReqParams }]]),
+                            Step: new Map([['defaultExpression', variableOptString], ['label', { type: 'Name' }], ['labelMode', { type: 'LabelMode', parameters: fixedOptParams }], ['params', { type: 'Params' }]]),
                             CtxJson: new Map([['vars', { type: 'VarsJson' }]]),
-                            VarsJson: new Map([['value', { type: 'string', parameters: variableReqParams }]]),
+                            VarsJson: new Map([['value', variableReqString]]),
                             CtxNetwork: new Map([['vars', { type: 'VarsNetwork' }]]),
-                            VarsNetwork: new Map([
-                                ['expression', { type: 'string', parameters: variableReqParams }],
-                                ['expressionIncludesValueAsVariable', { type: 'bool' }],
-                                ['hasDefault', { type: 'bool' }],
-                                ['returnFullRequest', { type: 'bool' }]
-                            ]),
-                            CtxPattern: new Map([
-                                ['binder', { type: 'bool', parameters: variableReqParams }],
-                                ['vars', { type: 'VarsPattern' }]
-                            ]),
-                            VarsPattern: new Map([
-                                ['expression', { type: 'string', parameters: variableReqParams }],
-                                ['regexp', { type: 'string', parameters: variableReqParams }]
-                            ]),
-                            CtxProxy: new Map([
-                                ['binder', { type: 'bool', parameters: variableReqParams }],
-                                ['vars', { type: 'VarsProxy' }]
-                            ]),
+                            VarsNetwork: new Map([['expression', variableReqString], ['expressionIncludesValueAsVariable', { type: 'bool' }], ['hasDefault', { type: 'bool' }], ['returnFullRequest', { type: 'bool' }]]),
+                            CtxPattern: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsPattern' }]]),
+                            VarsPattern: new Map([['expression', variableReqString], ['regexp', variableReqString]]),
+                            CtxProxy: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsProxy' }]]),
                             VarsProxy: new Map([
-                                ['childArgs', { type: 'string', parameters: variableOptParams }],
-                                ['childMethodName', { type: 'string', parameters: variableOptParams }],
-                                ['parentArgs', { type: 'string', parameters: variableReqParams }],
-                                ['parentObjectName', { type: 'string', parameters: variableReqParams }],
-                                ['useHelpers', { type: 'bool' }]
+                                ['childArgs', variableOptString], ['childMethodName', variableOptString],
+                                ['parentArgs', variableReqString], ['parentObjectName', variableReqString], ['useHelpers', { type: 'bool' }]
                             ]),
-                            CtxRouterHash: new Map([
-                                ['binder', { type: 'bool', parameters: variableReqParams }]
-                            ]),
-                            CtxSelector: new Map([
-                                ['binder', { type: 'bool', parameters: variableReqParams }],
-                                ['vars', { type: 'VarsSelector' }]
-                            ]),
-                            VarsSelector: new Map([
-                                ['scopeStatement', { type: 'string', parameters: variableReqParams }],
-                                ['selectorStatement', { type: 'string', parameters: variableReqParams }],
-                                ['signal', { type: 'bool' }]
-                            ]),
-                            CtxState: new Map([
-                                ['binder', { type: 'bool', parameters: variableReqParams }],
-                                ['vars', { type: 'VarsState' }]
-                            ]),
-                            VarsState: new Map([
-                                ['expression', { type: 'string', parameters: variableReqParams }],
-                                ['signal', { type: 'bool' }],
-                                ['typeDefault', { type: 'string', parameters: { length: 1, mode: 'fixed', optional: false, unsigned: false } }]
-                            ]),
-                            CtxExpression: new Map([
-                                ['vars', { type: 'VarsExpression' }]
-                            ]),
-                            VarsExpression: new Map([
-                                ['expression', { type: 'string', parameters: variableReqParams }]
-                            ])
-                        }, unions: {
-                            Params: {
-                                discriminant: { type: 'HandlerType', identifier: 'handler' },
-                                arms: {
-                                    json: { type: 'CtxJson', identifier: 'ctx', arm: 'json' },
-                                    network: { type: 'CtxNetwork', identifier: 'ctx', arm: 'network' },
-                                    pattern: { type: 'CtxPattern', identifier: 'ctx', arm: 'pattern' },
-                                    proxy: { type: 'CtxProxy', identifier: 'ctx', arm: 'proxy' },
-                                    routerhash: { type: 'CtxRouterHash', identifier: 'ctx', arm: 'routerhash' },
-                                    routersearch: { type: 'void', arm: 'routersearch' },
-                                    routerpathname: { type: 'void', arm: 'routerpathname' },
-                                    router: { type: 'void', arm: 'router' },
-                                    selector: { type: 'CtxSelector', identifier: 'ctx', arm: 'selector' },
-                                    state: { type: 'CtxState', identifier: 'ctx', arm: 'state' },
-                                    string: { type: 'CtxExpression', identifier: 'ctx', arm: 'string' },
-                                    transform: { type: 'CtxExpression', identifier: 'ctx', arm: 'transform' },
-                                    variable: { type: 'CtxExpression', identifier: 'ctx', arm: 'variable' },
-                                    wait: { type: 'CtxExpression', identifier: 'ctx', arm: 'wait' }
-                                }
-                            }
-                        }, typedefs: {
-                            Name: { type: 'string', parameters: variableReqParams }
-                        }, enums: {
-                            LabelMode: [null, 'force', 'silent'],
-                            HandlerType: [null, 'json', 'network', 'pattern', 'proxy', 'router', 'routerhash', 'routersearch', 'routerpathname', 'selector', 'state', 'string', 'transform', 'variable', 'wait']
-                        }
+                            CtxRouterHash: new Map([['binder', { type: 'bool' }]]),
+                            CtxSelector: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsSelector' }]]),
+                            VarsSelector: new Map([['scopeStatement', variableReqString], ['selectorStatement', variableReqString], ['signal', { type: 'bool' }]]),
+                            CtxState: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsState' }]]),
+                            VarsState: new Map([['expression', variableReqString], ['signal', { type: 'bool' }], ['typeDefault', { type: 'string', parameters: { ...fixedReqParams, length: 1 } }]]),
+                            CtxExpression: new Map([['vars', { type: 'VarsExpression' }]]),
+                            VarsExpression: new Map([['expression', variableReqString]])
+                        },
+                        unions: { Params: { discriminant: { type: 'HandlerType', identifier: 'handler' }, arms: {} } },
+                        typedefs: { Name: variableReqString },
+                        enums: { LabelMode: [null, 'force', 'silent'], HandlerType: [null, ...Object.keys(handlerTypes)] }
                     }
+                    for (const arm in handlerTypes) manifest.unions.Params.arms[arm] = { type: handlerTypes[arm], identifier: 'ctx', arm }
                     break
             }
             return class extends this.app.libraries['application/xdr'].types._base.Composite {
