@@ -1502,268 +1502,116 @@ const ElementHTML = Object.defineProperties({}, {
                                 ['parentObjectName', { type: 'string', parameters: variableReqParams }],
                                 ['useHelpers', { type: 'bool' }]
                             ]),
-
-
-                        }, unions: {}, typedefs: {}, enums: {}
-                    }
-                    manifest = {
-                        "structs": {
-                            "CtxRouterHash": [
-                                [
-                                    "binder",
-                                    {
-                                        "type": "bool",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ]
-                            ],
-                            "CtxSelector": [
-                                [
-                                    "binder",
-                                    {
-                                        "type": "bool",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ],
-                                [
-                                    "vars",
-                                    {
-                                        "type": "VarsSelector"
-                                    }
-                                ]
-                            ],
-                            "VarsSelector": [
-                                [
-                                    "scopeStatement",
-                                    {
-                                        "type": "string",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ],
-                                [
-                                    "selectorStatement",
-                                    {
-                                        "type": "string",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ],
-                                [
-                                    "signal",
-                                    {
-                                        "type": "bool"
-                                    }
-                                ]
-                            ],
-                            "CtxState": [
-                                [
-                                    "binder",
-                                    {
-                                        "type": "bool",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ],
-                                [
-                                    "vars",
-                                    {
-                                        "type": "VarsState"
-                                    }
-                                ]
-                            ],
-                            "VarsState": [
-                                [
-                                    "expression",
-                                    {
-                                        "type": "string",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ],
-                                [
-                                    "signal",
-                                    {
-                                        "type": "bool"
-                                    }
-                                ],
-                                [
-                                    "typeDefault",
-                                    {
-                                        "type": "string",
-                                        "parameters": {
-                                            "length": 1,
-                                            "mode": "fixed",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ]
-                            ],
-                            "CtxExpression": [
-                                [
-                                    "vars",
-                                    {
-                                        "type": "VarsExpression"
-                                    }
-                                ]
-                            ],
-                            "VarsExpression": [
-                                [
-                                    "expression",
-                                    {
-                                        "type": "string",
-                                        "parameters": {
-                                            "length": 0,
-                                            "mode": "variable",
-                                            "optional": false,
-                                            "unsigned": false
-                                        }
-                                    }
-                                ]
-                            ]
-                        },
-                        "unions": {
-                            "Params": {
-                                "discriminant": {
-                                    "type": "HandlerType",
-                                    "identifier": "handler"
+                            CtxRouterHash: new Map([
+                                ['binder', { type: 'bool', parameters: variableReqParams }]
+                            ]),
+                            CtxSelector: new Map([
+                                ['binder', { type: 'bool', parameters: variableReqParams }],
+                                ['vars', { type: 'VarsSelector' }]
+                            ]),
+                            VarsSelector: new Map([
+                                ['scopeStatement', { type: 'string', parameters: variableReqParams }],
+                                ['selectorStatement', { type: 'string', parameters: variableReqParams }],
+                                ['signal', { type: 'bool' }]
+                            ]),
+                            CtxState: new Map([
+                                ['binder', { type: 'bool', parameters: variableReqParams }],
+                                ['vars', { type: 'VarsState' }]
+                            ]),
+                            VarsState: new Map([
+                                ['expression', { type: 'string', parameters: variableReqParams }],
+                                ['signal', { type: 'bool' }],
+                                ['typeDefault', { type: 'string', parameters: { length: 1, mode: 'fixed', optional: false, unsigned: false } }]
+                            ]),
+                            CtxExpression: new Map([
+                                ['vars', { type: 'VarsExpression' }]
+                            ]),
+                            VarsExpression: new Map([
+                                ['expression', { type: 'string', parameters: variableReqParams }]
+                            ])
+                        }, unions: {
+                            Params: {
+                                discriminant: {
+                                    type: 'HandlerType',
+                                    identifier: 'handler'
                                 },
-                                "arms": {
-                                    "json": {
-                                        "type": "CtxJson",
-                                        "identifier": "ctx",
-                                        "arm": "json"
+                                arms: {
+                                    json: {
+                                        type: 'CtxJson',
+                                        identifier: 'ctx',
+                                        arm: 'json'
                                     },
-                                    "network": {
-                                        "type": "CtxNetwork",
-                                        "identifier": "ctx",
-                                        "arm": "network"
+                                    network: {
+                                        type: 'CtxNetwork',
+                                        identifier: 'ctx',
+                                        arm: 'network'
                                     },
-                                    "pattern": {
-                                        "type": "CtxPattern",
-                                        "identifier": "ctx",
-                                        "arm": "pattern"
+                                    pattern: {
+                                        type: 'CtxPattern',
+                                        identifier: 'ctx',
+                                        arm: 'pattern'
                                     },
-                                    "proxy": {
-                                        "type": "CtxProxy",
-                                        "identifier": "ctx",
-                                        "arm": "proxy"
+                                    proxy: {
+                                        type: 'CtxProxy',
+                                        identifier: 'ctx',
+                                        arm: 'proxy'
                                     },
-                                    "routerhash": {
-                                        "type": "CtxRouterHash",
-                                        "identifier": "ctx",
-                                        "arm": "routerhash"
+                                    routerhash: {
+                                        type: 'CtxRouterHash',
+                                        identifier: 'ctx',
+                                        arm: 'routerhash'
                                     },
-                                    "routersearch": {
-                                        "type": "void",
-                                        "arm": "routersearch"
+                                    routersearch: {
+                                        type: 'void',
+                                        arm: 'routersearch'
                                     },
-                                    "routerpathname": {
-                                        "type": "void",
-                                        "arm": "routerpathname"
+                                    routerpathname: {
+                                        type: 'void',
+                                        arm: 'routerpathname'
                                     },
-                                    "router": {
-                                        "type": "void",
-                                        "arm": "router"
+                                    router: {
+                                        type: 'void',
+                                        arm: 'router'
                                     },
-                                    "selector": {
-                                        "type": "CtxSelector",
-                                        "identifier": "ctx",
-                                        "arm": "selector"
+                                    selector: {
+                                        type: 'CtxSelector',
+                                        identifier: 'ctx',
+                                        arm: 'selector'
                                     },
-                                    "state": {
-                                        "type": "CtxState",
-                                        "identifier": "ctx",
-                                        "arm": "state"
+                                    state: {
+                                        type: 'CtxState',
+                                        identifier: 'ctx',
+                                        arm: 'state'
                                     },
-                                    "string": {
-                                        "type": "CtxExpression",
-                                        "identifier": "ctx",
-                                        "arm": "string"
+                                    string: {
+                                        type: 'CtxExpression',
+                                        identifier: 'ctx',
+                                        arm: 'string'
                                     },
-                                    "transform": {
-                                        "type": "CtxExpression",
-                                        "identifier": "ctx",
-                                        "arm": "transform"
+                                    transform: {
+                                        type: 'CtxExpression',
+                                        identifier: 'ctx',
+                                        arm: 'transform'
                                     },
-                                    "variable": {
-                                        "type": "CtxExpression",
-                                        "identifier": "ctx",
-                                        "arm": "variable"
+                                    variable: {
+                                        type: 'CtxExpression',
+                                        identifier: 'ctx',
+                                        arm: 'variable'
                                     },
-                                    "wait": {
-                                        "type": "CtxExpression",
-                                        "identifier": "ctx",
-                                        "arm": "wait"
+                                    wait: {
+                                        type: 'CtxExpression',
+                                        identifier: 'ctx',
+                                        arm: 'wait'
                                     }
                                 }
                             }
-                        },
-                        "typedefs": {
-                            "Name": {
-                                "type": "string",
-                                "parameters": {
-                                    "length": 0,
-                                    "mode": "variable",
-                                    "optional": false,
-                                    "unsigned": false
-                                }
-                            }
-                        },
-                        "enums": {
-                            "LabelMode": [
-                                null,
-                                "force",
-                                "silent"
-                            ],
-                            "HandlerType": [
-                                null,
-                                "json",
-                                "network",
-                                "pattern",
-                                "proxy",
-                                "router",
-                                "routerhash",
-                                "routersearch",
-                                "routerpathname",
-                                "selector",
-                                "state",
-                                "string",
-                                "transform",
-                                "variable",
-                                "wait"
-                            ]
+                        }, typedefs: {
+                            Name: { type: 'string', parameters: variableReqParams }
+                        }, enums: {
+                            LabelMode: [null, 'force', 'silent'],
+                            HandlerType: [null, 'json', 'network', 'pattern', 'proxy', 'router', 'routerhash', 'routersearch', 'routerpathname', 'selector', 'state', 'string', 'transform', 'variable', 'wait']
                         }
                     }
-                    // const FacetManifestType = await this.app.libraries['application/xdr'].factory('../element/types/FacetManifest.x', 'FacetManifest')
-                    // return FacetManifestType
                     break
             }
             return class extends this.app.libraries['application/xdr'].types._base.Composite {
