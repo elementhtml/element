@@ -1452,20 +1452,14 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     break
                 case 'FacetManifest':
-                    const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }
-                    const fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false }
-                    const variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }
-                    const variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false }
-
-                    const nameTypeDec = { type: 'Name', parameters: variableReqParams }
-                    const variableReqString = { type: 'string', parameters: variableReqParams }
-                    const variableOptString = { type: 'string', parameters: variableOptParams }
-
-                    const handlerTypes = {
-                        json: 'CtxJson', network: 'CtxNetwork', pattern: 'CtxPattern', proxy: 'CtxProxy',
-                        router: 'void', routerhash: 'CtxRouterHash', routersearch: 'void', routerpathname: 'void', selector: 'CtxSelector', state: 'CtxState',
-                        string: 'CtxExpression', transform: 'CtxExpression', variable: 'CtxExpression', wait: 'CtxExpression'
-                    }
+                    const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }, fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false },
+                        variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }, variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false },
+                        nameTypeDec = { type: 'Name', parameters: variableReqParams }, variableReqString = { type: 'string', parameters: variableReqParams },
+                        variableOptString = { type: 'string', parameters: variableOptParams }, handlerTypes = {
+                            json: 'CtxJson', network: 'CtxNetwork', pattern: 'CtxPattern', proxy: 'CtxProxy',
+                            router: 'void', routerhash: 'CtxRouterHash', routersearch: 'void', routerpathname: 'void', selector: 'CtxSelector', state: 'CtxState',
+                            string: 'CtxExpression', transform: 'CtxExpression', variable: 'CtxExpression', wait: 'CtxExpression'
+                        }
                     manifest = {
                         entry, name, namespace, structs: {
                             FacetManifest: new Map([
