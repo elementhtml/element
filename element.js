@@ -1479,7 +1479,7 @@ const ElementHTML = Object.defineProperties({}, {
                             CtxNetwork: new Map([['vars', { type: 'VarsNetwork' }]]),
                             VarsNetwork: new Map([
                                 ['expression', { type: 'string', parameters: variableReqParams }],
-                                ['expressionIncludesValueAsVariable', { type: 'bool' }]
+                                ['expressionIncludesValueAsVariable', { type: 'bool' }],
                                 ['hasDefault', { type: 'bool' }],
                                 ['returnFullRequest', { type: 'bool' }]
                             ]),
@@ -1531,78 +1531,22 @@ const ElementHTML = Object.defineProperties({}, {
                             ])
                         }, unions: {
                             Params: {
-                                discriminant: {
-                                    type: 'HandlerType',
-                                    identifier: 'handler'
-                                },
+                                discriminant: { type: 'HandlerType', identifier: 'handler' },
                                 arms: {
-                                    json: {
-                                        type: 'CtxJson',
-                                        identifier: 'ctx',
-                                        arm: 'json'
-                                    },
-                                    network: {
-                                        type: 'CtxNetwork',
-                                        identifier: 'ctx',
-                                        arm: 'network'
-                                    },
-                                    pattern: {
-                                        type: 'CtxPattern',
-                                        identifier: 'ctx',
-                                        arm: 'pattern'
-                                    },
-                                    proxy: {
-                                        type: 'CtxProxy',
-                                        identifier: 'ctx',
-                                        arm: 'proxy'
-                                    },
-                                    routerhash: {
-                                        type: 'CtxRouterHash',
-                                        identifier: 'ctx',
-                                        arm: 'routerhash'
-                                    },
-                                    routersearch: {
-                                        type: 'void',
-                                        arm: 'routersearch'
-                                    },
-                                    routerpathname: {
-                                        type: 'void',
-                                        arm: 'routerpathname'
-                                    },
-                                    router: {
-                                        type: 'void',
-                                        arm: 'router'
-                                    },
-                                    selector: {
-                                        type: 'CtxSelector',
-                                        identifier: 'ctx',
-                                        arm: 'selector'
-                                    },
-                                    state: {
-                                        type: 'CtxState',
-                                        identifier: 'ctx',
-                                        arm: 'state'
-                                    },
-                                    string: {
-                                        type: 'CtxExpression',
-                                        identifier: 'ctx',
-                                        arm: 'string'
-                                    },
-                                    transform: {
-                                        type: 'CtxExpression',
-                                        identifier: 'ctx',
-                                        arm: 'transform'
-                                    },
-                                    variable: {
-                                        type: 'CtxExpression',
-                                        identifier: 'ctx',
-                                        arm: 'variable'
-                                    },
-                                    wait: {
-                                        type: 'CtxExpression',
-                                        identifier: 'ctx',
-                                        arm: 'wait'
-                                    }
+                                    json: { type: 'CtxJson', identifier: 'ctx', arm: 'json' },
+                                    network: { type: 'CtxNetwork', identifier: 'ctx', arm: 'network' },
+                                    pattern: { type: 'CtxPattern', identifier: 'ctx', arm: 'pattern' },
+                                    proxy: { type: 'CtxProxy', identifier: 'ctx', arm: 'proxy' },
+                                    routerhash: { type: 'CtxRouterHash', identifier: 'ctx', arm: 'routerhash' },
+                                    routersearch: { type: 'void', arm: 'routersearch' },
+                                    routerpathname: { type: 'void', arm: 'routerpathname' },
+                                    router: { type: 'void', arm: 'router' },
+                                    selector: { type: 'CtxSelector', identifier: 'ctx', arm: 'selector' },
+                                    state: { type: 'CtxState', identifier: 'ctx', arm: 'state' },
+                                    string: { type: 'CtxExpression', identifier: 'ctx', arm: 'string' },
+                                    transform: { type: 'CtxExpression', identifier: 'ctx', arm: 'transform' },
+                                    variable: { type: 'CtxExpression', identifier: 'ctx', arm: 'variable' },
+                                    wait: { type: 'CtxExpression', identifier: 'ctx', arm: 'wait' }
                                 }
                             }
                         }, typedefs: {
