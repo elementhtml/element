@@ -1353,29 +1353,7 @@ const ElementHTML = Object.defineProperties({}, {
                     break
                 case 'FacetManifest':
                     manifest = { entry, name, namespace, structs: {}, unions: {}, typedefs: {}, enums: {} }
-                    const xCode = `
-                    typedef string Name<>;
-
-                    struct Step {
-                        string handler<>;
-                        string label<>;
-                        string vars<>;
-                    };
-
-                    struct Statement {
-                        Name labels<>;
-                        Step steps<>;
-                    };
-
-                    struct FacetManifest {
-                        Name cellNames<>;
-                        Name fieldNames<>;
-                        string hash[64];
-                        Statement statements<>;
-                    };
-                    `
-                    const FacetManifestType = await this.app.libraries['application/xdr'].factory(xCode, 'FacetManifest')
-                    console.log('line 1358', FacetManifestType.manifest)
+                    const FacetManifestType = await this.app.libraries['application/xdr'].factory('../element/types/FacetManifest.x', 'FacetManifest')
                     return FacetManifestType
                     break
             }
@@ -1722,7 +1700,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 this.controllers[position] = new AbortController()
                                 envelope.signal = this.controllers[position].signal
                             }
-                            Object.assign(this.vars[position], await this.constructor.E.binders[binder](container, position, envelope))
+                            Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
                         envelope.vars = this.vars[position]
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
@@ -1871,7 +1849,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     let { vars, binder, handler } = parsed
                     if (vars) step.vars = vars
-                    if (binder) step.binder = binder
+                    if (binder) step.binder = true
                     step.handler = handler
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels[label] = undefined
@@ -1903,7 +1881,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             network: function (expression, hasDefault) {
                 const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
-                let returnFullRequest
+                let returnFullRequest = false
                 if (expression[0] === '~' && expression.endsWith('~')) {
                     returnFullRequest = true
                     expression = expression.slice(1, -1)
@@ -1913,7 +1891,7 @@ const ElementHTML = Object.defineProperties({}, {
             pattern: function (expression, hasDefault) {
                 expression = expression.trim()
                 if (!expression) return
-                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: 'pattern', handler: 'pattern' }
+                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: true, handler: 'pattern' }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
@@ -1927,14 +1905,14 @@ const ElementHTML = Object.defineProperties({}, {
                     [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                     childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 }
-                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: 'proxy', handler: 'proxy' }
+                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: true, handler: 'proxy' }
             },
             router: function (expression, hasDefault) {
-                let vars, binder, handler
+                let vars, handler
                 switch (expression) {
                     case '#':
                         vars = { signal: true }
-                        binder = 'routerhash'
+                        binder = true
                         handler = 'routerhash'
                         break
                     case '?':
@@ -1969,10 +1947,10 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: 'selector', handler: 'selector' }
+                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: true, handler: 'selector' }
             },
             state: function (expression, hasDefault) {
-                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: 'state', handler: 'state' }
+                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: true, handler: 'state' }
             },
             string: function (expression, hasDefault) {
                 return { vars: { expression }, handler: 'string' }
