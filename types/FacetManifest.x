@@ -62,53 +62,74 @@ struct VarsExpression {
 union Step switch(HandlerType handler) {
     case json: 
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsJson vars;
     case network: 
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsNetwork vars;
     case pattern: 
+        bool binder<>;
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsPattern vars;
     case proxy: 
+        bool binder<>;
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsProxy vars;
     case router:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
     case routerhash: 
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
     case routersearch: 
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
     case routerpathname:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
     case selector:
+        bool binder<>;
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsSelector vars;
     case state:
+        bool binder<>;
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsState vars;
     case string:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsExpression vars;
     case transform:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsExpression vars;
     case variable:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsExpression vars;
     case wait:
         string *defaultExpression<>;
+        string label<>;
+        LabelMode *labelMode;
         VarsExpression vars;
-};
-
-
-
-struct Step {
-    bool binder<>;
-    string *defaultExpression<>;
-    HandlerType handler<>;
-    string label<>;
-    LabelMode *labelMode;
-    Vars vars;
 };
 
 struct Statement {
