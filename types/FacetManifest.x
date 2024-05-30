@@ -43,6 +43,10 @@ struct VarsProxy {
     bool useHelper;
 };
 
+struct VarsRouterHash {
+    bool signal;
+};
+
 struct VarsSelector {
     string scopeStatement<>;
     string selectorStatement<>;
@@ -81,6 +85,7 @@ struct CtxProxy {
 
 struct CtxRouterHash {
     bool binder<>;
+    VarsRouterHash vars;
 };
 
 struct CtxSelector {

@@ -1479,7 +1479,8 @@ const ElementHTML = Object.defineProperties({}, {
                                 ['childArgs', variableOptString], ['childMethodName', variableOptString],
                                 ['parentArgs', variableReqString], ['parentObjectName', variableReqString], ['useHelpers', { type: 'bool' }]
                             ]),
-                            CtxRouterHash: new Map([['binder', { type: 'bool' }]]),
+                            CtxRouterHash: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsRouterHash' }]]),
+                            VarsRouterHash: new Map([['signal', { type: 'bool' }]]),
                             CtxSelector: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsSelector' }]]),
                             VarsSelector: new Map([['scopeStatement', variableReqString], ['selectorStatement', variableReqString], ['signal', { type: 'bool' }]]),
                             CtxState: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsState' }]]),
@@ -1788,7 +1789,7 @@ const ElementHTML = Object.defineProperties({}, {
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 statementIndex = statementIndex + 1
-                const statement = { labels: {}, steps: [] }
+                const statement = { labels: new Set(), steps: [] }
                 let stepIndex = -1
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
@@ -1827,42 +1828,42 @@ const ElementHTML = Object.defineProperties({}, {
                             break
                         default:
                             const ln = label.trim()
-                            if (ln) statement.labels[ln] = undefined
+                            if (ln) statement.labels.add(ln)
                     }
-                    let parsed
+                    let params
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            parsed = this.parsers.router(handlerExpression, hasDefault)
+                            params = this.parsers.router(handlerExpression, hasDefault)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    parsed = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '/':
-                                    parsed = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '"': case "'":
-                                    parsed = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case "#": case "@":
-                                    parsed = this.parsers.state(handlerExpression, hasDefault)
-                                    for (const addedName of (parsed.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
-                                    for (const addedName of (parsed.vars.addedCellNames ?? [])) cellNames.add(addedName)
+                                    params = this.parsers.state(handlerExpression, hasDefault)
+                                    for (const addedName of (params.ctx.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
+                                    for (const addedName of (params.ctx.vars.addedCellNames ?? [])) cellNames.add(addedName)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        parsed = this.parsers.variable(handlerExpression, hasDefault)
+                                        params = this.parsers.variable(handlerExpression, hasDefault)
                                     } else if (handlerExpression[1] === "(") {
-                                        parsed = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
+                                        params = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
                                     }
                                     break
                                 case "(":
-                                    parsed = this.parsers.transform(handlerExpression, hasDefault)
+                                    params = this.parsers.transform(handlerExpression, hasDefault)
                                     break
                                 case "{": case "[":
-                                    parsed = this.parsers.json(handlerExpression, hasDefault)
+                                    params = this.parsers.json(handlerExpression, hasDefault)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
                                     let t
@@ -1870,27 +1871,25 @@ const ElementHTML = Object.defineProperties({}, {
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) parsed = this.parsers.json(handlerExpression, hasDefault)
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) params = this.parsers.json(handlerExpression, hasDefault)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        parsed = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
+                                        params = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    parsed = this.parsers.network(handlerExpression, hasDefault)
+                                    params = this.parsers.network(handlerExpression, hasDefault)
                             }
                     }
-                    let { vars, binder, handler } = parsed
-                    if (vars) step.vars = vars
-                    if (binder) step.binder = true
-                    step.handler = handler
+                    step.params = params
                     if (defaultExpression) step.defaultExpression = defaultExpression
-                    statement.labels[label] = undefined
-                    statement.labels[`${index}`] = undefined
+                    statement.labels.add(label)
+                    statement.labels.add(`${index}`)
+                    statement.labels = Array.from(statement.labels)
                     statement.steps.push(Object.freeze(step))
                 }
                 Object.seal(statement.labels)
@@ -1914,7 +1913,7 @@ const ElementHTML = Object.defineProperties({}, {
             json: function (expression, hasDefault) {
                 let value = null
                 try { value = JSON.parse(expression) } catch (e) { }
-                return { vars: { value }, handler: 'json' }
+                return { handler: 'json', ctx: { vars: { value } } }
             },
             network: function (expression, hasDefault) {
                 const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
@@ -1923,12 +1922,12 @@ const ElementHTML = Object.defineProperties({}, {
                     returnFullRequest = true
                     expression = expression.slice(1, -1)
                 }
-                return { vars: { expression, expressionIncludesValueAsVariable, returnFullRequest, hasDefault }, handler: 'network' }
+                return { handler: 'network', ctx: { vars: { expression, expressionIncludesValueAsVariable, hasDefault, returnFullRequest } } }
             },
             pattern: function (expression, hasDefault) {
                 expression = expression.trim()
                 if (!expression) return
-                return { vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) }, binder: true, handler: 'pattern' }
+                return { handler: 'pattern', ctx: { binder: true, vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) } } }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
@@ -1942,15 +1941,13 @@ const ElementHTML = Object.defineProperties({}, {
                     [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                     childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 }
-                return { vars: { useHelper, parentObjectName, parentArgs, childMethodName, childArgs }, binder: true, handler: 'proxy' }
+                return { handler: 'proxy', ctx: { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper } } }
             },
             router: function (expression, hasDefault) {
-                let vars, handler
+                let handler
                 switch (expression) {
                     case '#':
-                        vars = { signal: true }
-                        binder = true
-                        handler = 'routerhash'
+                        return { handler: 'routerhash', ctx: { binder: true, vars: { signal: true } } }
                         break
                     case '?':
                         handler = 'routersearch'
@@ -1961,7 +1958,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case ':':
                         handler = 'router'
                 }
-                return { vars, binder, handler }
+                return { handler }
             },
             selector: function (expression, hasDefault) {
                 if (!expression.includes('|')) {
@@ -1984,25 +1981,25 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-                return { vars: { scopeStatement, selectorStatement, signal: true }, binder: true, handler: 'selector' }
+                return { handler: 'selector', ctx: { binder: true, vars: { scopeStatement, selectorStatement, signal: true } } }
             },
             state: function (expression, hasDefault) {
-                return { vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] }, binder: true, handler: 'state' }
+                return { handler: 'state', ctx: { binder: true, vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] } } }
             },
             string: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'string' }
+                return { handler: 'string', ctx: { vars: { expression } } }
             },
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
                 if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
                 if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
-                return { vars: { expression }, handler: 'transform' }
+                return { handler: 'transform', ctx: { vars: { expression } } }
             },
             variable: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'variable' }
+                return { handler: 'variable', ctx: { vars: { expression } } }
             },
             wait: function (expression, hasDefault) {
-                return { vars: { expression }, handler: 'wait' }
+                return { handler: 'wait', ctx: { vars: { expression } } }
             }
         }
     },
