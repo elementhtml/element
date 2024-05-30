@@ -1,4 +1,4 @@
-struct ComponentManifest {
+struct Component {
     string id<>;
     string extends<>;
     string style<>;

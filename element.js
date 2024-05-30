@@ -1446,17 +1446,17 @@ const ElementHTML = Object.defineProperties({}, {
             name ??= entry
             await this.loadHelper('application/xdr')
             switch (name) {
-                case 'component': case 'components': case 'ComponentManifest':
-                    name = 'ComponentManifest'
+                case 'component': case 'components': case 'Component':
+                    name = 'Component'
                     const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
                     manifest = {
                         entry, name, namespace,
-                        structs: { ComponentManifest: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
+                        structs: { Component: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
                         unions: {}, typedefs: {}, enums: {}
                     }
                     break
-                case 'facet': case 'facets': case 'FacetManifest':
-                    name = 'FacetManifest'
+                case 'facet': case 'facets': case 'Facet':
+                    name = 'Facet'
                     const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }, fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false },
                         variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }, variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false },
                         nameTypeDec = { type: 'Name', parameters: variableReqParams }, variableReqString = { type: 'string', parameters: variableReqParams },
@@ -1467,7 +1467,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     manifest = {
                         entry, name, namespace, structs: {
-                            FacetManifest: new Map([
+                            Facet: new Map([
                                 ['cellNames', nameTypeDec], ['fieldNames', nameTypeDec],
                                 ['hash', { type: 'string', parameters: { ...fixedReqParams, length: 64 } }], ['statements', { type: 'Statement', parameters: variableReqParams }]
                             ]),

@@ -145,7 +145,7 @@ struct Statement {
     Step steps<>;
 };
 
-struct FacetManifest {
+struct Facet {
     Name cellNames<>;
     Name fieldNames<>;
     string hash[64];
