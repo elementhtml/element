@@ -1783,8 +1783,8 @@ const ElementHTML = Object.defineProperties({}, {
 
     /* begin compile module */
     compileFacet: {
-        value: async function (directives, hash, raw) {
-            if (raw) directives = this.canonicalizeDirectives(directives)
+        value: async function (directives, hash) {
+            hash ??= await this.digest(directives = this.canonicalizeDirectives(directives))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -1897,7 +1897,6 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            hash ??= await this.digest(directives)
             const FacetClass = class extends this.Facet {
                 static E = ElementHTML
                 static fieldNames = Array.from(fieldNames)
