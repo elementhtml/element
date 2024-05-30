@@ -183,7 +183,7 @@ const ElementHTML = Object.defineProperties({}, {
                                             this.env[a][aa] = JSON.parse(packageContents[a][aa])
                                         } else {
                                             await this.loadHelper('application/xdr')
-                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getXdrType('ComponentManifest'))
+                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getXdrType(a))
                                         }
                                     }
                                     if (!this.env[a][aa]) {
@@ -1012,8 +1012,11 @@ const ElementHTML = Object.defineProperties({}, {
     binders: {
         value: {
             pattern: async function (container, position, envelope) {
-                const { vars } = envelope, { expression, regexp } = vars
+                const { vars } = envelope, { expression } = vars
+                let { regexp } = vars
+                regexp = new RegExp(regexp ?? expression)
                 this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
+                return { regexp }
             },
             proxy: async function (container, position, envelope) {
                 const { vars } = envelope, { useHelper, parentObjectName } = vars
@@ -1443,7 +1446,8 @@ const ElementHTML = Object.defineProperties({}, {
             name ??= entry
             await this.loadHelper('application/xdr')
             switch (name) {
-                case 'ComponentManifest':
+                case 'component': case 'components': case 'ComponentManifest':
+                    name = 'ComponentManifest'
                     const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
                     manifest = {
                         entry, name, namespace,
@@ -1451,7 +1455,8 @@ const ElementHTML = Object.defineProperties({}, {
                         unions: {}, typedefs: {}, enums: {}
                     }
                     break
-                case 'FacetManifest':
+                case 'facet': case 'facets': case 'FacetManifest':
+                    name = 'FacetManifest'
                     const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }, fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false },
                         variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }, variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false },
                         nameTypeDec = { type: 'Name', parameters: variableReqParams }, variableReqString = { type: 'string', parameters: variableReqParams },
@@ -1728,11 +1733,12 @@ const ElementHTML = Object.defineProperties({}, {
             }
             async run(container, env) {
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
-                    const { steps = [] } = statement, labels = { ...(statement.labels ?? {}) }
+                    const { steps = [] } = statement, labels = {}
+                    for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, handler, binder, defaultExpression: defaultValue } = step,
-                            envelope = { labels: { ...labels }, env }
-                        this.vars[position] = { ...(step.vars ?? {}) }
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
+                            { handler, ctx = {} } = params, { binder, vars = {} } = ctx, envelope = { labels, env }
+                        this.vars[position] = vars
                         if (binder) {
                             if (this.vars[position].signal) {
                                 this.controllers[position] = new AbortController()
@@ -1744,21 +1750,21 @@ const ElementHTML = Object.defineProperties({}, {
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                             let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
                             if (detail == undefined) {
-                                if (typeof defaultValue !== 'string') {
-                                    detail = defaultValue
-                                } else if (((defaultValue[0] === '"') && defaultValue.endsWith('"')) || ((defaultValue[0] === "'") && defaultValue.endsWith("'"))) {
-                                    detail = defaultValue.slice(1, -1)
-                                } else if (defaultValue.match(this.constructor.E.sys.regexp.hasVariable)) {
-                                    detail = this.constructor.E.mergeVariables(defaultValue, undefined, labels, env)
-                                } else if (defaultValue.match(this.constructor.E.sys.regexp.isJSONObject) || defaultValue.match(this.constructor.E.sys.regexp.isNumeric)
-                                    || ['true', 'false', 'null'].includes(defaultValue) || (defaultValue[0] === '[' && defaultValue.endsWith(']'))) {
+                                if (typeof defaultExpression !== 'string') {
+                                    detail = defaultExpression
+                                } else if (((defaultExpression[0] === '"') && defaultExpression.endsWith('"')) || ((defaultExpression[0] === "'") && defaultExpression.endsWith("'"))) {
+                                    detail = defaultExpression.slice(1, -1)
+                                } else if (defaultExpression.match(this.constructor.E.sys.regexp.hasVariable)) {
+                                    detail = this.constructor.E.mergeVariables(defaultExpression, undefined, labels, env)
+                                } else if (defaultExpression.match(this.constructor.E.sys.regexp.isJSONObject) || defaultExpression.match(this.constructor.E.sys.regexp.isNumeric)
+                                    || ['true', 'false', 'null'].includes(defaultExpression) || (defaultExpression[0] === '[' && defaultExpression.endsWith(']'))) {
                                     try {
-                                        detail = JSON.parse(defaultValue)
+                                        detail = JSON.parse(defaultExpression)
                                     } catch (e) {
-                                        detail = defaultValue
+                                        detail = defaultExpression
                                     }
                                 } else {
-                                    detail = defaultValue
+                                    detail = defaultExpression
                                 }
                             }
                             switch (label[0]) {
@@ -1772,7 +1778,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     labels[label] = detail
                             }
                             labels[`${stepIndex}`] = detail
-                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${statementIndex}-${stepIndex}`, { detail }))
+                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                         }, { signal: this.controller.signal })
                     }
                 }
@@ -2023,7 +2029,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (componentManifest.class instanceof Function) componentManifest.class = componentManifest.class.toString()
                     if (format === 'json') return JSON.stringify(componentManifest)
                     await this.loadHelper('application/xdr')
-                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getXdrType('ComponentManifest'))
+                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getXdrType('component'))
                 default:
                     return componentManifest
             }
@@ -2047,7 +2053,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'json': case 'xdr':
                     if (format === 'json') return JSON.stringify(facetManifest)
                     await this.loadHelper('application/xdr')
-                    return this.useHelper('application/xdr', 'stringify', facetManifest, await this.getXdrType('FacetManifest'))
+                    return this.useHelper('application/xdr', 'stringify', facetManifest, await this.getXdrType('facet'))
                 default:
                     return facetManifest
             }
