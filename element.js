@@ -21,13 +21,12 @@ const ElementHTML = Object.defineProperties({}, {
                         v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
                     if (text.includes('$queryString(')) expression.registerFunction('queryString',
                         v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    for (const [helperAlias, helperName] of Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {})) {
-                        if (text.includes(`$${helperAlias}(`)) expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
-                    }
+                    for (const [helperAlias, helperName] of Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {})) if (text.includes(`$${helperAlias}(`))
+                        expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
                     return expression
                 },
-                'application/xdr': function (operation, ...args) {
-                    return this.app.libraries['application/xdr'][operation](...args)
+                'xdr': function (operation, ...args) {
+                    return this.app.libraries.xdr[operation](...args)
                 },
                 'ipfs://': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
@@ -63,8 +62,8 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                     await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
-                'application/xdr': async function () {
-                    this.app.libraries['application/xdr'] = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
+                'xdr': async function () {
+                    this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
                 },
                 'ipfs://': async function () {
                     if (this.env.options['ipfs://']?.gateway) return
@@ -182,8 +181,8 @@ const ElementHTML = Object.defineProperties({}, {
                                         if (packageContents[a][aa][0] === '{') {
                                             this.env[a][aa] = JSON.parse(packageContents[a][aa])
                                         } else {
-                                            await this.loadHelper('application/xdr')
-                                            this.env[a][aa] = this.useHelper('application/xdr', 'parse', packageContents[a][aa], await this.getXdrType(a))
+                                            await this.loadHelper('xdr')
+                                            this.env[a][aa] = this.useHelper('xdr', 'parse', packageContents[a][aa], await this.getXdrType(a))
                                         }
                                     }
                                     if (!this.env[a][aa]) {
@@ -1442,9 +1441,12 @@ const ElementHTML = Object.defineProperties({}, {
     },
     getXdrType: {
         value: async function (manifest, entry, name, namespace = 'element') {
-            if (typeof manifest === 'string') entry = manifest
-            name ??= entry
-            await this.loadHelper('application/xdr')
+            if (typeof manifest === 'string') {
+                entry ??= manifest
+                name ??= entry
+            }
+            await this.loadHelper('xdr')
+            let factoryClass
             switch (name) {
                 case 'component': case 'components': case 'Component':
                     name = 'Component'
@@ -1499,8 +1501,10 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     for (const arm in handlerTypes) manifest.unions.Params.arms[arm] = { type: handlerTypes[arm], identifier: 'ctx', arm }
                     break
+                default:
+                    factoryClass = await this.app.libraries.xdr.factory(manifest, entry, { name, namespace })
             }
-            return class extends this.app.libraries['application/xdr'].types._base.Composite {
+            return factoryClass ?? class extends this.app.libraries.xdr.types._base.Composite {
                 static entry = entry
                 static name = name
                 static namespace = namespace
@@ -2028,8 +2032,8 @@ const ElementHTML = Object.defineProperties({}, {
                     if (componentManifest.template instanceof HTMLTemplateElement) componentManifest.template = componentManifest.template.content.cloneNode(true).textContent
                     if (componentManifest.class instanceof Function) componentManifest.class = componentManifest.class.toString()
                     if (format === 'json') return JSON.stringify(componentManifest)
-                    await this.loadHelper('application/xdr')
-                    return this.useHelper('application/xdr', 'stringify', componentManifest, await this.getXdrType('component'))
+                    await this.loadHelper('xdr')
+                    return this.useHelper('xdr', 'stringify', componentManifest, await this.getXdrType('component'))
                 default:
                     return componentManifest
             }
@@ -2052,8 +2056,8 @@ const ElementHTML = Object.defineProperties({}, {
             switch (format) {
                 case 'json': case 'xdr':
                     if (format === 'json') return JSON.stringify(facetManifest)
-                    await this.loadHelper('application/xdr')
-                    return this.useHelper('application/xdr', 'stringify', facetManifest, await this.getXdrType('facet'))
+                    await this.loadHelper('xdr')
+                    return this.useHelper('xdr', 'stringify', facetManifest, await this.getXdrType('facet'))
                 default:
                     return facetManifest
             }
