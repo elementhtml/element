@@ -4,7 +4,7 @@
 struct Package {
     components; /* object of url strings | object of Component objects */
     context; /* object of any value type */
-    facets; /* string | object of strings | object of Facet objects */
+    facets; /* object of url strings | object of Facet objects */
     helpers; /* string | object of strings */
     loaders; /* string | object of strings */
     namespaces; /* object of strings */

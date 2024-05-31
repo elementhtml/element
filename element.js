@@ -2064,10 +2064,29 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportPackage: {
-        value: async function (namespace, dimensions = [], format = 'plain') {
-            const packageManifest = {}
+        value: async function (members = {}, format = 'plain') {
+            if (!members || typeof members === 'object' && !Object.keys(members).length) members = this.env
+            const packageObj = {}
+            for (const scope in members) {
+                if (!this.env[scope] || !members[scope] || typeof members[scope] !== 'object') continue
+                packageObj[scope] = {}
+                for (const memberKey in members[scope]) {
+                    switch (scope) {
+                        case 'components':
+                            packageObj[scope][memberKey] = await this.exportComponent(members[scope][memberKey])
+                            break
+                        case 'context':
+                            try {
+                                packageObj[scope][memberKey] = JSON.parse(JSON.stringify(this.env[scope][memberKey]))
+                            } catch (e) {
 
-            return packageManifest
+                            }
+                            break
+                    }
+                }
+            }
+
+            return packageObj
         }
     },
     exportApplication: {
