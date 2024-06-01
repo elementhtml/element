@@ -112,7 +112,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Dev: {
         enumerable: true, value: function () {
-            this.app.errors = true
+            this.app.dev = true
             this.app.packages = new Map()
             //loads dev module
         }
@@ -278,6 +278,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
             if (packageContents?.hooks?.postInstall === 'function') packageContents.hooks.postInstall(packageContents, this)
+            if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
 
@@ -302,7 +303,7 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(this[f])
                 }
                 Object.freeze(this)
-                if (!this.app.errors) {
+                if (!this.app.dev) {
                     console.log = () => { }
                     window.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
@@ -2065,31 +2066,31 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportPackage: {
-        value: async function (includePackages = []) {
-            const packageChunks = ['const package = {}']
-
-            // if (!members || typeof members === 'object' && !Object.keys(members).length) members = this.env
-            // const packageObj = {}
-            // for (const scope in members) {
-            //     if (!this.env[scope] || !members[scope] || typeof members[scope] !== 'object') continue
-            //     packageObj[scope] = {}
-            //     for (const memberKey in members[scope]) {
-            //         switch (scope) {
-            //             case 'components':
-            //                 packageObj[scope][memberKey] = await this.exportComponent(members[scope][memberKey])
-            //                 break
-            //             case 'context':
-            //                 try {
-            //                     packageObj[scope][memberKey] = JSON.parse(JSON.stringify(this.env[scope][memberKey]))
-            //                 } catch (e) {
-
-            //                 }
-            //                 break
-            //         }
-            //     }
-            // }
-
-            packageChunks.push('export package')
+        value: async function (includePackages, includeComponents, includeFacets) {
+            includePackages ??= new Set()
+            includeComponents ??= new Set()
+            includeFacets ??= new Set()
+            const openingLine = 'const Package = {}', closingLine = 'export default Package', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
+            if (Array.isArray(includePackages)) {
+                for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
+            } else if (includePackages instanceof Set) {
+                for (const [packageKey, packageUrl] of appPackages.entries()) if (!includePackages.has(packageKey)) packageUrls.push(packageUrl)
+            }
+            for (const packageUrl of packageUrls) packageChunks.push((await (await fetch(packageUrl)).text()).trim().split('\n')
+                .filter(l => !(l.trim().startsWith(openingLine) || l.trim().startsWith(closingLine))).join('\n').trim())
+            for (const [lc, uc] of [['component', 'Component'], ['facet', 'Facet']]) {
+                const m = new Map(), include = lc === 'component' ? includeComponents : includeFacets
+                if (Array.isArray(include)) {
+                    for (const id of include) if (this.env[lc][id]) m.set(id, this.env[lc][id])
+                } else if (include instanceof Set) {
+                    for (const id in this.env[lc]) if (!include.has(id)) m.set(id, this.env[lc][id])
+                }
+                if (m.size) {
+                    packageChunks.push(`package.${lc}s ??= {}`)
+                    for (const [id, manifest] of m.entries()) packageChunks.push(`package.${lc}s['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
+                }
+            }
+            packageChunks.push('export default Package')
             return packageChunks.join('/n/n')
         }
     },
