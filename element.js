@@ -112,7 +112,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Dev: {
         enumerable: true, value: function () {
-            this.env.errors = true
+            this.app.errors = true
             this.app.packages = new Map()
             //loads dev module
         }
@@ -302,7 +302,7 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(this[f])
                 }
                 Object.freeze(this)
-                if (!this.env.errors) {
+                if (!this.app.errors) {
                     console.log = () => { }
                     window.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
@@ -2121,7 +2121,7 @@ if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
-    const imports = importmap.imports ?? {}, importPromises = {}, importKeys = {}
+    const imports = importmap.imports ?? {}, importPromises = new Map(), importKeys = {}
     for (const p of metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s)) {
         let importUrl
         if ((typeof imports[p] === 'string') && imports[p].includes('/')) {
@@ -2137,11 +2137,11 @@ if (metaOptions.has('packages')) {
         }
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
-        importPromises[importUrl] = import(importUrl)
+        importPromises.set(importUrl, import(importUrl))
         importKeys[importUrl] = p
     }
-    await Promise.all(Object.values(importPromises))
-    for (const url in importPromises) await ElementHTML.ImportPackage(await importPromises[url], url, importKeys[url])
+    await Promise.all(Array.from(importPromises.values()))
+    for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp, url, importKeys[url])
 }
 if (metaOptions.has('compile')) ElementHTML.Compile(metaOptions.get('compile'))
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
