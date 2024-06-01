@@ -113,6 +113,7 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: {
         enumerable: true, value: function () {
             this.env.errors = true
+            this.app.packages = new Map()
             //loads dev module
         }
     },
@@ -2064,29 +2065,32 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportPackage: {
-        value: async function (members = {}, format = 'plain') {
-            if (!members || typeof members === 'object' && !Object.keys(members).length) members = this.env
-            const packageObj = {}
-            for (const scope in members) {
-                if (!this.env[scope] || !members[scope] || typeof members[scope] !== 'object') continue
-                packageObj[scope] = {}
-                for (const memberKey in members[scope]) {
-                    switch (scope) {
-                        case 'components':
-                            packageObj[scope][memberKey] = await this.exportComponent(members[scope][memberKey])
-                            break
-                        case 'context':
-                            try {
-                                packageObj[scope][memberKey] = JSON.parse(JSON.stringify(this.env[scope][memberKey]))
-                            } catch (e) {
+        value: async function (includePackages = []) {
+            const packageChunks = ['const package = {}']
 
-                            }
-                            break
-                    }
-                }
-            }
+            // if (!members || typeof members === 'object' && !Object.keys(members).length) members = this.env
+            // const packageObj = {}
+            // for (const scope in members) {
+            //     if (!this.env[scope] || !members[scope] || typeof members[scope] !== 'object') continue
+            //     packageObj[scope] = {}
+            //     for (const memberKey in members[scope]) {
+            //         switch (scope) {
+            //             case 'components':
+            //                 packageObj[scope][memberKey] = await this.exportComponent(members[scope][memberKey])
+            //                 break
+            //             case 'context':
+            //                 try {
+            //                     packageObj[scope][memberKey] = JSON.parse(JSON.stringify(this.env[scope][memberKey]))
+            //                 } catch (e) {
 
-            return packageObj
+            //                 }
+            //                 break
+            //         }
+            //     }
+            // }
+
+            packageChunks.push('export package')
+            return packageChunks.join('/n/n')
         }
     },
     exportApplication: {
@@ -2111,7 +2115,8 @@ const ElementHTML = Object.defineProperties({}, {
 
 })
 ElementHTML.Component.E = ElementHTML
-const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams
+const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, isDev = metaOptions.has('dev')
+if (isDev) ElementHTML.Dev(metaOptions.get('dev'))
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
@@ -2138,7 +2143,7 @@ if (metaOptions.has('packages')) {
     await Promise.all(Object.values(importPromises))
     for (const url in importPromises) await ElementHTML.ImportPackage(await importPromises[url], url, importKeys[url])
 }
-if (metaOptions.has('dev')) ElementHTML.Dev(metaOptions.get('dev'))
+if (metaOptions.has('compile')) ElementHTML.Compile(metaOptions.get('compile'))
 if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
