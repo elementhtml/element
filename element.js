@@ -2099,7 +2099,7 @@ const ElementHTML = Object.defineProperties({}, {
             manifest ??= {
                 source, priority, name, author, title, description, icon, url,
                 links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
-                blocks: [{ code, position, selector }],
+                blocks: { selector: { code, position } },
                 pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
                 robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
                 sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
@@ -2151,7 +2151,6 @@ const ElementHTML = Object.defineProperties({}, {
                     typeMeta.image ??= targetLinks.icon
                     if (sourceType === 'cards') typeMeta.card ??= 'summary'
                     const nameAttr = metaTypesConfig[sourceType].nameAttr ?? 'name', namePrefix = metaTypesConfig[sourceType].namePrefix
-
                     for (const m in typeMeta) {
                         const metaAttrs = m && typeof m === 'object' ? m : { [`${namePrefix}:${m}`]: m, content: typeMeta[m] }
                         if (!metaAttrs[nameAttr] || !metaAttrs.content) continue
@@ -2162,16 +2161,13 @@ const ElementHTML = Object.defineProperties({}, {
                         metaElement.setAttribute('content', metaAttrs.content)
                         markerElement = metaElement
                     }
+                }
 
-
+                if (schema) {
 
                 }
 
-
             }
-
-
-
 
 
         }
@@ -2179,20 +2175,26 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    }
-},
+
+    },
+
+
+
+
+
+
     publishApplication: {
-    value: async function (options = {}, target = {}) {
-        const applicationManifest = await this.exportApplication()
+        value: async function (options = {}, target = {}) {
+            const applicationManifest = await this.exportApplication()
 
-        // `options` may include `sitemap` list of pages to prerender and bundle
+            // `options` may include `sitemap` list of pages to prerender and bundle
 
-        // `options` may include `pwa` params as object to trigger PWA rendering
+            // `options` may include `pwa` params as object to trigger PWA rendering
 
-        //now publish application bundle to the target hosting platform using the information provided in `target`
+            //now publish application bundle to the target hosting platform using the information provided in `target`
 
+        }
     }
-}
     /* end dev module */
 
 })
