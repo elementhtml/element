@@ -2255,20 +2255,8 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     },
-
-
-
-
-
-
     publishApplication: {
-        value: async function (options = {}, target = {}) {
-            const applicationManifest = await this.exportApplication()
-
-            // `options` may include `sitemap` list of pages to prerender and bundle
-
-            // `options` may include `pwa` params as object to trigger PWA rendering
-
+        value: async function (application, target) {
             //now publish application bundle to the target hosting platform using the information provided in `target`
 
         }
