@@ -2096,14 +2096,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     exportApplication: {
         value: async function (manifest) {
-            // manifest ??= {
-            //     source, priority, name, author, title, description, icon, host, path, links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
-            //     blocks: [{ code, position, selector }],
-            //     pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
-            //     robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
-            //     sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
-            //     assets: [], targets: [], vars: {}
-            // }
             const { source, priority, name, author, title, description, icon, url, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
             const metaTypesConfig = { og: { nameAttr: 'property', namePrefix: 'og' }, cards: { namePrefix: 'twitter' }, dc: { namePrefix: 'dc' } }
             const sitemapEntries = sitemap === true ? [] : (Array.isArray(sitemap) ? [...sitemap] : undefined)
@@ -2199,9 +2191,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (sitemap === true) sitemapEntries.push({ loc: `https://${host}/${targetPath}`, priority: target.priority ?? priority })
             }
 
-
-            // const { source, priority, name, author, title, description, icon, url, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
-
             if (pwa) {
                 if (pwa === true) pwa = {}
                 pwa.name ??= name ?? title
@@ -2218,7 +2207,6 @@ const ElementHTML = Object.defineProperties({}, {
                     contentType: 'application/json'
                 }
             }
-
 
             if (robots) {
                 let robotsContent = ''
@@ -2260,7 +2248,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const asset of (assets ?? [])) application[asset.path] = { content: { '/': asset.path }, contentType: asset.contentType }
 
             return application
-
         }
 
 
