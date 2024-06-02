@@ -2096,33 +2096,32 @@ const ElementHTML = Object.defineProperties({}, {
     },
     exportApplication: {
         value: async function (manifest) {
-            manifest ??= {
-                source, priority, name, author, title, description, icon, url,
-                links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
-                blocks: [{ code, position, selector }],
-                pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
-                robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
-                sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
-                assets: [],
-                targets: ['index.html'],
-                vars: {}
-            }
+            // manifest ??= {
+            //     source, priority, name, author, title, description, icon, host, path, links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
+            //     blocks: [{ code, position, selector }],
+            //     pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
+            //     robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
+            //     sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
+            //     assets: [], targets: [], vars: {}
+            // }
             const { source, priority, name, author, title, description, icon, url, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
             const metaTypesConfig = { og: { nameAttr: 'property', namePrefix: 'og' }, cards: { namePrefix: 'twitter' }, dc: { namePrefix: 'dc' } }
+            const sitemapEntries = sitemap === true ? [] : (Array.isArray(sitemap) ? [...sitemap] : undefined)
             const application = {}
+            if (targets[0] !== 'index.html') targets.unshift('index.html')
+            if (targets[0] === '/') targets[0] === 'index.html'
 
             for (let target of targets) {
-                if (typeof target === 'string') target = { target }
+                if (typeof target === 'string') target = { path: target }
                 const template = document.createElement('template')
                 template.innerHTML = await (await fetch(target.source ?? source)).text()
                 let titleElement = template.content.querySelector('head > title'), markerElement = titleElement
-
                 if (!'title' in target) target.title = title
                 if (target.title) titleElement.textContent = target.title
-
                 const targetLinks = target.links ?? JSON.parse(JSON.stringify(links))
                 if (icon && !targetLinks.icon) targetLinks.icon = icon
                 if (pwa && !targetLinks.manifest) targetLinks.manifest = 'manifest.json'
+                if (sitemap && !targetLinks.sitemap) targetLinks.sitemap = 'sitemap.xml'
                 for (const link in targetLinks) {
                     const linkAttrs = link && typeof link === 'object' ? link : { rel: link, href: targetLinks[link] }
                     if (!linkAttrs.rel) continue
@@ -2130,7 +2129,6 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const n in linkAttrs) linkElement.setAttribute(n, linkAttrs[n])
                     markerElement = linkElement
                 }
-
                 const targetMeta = target.meta ?? JSON.parse(JSON.stringify(meta))
                 if (pwa && !targetMeta['application-name']) targetMeta['application-name'] = target.name ?? name ?? target.title
                 if (!targetMeta.author && author) targetMeta.author = author
@@ -2142,7 +2140,6 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const n in metaAttrs) metaElement.setAttribute(n, metaAttrs[n])
                     markerElement = metaElement
                 }
-
                 for (let [sourceType, typeMeta] of Object.entries({
                     og: target.og ?? (og ? JSON.parse(JSON.stringify(og)) : undefined),
                     cards: target.cards ?? (cards ? JSON.parse(JSON.stringify(cards)) : undefined),
@@ -2166,7 +2163,6 @@ const ElementHTML = Object.defineProperties({}, {
                         markerElement = metaElement
                     }
                 }
-
                 const targetSchema = target.schema ?? (schema ? JSON.parse(JSON.stringify(schema)) : undefined)
                 if (targetSchema) {
                     targetSchema['@context'] ??= 'https://schema.org'
@@ -2180,8 +2176,9 @@ const ElementHTML = Object.defineProperties({}, {
                     schemaElement.textContent = JSON.stringify(targetSchema, null, 4)
                     markerElement = schemaElement
                 }
-
-                const targetBlocks = target.blocks ?? (blocks ? JSON.parse(JSON.stringify(blocks)) : [])
+                let targetBlocks = target.blocks ?? blocks ?? []
+                targetBlocks = targetBlocks.filter(b => !b.global)
+                if (blocks) targetBlocks = JSON.parse(JSON.stringify([...(blocks.filter(b => b.global)), ...targetBlocks]))
                 for (let targetBlock of targetBlocks) {
                     if (typeof targetBlock === 'string') { targetBlock = { code: targetBlock } }
                     const { code, position, selector } = targetBlock
@@ -2190,11 +2187,79 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!blockMarker) continue
                     blockMarker.insertAdjacentHTML(position ?? (selector ? 'beforeend' : 'afterend'), code)
                 }
-
-
-
+                let targetPath = path ? `${path}/${target.path}` : target.path
+                if (targetPath.endsWith('/')) targetPath = `${targetPath}index.html`
+                if (targetPath.startsWith('/')) targetPath = targetPath.slice(1)
+                if (!targetPath.includes('.')) targetPath = `${targetPath}.html`
+                application[targetPath] = {
+                    content: template.content.querySelector('html').outerHTML,
+                    contentType: 'text/html'
+                }
+                target.url ??= `https://${host}/${targetPath}`
+                if (sitemap === true) sitemapEntries.push({ loc: `https://${host}/${targetPath}`, priority: target.priority ?? priority })
             }
 
+
+            // const { source, priority, name, author, title, description, icon, url, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
+
+            if (pwa) {
+                if (pwa === true) pwa = {}
+                pwa.name ??= name ?? title
+                pwa.short_name ??= title ?? name
+                pwa.description ??= description
+                pwa.icons ??= [{ src: `/${icon}`, sizes: '512x512', type: `image/${icon.split('.').pop()}` }]
+                pwa.start_url ??= path ? `${path}/${targets[0]}` : `/${targets[0]}`
+                pwa.display ??= 'standalone'
+                pwa.background_color ??= '#ffffff'
+                pwa.theme_color ??= '#000000'
+                pwa.orientation ??= 'portrait-primary'
+                application['manifest.json'] = {
+                    content: JSON.stringify(pwa, null, 4),
+                    contentType: 'application/json'
+                }
+            }
+
+
+            if (robots) {
+                let robotsContent = ''
+                if (typeof robots === 'string') {
+                    robotsContent = robots
+                } else {
+                    if (robots === true) robots = {}
+                    robots['User-agent'] ??= '*'
+                    robots.Allow ??= ['/']
+                    robots.Disallow ??= []
+                    for (const d in robots) {
+                        switch (d) {
+                            case 'Allow': case 'Disallow':
+                                for (const dd of robots[d]) robotsContent += `${d}: ${dd}\n`
+                                break
+                            default:
+                                robotsContent += `${d}: ${robots[d]}\n`
+                        }
+                    }
+                }
+                application['robots.txt'] = {
+                    content: robotsContent,
+                    contentType: 'text/plain'
+                }
+            }
+
+            if (sitemap) {
+                let sitemapContent = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+                for (const entry of sitemapEntries) {
+                    sitemapContent += `<url><loc>${entry.loc}</loc><priority>${entry.priority}</priority></url>\n`
+                }
+                sitemapContent += '</urlset>'
+                application['sitemap.xml'] = {
+                    content: sitemapContent,
+                    contentType: 'application/xml'
+                }
+            }
+
+            for (const asset of (assets ?? [])) application[asset.path] = { content: { '/': asset.path }, contentType: asset.contentType }
+
+            return application
 
         }
 
