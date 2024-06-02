@@ -2099,7 +2099,7 @@ const ElementHTML = Object.defineProperties({}, {
             manifest ??= {
                 source, priority, name, author, title, description, icon, url,
                 links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
-                blocks: { selector: { code, position } },
+                blocks: [{ code, position, selector }],
                 pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
                 robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
                 sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
@@ -2178,9 +2178,18 @@ const ElementHTML = Object.defineProperties({}, {
                     const schemaElement = template.content.querySelector(`head > script[type="application/ld+json"]`) ?? markerElement.insertAdjacentElement(document.createElement('script'))
                     schemaElement.setAttribute('type', 'application/ld+json')
                     schemaElement.textContent = JSON.stringify(targetSchema, null, 4)
+                    markerElement = schemaElement
                 }
 
-
+                const targetBlocks = target.blocks ?? (blocks ? JSON.parse(JSON.stringify(blocks)) : [])
+                for (let targetBlock of targetBlocks) {
+                    if (typeof targetBlock === 'string') { targetBlock = { code: targetBlock } }
+                    const { code, position, selector } = targetBlock
+                    if (!code) continue
+                    const blockMarker = selector ? template.content.querySelector(selector) : markerElement
+                    if (!blockMarker) continue
+                    blockMarker.insertAdjacentHTML(position ?? (selector ? 'beforeend' : 'afterend'), code)
+                }
 
 
 
