@@ -2249,11 +2249,6 @@ const ElementHTML = Object.defineProperties({}, {
 
             return application
         }
-
-
-
-
-
     },
     publishApplication: {
         value: async function (application, target) {
