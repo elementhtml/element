@@ -2143,7 +2143,11 @@ const ElementHTML = Object.defineProperties({}, {
                     markerElement = metaElement
                 }
 
-                for (let [sourceType, typeMeta] of Object.entries({ og, cards, dc })) {
+                for (let [sourceType, typeMeta] of Object.entries({
+                    og: target.og ?? (og ? JSON.parse(JSON.stringify(og)) : undefined),
+                    cards: target.cards ?? (cards ? JSON.parse(JSON.stringify(cards)) : undefined),
+                    dc: target.dc ?? (dc ? JSON.parse(JSON.stringify(dc)) : undefined)
+                })) {
                     if (!typeMeta) continue
                     if (typeMeta === true) typeMeta = {}
                     typeMeta.title ??= targetMeta.title ?? target.title
@@ -2163,9 +2167,22 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
 
-                if (schema) {
-
+                const targetSchema = target.schema ?? (schema ? JSON.parse(JSON.stringify(schema)) : undefined)
+                if (targetSchema) {
+                    targetSchema['@context'] ??= 'https://schema.org'
+                    targetSchema['@type'] ??= 'WebSite'
+                    targetSchema.headline ??= targetMeta.title
+                    targetSchema.image ??= [targetLinks.icon]
+                    const targetAuthor = targetMeta.author ?? target.author ?? author
+                    if (targetAuthor) targetSchema.author ??= { '@type': 'Person', name: targetAuthor }
+                    const schemaElement = template.content.querySelector(`head > script[type="application/ld+json"]`) ?? markerElement.insertAdjacentElement(document.createElement('script'))
+                    schemaElement.setAttribute('type', 'application/ld+json')
+                    schemaElement.textContent = JSON.stringify(targetSchema, null, 4)
                 }
+
+
+
+
 
             }
 
