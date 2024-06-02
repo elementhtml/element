@@ -2095,23 +2095,104 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     exportApplication: {
-        value: async function (format = 'plain') {
-            const applicationManifest = {}
+        value: async function (manifest) {
+            manifest ??= {
+                source, priority, name, author, title, description, icon, url,
+                links: { icon }, meta: { title, description, image, url }, og: {}, cards: {}, schema: {}, dc: {},
+                blocks: [{ code, position, selector }],
+                pwa: false, // `true` for default, or  {manifest: {name, short_name, start_url, display, background_color, theme_color, icons: [{src, sizes, type}]}, icons: [{src, sizes, type}]}
+                robots: true, // `true` for default, or  {[useragent]: {allow: [], disallow: [], ... }}
+                sitemap: true, // `true for default, or  {url: {changefreq, priority, lastmod},...}`
+                assets: [],
+                targets: ['index.html'],
+                vars: {}
+            }
+            const { source, priority, name, author, title, description, icon, url, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
+            const metaTypesConfig = { og: { nameAttr: 'property', namePrefix: 'og' }, cards: { namePrefix: 'twitter' }, dc: { namePrefix: 'dc' } }
+            const application = {}
+
+            for (let target of targets) {
+                if (typeof target === 'string') target = { target }
+                const template = document.createElement('template')
+                template.innerHTML = await (await fetch(target.source ?? source)).text()
+                let titleElement = template.content.querySelector('head > title'), markerElement = titleElement
+
+                if (!'title' in target) target.title = title
+                if (target.title) titleElement.textContent = target.title
+
+                const targetLinks = target.links ?? JSON.parse(JSON.stringify(links))
+                if (icon && !targetLinks.icon) targetLinks.icon = icon
+                if (pwa && !targetLinks.manifest) targetLinks.manifest = 'manifest.json'
+                for (const link in targetLinks) {
+                    const linkAttrs = link && typeof link === 'object' ? link : { rel: link, href: targetLinks[link] }
+                    if (!linkAttrs.rel) continue
+                    const linkElement = template.content.querySelector(`head > link[rel="${linkAttrs.rel}"]`) ?? markerElement.insertAdjacentElement(document.createElement('link'))
+                    for (const n in linkAttrs) linkElement.setAttribute(n, linkAttrs[n])
+                    markerElement = linkElement
+                }
+
+                const targetMeta = target.meta ?? JSON.parse(JSON.stringify(meta))
+                if (pwa && !targetMeta['application-name']) targetMeta['application-name'] = target.name ?? name ?? target.title
+                if (!targetMeta.author && author) targetMeta.author = author
+                if (!targetMeta.description && description) targetMeta.description = description
+                for (const m in targetMeta) {
+                    const metaAttrs = m && typeof m === 'object' ? m : { name: m, content: targetMeta[m] }
+                    if (!metaAttrs.name) continue
+                    const metaElement = template.content.querySelector(`head > meta[name="${metaAttrs.name}"]`) ?? markerElement.insertAdjacentElement(document.createElement('meta'))
+                    for (const n in metaAttrs) metaElement.setAttribute(n, metaAttrs[n])
+                    markerElement = metaElement
+                }
+
+                for (let [sourceType, typeMeta] of Object.entries({ og, cards, dc })) {
+                    if (!typeMeta) continue
+                    if (typeMeta === true) typeMeta = {}
+                    typeMeta.title ??= targetMeta.title ?? target.title
+                    typeMeta.description ??= targetMeta.description ?? target.description
+                    typeMeta.image ??= targetLinks.icon
+                    if (sourceType === 'cards') typeMeta.card ??= 'summary'
+                    const nameAttr = metaTypesConfig[sourceType].nameAttr ?? 'name', namePrefix = metaTypesConfig[sourceType].namePrefix
+
+                    for (const m in typeMeta) {
+                        const metaAttrs = m && typeof m === 'object' ? m : { [`${namePrefix}:${m}`]: m, content: typeMeta[m] }
+                        if (!metaAttrs[nameAttr] || !metaAttrs.content) continue
+                        const nameValue = metaAttrs[nameAttr].startsWith(`${namePrefix}:`) ? metaAttrs[nameAttr] : `${namePrefix}:${metaAttrs[nameAttr]}`
+                        const metaElement = template.content.querySelector(`head > meta[${nameAttr}="${nameValue}"]`) ?? markerElement.insertAdjacentElement(document.createElement('meta'))
+                        for (const n in metaAttrs) if (n !== 'content' && n !== nameAttr) metaElement.setAttribute(n, metaAttrs[n])
+                        metaElement.setAttribute(nameAttr, nameValue)
+                        metaElement.setAttribute('content', metaAttrs.content)
+                        markerElement = metaElement
+                    }
+
+
+
+                }
+
+
+            }
+
+
+
+
 
         }
-    },
-    publishApplication: {
-        value: async function (options = {}, target = {}) {
-            const applicationManifest = await this.exportApplication()
 
-            // `options` may include `sitemap` list of pages to prerender and bundle
 
-            // `options` may include `pwa` params as object to trigger PWA rendering
 
-            //now publish application bundle to the target hosting platform using the information provided in `target`
 
-        }
     }
+},
+    publishApplication: {
+    value: async function (options = {}, target = {}) {
+        const applicationManifest = await this.exportApplication()
+
+        // `options` may include `sitemap` list of pages to prerender and bundle
+
+        // `options` may include `pwa` params as object to trigger PWA rendering
+
+        //now publish application bundle to the target hosting platform using the information provided in `target`
+
+    }
+}
     /* end dev module */
 
 })
