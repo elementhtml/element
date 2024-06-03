@@ -129,7 +129,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
             for (const a of ['helpers', 'loaders', 'templates', 'facets', 'components']) if (typeof packageContents[a] === 'string') packageContents[a] = getExports(this.resolveUrl(packageContents[a], packageUrl))
-            for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
+            for (const a in packageContents) if (a in this.env && typeof this.env[a] === 'object') {
                 switch (a) {
                     case 'options':
                         for (const aa in (packageContents.options ?? {})) {
