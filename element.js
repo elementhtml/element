@@ -122,7 +122,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     Expose: {
-        enumerable: true, value: function (name = 'E') {
+        enumerable: true, value: async function (name = 'E') {
             window[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
@@ -1799,10 +1799,11 @@ const ElementHTML = Object.defineProperties({}, {
 
 })
 ElementHTML.Component.E = ElementHTML
-const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, isDev = metaOptions.has('dev')
-if (metaOptions.has('compile')) ElementHTML.Compile(metaOptions.get('compile'))
-if (isDev) await ElementHTML.Dev(metaOptions.get('dev'))
-if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
+const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, isDev = metaOptions.has('dev'), flagPromises = []
+if (metaOptions.has('compile')) flagPromises.push(ElementHTML.Compile(metaOptions.get('compile')))
+if (isDev) flagPromises.push(ElementHTML.Dev(metaOptions.get('dev')))
+if (metaOptions.has('expose')) flagPromises.push(ElementHTML.Expose(metaOptions.get('expose')))
+await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
