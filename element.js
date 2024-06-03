@@ -107,18 +107,14 @@ const ElementHTML = Object.defineProperties({}, {
 
     Compile: {
         enumerable: true, value: async function () {
-            const { module } = (await import((new URL('modules/compile.js', import.meta.url)).href))
-            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
-            Object.defineProperties(this, module)
+            await this.installModule('compile')
         }
     },
     Dev: {
         enumerable: true, value: async function () {
             this.app.dev = true
             this.app.packages = new Map()
-            const { module } = (await import((new URL('modules/dev.js', import.meta.url)).href))
-            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
-            Object.defineProperties(this, module)
+            await this.installModule('dev')
         }
     },
     Expose: {
@@ -1267,6 +1263,13 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ids: { value: {} },
+    installModule: {
+        value: async function (moduleName) {
+            const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
+            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
+            Object.defineProperties(this, module)
+        }
+    },
     scripts: { value: {} },
     styles: { value: {} },
     sys: {
