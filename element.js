@@ -109,7 +109,6 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function () {
             const { module } = (await import((new URL('modules/compile.js', import.meta.url)).href))
             for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
-            console.log('line 112', module)
             Object.defineProperties(this, module)
         }
     },
@@ -1803,6 +1802,7 @@ ElementHTML.Component.E = ElementHTML
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, isDev = metaOptions.has('dev')
 if (metaOptions.has('compile')) ElementHTML.Compile(metaOptions.get('compile'))
 if (isDev) await ElementHTML.Dev(metaOptions.get('dev'))
+if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
     let importmap = { imports: {} }
@@ -1829,6 +1829,5 @@ if (metaOptions.has('packages')) {
     await Promise.all(Array.from(importPromises.values()))
     for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp, url, importKeys[url])
 }
-if (metaOptions.has('expose')) ElementHTML.Expose(metaOptions.get('expose'))
 if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
