@@ -124,71 +124,71 @@ const ElementHTML = Object.defineProperties({}, {
     },
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
-            let packageContents = packageObject?.default ?? {}
-            if (!packageContents || (typeof packageContents !== 'object')) return
-            if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
+            let pkg = packageObject?.default ?? {}
+            if (!pkg || (typeof pkg !== 'object')) return
+            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const a of ['helpers', 'loaders', 'templates', 'facets', 'components']) if (typeof packageContents[a] === 'string') packageContents[a] = getExports(this.resolveUrl(packageContents[a], packageUrl))
-            for (const a in packageContents) if (a in this.env && typeof this.env[a] === 'object') {
-                switch (a) {
+            for (const scope of ['helpers', 'loaders', 'templates', 'facets', 'components']) if (typeof pkg[scope] === 'string') pkg[scope] = getExports(this.resolveUrl(pkg[scope], packageUrl))
+            for (const scope in pkg) if (scope in this.env && typeof this.env[scope] === 'object') {
+                switch (scope) {
                     case 'options':
-                        for (const aa in (packageContents.options ?? {})) {
-                            if (this.env.options[aa] && typeof this.env.options[aa] === 'object') {
-                                for (const aaa in packageContents.options[aa]) {
-                                    if (this.env.options[aa][aaa] && typeof this.env.options[aa][aaa] === 'object') {
-                                        Object.assign(this.env.options[aa][aaa], packageContents.options[aa][aaa])
+                        for (const optionSet in (pkg.options ?? {})) {
+                            if (this.env.options[optionSet] && typeof this.env.options[optionSet] === 'object') {
+                                for (const optionName in pkg.options[optionSet]) {
+                                    if (this.env.options[optionSet][optionName] && typeof this.env.options[optionSet][optionName] === 'object') {
+                                        Object.assign(this.env.options[optionSet][optionName], pkg.options[optionSet][optionName])
                                     } else {
-                                        this.env.options[aa][aaa] = packageContents.options[aa][aaa] && typeof packageContents.options[aa][aaa] === 'object'
-                                            ? { ...packageContents.options[aa][aaa] } : packageContents.options[aa][aaa]
+                                        this.env.options[optionSet][optionName] = pkg.options[optionSet][optionName] && typeof pkg.options[optionSet][optionName] === 'object'
+                                            ? { ...pkg.options[optionSet][optionName] } : pkg.options[optionSet][optionName]
                                     }
                                 }
                             } else {
-                                this.env.options[aa] = packageContents.options[aa] && typeof packageContents.options[aa] === 'object' ? { ...packageContents.options[aa] } : packageContents.options[aa]
+                                this.env.options[optionSet] = pkg.options[optionSet] && typeof pkg.options[optionSet] === 'object' ? { ...pkg.options[optionSet] } : pkg.options[optionSet]
                             }
                         }
                         break
                     case 'helpers': case 'loaders': case 'facets': case 'components':
-                        for (const aa in packageContents[a]) {
-                            if (!packageContents[a][aa]) continue
-                            switch (typeof packageContents[a][aa]) {
+                        for (const aa in pkg[scope]) {
+                            if (!pkg[scope][aa]) continue
+                            switch (typeof pkg[scope][aa]) {
                                 case 'function':
-                                    this.env[a][aa] = packageContents[a][aa]
+                                    this.env[scope][aa] = pkg[scope][aa]
                                     break
                                 case `string`:
-                                    if ((packageContents[a][aa].length > 100)) {
-                                        if (packageContents[a][aa][0] === '{') {
-                                            this.env[a][aa] = JSON.parse(packageContents[a][aa])
+                                    if ((pkg[scope][aa].length > 100)) {
+                                        if (pkg[scope][aa][0] === '{') {
+                                            this.env[scope][aa] = JSON.parse(pkg[scope][aa])
                                         } else {
                                             await this.loadHelper('xdr')
-                                            this.env[a][aa] = this.useHelper('xdr', 'parse', packageContents[a][aa], await this.getXdrType(a))
+                                            this.env[scope][aa] = this.useHelper('xdr', 'parse', pkg[scope][aa], await this.getXdrType(scope))
                                         }
                                     }
-                                    if (!this.env[a][aa]) {
-                                        const exports = getExports(this.resolveUrl(packageContents[a][aa], packageUrl))
-                                        this.env[a][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
+                                    if (!this.env[scope][aa]) {
+                                        const exports = getExports(this.resolveUrl(pkg[scope][aa], packageUrl))
+                                        this.env[scope][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
                                     }
                             }
-                            const typeofEnvAAa = typeof this.env[a][aa]
-                            if ((a === 'components' || a === 'facets') && (typeofEnvAAa === 'object') || (typeofEnvAAa === 'function')) {
-                                switch (a) {
+                            const typeofEnvAAa = typeof this.env[scope][aa]
+                            if ((a === 'components' || scope === 'facets') && (typeofEnvAAa === 'object') || (typeofEnvAAa === 'function')) {
+                                switch (scope) {
                                     case 'facets':
-                                        if (this.env[a][aa].prototype instanceof this.Facet) {
-                                            this.env[a][aa].E ??= this
+                                        if (this.env[scope][aa].prototype instanceof this.Facet) {
+                                            this.env[scope][aa].E ??= this
                                         } else {
-                                            this.env[a][aa] = class extends this.Facet {
+                                            this.env[scope][aa] = class extends this.Facet {
                                                 static E = this
-                                                static fieldNames = Array.from(this.env[a][aa].fieldNames ?? [])
-                                                static cellNames = Array.from(this.env[a][aa].cellNames ?? [])
-                                                static statements = this.env[a][aa].statements ?? []
-                                                static hash = this.env[a][aa].hash
+                                                static fieldNames = Array.from(this.env[scope][aa].fieldNames ?? [])
+                                                static cellNames = Array.from(this.env[scope][aa].cellNames ?? [])
+                                                static statements = this.env[scope][aa].statements ?? []
+                                                static hash = this.env[scope][aa].hash
                                             }
                                         }
                                         break
                                     case 'components':
-                                        if (this.env[a][aa].prototype instanceof this.Component) {
-                                            this.env[a][aa].id ??= aa
+                                        if (this.env[scope][aa].prototype instanceof this.Component) {
+                                            this.env[scope][aa].id ??= aa
                                         } else {
-                                            const { id: componentId = aa, extends: extendsId, style, template, class: classObj, baseClass = 'HTMLElement' } = this.env[a][aa],
+                                            const { id: componentId = aa, extends: extendsId, style, template, class: classObj, baseClass = 'HTMLElement' } = this.env[scope][aa],
                                                 componentTag = `${packageKey}-${aa}`
                                             this._styles[componentId] = this.styles[componentId] = style
                                             this._templates[componentId] = this.templates[componentId] = template
@@ -200,30 +200,30 @@ const ElementHTML = Object.defineProperties({}, {
                                                     const classObjAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${classObj}`,
                                                         classObjAsUrl = URL.createObjectURL(new Blob([classObjAsModule], { type: 'text/javascript' })), classModule = await import(classObjAsUrl)
                                                     URL.revokeObjectURL(classObjAsUrl)
-                                                    this.env[a][aa] = classModule.default
-                                                    this.env[a][aa].id = componentId
-                                                    this.env[a][aa].E = this
+                                                    this.env[scope][aa] = classModule.default
+                                                    this.env[scope][aa].id = componentId
+                                                    this.env[scope][aa].E = this
                                                     break
                                                 case 'function':
-                                                    this.env[a][aa] = await classObj(this.env[a][aa])
+                                                    this.env[scope][aa] = await classObj(this.env[scope][aa])
                                                     break
                                                 case 'object':
                                                     const { static: staticProperties = {} } = classObj
                                                     delete classObj.static
-                                                    this.env[a][aa] = class extends this.Component {
+                                                    this.env[scope][aa] = class extends this.Component {
                                                         static E_shadowRootContent = `<style>${style}</style><template>${template}</template>`
                                                         constructor() {
                                                             super()
                                                             for (const p in classObj) this[p] = typeof classObj[p] === 'function' ? classObj[p].bind(this) : classObj[p]
                                                         }
                                                     }
-                                                    for (const p in staticProperties) this.env[a][aa][p] = typeof staticProperties[p] === 'function' ? staticProperties[p].bind(this.env[a][aa]) : staticProperties[p]
+                                                    for (const p in staticProperties) this.env[scope][aa][p] = typeof staticProperties[p] === 'function' ? staticProperties[p].bind(this.env[scope][aa]) : staticProperties[p]
                                             }
-                                            this.env[a][aa].id = componentId
+                                            this.env[scope][aa].id = componentId
                                         }
-                                        this.env[a][aa].E = this
-                                        this.env[a][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
-                                        this.classes[componentId] = this.env[a][aa]
+                                        this.env[scope][aa].E = this
+                                        this.env[scope][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
+                                        this.classes[componentId] = this.env[scope][aa]
                                         this.constructors[componentId] = class extends this.classes[componentId] { constructor() { super() } }
                                         globalThis.customElements.define(tag, this.constructors[componentId])
                                         break
@@ -232,29 +232,29 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'templates':
-                        for (const key in packageContents.templates) {
-                            if ((typeof packageContents.templates[key] === 'string') && (packageContents.templates[key][0] === '`' && packageContents.templates[key].slice(-1) === '`')) {
-                                let templateUrl = this.resolveTemplateKey(packageContents.templates[key])
+                        for (const key in pkg.templates) {
+                            if ((typeof pkg.templates[key] === 'string') && (pkg.templates[key][0] === '`' && pkg.templates[key].slice(-1) === '`')) {
+                                let templateUrl = this.resolveTemplateKey(pkg.templates[key])
                                 this.env.templates[key] = ('`' + this.resolveUrl(templateUrl, packageUrl) + '`')
                             } else {
-                                this.env.templates[key] = packageContents.templates[key]
+                                this.env.templates[key] = pkg.templates[key]
                             }
                         }
                         break
                     case 'namespaces':
-                        for (const namespace in packageContents.namespaces) {
-                            this.env.namespaces[namespace] = this.resolveUrl(packageContents.namespaces[namespace], packageUrl)
+                        for (const namespace in pkg.namespaces) {
+                            this.env.namespaces[namespace] = this.resolveUrl(pkg.namespaces[namespace], packageUrl)
                             if (this.env.namespaces[namespace].endsWith('/')) this.env.namespaces[namespace] = this.env.namespaces[namespace].slice(0, -1)
                         }
                         break
                     case 'hooks':
                         break
                     default:
-                        Object.assign(this.env[a], packageContents[a])
+                        Object.assign(this.env[scope], pkg[scope])
                 }
             }
             if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            if (packageContents?.hooks?.postInstall === 'function') packageContents.hooks.postInstall(packageContents, this)
+            if (pkg?.hooks?.postInstall === 'function') pkg.hooks.postInstall(pkg, this)
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
