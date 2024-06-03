@@ -128,30 +128,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!packageContents || (typeof packageContents !== 'object')) return
             if (packageContents?.hooks?.preInstall === 'function') packageContents = await packageContents.hooks.preInstall(packageContents, this)
             const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const a of ['helpers', 'loaders', 'templates', 'facets', 'components']) {
-                if (typeof packageContents[a] !== 'string') continue
-                const importUrl = this.resolveUrl(packageContents[a], packageUrl), exports = getExports(importUrl)
-                packageContents[a] = {}
-                if (!exports || (typeof exports !== 'object')) continue
-                for (const aa in exports) {
-                    if (!exports[aa]) continue
-                    let typeCheck
-                    switch (a) {
-                        case 'components':
-                            typeCheck = (exports[aa].prototype instanceof this.Component || (typeof exports[aa] === 'object'))
-                            break
-                        case 'facets':
-                            typeCheck = (exports[aa].prototype instanceof this.Facet || (typeof exports[aa] === 'object'))
-                            break
-                        case 'templates':
-                            typeCheck = ((typeof exports[aa] === 'string') || (exports[aa] instanceof HTMLElement))
-                            break
-                        default:
-                            typeCheck = (typeof exports[aa] === 'function')
-                    }
-                    if (typeCheck) packageContents[a][aa] = exports[aa]
-                }
-            }
+            for (const a of ['helpers', 'loaders', 'templates', 'facets', 'components']) if (typeof packageContents[a] === 'string') packageContents[a] = getExports(this.resolveUrl(packageContents[a], packageUrl))
             for (const a in this.env) if (packageContents[a] && typeof packageContents[a] === 'object') {
                 switch (a) {
                     case 'options':
