@@ -1806,30 +1806,20 @@ const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, fl
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
-    const importmapElement = document.head.querySelector('script[type="importmap"]')
+    const importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}
     let importmap = { imports: {} }
     if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
-    const imports = importmap.imports ?? {}, importPromises = new Map(), importKeys = {}
-    for (const p of metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s)) {
-        let importUrl
-        if ((typeof imports[p] === 'string') && imports[p].includes('/')) {
-            if (imports[p].endsWith('/')) imports[p] = `${imports[p]}package.js`
-            importUrl = imports[p]
-        } else {
-            importUrl = `ipfs://${p}/package.js`
-        }
-        const [protocol,] = value.split('://')
-        if (protocol !== value) {
-            const helperName = `${protocol}://`
-            if (typeof ElementHTML.env.loaders[helperName] === 'function') await ElementHTML.env.loaders[helperName].bind(ElementHTML)()
-        }
+    const imports = importmap.imports ?? {}, importPromises = new Map()
+    for (const key of metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s)) {
+        let importUrl = ((typeof imports[key] === 'string') && imports[key].includes('/')) ? (imports[key].endsWith('/') ? `${imports[key]}package.js` : imports[key]) : `ipfs://${key}/package.js`,
+            [protocol,] = importUrl.split('://')
+        if (protocol !== importUrl) if (typeof ElementHTML.env.loaders[(protocol = `${protocol}://`)] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
-        importPromises.set(importUrl, import(importUrl))
-        importKeys[importUrl] = p
+        importPromises.set(importUrl, { promise: import(importUrl), key })
     }
     await Promise.all(Array.from(importPromises.values()))
-    for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp, url, importKeys[url])
+    for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
 if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
