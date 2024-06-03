@@ -1263,13 +1263,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     ids: { value: {} },
-    installModule: {
-        value: async function (moduleName) {
-            const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
-            Object.defineProperties(this, module)
-        }
-    },
     scripts: { value: {} },
     styles: { value: {} },
     sys: {
@@ -1519,6 +1512,13 @@ const ElementHTML = Object.defineProperties({}, {
                 static namespace = namespace
                 static manifest = manifest
             }
+        }
+    },
+    installModule: {
+        value: async function (moduleName) {
+            const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
+            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
+            Object.defineProperties(this, module)
         }
     },
     isFacetContainer: {
@@ -1802,10 +1802,8 @@ const ElementHTML = Object.defineProperties({}, {
 
 })
 ElementHTML.Component.E = ElementHTML
-const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, isDev = metaOptions.has('dev'), flagPromises = []
-if (metaOptions.has('compile')) flagPromises.push(ElementHTML.Compile(metaOptions.get('compile')))
-if (isDev) flagPromises.push(ElementHTML.Dev(metaOptions.get('dev')))
-if (metaOptions.has('expose')) flagPromises.push(ElementHTML.Expose(metaOptions.get('expose')))
+const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
+for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]')
