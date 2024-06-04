@@ -128,7 +128,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!pkg || (typeof pkg !== 'object')) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
-            for (const scope in pkg) if (scope in this.env && typeof this.env[scope] === 'object') {
+            for (const scope in pkg) if (scope in this.env) {
                 switch (scope) {
                     case 'options':
                         for (const optionSet in (pkg.options ?? {})) {
