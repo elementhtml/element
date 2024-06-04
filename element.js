@@ -8,6 +8,9 @@ const ElementHTML = Object.defineProperties({}, {
             context: {},
             facets: {},
             helpers: {
+                'test': function (value) {
+                    console.log('test', value, this)
+                },
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
                     let valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
@@ -101,7 +104,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {}, options: {}, preload: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            namespaces: {}, options: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
 
@@ -132,15 +135,32 @@ const ElementHTML = Object.defineProperties({}, {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
                     case 'options':
-                        for (const optionSet in pkgScope) {
-                            if (envScope[optionSet] && typeof envScope[optionSet] === 'object') {
-                                for (const optionName in pkgScope[optionSet]) envScope[optionSet][optionName] = (envScope[optionSet][optionName] && typeof envScope[optionSet][optionName] === 'object')
-                                    ? Object.assign(envScope[optionSet][optionName], pkgScope[optionSet][optionName]) : pkgScope[optionSet][optionName]
+                        for (const optSet in pkgScope) {
+                            if (envScope[optSet] && typeof envScope[optSet] === 'object') {
+                                for (const optName in pkgScope[optSet]) envScope[optSet][optName] = (envScope[optSet][optName] && typeof envScope[optSet][optName] === 'object')
+                                    ? Object.assign(envScope[optSet][optName], pkgScope[optSet][optName]) : pkgScope[optSet][optName]
                             } else {
-                                envScope[optionSet] = pkgScope[optionSet]
+                                envScope[optSet] = pkgScope[optSet]
                             }
                         }
                         break
+                    case 'helpers': case 'loaders':
+                        for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
+                        break
+                    case 'components': case 'facets':
+                        const [classObj, factoryFunc] = scope === 'components' ? [this.Facet, this.facetFactory] : [this.Component, this.componentFactory]
+                        for (const facetName in pkgScope) {
+                            if (pkgScope[facetName].prototype instanceof classObj) {
+                                envScope[facetName] = pkgScope[facetName]
+                            } else if (typeof pkgScope[facetName] === 'function') {
+                                envScope[facetName] = factoryFunc(pkgScope[facetName])
+                            }
+                        }
+                        break
+
+
+
+
                     case 'helpers': case 'loaders': case 'facets': case 'components':
                         for (const aa in pkg[scope]) {
                             if (!pkg[scope][aa]) continue
@@ -265,8 +285,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.options['application/x-jsonata'].helpers ||= {}
                     this.env.options['application/x-jsonata'].helpers.is = 'application/schema+json'
                 }
-                if (preload?.length) for (const p of preload) this.env.preload[`${p}://`] ||= null
-                for (const hn in this.env.preload) if ((typeof this.env.loaders[hn] === 'function')) await this.loadHelper(hn, this.env.preload[hn])
+                for (const p of preload) if ((typeof this.env.loaders[`${p}://`] === 'function')) await this.loadHelper(`${p}://`)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers', 'parsers']) {
@@ -1308,7 +1327,7 @@ const ElementHTML = Object.defineProperties({}, {
             [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
             for (const id in this.ids) {
                 this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this.ComponentFactory(this.classes[id])
+                this.constructors[id] = this.componentFactory(this.classes[id])
             }
         }
     },
@@ -1667,7 +1686,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    ComponentFactory: {
+    componentFactory: {
         value: function (baseClass = globalThis.HTMLElement, shadowRootContent = '') {
             return class extends this.Component {
                 static E_baseClass = baseClass
@@ -1708,6 +1727,16 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return this.E.flatten(this) }
         }
     },
+
+    facetFactory: {
+        value: function (baseClass = globalThis.HTMLElement, shadowRootContent = '') {
+            return class extends this.Component {
+                static E_baseClass = baseClass
+                static E_shadowRootContent = shadowRootContent
+            }
+        }
+    },
+
     Facet: {
         value: class {
             static E
@@ -1778,6 +1807,7 @@ const ElementHTML = Object.defineProperties({}, {
 
 })
 ElementHTML.Component.E = ElementHTML
+for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
