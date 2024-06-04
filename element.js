@@ -65,7 +65,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (this.env.options['ipfs://']?.gateway) return
                     try {
                         if ((await fetch('https://ipfs.tech.ipns.localhost:8080/', { method: 'HEAD' })).ok) {
-                            this.env.options ||= {}
                             this.env.options['ipfs://'] ||= {}
                             this.env.options['ipfs://'].gateway ||= 'localhost:8080'
                             this.env.options['ipns://'] ||= {}
@@ -178,8 +177,8 @@ const ElementHTML = Object.defineProperties({}, {
                         Object.assign(this.env[scope], pkg[scope])
                 }
             }
-            if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            if (pkg?.hooks?.postInstall === 'function') pkg.hooks.postInstall(pkg)
+            this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
+            pkg.hooks?.postInstall(pkg)
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
