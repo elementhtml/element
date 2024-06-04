@@ -107,7 +107,6 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: {}, options: {}, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
-
     Compile: {
         enumerable: true, value: async function () {
             await this.installModule('compile')
@@ -125,6 +124,13 @@ const ElementHTML = Object.defineProperties({}, {
             window[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
+    isPlainObject: {
+        enumerable: true, value: async function (obj) {
+            if (!obj) return false
+            const proto = Object.getPrototypeOf(obj)
+            return proto === null || proto === Object.prototype || proto.constructor === Object
+        }
+    },
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let pkg = packageObject?.default ?? {}
@@ -134,18 +140,15 @@ const ElementHTML = Object.defineProperties({}, {
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
-                    case 'options':
+                    case 'context': case 'options':
                         for (const optSet in pkgScope) {
-                            if (envScope[optSet] && typeof envScope[optSet] === 'object') {
-                                for (const optName in pkgScope[optSet]) envScope[optSet][optName] = (envScope[optSet][optName] && typeof envScope[optSet][optName] === 'object')
+                            if (this.isPlainObject(envScope[optSet])) {
+                                for (const optName in pkgScope[optSet]) envScope[optSet][optName] = this.isPlainObject(envScope[optSet][optName])
                                     ? Object.assign(envScope[optSet][optName], pkgScope[optSet][optName]) : pkgScope[optSet][optName]
                             } else {
                                 envScope[optSet] = pkgScope[optSet]
                             }
                         }
-                        break
-                    case 'helpers': case 'loaders': case 'hooks':
-                        for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
                         break
                     case 'components': case 'facets':
                         const [classObj, factoryFunc] = scope === 'components' ? [this.Facet, this.facetFactory] : [this.Component, this.componentFactory]
@@ -156,6 +159,18 @@ const ElementHTML = Object.defineProperties({}, {
                                 envScope[facetName] = factoryFunc(pkgScope[facetName])
                             }
                         }
+                        break
+                    case 'helpers': case 'hooks': case 'loaders':
+                        for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
+                        break
+                    case 'namespaces':
+                        for (const namespace in pkgScope) {
+                            envScope[namespace] = this.resolveUrl(pkgScope[namespace], packageUrl)
+                            if (envScope[namespace].endsWith('/')) envScope[namespace] = envScope[namespace].slice(0, -1)
+                        }
+                        break
+                    case 'regexp':
+                        for (const k in pkgScope) envScope[k] = (pkgScope[k] instanceof RegExp) ? pkgScope[k] : new RegExp(`pkgScope[k]`)
                         break
                     case 'templates':
                         for (const key in pkgScope) {
@@ -170,12 +185,6 @@ const ElementHTML = Object.defineProperties({}, {
                                     envScope[key] = templateInstance
                                 }
                             }
-                        }
-                        break
-                    case 'namespaces':
-                        for (const namespace in pkgScope) {
-                            envScope[namespace] = this.resolveUrl(pkgScope[namespace], packageUrl)
-                            if (envScope[namespace].endsWith('/')) envScope[namespace] = envScope[namespace].slice(0, -1)
                         }
                         break
                     default:
