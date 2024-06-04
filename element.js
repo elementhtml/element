@@ -130,7 +130,7 @@ const ElementHTML = Object.defineProperties({}, {
             let pkg = packageObject?.default ?? {}
             if (!pkg || (typeof pkg !== 'object')) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
-            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
+            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(this))(pkg)
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
@@ -144,7 +144,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    case 'helpers': case 'loaders':
+                    case 'helpers': case 'loaders': case 'hooks':
                         for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
                         break
                     case 'components': case 'facets':
@@ -157,7 +157,6 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-
                     case 'templates':
                         for (const key in pkgScope) {
                             if (pkgScope[key] instanceof HTMLElement) {
@@ -174,19 +173,17 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'namespaces':
-                        for (const namespace in pkg.namespaces) {
-                            this.env.namespaces[namespace] = this.resolveUrl(pkg.namespaces[namespace], packageUrl)
-                            if (this.env.namespaces[namespace].endsWith('/')) this.env.namespaces[namespace] = this.env.namespaces[namespace].slice(0, -1)
+                        for (const namespace in pkgScope) {
+                            envScope[namespace] = this.resolveUrl(pkgScope[namespace], packageUrl)
+                            if (envScope[namespace].endsWith('/')) envScope[namespace] = envScope[namespace].slice(0, -1)
                         }
-                        break
-                    case 'hooks':
                         break
                     default:
                         Object.assign(this.env[scope], pkg[scope])
                 }
             }
             if (!this.env.namespaces[packageKey]) this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            if (pkg?.hooks?.postInstall === 'function') pkg.hooks.postInstall(pkg, this)
+            if (pkg?.hooks?.postInstall === 'function') pkg.hooks.postInstall(pkg)
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
