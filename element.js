@@ -820,7 +820,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value.includes('://')) {
                 const [protocol, hostpath] = value.split(/\:\/\/(.+)/), helperName = `${protocol}://`
                 if (typeof this.app.helpers[helperName] === 'function') return this.useHelper(helperName, hostpath)
-                if (typeof this.env.helpers[helperName] === 'function') return this.env.helpers[helperName].bind(this)(hostpath)
+                if (typeof this.env.helpers[helperName] === 'function') return this.env.helpers[helperName](hostpath)
                 return value
             }
             return new URL(value, base ?? document.baseURI).href
