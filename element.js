@@ -509,9 +509,8 @@ const ElementHTML = Object.defineProperties({}, {
     loadHelper: {
         enumerable: true, value: async function (name) {
             if (typeof this.app.helpers[name] === 'function') return true
-            if (typeof this.env.helpers[name] !== 'function') return false
-            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name].bind(this)()
-            if (typeof this.env.helpers[name] === 'function') return (this.app.helpers[name] = this.env.helpers[name].bind(this))
+            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name]()
+            if (typeof this.env.helpers[name] === 'function') return (this.app.helpers[name] = this.env.helpers[name])
             return false
         }
     },
