@@ -2,15 +2,15 @@ const module = {
 
     compileComponent: {
         enumerable: true,
-        value: async function (tagOrId) {
-            let tag, namespace, name, id, isUrl = tagOrId[0] === '/' || tagOrId[0] === '.' || tagOrId.indexOf('/') || tagOrId.indexOf('.') || !tagOrId.indexOf('-')
-            if (tagOrId.indexOf('-') && !isUrl) {
-                [namespace, ...name] = tag.split('-').map(t => t.toLowerCase()).filter(s => !!s)
+        value: async function (tagOrId, namespace) {
+            let tag, name, id, validTag = tagOrId[0] !== '/' && tagOrId[0] !== '.' && !tagOrId.indexOf('/') && !tagOrId.indexOf('.')
+            if (validTag && (namespace || (tagOrId.indexOf('-')))) {
+                [namespace, ...name] = namespace ? [namespace, [tagOrId]] : tag.split('-').map(t => t.toLowerCase()).filter(s => !!s)
                 name = name.join('/')
                 id = this.env.namespaces[namespace] ? (new URL(`${this.env.namespaces[namespace]}/${name}.html`, document.baseURI)).href
                     : (new URL(`components/${namespace}/${name}.html`, document.baseURI)).href
             } else {
-                id = isUrl ? (new URL(tagOrId, document.baseURI)).href : (new URL(`components/${tagOrId}.html`, document.baseURI)).href
+                id = validTag ? (new URL(`components/${tagOrId}.html`, document.baseURI)).href : (new URL(tagOrId, document.baseURI)).href
             }
             const fileFetch = await fetch(this.resolveUrl(id))
             if (fileFetch.status >= 400) return
