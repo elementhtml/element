@@ -127,24 +127,17 @@ const ElementHTML = Object.defineProperties({}, {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
                     case 'context': case 'options':
-                        for (const optSet in pkgScope) {
-                            if (this.isPlainObject(envScope[optSet])) {
-                                for (const optName in pkgScope[optSet]) envScope[optSet][optName] = this.isPlainObject(envScope[optSet][optName])
-                                    ? Object.assign(envScope[optSet][optName], pkgScope[optSet][optName]) : pkgScope[optSet][optName]
+                        for (const s in pkgScope) {
+                            if (this.isPlainObject(envScope[s])) {
+                                for (const n in pkgScope[s]) envScope[s][n] = this.isPlainObject(envScope[s][n]) ? Object.assign(envScope[s][n], pkgScope[s][n]) : pkgScope[s][n]
                             } else {
-                                envScope[optSet] = pkgScope[optSet]
+                                envScope[s] = pkgScope[s]
                             }
                         }
                         break
                     case 'components': case 'facets':
-                        const [classObj, factoryFunc] = scope === 'components' ? [this.Facet, this.facetFactory] : [this.Component, this.componentFactory]
-                        for (const facetName in pkgScope) {
-                            if (pkgScope[facetName].prototype instanceof classObj) {
-                                envScope[facetName] = pkgScope[facetName]
-                            } else if (this.isPlainObject(pkgScope[facetName])) {
-                                envScope[facetName] = factoryFunc(pkgScope[facetName])
-                            }
-                        }
+                        const [classObj, factoryFunc] = scope === 'components' ? [this.Component, this.componentFactory] : [this.Facet, this.facetFactory]
+                        for (const n in pkgScope) envScope[n] = (pkgScope[n].prototype instanceof classObj) ? pkgScope[n] : factoryFunc(pkgScope[n])
                         break
                     case 'helpers': case 'hooks': case 'loaders':
                         for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
@@ -1604,6 +1597,8 @@ const ElementHTML = Object.defineProperties({}, {
 
     componentFactory: {
         value: function (componentManifest) {
+            if (componentManifest.prototype instanceof this.Component) return componentManifest
+            if (!this.isPlainObject(componentManifest)) return
             const { id, extends: extendsId, style, template, class: className } = componentManifest, baseClass = this.classes[id] ?? globalThis.HTMLElement
             const ComponentClass = class extends this.Component {
                 static id = id
@@ -1654,6 +1649,8 @@ const ElementHTML = Object.defineProperties({}, {
 
     facetFactory: {
         value: function (facetManifest) {
+            if (facetManifest.prototype instanceof this.Facet) return facetManifest
+            if (!this.isPlainObject(facetManifest)) return
             const { fieldNames, cellNames, statements, hash } = facetManifest
             const FacetClass = class extends this.Facet {
                 static fieldNames = Array.from(fieldNames)
