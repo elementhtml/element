@@ -1,5 +1,53 @@
 const module = {
 
+    compileComponent: {
+        enumerable: true,
+        value: async function (tagOrId) {
+            let tag, namespace, name, id, isUrl = tagOrId[0] === '/' || tagOrId[0] === '.' || tagOrId.indexOf('/') || tagOrId.indexOf('.') || !tagOrId.indexOf('-')
+            if (tagOrId.indexOf('-') && !isUrl) {
+                [namespace, ...name] = tag.split('-').map(t => t.toLowerCase()).filter(s => !!s)
+                name = name.join('/')
+                id = this.env.namespaces[namespace] ? (new URL(`${this.env.namespaces[namespace]}/${name}.html`, document.baseURI)).href
+                    : (new URL(`components/${namespace}/${name}.html`, document.baseURI)).href
+            } else {
+                id = isUrl ? (new URL(tagOrId, document.baseURI)).href : (new URL(`components/${tagOrId}.html`, document.baseURI)).href
+            }
+            const fileFetch = await fetch(this.resolveUrl(id))
+            if (fileFetch.status >= 400) return
+            const sourceCode = await fileFetch.text(), styleCode = sourceCode.slice(sourceCode.indexOf('<style>') + 7, sourceCode.indexOf('</style>')).trim(),
+                templateCode = sourceCode.slice(sourceCode.indexOf('<template>') + 10, sourceCode.indexOf('</template>')).trim(),
+                scriptCode = sourceCode.slice(sourceCode.indexOf('<script>') + 8, sourceCode.indexOf('</script>')).trim(),
+                extendsId = scriptCode.match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
+
+
+            // extendsId can either be a reference to a component within the same namespace, or a URL id of a 'foreign' component
+
+            this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
+
+
+
+            const sanitizedScript = scriptCode.replace(this.sys.regexp.extends, `class extends ElementHTML.constructors['${extendsId}'] {`),
+                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${sanitizedScript}`,
+                sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
+                classModule = await import(sanitizedScriptAsUrl)
+            URL.revokeObjectURL(sanitizedScriptAsUrl)
+            const baseClass = classModule.default
+
+            let ComponentClass, style = document.createElement('style'), template = document.createElement('template')
+            style.textContent = styleCode
+            template.content.textContent = templateCode
+
+            ComponentClass = class extends baseClass {
+                static id = id
+                static extends = extendsId
+                static style = style
+                static template = template
+            }
+            ComponentClass.E = this
+            return ComponentClass
+        }
+    },
+
     compileFacet: {
         enumerable: true,
         value: async function (directives, hash) {

@@ -96,7 +96,8 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {}, options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, templates: {}, transforms: {}, types: {}
+            namespaces: { e: (new URL(`./e/components`, import.meta.url)).href },
+            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
 
@@ -1177,16 +1178,18 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            if (this.env.components[tag]) {
-                this.app.components.classes[tag] = this.env.components[tag]
-            } else if (this.app.compile) {
-                const id = this.getTagId(tag);
-                [this.ids[tag], this.tags[id]] = [id, tag]
-                const loadResult = await this.loadTagAssetsFromId(id)
-                if (!loadResult) return
-                globalThis.customElements.define(tag, this.constructors[id], undefined)
-            }
+            this.app.components.classes[tag] = this.env.components[tag] ?? (await this.compileComponent(tag))
             globalThis.customElements.define(tag, this.app.components.classes[tag], undefined)
+            // if (this.env.components[tag]) {
+            //     this.app.components.classes[tag] = this.env.components[tag]
+            // } else if (this.app.compile) {
+            //     // const id = this.getTagId(tag);
+            //     // [this.ids[tag], this.tags[id]] = [id, tag]
+            //     // const loadResult = await this.loadTagAssetsFromId(id)
+            //     // if (!loadResult) return
+            //     // globalThis.customElements.define(tag, this.constructors[id], undefined)
+            //     this.app.components.classes[tag] = await this.compileComponent(tag)
+            // }
         }
     },
     buildCatchallSelector: {
