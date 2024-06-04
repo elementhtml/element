@@ -136,32 +136,31 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'components': case 'facets':
-                        const [classObj, factoryFunc] = scope === 'components' ? [this.Component, this.componentFactory] : [this.Facet, this.facetFactory]
-                        for (const n in pkgScope) envScope[n] = (pkgScope[n].prototype instanceof classObj) ? pkgScope[n] : factoryFunc(pkgScope[n])
+                        for (const c in pkgScope) envScope[c] = (scope === 'components' ? this.componentFactory : this.facetFactory)(pkgScope[c])
                         break
                     case 'helpers': case 'hooks': case 'loaders':
-                        for (const fName in pkgScope) if (typeof pkgScope[fName] === 'function') envScope[fName] = pkgScope[fName].bind(this)
+                        for (const f in pkgScope) if (typeof pkgScope[f] === 'function') envScope[f] = pkgScope[f].bind(this)
                         break
                     case 'namespaces':
-                        for (const namespace in pkgScope) {
-                            envScope[namespace] = this.resolveUrl(pkgScope[namespace], packageUrl)
-                            if (envScope[namespace].endsWith('/')) envScope[namespace] = envScope[namespace].slice(0, -1)
+                        for (const n in pkgScope) {
+                            envScope[n] = this.resolveUrl(pkgScope[n], packageUrl)
+                            if (envScope[n].endsWith('/')) envScope[n] = envScope[n].slice(0, -1)
                         }
                         break
                     case 'regexp':
-                        for (const k in pkgScope) envScope[k] = (pkgScope[k] instanceof RegExp) ? pkgScope[k] : new RegExp(`pkgScope[k]`)
+                        for (const r in pkgScope) envScope[r] = new RegExp(pkgScope[r])
                         break
                     case 'templates':
-                        for (const key in pkgScope) {
-                            if (pkgScope[key] instanceof HTMLElement) {
-                                envScope[key] = pkgScope[key]
-                            } else if (typeof pkgScope[key] === 'string') {
-                                if (pkgScope[key][0] === '`' && pkgScope[key].slice(-1) === '`') {
-                                    envScope[key] = ('`' + this.resolveUrl(this.resolveTemplateKey(pkgScope[key]), packageUrl) + '`')
+                        for (const t in pkgScope) {
+                            if (pkgScope[t] instanceof HTMLElement) {
+                                envScope[t] = pkgScope[t]
+                            } else if (typeof pkgScope[t] === 'string') {
+                                if (pkgScope[t][0] === '`' && pkgScope[t].slice(-1) === '`') {
+                                    envScope[t] = ('`' + this.resolveUrl(this.resolveTemplateKey(pkgScope[t]), packageUrl) + '`')
                                 } else {
                                     const templateInstance = document.createElement('template')
-                                    templateInstance.innerHTML = pkgScope[key]
-                                    envScope[key] = templateInstance
+                                    templateInstance.innerHTML = pkgScope[t]
+                                    envScope[t] = templateInstance
                                 }
                             }
                         }
