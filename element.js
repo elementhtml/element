@@ -1176,12 +1176,11 @@ const ElementHTML = Object.defineProperties({}, {
     templates: { value: {} },
 
     activateTag: {
-        value: async function (tag, forceReload = false) {
-            if (globalThis.customElements.get(tag)) return
-            if (!tag || (!forceReload && this.ids[tag]) || !tag.includes('-')) return
+        value: async function (tag) {
+            if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const id = this.getTagId(tag);
             [this.ids[tag], this.tags[id]] = [id, tag]
-            const loadResult = await this.loadTagAssetsFromId(id, forceReload)
+            const loadResult = await this.loadTagAssetsFromId(id)
             if (!loadResult) return
             globalThis.customElements.define(tag, this.constructors[id], undefined)
         }
@@ -1432,9 +1431,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     loadTagAssetsFromId: {
-        value: async function (id, forceReload = false) {
+        value: async function (id) {
             if (!id || !id.includes('://')) return
-            if (!forceReload && this.files[id]) return true
+            if (this.files[id]) return true
             const fileFetch = await fetch(this.resolveUrl(id))
             if (fileFetch.status >= 400) return
             this.files[id] = await fileFetch.text()
