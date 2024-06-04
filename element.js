@@ -102,8 +102,16 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     Compile: {
-        enumerable: true, value: async function () {
+        enumerable: true, value: async function (protocols) {
             await this.installModule('compile')
+            this.app._globalNamespace = crypto.randomUUID()
+            Object.defineProperty(window, this.app._globalNamespace, { value: this })
+            protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
+            for (let p of protocols) {
+                this.env.loaders[p] &&= this.env.loaders[p].bind(this)
+                this.env.helpers[p] &&= this.env.helpers[p].bind(this)
+                await this.loadHelper(p)
+            }
         }
     },
     Dev: {
@@ -179,14 +187,10 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                //_globalNamespace only needed when components are being compiled from their source
-                if (this.app._globalNamespace) return
-                this.app._globalNamespace = crypto.randomUUID()
-                Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
-                for (const p of preload) if ((typeof this.env.loaders[`${p}://`] === 'function')) await this.loadHelper(`${p}://`)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers', 'parsers']) {
+                    if (!this[f]) continue
                     for (const b in this[f]) this[f][b] = this[f][b].bind(this)
                     Object.freeze(this[f])
                 }
