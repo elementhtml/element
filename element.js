@@ -97,9 +97,10 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: {}, options: {}, regexp: {}, templates: {}, transforms: {}, types: {}
+            namespaces: {}, options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
+
     Compile: {
         enumerable: true, value: async function () {
             await this.installModule('compile')
@@ -178,15 +179,10 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
+                //_globalNamespace only needed when components are being compiled from their source
                 if (this.app._globalNamespace) return
                 this.app._globalNamespace = crypto.randomUUID()
                 Object.defineProperty(window, this.app._globalNamespace, { value: ElementHTML })
-                if (Object.keys(this.env.types).length) {
-                    this.env.options ||= {}
-                    this.env.options['application/x-jsonata'] ||= {}
-                    this.env.options['application/x-jsonata'].helpers ||= {}
-                    this.env.options['application/x-jsonata'].helpers.is = 'application/schema+json'
-                }
                 for (const p of preload) if ((typeof this.env.loaders[`${p}://`] === 'function')) await this.loadHelper(`${p}://`)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
