@@ -1179,7 +1179,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             if (this.env.components[tag]) {
                 this.app.components.classes[tag] = this.env.components[tag]
-                globalThis.customElements.define(tag, this.app.components.classes[tag], undefined)
             } else if (this.app.compile) {
                 const id = this.getTagId(tag);
                 [this.ids[tag], this.tags[id]] = [id, tag]
@@ -1187,6 +1186,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!loadResult) return
                 globalThis.customElements.define(tag, this.constructors[id], undefined)
             }
+            globalThis.customElements.define(tag, this.app.components.classes[tag], undefined)
         }
     },
     buildCatchallSelector: {
