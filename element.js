@@ -129,20 +129,15 @@ const ElementHTML = Object.defineProperties({}, {
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
             for (const scope in pkg) if (scope in this.env) {
+                const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
                     case 'options':
-                        for (const optionSet in (pkg.options ?? {})) {
-                            if (this.env.options[optionSet] && typeof this.env.options[optionSet] === 'object') {
-                                for (const optionName in pkg.options[optionSet]) {
-                                    if (this.env.options[optionSet][optionName] && typeof this.env.options[optionSet][optionName] === 'object') {
-                                        Object.assign(this.env.options[optionSet][optionName], pkg.options[optionSet][optionName])
-                                    } else {
-                                        this.env.options[optionSet][optionName] = pkg.options[optionSet][optionName] && typeof pkg.options[optionSet][optionName] === 'object'
-                                            ? { ...pkg.options[optionSet][optionName] } : pkg.options[optionSet][optionName]
-                                    }
-                                }
+                        for (const optionSet in pkgScope) {
+                            if (envScope[optionSet] && typeof envScope[optionSet] === 'object') {
+                                for (const optionName in pkgScope[optionSet]) envScope[optionSet][optionName] = (envScope[optionSet][optionName] && typeof envScope[optionSet][optionName] === 'object')
+                                    ? Object.assign(envScope[optionSet][optionName], pkgScope[optionSet][optionName]) : pkgScope[optionSet][optionName]
                             } else {
-                                this.env.options[optionSet] = pkg.options[optionSet] && typeof pkg.options[optionSet] === 'object' ? { ...pkg.options[optionSet] } : pkg.options[optionSet]
+                                envScope[optionSet] = pkgScope[optionSet]
                             }
                         }
                         break
