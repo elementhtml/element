@@ -145,8 +145,11 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    case 'components': case 'facets':
-                        for (const c in pkgScope) envScope[c] = (scope === 'components' ? this.componentFactory : this.facetFactory)(pkgScope[c])
+                    case 'components':
+                        for (const c in pkgScope) envScope[`${packageKey}-${c}`] = this.componentFactory(pkgScope[c])
+                        break
+                    case 'facets':
+                        for (const c in pkgScope) envScope[c] = this.facetFactory(pkgScope[c])
                         break
                     case 'helpers': case 'hooks': case 'loaders':
                         for (const f in pkgScope) if (typeof pkgScope[f] === 'function') envScope[f] = pkgScope[f].bind(this)
@@ -893,13 +896,9 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: {
             cells: {},
-            components: {
-                instances: new WeakMap(), observers: new WeakMap()
-            },
+            components: { instances: new WeakMap(), observers: new WeakMap(), classes: {} },
             eventTarget: new EventTarget(),
-            facets: {
-                classes: {}, instances: new WeakMap()
-            },
+            facets: { classes: {}, instances: new WeakMap() },
             helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {},
         }
     },
@@ -1178,11 +1177,16 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            const id = this.getTagId(tag);
-            [this.ids[tag], this.tags[id]] = [id, tag]
-            const loadResult = await this.loadTagAssetsFromId(id)
-            if (!loadResult) return
-            globalThis.customElements.define(tag, this.constructors[id], undefined)
+            if (this.env.components[tag]) {
+                this.app.components.classes[tag] = this.env.components[tag]
+                globalThis.customElements.define(tag, this.app.components.classes[tag], undefined)
+            } else if (this.app.compile) {
+                const id = this.getTagId(tag);
+                [this.ids[tag], this.tags[id]] = [id, tag]
+                const loadResult = await this.loadTagAssetsFromId(id)
+                if (!loadResult) return
+                globalThis.customElements.define(tag, this.constructors[id], undefined)
+            }
         }
     },
     buildCatchallSelector: {
@@ -1596,18 +1600,20 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     componentFactory: {
-        value: function (componentManifest) {
-            if (componentManifest.prototype instanceof this.Component) return componentManifest
-            if (!this.isPlainObject(componentManifest)) return
-            const { id, extends: extendsId, style, template, class: className } = componentManifest, baseClass = this.classes[id] ?? globalThis.HTMLElement
-            const ComponentClass = class extends this.Component {
-                static id = id
-                static extends = extendsId
-                static style = style
-                static template = template
-                static class = className
-                static E_baseClass = baseClass
-                static E_shadowRootContent = `${style}\n${template}`
+        value: function (manifest) {
+            let ComponentClass
+            if (!(manifest.prototype instanceof this.Component)) {
+                if (!this.isPlainObject(manifest)) return
+                let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : document.createElement('style'),
+                    template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true) : document.createElement('template')
+                if (typeof manifest.style === 'string') style.textContent = manifest.style
+                if (typeof manifest.template === 'string') template.content.textContent = manifest.template
+                ComponentClass = class extends (manifest.class?.prototype instanceof this.Component ? manifest.class : this.Component) {
+                    static id = manifest.id
+                    static extends = manifest.extends
+                    static style = style
+                    static template = template
+                }
             }
             ComponentClass.E = this
             return ComponentClass
@@ -1615,10 +1621,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Component: {
         value: class extends globalThis.HTMLElement {
+            static id
+            static extends
+            static style
+            static template
             constructor() {
                 super()
                 Object.defineProperty(this, 'E', { value: this.constructor.E })
-                Object.defineProperty(this, 'E_baseClass', { value: this.constructor.E_baseClass ?? globalThis.HTMLElement })
                 Object.defineProperty(this, 'E_emitValueChange', {
                     value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
                         if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
@@ -1628,15 +1637,19 @@ const ElementHTML = Object.defineProperties({}, {
                 })
                 try {
                     this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
-                    if (this.constructor.style && this.constructor.template) {
-                        this.shadowRoot.textContent = `${this.constructor.style}\n${this.constructor.template}`
-                    } else {
-                        this.shadowRoot.textContent = ''
-                        this.shadowRoot.appendChild(document.createElement('style')).textContent = this.E._styles[this.constructor.id] ?? this.E.stackStyles(this.constructor.id)
-                        const templateNode = document.createElement('template')
-                        templateNode.innerHTML = this.E._templates[this.constructor.id] ?? this.E.stackTemplates(this.constructor.id) ?? ''
-                        this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    }
+                    const shadowNodes = []
+                    if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
+                    if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
+                    this.shadowRoot.append(...shadowNodes)
+                    // if (this.constructor.style && this.constructor.template) {
+                    //     this.shadowRoot.textContent = `${this.constructor.style}\n${this.constructor.template}`
+                    // } else {
+                    //     this.shadowRoot.textContent = ''
+                    //     this.shadowRoot.appendChild(document.createElement('style')).textContent = this.E._styles[this.constructor.id] ?? this.E.stackStyles(this.constructor.id)
+                    //     const templateNode = document.createElement('template')
+                    //     templateNode.innerHTML = this.E._templates[this.constructor.id] ?? this.E.stackTemplates(this.constructor.id) ?? ''
+                    //     this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
+                    // }
                 } catch (e) { }
             }
             static get observedAttributes() { return [] }
