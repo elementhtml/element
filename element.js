@@ -8,9 +8,6 @@ const ElementHTML = Object.defineProperties({}, {
             context: {},
             facets: {},
             helpers: {
-                'test': function (value) {
-                    console.log('test', value, this)
-                },
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
                     let valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
@@ -28,9 +25,7 @@ const ElementHTML = Object.defineProperties({}, {
                         expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
                     return expression
                 },
-                'xdr': function (operation, ...args) {
-                    return this.app.libraries.xdr[operation](...args)
-                },
+                'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
                 'ipfs://': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
                     return `https://${cid}.ipfs.${gateway}/${path.join('/')}}`
@@ -65,9 +60,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                     await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
-                'xdr': async function () {
-                    this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
-                },
+                'xdr': async function () { this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default },
                 'ipfs://': async function () {
                     if (this.env.options['ipfs://']?.gateway) return
                     try {
@@ -124,17 +117,10 @@ const ElementHTML = Object.defineProperties({}, {
             window[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
-    isPlainObject: {
-        enumerable: true, value: async function (obj) {
-            if (!obj) return false
-            const proto = Object.getPrototypeOf(obj)
-            return proto === null || proto === Object.prototype || proto.constructor === Object
-        }
-    },
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let pkg = packageObject?.default ?? {}
-            if (!pkg || (typeof pkg !== 'object')) return
+            if (!this.isPlainObject(pkg)) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(this))(pkg)
             for (const scope in pkg) if (scope in this.env) {
@@ -155,7 +141,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const facetName in pkgScope) {
                             if (pkgScope[facetName].prototype instanceof classObj) {
                                 envScope[facetName] = pkgScope[facetName]
-                            } else if (pkgScope[facetName] && (typeof pkgScope[facetName] === 'object')) {
+                            } else if (this.isPlainObject(pkgScope[facetName])) {
                                 envScope[facetName] = factoryFunc(pkgScope[facetName])
                             }
                         }
@@ -1442,6 +1428,13 @@ const ElementHTML = Object.defineProperties({}, {
     isFacetContainer: {
         value: function (element) {
             return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
+        }
+    },
+    isPlainObject: {
+        enumerable: true, value: async function (obj) {
+            if (!obj) return false
+            const proto = Object.getPrototypeOf(obj)
+            return proto === null || proto === Object.prototype || proto.constructor === Object
         }
     },
     loadTagAssetsFromId: {
