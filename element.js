@@ -102,8 +102,9 @@ const ElementHTML = Object.defineProperties({}, {
 
     Compile: {
         enumerable: true, value: async function (protocols) {
+            this.app.compile = true
             await this.installModule('compile')
-            this.app._globalNamespace = crypto.randomUUID()
+            Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
             Object.defineProperty(window, this.app._globalNamespace, { value: this })
             protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
             for (let p of protocols) {
@@ -122,6 +123,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: {
         enumerable: true, value: async function (name = 'E') {
+            this.app.expose = true
             window[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
@@ -186,6 +188,7 @@ const ElementHTML = Object.defineProperties({}, {
     load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
+                Object.defineProperty(this.app, 'E_observer', { enumerable: false, writable: true })
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers', 'parsers']) {
@@ -237,7 +240,7 @@ const ElementHTML = Object.defineProperties({}, {
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
             for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.load(element) }
-            observerRoot._observer ||= new MutationObserver(async records => {
+            observerRoot.E_observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
                         if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
@@ -253,7 +256,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             })
-            observerRoot._observer.observe(domRoot, { subtree: true, childList: true })
+            observerRoot.E_observer.observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
                 Object.freeze(this.app)
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
