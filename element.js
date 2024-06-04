@@ -152,106 +152,24 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const facetName in pkgScope) {
                             if (pkgScope[facetName].prototype instanceof classObj) {
                                 envScope[facetName] = pkgScope[facetName]
-                            } else if (typeof pkgScope[facetName] === 'function') {
+                            } else if (pkgScope[facetName] && (typeof pkgScope[facetName] === 'object')) {
                                 envScope[facetName] = factoryFunc(pkgScope[facetName])
                             }
                         }
                         break
 
-
-
-
-                    case 'helpers': case 'loaders': case 'facets': case 'components':
-                        for (const aa in pkg[scope]) {
-                            if (!pkg[scope][aa]) continue
-                            switch (typeof pkg[scope][aa]) {
-                                case 'function':
-                                    this.env[scope][aa] = pkg[scope][aa]
-                                    break
-                                case `string`:
-                                    if ((pkg[scope][aa].length > 100)) {
-                                        if (pkg[scope][aa][0] === '{') {
-                                            this.env[scope][aa] = JSON.parse(pkg[scope][aa])
-                                        } else {
-                                            await this.loadHelper('xdr')
-                                            this.env[scope][aa] = this.useHelper('xdr', 'parse', pkg[scope][aa], await this.getXdrType(scope))
-                                        }
-                                    }
-                                    if (!this.env[scope][aa]) {
-                                        const exports = getExports(this.resolveUrl(pkg[scope][aa], packageUrl))
-                                        this.env[scope][aa] = typeof exports === 'function' ? exports : (typeof exports[aa] === 'function' ? exports[aa] : (typeof exports.default === 'function' ? exports.default : undefined))
-                                    }
-                            }
-                            const typeofEnvAAa = typeof this.env[scope][aa]
-                            if ((a === 'components' || scope === 'facets') && (typeofEnvAAa === 'object') || (typeofEnvAAa === 'function')) {
-                                switch (scope) {
-                                    case 'facets':
-                                        if (this.env[scope][aa].prototype instanceof this.Facet) {
-                                            this.env[scope][aa].E ??= this
-                                        } else {
-                                            this.env[scope][aa] = class extends this.Facet {
-                                                static E = this
-                                                static fieldNames = Array.from(this.env[scope][aa].fieldNames ?? [])
-                                                static cellNames = Array.from(this.env[scope][aa].cellNames ?? [])
-                                                static statements = this.env[scope][aa].statements ?? []
-                                                static hash = this.env[scope][aa].hash
-                                            }
-                                        }
-                                        break
-                                    case 'components':
-                                        if (this.env[scope][aa].prototype instanceof this.Component) {
-                                            this.env[scope][aa].id ??= aa
-                                        } else {
-                                            const { id: componentId = aa, extends: extendsId, style, template, class: classObj, baseClass = 'HTMLElement' } = this.env[scope][aa],
-                                                componentTag = `${packageKey}-${aa}`
-                                            this._styles[componentId] = this.styles[componentId] = style
-                                            this._templates[componentId] = this.templates[componentId] = template
-                                            this.extends[componentId] = extendsId
-                                            this.ids[componentTag] = componentId
-                                            this.tags[componentId] = componentTag
-                                            switch (typeof classObj) {
-                                                case 'string':
-                                                    const classObjAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${classObj}`,
-                                                        classObjAsUrl = URL.createObjectURL(new Blob([classObjAsModule], { type: 'text/javascript' })), classModule = await import(classObjAsUrl)
-                                                    URL.revokeObjectURL(classObjAsUrl)
-                                                    this.env[scope][aa] = classModule.default
-                                                    this.env[scope][aa].id = componentId
-                                                    this.env[scope][aa].E = this
-                                                    break
-                                                case 'function':
-                                                    this.env[scope][aa] = await classObj(this.env[scope][aa])
-                                                    break
-                                                case 'object':
-                                                    const { static: staticProperties = {} } = classObj
-                                                    delete classObj.static
-                                                    this.env[scope][aa] = class extends this.Component {
-                                                        static E_shadowRootContent = `<style>${style}</style><template>${template}</template>`
-                                                        constructor() {
-                                                            super()
-                                                            for (const p in classObj) this[p] = typeof classObj[p] === 'function' ? classObj[p].bind(this) : classObj[p]
-                                                        }
-                                                    }
-                                                    for (const p in staticProperties) this.env[scope][aa][p] = typeof staticProperties[p] === 'function' ? staticProperties[p].bind(this.env[scope][aa]) : staticProperties[p]
-                                            }
-                                            this.env[scope][aa].id = componentId
-                                        }
-                                        this.env[scope][aa].E = this
-                                        this.env[scope][aa].E_baseClass ??= (globalThis[baseClass] ?? globalThis.HTMLElement)
-                                        this.classes[componentId] = this.env[scope][aa]
-                                        this.constructors[componentId] = class extends this.classes[componentId] { constructor() { super() } }
-                                        globalThis.customElements.define(tag, this.constructors[componentId])
-                                        break
-                                }
-                            }
-                        }
-                        break
                     case 'templates':
-                        for (const key in pkg.templates) {
-                            if ((typeof pkg.templates[key] === 'string') && (pkg.templates[key][0] === '`' && pkg.templates[key].slice(-1) === '`')) {
-                                let templateUrl = this.resolveTemplateKey(pkg.templates[key])
-                                this.env.templates[key] = ('`' + this.resolveUrl(templateUrl, packageUrl) + '`')
-                            } else {
-                                this.env.templates[key] = pkg.templates[key]
+                        for (const key in pkgScope) {
+                            if (pkgScope[key] instanceof HTMLElement) {
+                                envScope[key] = pkgScope[key]
+                            } else if (typeof pkgScope[key] === 'string') {
+                                if (pkgScope[key][0] === '`' && pkgScope[key].slice(-1) === '`') {
+                                    envScope[key] = ('`' + this.resolveUrl(this.resolveTemplateKey(pkgScope[key]), packageUrl) + '`')
+                                } else {
+                                    const templateInstance = document.createElement('template')
+                                    templateInstance.innerHTML = pkgScope[key]
+                                    envScope[key] = templateInstance
+                                }
                             }
                         }
                         break
@@ -1688,13 +1606,14 @@ const ElementHTML = Object.defineProperties({}, {
 
     componentFactory: {
         value: function (componentManifest) {
-            const { id, extends: extendsId, style, template, class: className } = componentManifest, baseClass = this.classes[id]
+            const { id, extends: extendsId, style, template, class: className } = componentManifest, baseClass = this.classes[id] ?? globalThis.HTMLElement
             const ComponentClass = class extends this.Component {
                 static id = id
                 static extends = extendsId
                 static style = style
                 static template = template
-                static E_baseClass = globalThis[extendsId] ?? globalThis.HTMLElement
+                static class = className
+                static E_baseClass = baseClass
                 static E_shadowRootContent = `${style}\n${template}`
             }
             ComponentClass.E = this
