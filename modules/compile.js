@@ -116,14 +116,7 @@ const module = {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            const FacetClass = class extends this.Facet {
-                static fieldNames = Array.from(fieldNames)
-                static cellNames = Array.from(cellNames)
-                static statements = statements
-                static hash = hash
-            }
-            FacetClass.E = this
-            return FacetClass
+            return this.facetFactory({ fieldNames, cellNames, statements, hash })
         }
     },
 

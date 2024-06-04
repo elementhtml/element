@@ -1327,7 +1327,7 @@ const ElementHTML = Object.defineProperties({}, {
             [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
             for (const id in this.ids) {
                 this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this.componentFactory(this.classes[id])
+                this.constructors[id] = this.componentFactory({ id })
             }
         }
     },
@@ -1687,11 +1687,18 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     componentFactory: {
-        value: function (baseClass = globalThis.HTMLElement, shadowRootContent = '') {
-            return class extends this.Component {
-                static E_baseClass = baseClass
-                static E_shadowRootContent = shadowRootContent
+        value: function (componentManifest) {
+            const { id, extends: extendsId, style, template, class: className } = componentManifest, baseClass = this.classes[id]
+            const ComponentClass = class extends this.Component {
+                static id = id
+                static extends = extendsId
+                static style = style
+                static template = template
+                static E_baseClass = globalThis[extendsId] ?? globalThis.HTMLElement
+                static E_shadowRootContent = `${style}\n${template}`
             }
+            ComponentClass.E = this
+            return ComponentClass
         }
     },
     Component: {
@@ -1709,8 +1716,8 @@ const ElementHTML = Object.defineProperties({}, {
                 })
                 try {
                     this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
-                    if (this.constructor.E_shadowRootContent) {
-                        this.shadowRoot.textContent = this.constructor.E_shadowRootContent
+                    if (this.constructor.style && this.constructor.template) {
+                        this.shadowRoot.textContent = `${this.constructor.style}\n${this.constructor.template}`
                     } else {
                         this.shadowRoot.textContent = ''
                         this.shadowRoot.appendChild(document.createElement('style')).textContent = this.E._styles[this.constructor.id] ?? this.E.stackStyles(this.constructor.id)
@@ -1729,14 +1736,18 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     facetFactory: {
-        value: function (baseClass = globalThis.HTMLElement, shadowRootContent = '') {
-            return class extends this.Component {
-                static E_baseClass = baseClass
-                static E_shadowRootContent = shadowRootContent
+        value: function (facetManifest) {
+            const { fieldNames, cellNames, statements, hash } = facetManifest
+            const FacetClass = class extends this.Facet {
+                static fieldNames = Array.from(fieldNames)
+                static cellNames = Array.from(cellNames)
+                static statements = statements
+                static hash = hash
             }
+            FacetClass.E = this
+            return FacetClass
         }
     },
-
     Facet: {
         value: class {
             static E
