@@ -126,9 +126,8 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let pkg = packageObject?.default ?? {}
             if (!pkg || (typeof pkg !== 'object')) return
+            for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
-            const getExports = async url => url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-            for (const scope of ['helpers', 'loaders', 'templates', 'facets', 'components']) if (typeof pkg[scope] === 'string') pkg[scope] = getExports(this.resolveUrl(pkg[scope], packageUrl))
             for (const scope in pkg) if (scope in this.env && typeof this.env[scope] === 'object') {
                 switch (scope) {
                     case 'options':
@@ -1322,6 +1321,11 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (element) {
             return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
                 || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+        }
+    },
+    getExports: {
+        value: async function (url) {
+            return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
         }
     },
     getInheritance: {
