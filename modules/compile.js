@@ -1,26 +1,36 @@
+const nativeElementsMap = {
+    ...Object.fromEntries(['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
+        'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'search', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr'].map(l => [l, 'HTMLElement'])),
+    ...Object.fromEntries(['blockquote', 'q'].map(l => [l, 'HTMLQuoteElement'])), ...Object.fromEntries(['col', 'colgroup'].map(l => [l, 'HTMLTableColElement'])),
+    ...Object.fromEntries(['del', 'ins'].map(l => [l, 'HTMLModElement'])), ...Object.fromEntries(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(l => [l, 'HTMLHeadingElement'])),
+    ...Object.fromEntries(['tbody', 'tfoot', 'thead'].map(l => [l, 'HTMLTableSectionElement'])), ...Object.fromEntries(['td', 'th'].map(l => [l, 'HTMLTableCellElement'])),
+    ...{
+        a: 'HTMLAnchorElement', area: 'HTMLAreaElement', audio: 'HTMLAudioElement', base: 'HTMLBaseElement', body: 'HTMLBodyElement', br: 'HTMLBRElement', button: 'HTMLButtonElement',
+        canvas: 'HTMLCanvasElement', caption: 'HTMLTableCaptionElement', data: 'HTMLDataElement', datalist: 'HTMLDataListElement', details: 'HTMLDetailsElement', dialog: 'HTMLDialogElement',
+        div: 'HTMLDivElement', dl: 'HTMLDListElement', embed: 'HTMLEmbedElement', fencedframe: 'HTMLFencedFrameElement', fieldset: 'HTMLFieldSetElement', form: 'HTMLFormElement',
+        head: 'HTMLHeadElement', hr: 'HTMLHRElement', html: 'HTMLHtmlElement', iframe: 'HTMLIFrameElement', img: 'HTMLImageElement', input: 'HTMLInputElement', label: 'HTMLLabelElement',
+        li: 'HTMLLIElement', link: 'HTMLLinkElement', map: 'HTMLMapElement', menu: 'HTMLMenuElement', meta: 'HTMLMetaElement', meter: 'HTMLMeterElement', object: 'HTMLObjectElement',
+        ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement', option: 'HTMLOptionElement', output: 'HTMLOutputElement', p: 'HTMLParagraphElement', picture: 'HTMLPictureElement',
+        portal: 'HTMLPortalElement', pre: 'HTMLPreElement', progress: 'HTMLProgressElement', script: 'HTMLScriptElement', select: 'HTMLSelectElement', slot: 'HTMLSlotElement',
+        source: 'HTMLSourceElement', span: 'HTMLSpanElement', style: 'HTMLStyleElement', table: 'HTMLTableElement', template: 'HTMLTemplateElement', textarea: 'HTMLTextAreaElement',
+        time: 'HTMLTimeElement', title: 'HTMLTitleElement', tr: 'HTMLTableRowElement', track: 'HTMLTrackElement', ul: 'HTMLUListElement', video: 'HTMLVideoElement'
+    }
+}
+
 const module = {
 
     compileComponent: {
         enumerable: true,
-        value: async function (tagOrId, namespace) {
-            let tag, name, id, validTag = tagOrId[0] !== '/' && tagOrId[0] !== '.' && !tagOrId.indexOf('/') && !tagOrId.indexOf('.')
-            if (validTag && (namespace || (tagOrId.indexOf('-')))) {
-                [namespace, ...name] = namespace ? [namespace, [tagOrId]] : tag.split('-').map(t => t.toLowerCase()).filter(s => !!s)
-                name = name.join('/')
-                id = this.env.namespaces[namespace] ? (new URL(`${this.env.namespaces[namespace]}/${name}.html`, document.baseURI)).href
-                    : (new URL(`components/${namespace}/${name}.html`, document.baseURI)).href
-            } else {
-                id = validTag ? (new URL(`components/${tagOrId}.html`, document.baseURI)).href : (new URL(tagOrId, document.baseURI)).href
-            }
-            const fileFetch = await fetch(this.resolveUrl(id))
+        value: async function (id, namespace) {
+            // validTag = tagOrId[0] !== '/' && tagOrId[0] !== '.' && !tagOrId.indexOf('/') && !tagOrId.indexOf('.')
+            const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
-            const sourceCode = await fileFetch.text(), styleCode = sourceCode.slice(sourceCode.indexOf('<style>') + 7, sourceCode.indexOf('</style>')).trim(),
-                templateCode = sourceCode.slice(sourceCode.indexOf('<template>') + 10, sourceCode.indexOf('</template>')).trim(),
-                scriptCode = sourceCode.slice(sourceCode.indexOf('<script>') + 8, sourceCode.indexOf('</script>')).trim(),
-                extendsId = scriptCode.match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
+            container.innerHTML = await fileFetch.text()
+            const style = container.content.querySelector('style'), template = container.content.querySelector('template'), script = container.content.querySelector('script'),
+                scriptCode = script.textContent.trim(), extendsId = scriptCode.match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
 
 
-            // extendsId can either be a reference to a component within the same namespace, or a URL id of a 'foreign' component
+            // extendsId can either be any of: nativetag ... component ... namespace-component  ... absolute/url ... relative/url 
 
             this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
 
@@ -33,11 +43,7 @@ const module = {
             URL.revokeObjectURL(sanitizedScriptAsUrl)
             const baseClass = classModule.default
 
-            let ComponentClass, style = document.createElement('style'), template = document.createElement('template')
-            style.textContent = styleCode
-            template.content.textContent = templateCode
-
-            ComponentClass = class extends baseClass {
+            let ComponentClass = class extends baseClass {
                 static id = id
                 static extends = extendsId
                 static style = style

@@ -147,7 +147,10 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'components':
-                        for (const c in pkgScope) envScope[`${packageKey}-${c}`] = this.componentFactory(pkgScope[c])
+                        const componentNamespaceBase = (new URL('../components', packageUrl)).href,
+                            namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
+                        if (!namespaceExists) this.env.namespaces[packageKey] = componentNamespaceBase
+                        for (const c in pkgScope) envScope[`${componentNamespaceBase}/${c}.html`] = this.componentFactory(pkgScope[c])
                         break
                     case 'facets':
                         for (const c in pkgScope) envScope[c] = this.facetFactory(pkgScope[c])
@@ -1178,18 +1181,11 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            this.app.components.classes[tag] = this.env.components[tag] ?? (await this.compileComponent(tag))
-            globalThis.customElements.define(tag, this.app.components.classes[tag], undefined)
-            // if (this.env.components[tag]) {
-            //     this.app.components.classes[tag] = this.env.components[tag]
-            // } else if (this.app.compile) {
-            //     // const id = this.getTagId(tag);
-            //     // [this.ids[tag], this.tags[id]] = [id, tag]
-            //     // const loadResult = await this.loadTagAssetsFromId(id)
-            //     // if (!loadResult) return
-            //     // globalThis.customElements.define(tag, this.constructors[id], undefined)
-            //     this.app.components.classes[tag] = await this.compileComponent(tag)
-            // }
+            const [namespace, name] = tag.split('-'), namespaceBase = this.env.namespaces[namespace]
+            if (!namespaceBase) return
+            const id = `${namespaceBase}/${name}.html`
+            this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
+            globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
         }
     },
     buildCatchallSelector: {
