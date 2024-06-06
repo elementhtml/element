@@ -30,7 +30,7 @@ const module = {
             let extendsId = scriptCode.match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement', extendsClass = this.Component,
                 extendsStatement = `class extends ElementHTML.Component {`
             if (extendsId in nativeElementsMap) {
-                extendsClass = this.enscapulateNative(extendsId, nativeElementsMap[extendsId])
+                extendsClass = this.app.components.classes[extendsId] = this.Component
                 extendsStatement = `class extends ElementHTML.app.components.classes.${extendsId} {`
             } else {
                 extendsId = this.resolveUrl(new URL(extendsId, id))
