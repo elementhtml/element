@@ -1178,12 +1178,6 @@ const ElementHTML = Object.defineProperties({}, {
     tags: { value: {} },
     templates: { value: {} },
 
-    generateUUIDWithNoDashes: {
-        value: function () {
-            return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
-        }
-    },
-
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
@@ -1251,6 +1245,11 @@ const ElementHTML = Object.defineProperties({}, {
                 this.classes[id] = globalThis[this.ids[id]]
                 this.constructors[id] = this.componentFactory({ id })
             }
+        }
+    },
+    generateUUIDWithNoDashes: {
+        value: function () {
+            return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
         }
     },
     getCustomTag: {
