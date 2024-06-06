@@ -903,7 +903,7 @@ const ElementHTML = Object.defineProperties({}, {
             components: { instances: new WeakMap(), observers: new WeakMap(), classes: {} },
             eventTarget: new EventTarget(),
             facets: { classes: {}, instances: new WeakMap() },
-            helpers: {}, libraries: {}, regexp: {}, templates: {}, transforms: {}, types: {},
+            helpers: {}, libraries: {}, namespaces: {}, regexp: {}, templates: {}, transforms: {}, types: {},
         }
     },
     binders: {
@@ -1178,13 +1178,30 @@ const ElementHTML = Object.defineProperties({}, {
     tags: { value: {} },
     templates: { value: {} },
 
+    generateUUIDWithNoDashes: {
+        value: function () {
+            return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
+        }
+    },
+
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            const [namespace, name] = tag.split('-'), namespaceBase = this.env.namespaces[namespace]
+            const [namespace, name] = tag.split('-'), namespaceBase = this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
             if (!namespaceBase) return
             const id = `${namespaceBase}/${name}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
+            for (const subspaceName in (this.app.components.classes[id].subspaces ?? {})) {
+                let virtualSubspaceName = `${subspaceName}${generateUUIDWithNoDashes}`
+                this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
+                const newTagName = `${virtualSubspaceName}-`
+                this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
+                    .replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`).replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`)
+                    .replace(new RegExp(` is='${subspaceName}-`, 'g'), ` is='${virtualSubspaceName}-`).replace(new RegExp(` is="${subspaceName}-`, 'g'), ` is="${virtualSubspaceName}-`)
+                    .replace(new RegExp(` is=${subspaceName}-`, 'g'), ` is=${virtualSubspaceName}-`)
+                this.app.components.classes[id].style.textContext = this.app.components.classes[id].style.textContext
+                    .replace(new RegExp(`${subspaceName}-`, 'g'), `${virtualSubspaceName}-`)
+            }
             globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
         }
     },
@@ -1623,6 +1640,7 @@ const ElementHTML = Object.defineProperties({}, {
             static id
             static extends
             static style
+            static subspaces = {}
             static template
             constructor() {
                 super()
@@ -1640,15 +1658,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
                     if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
                     this.shadowRoot.append(...shadowNodes)
-                    // if (this.constructor.style && this.constructor.template) {
-                    //     this.shadowRoot.textContent = `${this.constructor.style}\n${this.constructor.template}`
-                    // } else {
-                    //     this.shadowRoot.textContent = ''
-                    //     this.shadowRoot.appendChild(document.createElement('style')).textContent = this.E._styles[this.constructor.id] ?? this.E.stackStyles(this.constructor.id)
-                    //     const templateNode = document.createElement('template')
-                    //     templateNode.innerHTML = this.E._templates[this.constructor.id] ?? this.E.stackTemplates(this.constructor.id) ?? ''
-                    //     this.shadowRoot.appendChild(templateNode.content.cloneNode(true))
-                    // }
                 } catch (e) { }
             }
             static get observedAttributes() { return [] }
