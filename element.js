@@ -208,7 +208,6 @@ const ElementHTML = Object.defineProperties({}, {
                     console.log = () => { }
                     window.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
-                this.encapsulateNative()
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
@@ -418,14 +417,6 @@ const ElementHTML = Object.defineProperties({}, {
                 let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
                 return key ? result[key] : result
             }
-        }
-    },
-    getAllProperties: {
-        enumerable: true, value: function (obj) {
-            const properties = new Set()
-            let currentObj = obj, temp
-            while (currentObj !== null) Object.getOwnPropertyNames((temp = currentObj, currentObj = Object.getPrototypeOf(currentObj), temp)).forEach(prop => properties.add(prop))
-            return properties
         }
     },
     getCell: {
@@ -882,21 +873,12 @@ const ElementHTML = Object.defineProperties({}, {
             return this.useHelper(contentType, input, true) ?? `${input}`
         }
     },
-    sortByInheritance: {
-        enumerable: true, value: function (idList) {
-            return Array.from(new Set(idList)).filter(t => this.extends[t]).sort((a, b) =>
-                ((this.extends[a] === b) && -1) || ((this.extends[b] === a) && 1) || this.getInheritance(b).indexOf(a))
-                .map((v, i, a) => (i === a.length - 1) ? [v, this.extends[v]] : v).flat()
-        }
-    },
     useHelper: {
         enumerable: true, value: function (name, ...args) {
             if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
         }
     },
 
-    _styles: { value: {} },
-    _templates: { value: {} },
     app: {
         value: {
             cells: {},
@@ -987,10 +969,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    classes: { value: {} },
-    constructors: { value: {} },
-    extends: { value: {} },
-    files: { value: {} },
     handlers: {
         value: {
             json: async function (container, position, envelope, value) { return envelope.vars.value },
@@ -1158,9 +1136,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    ids: { value: {} },
-    scripts: { value: {} },
-    styles: { value: {} },
     sys: {
         value: Object.freeze({
             defaultEventTypes: Object.freeze({
@@ -1175,8 +1150,6 @@ const ElementHTML = Object.defineProperties({}, {
             })
         })
     },
-    tags: { value: {} },
-    templates: { value: {} },
 
     activateTag: {
         value: async function (tag) {
@@ -1218,35 +1191,6 @@ const ElementHTML = Object.defineProperties({}, {
             return canonicalizeDirectives.join('\n').trim()
         }
     },
-    encapsulateNative: {
-        value: function () {
-            const HTMLElements = ['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
-                'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr']
-            for (const tag of HTMLElements) this.ids[tag] = 'HTMLElement'
-            Object.assign(this.ids, {
-                a: 'HTMLAnchorElement', blockquote: 'HTMLQuoteElement', br: 'HTMLBRElement', caption: 'HTMLTableCaptionElement', col: 'HTMLTableColElement',
-                colgroup: 'HTMLTableColElement', datalist: 'HTMLDataListElement', del: 'HTMLModElement', dl: 'HTMLDListElement', fieldset: 'HTMLFieldSetElement',
-                h1: 'HTMLHeadingElement', h2: 'HTMLHeadingElement', h3: 'HTMLHeadingElement', h4: 'HTMLHeadingElement', h5: 'HTMLHeadingElement', h6: 'HTMLHeadingElement', hr: 'HTMLHRElement',
-                iframe: 'HTMLIFrameElement', img: 'HTMLImageElement', ins: 'HTMLModElement', li: 'HTMLLIElement', ol: 'HTMLOListElement', optgroup: 'HTMLOptGroupElement',
-                p: 'HTMLParagraphElement', q: 'HTMLQuoteElement', tbody: 'HTMLTableSectionElement', td: 'HTMLTableCellElement', textarea: 'HTMLTextAreaElement',
-                tfoot: 'HTMLTableSectionElement', th: 'HTMLTableCellElement', th: 'HTMLTableSectionElement', tr: 'HTMLTableRowElement', ul: 'HTMLUListElement'
-            })
-            for (const [tag, id] in Object.entries(this.ids)) {
-                if (tag.includes('-')) continue
-                if (!this.tags[id]) { this.tags[id] = tag; continue }
-                this.tags[id] = Array.from(this.tags[id])
-                this.tags[id].push(tag)
-            }
-            const classNames = Object.values(this.ids)
-            for (const nc of Reflect.ownKeys(globalThis)) if (nc.startsWith('HTML') && nc.endsWith('Element')) this.ids[nc.replace('HTML', '').replace('Element', '').toLowerCase()] ||= nc
-            delete this.ids.image;
-            [this.ids[''], this.ids['HTMLElement']] = ['HTMLElement', 'HTMLElement']
-            for (const id in this.ids) {
-                this.classes[id] = globalThis[this.ids[id]]
-                this.constructors[id] = this.componentFactory({ id })
-            }
-        }
-    },
     generateUUIDWithNoDashes: {
         value: function () {
             return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
@@ -1261,13 +1205,6 @@ const ElementHTML = Object.defineProperties({}, {
     getExports: {
         value: async function (url) {
             return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-        }
-    },
-    getInheritance: {
-        value: function (id = 'HTMLElement') {
-            const inheritance = [id]
-            while (id && this.extends[id]) inheritance.push(id = this.extends[id])
-            return inheritance
         }
     },
     getStateGroup: {
@@ -1312,16 +1249,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getTagId: {
-        value: function (tag) {
-            if (this.ids[tag]) return this.ids[tag]
-            let [namespace, ...pointer] = tag.split('-').map(t => t.toLowerCase()).filter(s => !!s)
-            pointer = pointer.join('/')
-            if (namespace === 'e') return (new URL(`./e/components/${pointer}.html`, import.meta.url)).href
-            if (this.env.namespaces[namespace]) return (new URL(`${this.env.namespaces[namespace]}/${pointer}.html`, document.baseURI)).href
-            return (new URL(`components/${namespace}/${pointer}.html`, document.baseURI)).href
-        }
-    },
     getVariable: {
         value: function (expression, value, labels, env) {
             if (!expression) return value
@@ -1357,79 +1284,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getXdrType: {
-        value: async function (manifest, entry, name, namespace = 'element') {
-            if (typeof manifest === 'string') {
-                entry ??= manifest
-                name ??= entry
-            }
-            await this.loadHelper('xdr')
-            let factoryClass
-            switch (name) {
-                case 'component': case 'components': case 'Component':
-                    name = 'Component'
-                    const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
-                    manifest = {
-                        entry, name, namespace,
-                        structs: { Component: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
-                        unions: {}, typedefs: {}, enums: {}
-                    }
-                    break
-                case 'facet': case 'facets': case 'Facet':
-                    name = 'Facet'
-                    const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }, fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false },
-                        variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }, variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false },
-                        nameTypeDec = { type: 'Name', parameters: variableReqParams }, variableReqString = { type: 'string', parameters: variableReqParams },
-                        variableOptString = { type: 'string', parameters: variableOptParams }, handlerTypes = {
-                            json: 'CtxJson', network: 'CtxNetwork', pattern: 'CtxPattern', proxy: 'CtxProxy',
-                            router: 'void', routerhash: 'CtxRouterHash', routersearch: 'void', routerpathname: 'void', selector: 'CtxSelector', state: 'CtxState',
-                            string: 'CtxExpression', transform: 'CtxExpression', variable: 'CtxExpression', wait: 'CtxExpression'
-                        }
-                    manifest = {
-                        entry, name, namespace, structs: {
-                            Facet: new Map([
-                                ['cellNames', nameTypeDec], ['fieldNames', nameTypeDec],
-                                ['hash', { type: 'string', parameters: { ...fixedReqParams, length: 64 } }], ['statements', { type: 'Statement', parameters: variableReqParams }]
-                            ]),
-                            Statement: new Map([['labels', nameTypeDec], ['steps', { type: 'Step', parameters: variableReqParams }]]),
-                            Step: new Map([['defaultExpression', variableOptString], ['label', { type: 'Name' }], ['labelMode', { type: 'LabelMode', parameters: fixedOptParams }], ['params', { type: 'Params' }]]),
-                            CtxJson: new Map([['vars', { type: 'VarsJson' }]]),
-                            VarsJson: new Map([['value', variableReqString]]),
-                            CtxNetwork: new Map([['vars', { type: 'VarsNetwork' }]]),
-                            VarsNetwork: new Map([['expression', variableReqString], ['expressionIncludesValueAsVariable', { type: 'bool' }], ['hasDefault', { type: 'bool' }], ['returnFullRequest', { type: 'bool' }]]),
-                            CtxPattern: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsPattern' }]]),
-                            VarsPattern: new Map([['expression', variableReqString], ['regexp', variableReqString]]),
-                            CtxProxy: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsProxy' }]]),
-                            VarsProxy: new Map([
-                                ['childArgs', variableOptString], ['childMethodName', variableOptString],
-                                ['parentArgs', variableReqString], ['parentObjectName', variableReqString], ['useHelpers', { type: 'bool' }]
-                            ]),
-                            CtxRouterHash: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsRouterHash' }]]),
-                            VarsRouterHash: new Map([['signal', { type: 'bool' }]]),
-                            CtxSelector: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsSelector' }]]),
-                            VarsSelector: new Map([['scopeStatement', variableReqString], ['selectorStatement', variableReqString], ['signal', { type: 'bool' }]]),
-                            CtxState: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsState' }]]),
-                            VarsState: new Map([['expression', variableReqString], ['signal', { type: 'bool' }], ['typeDefault', { type: 'string', parameters: { ...fixedReqParams, length: 1 } }]]),
-                            CtxExpression: new Map([['vars', { type: 'VarsExpression' }]]),
-                            VarsExpression: new Map([['expression', variableReqString]])
-                        },
-                        unions: { Params: { discriminant: { type: 'HandlerType', identifier: 'handler' }, arms: {} } },
-                        typedefs: { Name: variableReqString },
-                        enums: { LabelMode: [null, 'force', 'silent'], HandlerType: [null, ...Object.keys(handlerTypes)] }
-                    }
-                    for (const arm in handlerTypes) manifest.unions.Params.arms[arm] = { type: handlerTypes[arm], identifier: 'ctx', arm }
-                    break
-                default:
-                    factoryClass = await this.app.libraries.xdr.factory(manifest, entry, { name, namespace })
-            }
-            return factoryClass ?? class extends this.app.libraries.xdr.types._base.Composite {
-                static entry = entry
-                static name = name
-                static namespace = namespace
-                static manifest = manifest
-            }
-        }
-    },
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
@@ -1447,37 +1301,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!obj) return false
             const proto = Object.getPrototypeOf(obj)
             return proto === null || proto === Object.prototype || proto.constructor === Object
-        }
-    },
-    loadTagAssetsFromId: {
-        value: async function (id) {
-            if (!id || !id.includes('://')) return
-            if (this.files[id]) return true
-            const fileFetch = await fetch(this.resolveUrl(id))
-            if (fileFetch.status >= 400) return
-            this.files[id] = await fileFetch.text()
-            this.styles[id] = this.files[id].slice(this.files[id].indexOf('<style>') + 7, this.files[id].indexOf('</style>')).trim()
-            this.templates[id] = this.files[id].slice(this.files[id].indexOf('<template>') + 10, this.files[id].indexOf('</template>')).trim()
-            this.scripts[id] = this.files[id].slice(this.files[id].indexOf('<script>') + 8, this.files[id].indexOf('</script>')).trim()
-            let extendsId = this.scripts[id].match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement'
-            if (extendsId.startsWith('e-')) {
-                extendsId = this.getTagId(extendsId)
-            } else if (extendsId.includes('/')) {
-                if (!extendsId.startsWith('https://') && !extendsId.startsWith('https://')) extendsId = new URL(extendsId, id).href
-                if (!extendsId.endsWith('.html')) extendsId += '.html'
-            }
-            this.extends[id] = extendsId
-            this.files[extendsId] || !extendsId.includes('/') || await this.loadTagAssetsFromId(extendsId)
-            if (!this.files[extendsId] && extendsId.includes('/')) return
-            const sanitizedScript = this.scripts[id].replace(this.sys.regexp.extends, `class extends ElementHTML.constructors['${extendsId}'] {`),
-                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${sanitizedScript}`,
-                sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
-                classModule = await import(sanitizedScriptAsUrl)
-            URL.revokeObjectURL(sanitizedScriptAsUrl)
-            this.classes[id] = classModule.default
-            this.classes[id].id = id
-            this.constructors[id] = class extends this.classes[id] { constructor() { super() } }
-            return true
         }
     },
     mountFacet: {
@@ -1563,47 +1386,6 @@ const ElementHTML = Object.defineProperties({}, {
             list = list.slice(start, end)
             if (!step) return list
             return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
-        }
-    },
-    stackStyles: {
-        value: function (id) {
-            if (typeof this._styles[id] === 'string') return this._styles[id]
-            this._styles[id] = this.getInheritance(id).reverse().filter(id => this.styles[id]).map(id => `/** styles from '${id}' */\n` + this.styles[id]).join("\n\n")
-            return this._styles[id]
-        }
-    },
-    stackTemplates: {
-        value: function (id) {
-            if (typeof this._templates[id] === 'string') return this._templates[id]
-            if (typeof this.templates[id] === 'string') {
-                if (this.extends[id] && (this.extends[id] !== 'HTMLElement')) {
-                    this._templates[this.extends[id]] = this._templates[this.extends[id]] ?? this.stackTemplates(this.extends[id])
-                    if (!this.templates[id]) return this._templates[id] = this._templates[this.extends[id]]
-                    const template = document.createElement('template'), childTemplate = document.createElement('template')
-                    template.innerHTML = this._templates[this.extends[id]]
-                    childTemplate.innerHTML = this.templates[id]
-                    const childTemplatesWithSlot = childTemplate.content.querySelectorAll('template[slot]')
-                    if (childTemplatesWithSlot.length) {
-                        for (const t of childTemplatesWithSlot) {
-                            if (!this._templates[this.extends[id]]) { t.remove(); continue }
-                            let slotName = t.getAttribute('slot'), target
-                            if (slotName[0] === '`' && slotName.endsWith('`')) {
-                                target = template.content.querySelector(slotName.slice(1, -1))
-                            } else if (slotName) {
-                                target = template.content.querySelector(`slot[name="${slotName}"]`)
-                            } else {
-                                target = template.content.querySelector('slot:not([name])')
-                            }
-                            if (target) target.replaceWith(...t.content.cloneNode(true).childNodes)
-                            t.remove()
-                        }
-                        const slot = template.content.querySelector('slot')
-                        if (slot && childTemplate.innerHTML.trim()) slot.replaceWith(...childTemplate.content.cloneNode(true).childNodes)
-                        return this._templates[id] = (this._templates[this.extends[id]] ? template.innerHTML : childTemplate.innerHTML).trim()
-                    }
-                }
-                return this._templates[id] = this.templates[id]
-            }
         }
     },
     unmountFacet: {
