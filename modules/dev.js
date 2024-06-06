@@ -245,6 +245,83 @@ const module = {
             //now publish application bundle to the target hosting platform using the information provided in `target`
 
         }
+    },
+
+
+
+
+    getXdrType: {
+        value: async function (manifest, entry, name, namespace = 'element') {
+            if (typeof manifest === 'string') {
+                entry ??= manifest
+                name ??= entry
+            }
+            await this.loadHelper('xdr')
+            let factoryClass
+            switch (name) {
+                case 'component': case 'components': case 'Component':
+                    name = 'Component'
+                    const stringTypeDec = { type: 'string', parameters: { length: 0, mode: 'variable', optional: false, unsigned: false } }
+                    manifest = {
+                        entry, name, namespace,
+                        structs: { Component: new Map([['id', stringTypeDec], ['extends', stringTypeDec], ['style', stringTypeDec], ['template', stringTypeDec], ['class', stringTypeDec]]) },
+                        unions: {}, typedefs: {}, enums: {}
+                    }
+                    break
+                case 'facet': case 'facets': case 'Facet':
+                    name = 'Facet'
+                    const fixedReqParams = { length: 0, mode: 'fixed', optional: false, unsigned: false }, fixedOptParams = { length: 0, mode: 'fixed', optional: true, unsigned: false },
+                        variableReqParams = { length: 0, mode: 'variable', optional: false, unsigned: false }, variableOptParams = { length: 0, mode: 'variable', optional: true, unsigned: false },
+                        nameTypeDec = { type: 'Name', parameters: variableReqParams }, variableReqString = { type: 'string', parameters: variableReqParams },
+                        variableOptString = { type: 'string', parameters: variableOptParams }, handlerTypes = {
+                            json: 'CtxJson', network: 'CtxNetwork', pattern: 'CtxPattern', proxy: 'CtxProxy',
+                            router: 'void', routerhash: 'CtxRouterHash', routersearch: 'void', routerpathname: 'void', selector: 'CtxSelector', state: 'CtxState',
+                            string: 'CtxExpression', transform: 'CtxExpression', variable: 'CtxExpression', wait: 'CtxExpression'
+                        }
+                    manifest = {
+                        entry, name, namespace, structs: {
+                            Facet: new Map([
+                                ['cellNames', nameTypeDec], ['fieldNames', nameTypeDec],
+                                ['hash', { type: 'string', parameters: { ...fixedReqParams, length: 64 } }], ['statements', { type: 'Statement', parameters: variableReqParams }]
+                            ]),
+                            Statement: new Map([['labels', nameTypeDec], ['steps', { type: 'Step', parameters: variableReqParams }]]),
+                            Step: new Map([['defaultExpression', variableOptString], ['label', { type: 'Name' }], ['labelMode', { type: 'LabelMode', parameters: fixedOptParams }], ['params', { type: 'Params' }]]),
+                            CtxJson: new Map([['vars', { type: 'VarsJson' }]]),
+                            VarsJson: new Map([['value', variableReqString]]),
+                            CtxNetwork: new Map([['vars', { type: 'VarsNetwork' }]]),
+                            VarsNetwork: new Map([['expression', variableReqString], ['expressionIncludesValueAsVariable', { type: 'bool' }], ['hasDefault', { type: 'bool' }], ['returnFullRequest', { type: 'bool' }]]),
+                            CtxPattern: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsPattern' }]]),
+                            VarsPattern: new Map([['expression', variableReqString], ['regexp', variableReqString]]),
+                            CtxProxy: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsProxy' }]]),
+                            VarsProxy: new Map([
+                                ['childArgs', variableOptString], ['childMethodName', variableOptString],
+                                ['parentArgs', variableReqString], ['parentObjectName', variableReqString], ['useHelpers', { type: 'bool' }]
+                            ]),
+                            CtxRouterHash: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsRouterHash' }]]),
+                            VarsRouterHash: new Map([['signal', { type: 'bool' }]]),
+                            CtxSelector: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsSelector' }]]),
+                            VarsSelector: new Map([['scopeStatement', variableReqString], ['selectorStatement', variableReqString], ['signal', { type: 'bool' }]]),
+                            CtxState: new Map([['binder', { type: 'bool' }], ['vars', { type: 'VarsState' }]]),
+                            VarsState: new Map([['expression', variableReqString], ['signal', { type: 'bool' }], ['typeDefault', { type: 'string', parameters: { ...fixedReqParams, length: 1 } }]]),
+                            CtxExpression: new Map([['vars', { type: 'VarsExpression' }]]),
+                            VarsExpression: new Map([['expression', variableReqString]])
+                        },
+                        unions: { Params: { discriminant: { type: 'HandlerType', identifier: 'handler' }, arms: {} } },
+                        typedefs: { Name: variableReqString },
+                        enums: { LabelMode: [null, 'force', 'silent'], HandlerType: [null, ...Object.keys(handlerTypes)] }
+                    }
+                    for (const arm in handlerTypes) manifest.unions.Params.arms[arm] = { type: handlerTypes[arm], identifier: 'ctx', arm }
+                    break
+                default:
+                    factoryClass = await this.app.libraries.xdr.factory(manifest, entry, { name, namespace })
+            }
+            return factoryClass ?? class extends this.app.libraries.xdr.types._base.Composite {
+                static entry = entry
+                static name = name
+                static namespace = namespace
+                static manifest = manifest
+            }
+        }
     }
 
 }

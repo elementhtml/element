@@ -15,6 +15,8 @@ const nativeElementsMap = {
         source: 'HTMLSourceElement', span: 'HTMLSpanElement', style: 'HTMLStyleElement', table: 'HTMLTableElement', template: 'HTMLTemplateElement', textarea: 'HTMLTextAreaElement',
         time: 'HTMLTimeElement', title: 'HTMLTitleElement', tr: 'HTMLTableRowElement', track: 'HTMLTrackElement', ul: 'HTMLUListElement', video: 'HTMLVideoElement'
     }
+}, regexp = {
+    defaultValue: /\s+\?\?\s+(.+)\s*$/, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
 }
 
 const module = {
@@ -27,7 +29,7 @@ const module = {
             container.innerHTML = await fileFetch.text()
             const style = container.content.querySelector('style'), template = container.content.querySelector('template'), script = container.content.querySelector('script'),
                 scriptCode = script.textContent.trim()
-            let extendsId = scriptCode.match(this.sys.regexp.extends)?.groups?.extends || 'HTMLElement', extendsClass = this.Component,
+            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'HTMLElement', extendsClass = this.Component,
                 extendsStatement = `class extends ElementHTML.Component {`
             if (extendsId in nativeElementsMap) {
                 extendsClass = this.app.components.classes[extendsId] = this.Component
@@ -68,7 +70,7 @@ const module = {
                     template.content.replaceWith(...extendsTemplate.children)
                 }
             }
-            const sanitizedScript = scriptCode.replace(this.sys.regexp.extends, extendsStatement),
+            const sanitizedScript = scriptCode.replace(extendsRegExp, extendsStatement),
                 sanitizedScriptAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${sanitizedScript}`,
                 sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
                 classModule = await import(sanitizedScriptAsUrl)
@@ -98,12 +100,12 @@ const module = {
                     segment = segment.trim()
                     if (!segment) continue
                     let handlerExpression = segment, label, defaultExpression, hasDefault = false
-                    const step = {}, labelMatch = handlerExpression.match(this.sys.regexp.label)
+                    const step = {}, labelMatch = handlerExpression.match(regexp.label)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
                     }
-                    const defaultExpressionMatch = handlerExpression.match(this.sys.regexp.defaultValue)
+                    const defaultExpressionMatch = handlerExpression.match(regexp.defaultValue)
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
