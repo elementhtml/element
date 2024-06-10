@@ -937,18 +937,17 @@ const ElementHTML = Object.defineProperties({}, {
                 return { selector, scope }
             },
             state: async function (container, position, envelope) {
-                const { signal, vars } = envelope, { expression, typeDefault } = vars
-                let group = this.getStateGroup(expression, typeDefault, container),
-                    config = expression[0] === '[' ? 'array' : (expression[0] === '{' ? 'object' : 'single'),
-                    addedFields = new Set(), addedCells = new Set(), items = [], getReturnValue
+                const { signal, vars } = envelope, { group } = vars,
+                    config = Array.isArray(group) ? 'array' : (group.set ? 'object' : 'single'), items = []
+                let getReturnValue
                 switch (config) {
                     case 'single':
-                        (group.type === 'field' ? addedFields : addedCells).add(group[group.type].name)
+                        group[group.type] = group.type === 'field' ? this.getField(container, group.name) : this.getCell(group.name)
                         getReturnValue = () => group[group.type].get()
                         items.push(group)
                         break
                     case 'array':
-                        for (const g of group) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        for (const g of group) g[g.type] = g.type === 'field' ? this.getField(container, g.name) : this.getCell(g.name)
                         getReturnValue = () => {
                             const r = group.map(g => g[g.type].get())
                             return r.some(rr => rr == undefined) ? undefined : r
@@ -956,7 +955,7 @@ const ElementHTML = Object.defineProperties({}, {
                         items = group
                         break
                     default:
-                        for (const g of Object.values(group)) (g.type === 'field' ? addedFields : addedCells).add(g[g.type].name)
+                        for (const g of Object.values(group)) g[g.type] = g.type === 'field' ? this.getField(container, g.name) : this.getCell(g.name)
                         getReturnValue = () => {
                             const r = {}
                             for (const name in group) r[name] = group[name][group[name].type].get()
@@ -970,7 +969,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                     }, { signal })
                 }
-                return { addedFields: Array.from(addedFields), addedCells: Array.from(addedCells), getReturnValue, config, group }
+                return { getReturnValue, config, group }
             }
         }
     },
@@ -1203,7 +1202,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
             let group, names = parseOnly ? { cell: new Set(), field: new Set() } : undefined
-            if (!parseOnly) element = this.app.components.get(element) ?? element
+            if (!parseOnly) element = this.app.components.instances.get(element) ?? element
             const canonicalizeName = (name) => {
                 let type
                 switch (name[0]) {
@@ -1494,7 +1493,6 @@ const ElementHTML = Object.defineProperties({}, {
                                 this.controllers[position] = new AbortController()
                                 envelope.signal = this.controllers[position].signal
                             }
-                            console.log('line 1496', position, envelope)
                             Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
