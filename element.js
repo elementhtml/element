@@ -191,8 +191,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
-
-    load: {
+    Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
                 Object.defineProperty(this.app, 'E_observer', { enumerable: false, writable: true })
@@ -245,12 +244,12 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.load(element) }
+            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.Load(element) }
             observerRoot.E_observer ||= new MutationObserver(async records => {
                 for (const record of records) {
                     for (const addedNode of (record.addedNodes || [])) {
-                        if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.load(addedNode) }
-                        if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.load(n)
+                        if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.Load(addedNode) }
+                        if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.Load(n)
                     }
                     for (const removedNode of (record.removedNodes || [])) {
                         if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
@@ -476,6 +475,18 @@ const ElementHTML = Object.defineProperties({}, {
                 fields[fieldName] = field
             }
             return fields[fieldName]
+        }
+    },
+    isFacetContainer: {
+        enumerable: true, value: function (element) {
+            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
+        }
+    },
+    isPlainObject: {
+        enumerable: true, value: async function (obj) {
+            if (!obj) return false
+            const proto = Object.getPrototypeOf(obj)
+            return proto === null || proto === Object.prototype || proto.constructor === Object
         }
     },
     loadHelper: {
@@ -1273,18 +1284,6 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperties(this, module)
         }
     },
-    isFacetContainer: {
-        value: function (element) {
-            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
-        }
-    },
-    isPlainObject: {
-        enumerable: true, value: async function (obj) {
-            if (!obj) return false
-            const proto = Object.getPrototypeOf(obj)
-            return proto === null || proto === Object.prototype || proto.constructor === Object
-        }
-    },
     mountFacet: {
         value: async function (facetContainer) {
             const { type, src, textContent } = facetContainer
@@ -1537,5 +1536,5 @@ if (metaOptions.has('packages')) {
     await Promise.all(Array.from(importPromises.values()))
     for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
-if (metaOptions.has('load')) await ElementHTML.load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
+if (metaOptions.has('load')) await ElementHTML.Load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
 export { ElementHTML }
