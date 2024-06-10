@@ -1,8 +1,7 @@
 const module = {
 
     exportComponent: {
-        enumerable: true,
-        value: async function (id, format = 'plain') {
+        enumerable: true, value: async function (id, format = 'plain') {
             if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.components.instances.get(id)?.constructor?.id)
             const componentManifest = {
                 id, extends: this.extends[id] ?? 'HTMLElement',
@@ -23,10 +22,8 @@ const module = {
             }
         }
     },
-
     exportFacet: {
-        enumerable: true,
-        value: async function (source, format = 'plain') {
+        enumerable: true, value: async function (source, format = 'plain') {
             const facetManifest = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
             if (!source) return facetManifest
             let facetClass
@@ -49,10 +46,8 @@ const module = {
             }
         }
     },
-
     exportPackage: {
-        enumerable: true,
-        value: async function (includePackages, includeComponents, includeFacets) {
+        enumerable: true, value: async function (includePackages, includeComponents, includeFacets) {
             includePackages ??= new Set()
             includeComponents ??= new Set()
             includeFacets ??= new Set()
@@ -80,10 +75,8 @@ const module = {
             return packageChunks.join('/n/n')
         }
     },
-
     exportApplication: {
-        enumerable: true,
-        value: async function (manifest) {
+        enumerable: true, value: async function (manifest) {
             const { source, priority, name, author, title, description, icon, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
             const metaTypesConfig = { og: { nameAttr: 'property', namePrefix: 'og' }, cards: { namePrefix: 'twitter' }, dc: { namePrefix: 'dc' } }
             const sitemapEntries = sitemap === true ? [] : (Array.isArray(sitemap) ? [...sitemap] : undefined)
@@ -246,9 +239,6 @@ const module = {
 
         }
     },
-
-
-
 
     getXdrType: {
         value: async function (manifest, entry, name, namespace = 'element') {

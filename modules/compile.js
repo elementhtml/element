@@ -20,10 +20,8 @@ const nativeElementsMap = {
 }
 
 const module = {
-
     compileComponent: {
-        enumerable: true,
-        value: async function (id) {
+        enumerable: true, value: async function (id) {
             const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
             container.innerHTML = await fileFetch.text()
@@ -85,10 +83,8 @@ const module = {
             return ComponentClass
         }
     },
-
     compileFacet: {
-        enumerable: true,
-        value: async function (directives, hash) {
+        enumerable: true, value: async function (directives, hash) {
             hash ??= await this.digest(directives = this.canonicalizeDirectives(directives))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
@@ -219,7 +215,7 @@ const module = {
         }
     },
     digest: {
-        enumerable: true, value: async function (str) {
+        value: async function (str) {
             if (typeof str !== 'string') str = `${str}`
             return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
         }
@@ -320,7 +316,6 @@ const module = {
             }
         }
     }
-
 }
 
 export { module }
