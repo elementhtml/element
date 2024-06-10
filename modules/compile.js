@@ -150,8 +150,8 @@ const module = {
                                     break
                                 case "#": case "@":
                                     params = this.parsers.state(handlerExpression, hasDefault)
-                                    for (const addedName of (params.ctx.vars.addedFieldNames ?? [])) fieldNames.add(addedName)
-                                    for (const addedName of (params.ctx.vars.addedCellNames ?? [])) cellNames.add(addedName)
+                                    for (const n of (params.ctx.vars.names.field ?? [])) fieldNames.add(n)
+                                    for (const n of (params.ctx.vars.names.cell ?? [])) cellNames.add(n)
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
@@ -297,7 +297,11 @@ const module = {
                 return { handler: 'selector', ctx: { binder: true, vars: { scopeStatement, selectorStatement, signal: true } } }
             },
             state: function (expression, hasDefault) {
-                return { handler: 'state', ctx: { binder: true, vars: { expression: expression.slice(1), signal: true, typeDefault: expression[0] } } }
+                expression = expression.trim()
+                const typeDefault = expression[0] === '@' ? 'field' : 'cell'
+                expression = expression.slice(1)
+                const { group, names } = this.getStateGroup(expression, typeDefault)
+                return { handler: 'state', ctx: { binder: true, vars: { expression, names, signal: true, typeDefault, group } } }
             },
             string: function (expression, hasDefault) {
                 return { handler: 'string', ctx: { vars: { expression } } }

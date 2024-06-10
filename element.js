@@ -1200,45 +1200,68 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     getStateGroup: {
-        value: function (expression, typeDefault = '#', element) {
-            element = this.app.components.get(element) ?? element
-            let group
-            const getStateTarget = (name) => {
+        value: function (expression, typeDefault = 'cell', element) {
+            const parseOnly = !(element instanceof HTMLElement)
+            let group, names = parseOnly ? { cell: new Set(), field: new Set() } : undefined
+            if (!parseOnly) element = this.app.components.get(element) ?? element
+            const canonicalizeName = (name) => {
+                let type
+                switch (name[0]) {
+                    case '@': type = 'field'; break
+                    case '#': type = 'cell'; break
+                    default: type = typeDefault
+                }
                 const modeFlag = name[name.length - 1],
                     mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
                 if (mode) name = name.slice(0, -1).trim()
-                if ((name[0] !== '#') && (name[0] !== '@')) name = `${typeDefault}${name}`
-                switch (name[0]) {
-                    case '#':
-                        return { cell: this.getCell(name.slice(1)), type: 'cell', mode }
-                    case '@':
-                        return { field: this.getField(element, name.slice(1)), type: 'field', mode }
+                return { name: name, mode, type }
+            }, getStateTarget = parseOnly ? undefined : (name, mode, type) => {
+                switch (type) {
+                    case 'cell':
+                        return { cell: this.getCell(name), type, mode }
+                    case 'field':
+                        return { field: this.getField(element, name), type, mode }
                 }
             }
             switch (expression[0]) {
                 case '{':
                     group = {}
                     for (const pair of expression.slice(1, -1).trim().split(',')) {
-                        let [key, name] = pair.trim().split(':').map(s => s.trim())
-                        if (!name) name = key
-                        const keyEndsWith = key[key.length - 1]
-                        if (keyEndsWith === '!' || keyEndsWith === '?') key = key.slice(0, -1)
-                        group[key] = getStateTarget(name)
+                        let [key, rawName] = pair.trim().split(':').map(s => s.trim())
+                        if (!rawName) rawName = key
+                        const { name, mode, type } = canonicalizeName(rawName)
+                        if (mode) key = key.slice(0, -1)
+                        group[key] = { name, mode, type }
+                        if (parseOnly) {
+                            names[type].add(name)
+                        } else {
+                            group[key][type] = getStateTarget(name, mode, type)
+                        }
                     }
-                    return group
                 case '[':
                     group = []
                     for (let t of expression.slice(1, -1).split(',')) {
                         t = t.trim()
                         if (!t) continue
-                        group.push(getStateTarget(t))
+                        const { name, mode, type } = canonicalizeName(t), index = group.push({ name, mode, type }) - 1
+                        if (parseOnly) {
+                            names[type].add(name)
+                        } else {
+                            group[index][type] = getStateTarget(name, mode, type)
+                        }
                     }
-                    return group
                 default:
                     expression = expression.trim()
                     if (!expression) return
-                    return getStateTarget(expression)
+                    group = canonicalizeName(expression)
+                    if (parseOnly) {
+                        names[group.type].add(group.name)
+                    } else {
+                        group = getStateTarget(group.name, group.mode, group.type)
+                    }
             }
+            if (parseOnly) return { group, names: { cell: Array.from(names.cell), field: Array.from(names.field) } }
+            return group
         }
     },
     getVariable: {
@@ -1462,6 +1485,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const { steps = [] } = statement, labels = {}
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
+                        console.log('line 1488', step)
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
                             { handler, ctx = {} } = params, { binder, vars = {} } = ctx, envelope = { labels, env }
                         this.vars[position] = vars
