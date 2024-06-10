@@ -446,7 +446,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     getField: {
-        enumerable: true, value: async function (facetInstanceOrContainer, fieldName) {
+        enumerable: true, value: function (facetInstanceOrContainer, fieldName) {
             if (!fieldName) return
             let fields
             if (facetInstanceOrContainer instanceof this.Facet) {
