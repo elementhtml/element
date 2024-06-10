@@ -190,9 +190,9 @@ const module = {
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
                     statement.labels.add(`${index}`)
-                    statement.labels = Array.from(statement.labels)
                     statement.steps.push(Object.freeze(step))
                 }
+                statement.labels = Array.from(statement.labels)
                 Object.seal(statement.labels)
                 Object.freeze(statement.steps)
                 Object.freeze(statement)
