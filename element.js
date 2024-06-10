@@ -275,12 +275,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    digest: {
-        enumerable: true, value: async function (str) {
-            if (typeof str !== 'string') str = `${str}`
-            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
-        }
-    },
     dispatchCompoundEvent: {
         enumerable: true, value: async function (eventName, detail, element) {
             const event = new CustomEvent(eventName, { detail })
@@ -1159,7 +1153,7 @@ const ElementHTML = Object.defineProperties({}, {
             const id = `${namespaceBase}/${name}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
             for (const subspaceName in (this.app.components.classes[id].subspaces ?? {})) {
-                let virtualSubspaceName = `${subspaceName}${generateUUIDWithNoDashes}`
+                let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
                 const newTagName = `${virtualSubspaceName}-`
                 this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
@@ -1177,18 +1171,6 @@ const ElementHTML = Object.defineProperties({}, {
             const selectorMain = selector.slice(1)
             if (!selectorMain) return selector
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
-        }
-    },
-    canonicalizeDirectives: {
-        value: function (directives) {
-            directives = directives.trim()
-            const canonicalizeDirectives = []
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
-                directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
-            }
-            return canonicalizeDirectives.join('\n').trim()
         }
     },
     generateUUIDWithNoDashes: {
@@ -1309,6 +1291,7 @@ const ElementHTML = Object.defineProperties({}, {
             let facetInstance, FacetClass, facetId
             switch (type) {
                 case 'directives/element':
+                    if (!this.app.compile) return
                     const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
                     if (!directives) break
                     facetId = await this.digest(directives)

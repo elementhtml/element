@@ -206,6 +206,25 @@ const module = {
         }
     },
 
+    canonicalizeDirectives: {
+        value: function (directives) {
+            directives = directives.trim()
+            const canonicalizeDirectives = []
+            for (let directive of directives.split(this.sys.regexp.splitter)) {
+                directive = directive.trim()
+                if (!directive || (directive.slice(0, 3) === '|* ')) continue
+                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
+            }
+            return canonicalizeDirectives.join('\n').trim()
+        }
+    },
+    digest: {
+        enumerable: true, value: async function (str) {
+            if (typeof str !== 'string') str = `${str}`
+            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
+        }
+    },
+
     parsers: {
         value: {
             json: function (expression, hasDefault) {
