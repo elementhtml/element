@@ -1485,18 +1485,18 @@ const ElementHTML = Object.defineProperties({}, {
                     const { steps = [] } = statement, labels = {}
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
-                        console.log('line 1488', step)
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
                             { handler, ctx = {} } = params, { binder, vars = {} } = ctx, envelope = { labels, env }
                         this.vars[position] = vars
+                        envelope.vars = this.vars[position]
                         if (binder) {
                             if (this.vars[position].signal) {
                                 this.controllers[position] = new AbortController()
                                 envelope.signal = this.controllers[position].signal
                             }
+                            console.log('line 1496', position, envelope)
                             Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
-                        envelope.vars = this.vars[position]
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                             let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
                             if (detail == undefined) {
