@@ -85,7 +85,7 @@ const module = {
     },
     compileFacet: {
         enumerable: true, value: async function (directives, cid) {
-            cid ??= await this.cid(directives = this.canonicalizeDirectives(directives))
+            cid ??= await this.cid(directives = (await this.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -202,21 +202,30 @@ const module = {
         }
     },
     canonicalizeDirectives: {
-        value: function (directives) {
+        value: async function (directives) {
             directives = directives.trim()
-            const canonicalizeDirectives = []
+            const canonicalizedDirectivesMap = {}, canonicalizedDirectives = []
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
                 if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                canonicalizeDirectives.push(directive.replace(this.sys.regexp.segmenter, ' >> ').trim())
+                directive = directive.replace(this.sys.regexp.segmenter, ' >> ').trim()
+                if (!directive) continue
+                canonicalizedDirectivesMap[await this.digest(directive)] = directive
             }
-            return canonicalizeDirectives.join('\n').trim()
+            for (const directiveDigest of Object.keys(canonicalizedDirectivesMap).sort()) canonicalizedDirectives.push(canonicalizedDirectivesMap[directiveDigest])
+            return canonicalizedDirectives.join('\n').trim()
         }
     },
     cid: {
         value: async function (data) {
             if (typeof data === 'string') data = (new TextEncoder()).encode(data)
             return `b${this.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
+        }
+    },
+    digest: {
+        value: async function (str) {
+            if (typeof str !== 'string') str = `${str}`
+            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
         }
     },
     toBase32: {
