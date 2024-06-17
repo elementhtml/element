@@ -1327,6 +1327,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             FacetClass = this.app.facets.classes[facetCid]
             if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
+            if (this.app.dev) facetContainer.dataset.facetCid = facetCid
             facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
