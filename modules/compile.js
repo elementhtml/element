@@ -214,6 +214,57 @@ const module = {
             return canonicalizeDirectives.join('\n').trim()
         }
     },
+
+    cid: {
+        value: async function (str) {
+
+            const toBase32 = (buffer) => {
+                const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+                const size = buffer.length;
+                let bits = 0;
+                let value = 0;
+                let output = '';
+
+                for (let i = 0; i < size; i++) {
+                    value = (value << 8) | buffer[i];
+                    bits += 8;
+
+                    while (bits >= 5) {
+                        output += alphabet[(value >>> (bits - 5)) & 31];
+                        bits -= 5;
+                    }
+                }
+
+                if (bits > 0) {
+                    output += alphabet[(value << (5 - bits)) & 31];
+                }
+
+                return output
+            }
+
+            const encoder = new TextEncoder();
+            const data = encoder.encode(content);
+
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = new Uint8Array(hashBuffer);
+
+            const multihashBuffer = new Uint8Array(2 + hashArray.length);
+            multihashBuffer[0] = 0x12;
+            multihashBuffer[1] = 0x20;
+            multihashBuffer.set(hashArray, 2);
+
+            const cidBuffer = new Uint8Array(2 + multihashBuffer.length);
+            cidBuffer[0] = 0x01;
+            cidBuffer[1] = 0x55;
+            cidBuffer.set(multihashBuffer, 2);
+
+            const base32 = toBase32(cidBuffer);
+
+            return `b${base32}`;
+        }
+    },
+
+
     digest: {
         value: async function (str) {
             if (typeof str !== 'string') str = `${str}`
