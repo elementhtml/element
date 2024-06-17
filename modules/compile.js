@@ -17,16 +17,14 @@ const nativeElementsMap = {
     }
 }, regexp = {
     defaultValue: /\s+\?\?\s+(.+)\s*$/, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
-}
-
-const module = {
+}, module = {
     compileComponent: {
         enumerable: true, value: async function (id) {
             const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
             container.innerHTML = await fileFetch.text()
-            const style = container.content.querySelector('style'), template = container.content.querySelector('template'), script = container.content.querySelector('script'),
-                scriptCode = script.textContent.trim()
+            const style = container.content.querySelector('style'), template = container.content.querySelector('template'),
+                script = container.content.querySelector('script'), scriptCode = script.textContent.trim()
             let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'HTMLElement', extendsClass = this.Component,
                 extendsStatement = `class extends ElementHTML.Component {`
             if (extendsId in nativeElementsMap) {
