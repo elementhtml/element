@@ -24,7 +24,7 @@ const module = {
     },
     exportFacet: {
         enumerable: true, value: async function (source, format = 'plain') {
-            const facetManifest = { fieldNames: [], cellNames: [], statements: [], hash: undefined }
+            const facetManifest = { fieldNames: [], cellNames: [], statements: [], cid: undefined }
             if (!source) return facetManifest
             let facetClass
             switch (typeof source) {

@@ -148,6 +148,6 @@ struct Statement {
 struct Facet {
     Name cellNames<>;
     Name fieldNames<>;
-    string hash[64];
+    string cid[59];
     Statement statements<>;
 };

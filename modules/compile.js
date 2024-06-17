@@ -84,8 +84,8 @@ const module = {
         }
     },
     compileFacet: {
-        enumerable: true, value: async function (directives, hash) {
-            hash ??= await this.cid(directives = this.canonicalizeDirectives(directives))
+        enumerable: true, value: async function (directives, cid) {
+            cid ??= await this.cid(directives = this.canonicalizeDirectives(directives))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -198,7 +198,7 @@ const module = {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            return this.facetFactory({ fieldNames, cellNames, statements, hash })
+            return this.facetFactory({ fieldNames, cellNames, statements, cid })
         }
     },
     canonicalizeDirectives: {
@@ -214,20 +214,15 @@ const module = {
         }
     },
     cid: {
-        value: async function (content) {
-            const encoder = new TextEncoder(), data = encoder.encode(content),
-                hashBuffer = await crypto.subtle.digest('SHA-256', data), hashArray = new Uint8Array(hashBuffer),
-                multihashBuffer = new Uint8Array(2 + hashArray.length);
-            multihashBuffer.set([0x12, 0x20, ...hashArray])
-            const cidBuffer = new Uint8Array(2 + multihashBuffer.length)
-            cidBuffer.set([0x01, 0x55, ...multihashBuffer])
-            return `b${this.toBase32(cidBuffer)}`
+        value: async function (data) {
+            if (typeof data === 'string') data = (new TextEncoder()).encode(data)
+            return `b${this.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
         }
     },
     toBase32: {
         value: function (buffer) {
             const alphabet = 'abcdefghijklmnopqrstuvwxyz234567', size = buffer.length
-            let bits = 0, value = 0, output = ''
+            let [bits, value, output] = [0, 0, '']
             for (let i = 0; i < size; i++) {
                 value = (value << 8) | buffer[i]
                 bits += 8

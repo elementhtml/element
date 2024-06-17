@@ -1308,28 +1308,28 @@ const ElementHTML = Object.defineProperties({}, {
     mountFacet: {
         value: async function (facetContainer) {
             const { type, src, textContent } = facetContainer
-            let facetInstance, FacetClass, facetId
+            let facetInstance, FacetClass, facetCid
             switch (type) {
                 case 'directives/element':
                     if (!this.app.compile) return
                     const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
                     if (!directives) break
-                    facetId = await this.cid(directives)
-                    this.app.facets.classes[facetId] ??= await this.compileFacet(directives, facetId)
+                    facetCid = await this.cid(directives)
+                    this.app.facets.classes[facetCid] ??= await this.compileFacet(directives, facetCid)
                     break
                 case 'application/element':
-                    if (!src) break
-                    switch (src[0]) {
-                        case '$':
-                            this.app.facets.classes[facetId] ??= this.env.facets[src.slice(1)]
-                            break
-                        default:
-                            this.app.facets.classes[facetId] ??= await import(facetId)
-                            break
+                    if (!src || this.app.facets.classes[src]) break
+                    if (this.env.facets[src] && (this.env.facets[src].prototype instanceof this.Facet)) {
+                        FacetClass = this.env.facets[src]
+                    } else if (!this.app.facets.classes[src]) {
+                        FacetClass = await import(src)
                     }
+                    facetCid = FacetClass.cid
+                    this.app.facets.classes[facetCid] = FacetClass
+                    this.app.facets.classes[src] = FacetClass
                     break
             }
-            FacetClass = this.app.facets.classes[facetId]
+            FacetClass = this.app.facets.classes[facetCid]
             if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
             facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
@@ -1456,12 +1456,12 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (facetManifest) {
             if (facetManifest.prototype instanceof this.Facet) return facetManifest
             if (!this.isPlainObject(facetManifest)) return
-            const { fieldNames, cellNames, statements, hash } = facetManifest
+            const { fieldNames, cellNames, statements, cid } = facetManifest
             const FacetClass = class extends this.Facet {
+                static cid = cid
                 static fieldNames = Array.from(fieldNames)
                 static cellNames = Array.from(cellNames)
                 static statements = statements
-                static hash = hash
             }
             FacetClass.E = this
             return FacetClass
