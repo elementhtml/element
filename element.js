@@ -1314,7 +1314,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!this.app.compile) return
                     const directives = this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
                     if (!directives) break
-                    facetId = await this.digest(directives)
+                    facetId = await this.cid(directives)
                     this.app.facets.classes[facetId] ??= await this.compileFacet(directives, facetId)
                     break
                 case 'application/element':

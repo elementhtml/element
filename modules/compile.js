@@ -85,7 +85,7 @@ const module = {
     },
     compileFacet: {
         enumerable: true, value: async function (directives, hash) {
-            hash ??= await this.digest(directives = this.canonicalizeDirectives(directives))
+            hash ??= await this.cid(directives = this.canonicalizeDirectives(directives))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -201,7 +201,6 @@ const module = {
             return this.facetFactory({ fieldNames, cellNames, statements, hash })
         }
     },
-
     canonicalizeDirectives: {
         value: function (directives) {
             directives = directives.trim()
@@ -214,64 +213,30 @@ const module = {
             return canonicalizeDirectives.join('\n').trim()
         }
     },
-
     cid: {
-        value: async function (str) {
-
-            const toBase32 = (buffer) => {
-                const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
-                const size = buffer.length;
-                let bits = 0;
-                let value = 0;
-                let output = '';
-
-                for (let i = 0; i < size; i++) {
-                    value = (value << 8) | buffer[i];
-                    bits += 8;
-
-                    while (bits >= 5) {
-                        output += alphabet[(value >>> (bits - 5)) & 31];
-                        bits -= 5;
-                    }
-                }
-
-                if (bits > 0) {
-                    output += alphabet[(value << (5 - bits)) & 31];
-                }
-
-                return output
+        value: async function (content) {
+            const encoder = new TextEncoder(), data = encoder.encode(content),
+                hashBuffer = await crypto.subtle.digest('SHA-256', data), hashArray = new Uint8Array(hashBuffer),
+                multihashBuffer = new Uint8Array(2 + hashArray.length);
+            multihashBuffer.set([0x12, 0x20, ...hashArray])
+            const cidBuffer = new Uint8Array(2 + multihashBuffer.length)
+            cidBuffer.set([0x01, 0x55, ...multihashBuffer])
+            return `b${this.toBase32(cidBuffer)}`
+        }
+    },
+    toBase32: {
+        value: function (buffer) {
+            const alphabet = 'abcdefghijklmnopqrstuvwxyz234567', size = buffer.length
+            let bits = 0, value = 0, output = ''
+            for (let i = 0; i < size; i++) {
+                value = (value << 8) | buffer[i]
+                bits += 8
+                while (bits >= 5) output += alphabet[(value >>> (bits -= 5)) & 31]
             }
-
-            const encoder = new TextEncoder();
-            const data = encoder.encode(content);
-
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = new Uint8Array(hashBuffer);
-
-            const multihashBuffer = new Uint8Array(2 + hashArray.length);
-            multihashBuffer[0] = 0x12;
-            multihashBuffer[1] = 0x20;
-            multihashBuffer.set(hashArray, 2);
-
-            const cidBuffer = new Uint8Array(2 + multihashBuffer.length);
-            cidBuffer[0] = 0x01;
-            cidBuffer[1] = 0x55;
-            cidBuffer.set(multihashBuffer, 2);
-
-            const base32 = toBase32(cidBuffer);
-
-            return `b${base32}`;
+            if (bits > 0) output += alphabet[(value << (5 - bits)) & 31]
+            return output
         }
     },
-
-
-    digest: {
-        value: async function (str) {
-            if (typeof str !== 'string') str = `${str}`
-            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
-        }
-    },
-
     parsers: {
         value: {
             json: function (expression, hasDefault) {
