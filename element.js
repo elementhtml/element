@@ -1319,11 +1319,7 @@ const ElementHTML = Object.defineProperties({}, {
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
-                    if (this.env.facets[src] && (this.env.facets[src].prototype instanceof this.Facet)) {
-                        FacetClass = this.env.facets[src]
-                    } else if (!this.app.facets.classes[src]) {
-                        FacetClass = await import(src)
-                    }
+                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : this.facetFactory(await import(src))
                     facetCid = FacetClass.cid
                     this.app.facets.classes[facetCid] = FacetClass
                     this.app.facets.classes[src] = FacetClass
