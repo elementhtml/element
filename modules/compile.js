@@ -319,7 +319,7 @@ const nativeElementsMap = {
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
                 const { group, names } = this.getStateGroup(expression, typeDefault)
-                return { handler: 'state', ctx: { binder: true, vars: { names, signal: true, group } } }
+                return { handler: 'state', ctx: { binder: true, vars: { group, names, signal: true } } }
             },
             string: function (expression, hasDefault) {
                 return { handler: 'string', ctx: { vars: { expression } } }

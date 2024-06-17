@@ -23,7 +23,7 @@ const module = {
         }
     },
     exportFacet: {
-        enumerable: true, value: async function (source, format = 'plain') {
+        enumerable: true, value: async function (source, format = 'plain', options = {}) {
             const facetManifest = { fieldNames: [], cellNames: [], statements: [], cid: undefined }
             if (!source) return facetManifest
             let facetClass
@@ -38,9 +38,13 @@ const module = {
             }
             switch (format) {
                 case 'json': case 'xdr':
-                    if (format === 'json') return JSON.stringify(facetManifest)
+                    if (format === 'json') return JSON.stringify(facetManifest, options?.replacer, options?.space)
                     await this.loadHelper('xdr')
-                    return this.useHelper('xdr', 'stringify', facetManifest, await this.getXdrType('facet'))
+                    const facetType = await this.useHelper('xdr', 'factory', (new URL('../types/Facet.x', import.meta.url)).href, 'Facet', { name: 'Facet', namespace: 'element' })
+
+                    console.log('line 45', facetManifest, facetType.manifest)
+
+                    return this.useHelper('xdr', 'stringify', facetManifest, facetType)
                 default:
                     return facetManifest
             }

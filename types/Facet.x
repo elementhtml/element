@@ -1,3 +1,5 @@
+typedef string JsonEncodedValue<>;
+
 typedef string Name<>;
 
 enum LabelMode { force = 1, silent = 2 };
@@ -36,10 +38,10 @@ struct VarsPattern {
 };
 
 struct VarsProxy {
-    string *childArgs<>;
-    string *childMethodName<>;
-    string parentArgs<>;
-    string parentObjectName<>;
+    JsonEncodedValue *childArgs<>;
+    Name *childMethodName;
+    JsonEncodedValue parentArgs<>;
+    Name parentObjectName;
     bool useHelper;
 };
 
@@ -74,27 +76,27 @@ struct CtxNetwork {
 };
 
 struct CtxPattern {
-    bool binder<>;
+    bool binder;
     VarsPattern vars;
 };
 
 struct CtxProxy {
-    bool binder<>;
+    bool binder;
     VarsProxy vars;
 };
 
 struct CtxRouterHash {
-    bool binder<>;
+    bool binder;
     VarsRouterHash vars;
 };
 
 struct CtxSelector {
-    bool binder<>;
+    bool binder;
     VarsSelector vars;
 };
 
 struct CtxState {
-    bool binder<>;
+    bool binder;
     VarsState vars;
 };
 
