@@ -45,19 +45,13 @@ struct VarsProxy {
     bool useHelper;
 };
 
-struct VarsRouterHash {
-    bool signal;
-};
-
 struct VarsSelector {
     string scopeStatement<>;
     string selectorStatement<>;
-    bool signal;
 };
 
 struct VarsState {
     string expression<>;
-    bool signal;
     string typeDefault[1];
 };
 
@@ -87,16 +81,18 @@ struct CtxProxy {
 
 struct CtxRouterHash {
     bool binder;
-    VarsRouterHash vars;
+    bool signal;
 };
 
 struct CtxSelector {
     bool binder;
+    bool signal;
     VarsSelector vars;
 };
 
 struct CtxState {
     bool binder;
+    bool signal;
     VarsState vars;
 };
 

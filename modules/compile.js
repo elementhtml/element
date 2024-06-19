@@ -278,7 +278,7 @@ const nativeElementsMap = {
                 let handler
                 switch (expression) {
                     case '#':
-                        return { handler: 'routerhash', ctx: { binder: true, vars: { signal: true } } }
+                        return { handler: 'routerhash', ctx: { binder: true, signal: true } }
                         break
                     case '?':
                         handler = 'routersearch'
@@ -312,14 +312,14 @@ const nativeElementsMap = {
                     }
                 }
                 const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-                return { handler: 'selector', ctx: { binder: true, vars: { scopeStatement, selectorStatement, signal: true } } }
+                return { handler: 'selector', ctx: { binder: true, signal: true, vars: { scopeStatement, selectorStatement } } }
             },
             state: function (expression, hasDefault) {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
                 const { group, names, shape } = this.getStateGroup(expression, typeDefault)
-                return { handler: 'state', ctx: { binder: true, vars: { group, names, shape, signal: true } } }
+                return { handler: 'state', ctx: { binder: true, signal: true, vars: { group, names, shape } } }
             },
             string: function (expression, hasDefault) {
                 return { handler: 'string', ctx: { vars: { expression } } }

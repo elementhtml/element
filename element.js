@@ -1489,11 +1489,11 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
-                            { handler, ctx = {} } = params, { binder, vars = {} } = ctx, envelope = { labels, env }
+                            { handler, ctx = {} } = params, { binder, signal, vars = {} } = ctx, envelope = { labels, env }
                         this.vars[position] = vars
                         envelope.vars = this.vars[position]
                         if (binder) {
-                            if (this.vars[position].signal) {
+                            if (signal) {
                                 this.controllers[position] = new AbortController()
                                 envelope.signal = this.controllers[position].signal
                             }
