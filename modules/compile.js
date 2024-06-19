@@ -247,18 +247,18 @@ const nativeElementsMap = {
                 return { handler: 'json', ctx: { vars: { value } } }
             },
             network: function (expression, hasDefault) {
-                const expressionIncludesValueAsVariable = (expression.includes('${}') || expression.includes('${$}'))
+                const expressionIncludesVariable = (expression.includes('${}') || expression.includes('${$}'))
                 let returnFullRequest = false
                 if (expression[0] === '~' && expression.endsWith('~')) {
                     returnFullRequest = true
                     expression = expression.slice(1, -1)
                 }
-                return { handler: 'network', ctx: { vars: { expression, expressionIncludesValueAsVariable, hasDefault, returnFullRequest } } }
+                return { handler: 'network', ctx: { vars: { expression, expressionIncludesVariable, hasDefault, returnFullRequest } } }
             },
             pattern: function (expression, hasDefault) {
                 expression = expression.trim()
                 if (!expression) return
-                return { handler: 'pattern', ctx: { binder: true, vars: { expression, regexp: this.env.regexp[expression] ?? new RegExp(expression) } } }
+                return { handler: 'pattern', ctx: { binder: true, vars: { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) } } }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
@@ -318,8 +318,8 @@ const nativeElementsMap = {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
-                const { group, names } = this.getStateGroup(expression, typeDefault)
-                return { handler: 'state', ctx: { binder: true, vars: { group, names, signal: true } } }
+                const { group, names, shape } = this.getStateGroup(expression, typeDefault)
+                return { handler: 'state', ctx: { binder: true, vars: { group, names, shape, signal: true } } }
             },
             string: function (expression, hasDefault) {
                 return { handler: 'string', ctx: { vars: { expression } } }

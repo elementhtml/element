@@ -27,19 +27,19 @@ struct VarsJson {
 
 struct VarsNetwork {
     string expression<>;
-    bool expressionIncludesValueAsVariable;
+    bool expressionIncludesVariable;
     bool hasDefault;
     bool returnFullRequest;
 };
 
 struct VarsPattern {
     string expression<>;
-    string regexp<>;
 };
 
 struct VarsProxy {
     JsonEncodedValue *childArgs<>;
     Name *childMethodName;
+    bool hydrate;
     JsonEncodedValue parentArgs<>;
     Name parentObjectName;
     bool useHelper;

@@ -898,13 +898,17 @@ const ElementHTML = Object.defineProperties({}, {
             pattern: async function (container, position, envelope) {
                 const { vars } = envelope, { expression } = vars
                 let { regexp } = vars
-                regexp = new RegExp(regexp ?? expression)
-                this.app.regexp[expression] ||= this.env.regexp[expression] ?? regexp
+                regexp ??= new RegExp(expression)
+                this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
                 return { regexp }
             },
             proxy: async function (container, position, envelope) {
-                const { vars } = envelope, { useHelper, parentObjectName } = vars
+                const { vars } = envelope, { hydrate, parentObjectName, useHelper } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
+                if (hydrate) {
+                    for (const [i, a] of (vars.childArgs ?? []).entries()) vars.childArgs[i] = JSON.parse(a)
+                    for (const [i, a] of (vars.parentsArgs ?? []).entries()) vars.parentsArgs[i] = JSON.parse(a)
+                }
             },
             routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
@@ -977,11 +981,11 @@ const ElementHTML = Object.defineProperties({}, {
         value: {
             json: async function (container, position, envelope, value) { return envelope.vars.value },
             network: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression, expressionIncludesValueAsVariable, returnFullRequest } = vars
+                const { labels, env, vars } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)
                 if (!url) return
                 const options = {}
-                if (!((value == undefined) || (expressionIncludesValueAsVariable && typeof value === 'string'))) {
+                if (!((value == undefined) || (expressionIncludesVariable && typeof value === 'string'))) {
                     Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
                     if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
                         options.headers ||= {}
@@ -1201,7 +1205,7 @@ const ElementHTML = Object.defineProperties({}, {
     getStateGroup: {
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
-            let group, names = parseOnly ? { cell: new Set(), field: new Set() } : undefined
+            let group, shape, names = parseOnly ? { cell: new Set(), field: new Set() } : undefined
             if (!parseOnly) element = this.app.components.instances.get(element) ?? element
             const canonicalizeName = (name) => {
                 let type
@@ -1225,6 +1229,7 @@ const ElementHTML = Object.defineProperties({}, {
             switch (expression[0]) {
                 case '{':
                     group = {}
+                    shape = 'object'
                     for (const pair of expression.slice(1, -1).trim().split(',')) {
                         let [key, rawName] = pair.trim().split(':').map(s => s.trim())
                         if (!rawName) rawName = key
@@ -1239,6 +1244,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 case '[':
                     group = []
+                    shape = 'array'
                     for (let t of expression.slice(1, -1).split(',')) {
                         t = t.trim()
                         if (!t) continue
@@ -1250,6 +1256,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                 default:
+                    shape = 'single'
                     expression = expression.trim()
                     if (!expression) return
                     group = canonicalizeName(expression)
@@ -1259,7 +1266,7 @@ const ElementHTML = Object.defineProperties({}, {
                         group = getStateTarget(group.name, group.mode, group.type)
                     }
             }
-            if (parseOnly) return { group, names: { cell: Array.from(names.cell), field: Array.from(names.field) } }
+            if (parseOnly) return { group, names: { cell: Array.from(names.cell), field: Array.from(names.field) }, shape }
             return group
         }
     },
