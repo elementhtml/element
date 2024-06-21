@@ -148,8 +148,18 @@ const nativeElementsMap = {
                                     break
                                 case "#": case "@":
                                     params = this.parsers.state(handlerExpression, hasDefault)
-                                    for (const n of (params.ctx.vars.names.field ?? [])) fieldNames.add(n)
-                                    for (const n of (params.ctx.vars.names.cell ?? [])) cellNames.add(n)
+                                    const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
+                                    switch (shape) {
+                                        case 'single':
+                                            targetNames[target.type].add(target.name)
+                                            break
+                                        case 'array':
+                                            for (const t of target) targetNames[t.type].add(t.name)
+                                            break
+                                        case 'object':
+                                            for (const key in target) targetNames[target[key].type].add(target[key].name)
+                                            break
+                                    }
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
@@ -311,15 +321,15 @@ const nativeElementsMap = {
                             expression = `:root|${expression}`
                     }
                 }
-                const [scopeStatement, selectorStatement] = expression.split('|').map(s => s.trim())
-                return { handler: 'selector', ctx: { binder: true, signal: true, vars: { scopeStatement, selectorStatement } } }
+                const [scope, selector] = expression.split('|').map(s => s.trim())
+                return { handler: 'selector', ctx: { binder: true, signal: true, vars: { scope, selector } } }
             },
             state: function (expression, hasDefault) {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
-                const { group, names, shape } = this.getStateGroup(expression, typeDefault)
-                return { handler: 'state', ctx: { binder: true, signal: true, vars: { group, names, shape } } }
+                const { group: target, shape } = this.getStateGroup(expression, typeDefault)
+                return { handler: 'state', ctx: { binder: true, signal: true, vars: { target, shape } } }
             },
             string: function (expression, hasDefault) {
                 return { handler: 'string', ctx: { vars: { expression } } }

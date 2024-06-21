@@ -915,7 +915,7 @@ const ElementHTML = Object.defineProperties({}, {
                 window.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
             },
             selector: async function (container, position, envelope) {
-                const { vars, signal } = envelope, { scopeStatement, selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
+                const { vars, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
                 if (!scope) return {}
                 let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                 if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
@@ -941,31 +941,31 @@ const ElementHTML = Object.defineProperties({}, {
                 return { selector, scope }
             },
             state: async function (container, position, envelope) {
-                const { signal, vars } = envelope, { group } = vars,
-                    config = Array.isArray(group) ? 'array' : (group.set ? 'object' : 'single'), items = []
-                let getReturnValue
-                switch (config) {
+                const { signal, vars } = envelope, { shape } = vars, items = []
+                let { target } = vars, getReturnValue
+                switch (shape) {
                     case 'single':
-                        group[group.type] = group.type === 'field' ? this.getField(container, group.name) : this.getCell(group.name)
-                        getReturnValue = () => group[group.type].get()
-                        items.push(group)
+                        target[target.type] = target.type === 'field' ? this.getField(container, target.name) : this.getCell(target.name)
+                        getReturnValue = () => target[target.type].get()
+                        items.push(target)
                         break
                     case 'array':
-                        for (const g of group) g[g.type] = g.type === 'field' ? this.getField(container, g.name) : this.getCell(g.name)
+                        for (const t of target) t[t.type] = t.type === 'field' ? this.getField(container, t.name) : this.getCell(t.name)
                         getReturnValue = () => {
-                            const r = group.map(g => g[g.type].get())
+                            const r = target.map(t => t[t.type].get())
                             return r.some(rr => rr == undefined) ? undefined : r
                         }
-                        items = group
+                        items = target
                         break
-                    default:
-                        for (const g of Object.values(group)) g[g.type] = g.type === 'field' ? this.getField(container, g.name) : this.getCell(g.name)
+                    case 'object':
+                        if (Array.isArray(target)) target = Object.fromEntries(target)
+                        for (const t of Object.values(target)) t[t.type] = t.type === 'field' ? this.getField(container, t.name) : this.getCell(t.name)
                         getReturnValue = () => {
                             const r = {}
-                            for (const name in group) r[name] = group[name][group[name].type].get()
+                            for (const key in target) r[key] = target[key][target[key].type].get()
                             return Object.values(r).every(rr => rr == undefined) ? undefined : r
                         }
-                        items = Object.values(group)
+                        items = Object.values(target)
                 }
                 for (const item of items) {
                     item[item.type].eventTarget.addEventListener('change', event => {
@@ -973,7 +973,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                     }, { signal })
                 }
-                return { getReturnValue, config, group }
+                return { getReturnValue, shape, target }
             }
         }
     },
@@ -1084,17 +1084,17 @@ const ElementHTML = Object.defineProperties({}, {
                 return value
             },
             state: async function (container, position, envelope, value) {
-                const { vars } = envelope, { getReturnValue, config, group } = vars
+                const { vars } = envelope, { getReturnValue, shape, target } = vars
                 if (value == undefined) return getReturnValue()
-                switch (config) {
+                switch (shape) {
                     case 'single':
-                        group[group.type].set(value, group.mode)
+                        target[target.type].set(value, target.mode)
                         break
                     case 'array':
-                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if ((v != undefined) && (group[i] != undefined)) group[i][group[i].type].set(v, group[i].mode)
+                        if (Array.isArray(value)) for (const [i, v] of value.entries()) if (v != undefined) target[i][target[i].type].set(v, target[i].mode)
                         break
                     default:
-                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined && group[k]) group[k][group[k].type].set(v, group[k].mode)
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined) target[k][target[k].type].set(v, target[k].mode)
                 }
                 return getReturnValue()
             },
@@ -1205,7 +1205,7 @@ const ElementHTML = Object.defineProperties({}, {
     getStateGroup: {
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
-            let group, shape, names = parseOnly ? { cell: new Set(), field: new Set() } : undefined
+            let group, shape
             if (!parseOnly) element = this.app.components.instances.get(element) ?? element
             const canonicalizeName = (name) => {
                 let type
@@ -1236,11 +1236,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const { name, mode, type } = canonicalizeName(rawName)
                         if (mode) key = key.slice(0, -1)
                         group[key] = { name, mode, type }
-                        if (parseOnly) {
-                            names[type].add(name)
-                        } else {
-                            group[key][type] = getStateTarget(name, mode, type)
-                        }
+                        if (!parseOnly) group[key][type] = getStateTarget(name, mode, type)
                     }
                 case '[':
                     group = []
@@ -1249,24 +1245,16 @@ const ElementHTML = Object.defineProperties({}, {
                         t = t.trim()
                         if (!t) continue
                         const { name, mode, type } = canonicalizeName(t), index = group.push({ name, mode, type }) - 1
-                        if (parseOnly) {
-                            names[type].add(name)
-                        } else {
-                            group[index][type] = getStateTarget(name, mode, type)
-                        }
+                        if (!parseOnly) group[index][type] = getStateTarget(name, mode, type)
                     }
                 default:
                     shape = 'single'
                     expression = expression.trim()
                     if (!expression) return
                     group = canonicalizeName(expression)
-                    if (parseOnly) {
-                        names[group.type].add(group.name)
-                    } else {
-                        group = getStateTarget(group.name, group.mode, group.type)
-                    }
+                    if (!parseOnly) group = getStateTarget(group.name, group.mode, group.type)
             }
-            if (parseOnly) return { group, names: { cell: Array.from(names.cell), field: Array.from(names.field) }, shape }
+            if (parseOnly) return { group, shape }
             return group
         }
     },

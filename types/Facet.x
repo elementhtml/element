@@ -46,19 +46,54 @@ struct VarsProxy {
 };
 
 struct VarsSelector {
-    string scopeStatement<>;
-    string selectorStatement<>;
+    string scope<>;
+    string selector<>;
 };
 
-struct VarsState {
-    string expression<>;
-    string typeDefault[1];
+
+
+enum ShapeType {
+    single = 0,
+    array = 1, 
+    object = 2
 };
+
+enum StateMode {
+    default = 0,
+    force = 1, 
+    silent = 2
+};
+
+enum StateType {
+    cell = 0, 
+    field = 1
+};
+
+struct StateEntry {
+    StateMode mode;
+    Name name;
+    StateType type;
+};
+
+struct KeyedStateEntry {
+    Name key;
+    StateEntry entry;
+};
+
+union VarsState switch(ShapeType shape) {
+    case single: 
+        StateEntry target;
+    case array: 
+        StateEntry target<>;
+    case object: 
+        KeyedStateEntry target<>;
+};
+
+
 
 struct VarsExpression {
     string expression<>;
 };
-
 
 
 struct CtxJson {
