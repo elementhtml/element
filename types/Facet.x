@@ -21,6 +21,23 @@ enum HandlerType {
     wait = 14
 };
 
+enum ShapeType {
+    single = 0,
+    array = 1, 
+    object = 2
+};
+
+enum StateMode {
+    default = 0,
+    force = 1, 
+    silent = 2
+};
+
+enum StateType {
+    cell = 0, 
+    field = 1
+};
+
 struct VarsJson {
     string value<>;
 };
@@ -50,25 +67,6 @@ struct VarsSelector {
     string selector<>;
 };
 
-
-
-enum ShapeType {
-    single = 0,
-    array = 1, 
-    object = 2
-};
-
-enum StateMode {
-    default = 0,
-    force = 1, 
-    silent = 2
-};
-
-enum StateType {
-    cell = 0, 
-    field = 1
-};
-
 struct StateEntry {
     StateMode mode;
     Name name;
@@ -89,12 +87,9 @@ union VarsState switch(ShapeType shape) {
         KeyedStateEntry target<>;
 };
 
-
-
 struct VarsExpression {
     string expression<>;
 };
-
 
 struct CtxJson {
     VarsJson vars;        
