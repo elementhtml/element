@@ -1167,7 +1167,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const subspaceName in (this.app.components.classes[id].subspaces ?? {})) {
                 let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
-                const newTagName = `${virtualSubspaceName}-`
                 this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
                     .replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`).replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`)
                     .replace(new RegExp(` is='${subspaceName}-`, 'g'), ` is='${virtualSubspaceName}-`).replace(new RegExp(` is="${subspaceName}-`, 'g'), ` is="${virtualSubspaceName}-`)
