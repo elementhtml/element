@@ -56,7 +56,6 @@ struct VarsPattern {
 struct VarsProxy {
     JsonEncodedValue *childArgs<>;
     Name *childMethodName;
-    bool hydrate;
     JsonEncodedValue parentArgs<>;
     Name parentObjectName;
     bool useHelper;
@@ -68,7 +67,7 @@ struct VarsSelector {
 };
 
 struct StateEntry {
-    StateMode mode;
+    StateMode *mode;
     Name name;
     StateType type;
 };

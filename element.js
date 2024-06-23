@@ -119,6 +119,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function () {
             this.app.dev = true
             this.app.packages = new Map()
+            this.app.facets.exports = new WeakMap()
             await this.installModule('dev')
         }
     },
@@ -903,12 +904,10 @@ const ElementHTML = Object.defineProperties({}, {
                 return { regexp }
             },
             proxy: async function (container, position, envelope) {
-                const { vars } = envelope, { hydrate, parentObjectName, useHelper } = vars
+                const { vars } = envelope, { parentObjectName, useHelper } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-                if (hydrate) {
-                    for (const [i, a] of (vars.childArgs ?? []).entries()) vars.childArgs[i] = JSON.parse(a)
-                    for (const [i, a] of (vars.parentsArgs ?? []).entries()) vars.parentsArgs[i] = JSON.parse(a)
-                }
+                for (const [i, a] of (vars.childArgs ?? []).entries()) try { vars.childArgs[i] = JSON.parse(a) } catch (e) { vars.childArgs[i] = a }
+                for (const [i, a] of (vars.parentsArgs ?? []).entries()) try { vars.parentsArgs[i] = JSON.parse(a) } catch (e) { vars.parentsArgs[i] = a }
             },
             routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
@@ -1321,6 +1320,7 @@ const ElementHTML = Object.defineProperties({}, {
                     break
             }
             FacetClass = this.app.facets.classes[facetCid]
+            if (this.app.dev && !this.app.facets.exports.has(FacetClass)) this.app.facets.exports.set(FacetClass, { statements: JSON.parse(JSON.stringify(FacetClass.statements)) })
             if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
             if (this.app.dev) facetContainer.dataset.facetCid = facetCid
             facetInstance = new FacetClass()

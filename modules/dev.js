@@ -34,22 +34,23 @@ const module = {
                     facetClass ??= source
                 case 'object':
                     if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
-                    if (facetClass) for (const p in facetManifest) facetManifest[p] = facetClass[p]
             }
+            if (!facetClass) return facetManifest
+            const facetExports = this.app.facets.exports.get(facetClass) ?? {}
+            for (const p in facetManifest) facetManifest[p] = JSON.parse(JSON.stringify(facetExports[p] ?? facetClass[p]))
             switch (format) {
                 case 'json': case 'xdr':
                     if (format === 'json') return JSON.stringify(facetManifest, options?.replacer, options?.space)
                     await this.loadHelper('xdr')
                     const facetType = await this.useHelper('xdr', 'factory', (new URL('../types/Facet.x', import.meta.url)).href, 'Facet', { name: 'Facet', namespace: 'element' })
-
-                    console.log('line 45', facetManifest, facetType.manifest)
-
                     return this.useHelper('xdr', 'stringify', facetManifest, facetType)
                 default:
                     return facetManifest
             }
         }
     },
+
+
     exportPackage: {
         enumerable: true, value: async function (includePackages, includeComponents, includeFacets) {
             includePackages ??= new Set()
