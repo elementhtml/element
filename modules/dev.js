@@ -61,7 +61,7 @@ const module = {
             includePackages ??= new Set()
             includeComponents ??= new Set()
             includeFacets ??= new Set()
-            const openingLine = 'const Package = {}', closingLine = 'export default Package', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
+            const openingLine = 'const Package = {};\n', closingLine = '\nexport default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
             if (Array.isArray(includePackages)) {
                 for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
             } else if (includePackages instanceof Set) {
@@ -85,7 +85,7 @@ const module = {
             }
             packageChunks.unshift(openingLine)
             packageChunks.push(closingLine)
-            return packageChunks.join('\n\n')
+            return packageChunks.join('\n')
         }
     },
 

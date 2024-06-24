@@ -1300,19 +1300,19 @@ const ElementHTML = Object.defineProperties({}, {
     },
     mountFacet: {
         value: async function (facetContainer) {
-            const { type, src, textContent } = facetContainer
-            let facetInstance, FacetClass, facetCid
+            const { type, textContent } = facetContainer
+            let src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
             switch (type) {
                 case 'directives/element':
                     if (!this.app.compile) return
-                    const directives = await this.canonicalizeDirectives(src ? await fetch(src).then(r => r.text()) : textContent)
+                    const directives = await this.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
                     facetCid = await this.cid(directives)
                     this.app.facets.classes[facetCid] ??= await this.compileFacet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
-                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : this.facetFactory(await import(src))
+                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : this.facetFactory(await import(this.resolveUrl(src)))
                     facetCid = FacetClass.cid
                     this.app.facets.classes[facetCid] = FacetClass
                     this.app.facets.classes[src] = FacetClass
@@ -1533,14 +1533,20 @@ const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, fl
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
-    const importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}
-    let importmap = { imports: {} }
-    if (importmapElement) try { importmap = JSON.parse(importmapElement.textContent.trim()) } catch (e) { }
+    const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
+        importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }
+    if (importmapElement) {
+        try { Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())) } catch (e) { }
+    } else if (metaOptions.get('packages')) {
+        for (const p of packageList) importmap.imports[p] = `./packages/${p}.js`
+    } else {
+        importmap.imports.main = './packages/main.js'
+        packageList.push('main')
+    }
     const imports = importmap.imports ?? {}, importPromises = new Map()
-    for (const key of metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s)) {
-        let importUrl = ((typeof imports[key] === 'string') && imports[key].includes('/')) ? (imports[key].endsWith('/') ? `${imports[key]}package.js` : imports[key]) : `ipfs://${key}/package.js`,
-            [protocol,] = importUrl.split('://')
-        if (protocol !== importUrl) if (typeof ElementHTML.env.loaders[(protocol = `${protocol}://`)] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
+    for (const key of packageList) {
+        let importUrl = imports[key], [protocol,] = importUrl.split('://')
+        if ((protocol !== 'https') && (protocol !== importUrl)) if (typeof ElementHTML.env.loaders[(protocol = `${protocol}://`)] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
