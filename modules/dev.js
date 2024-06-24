@@ -56,8 +56,6 @@ const module = {
             }
         }
     },
-
-
     exportPackage: {
         enumerable: true, value: async function (includePackages, includeComponents, includeFacets) {
             includePackages ??= new Set()
@@ -71,22 +69,27 @@ const module = {
             }
             for (const packageUrl of packageUrls) packageChunks.push((await (await fetch(packageUrl)).text()).trim().split('\n')
                 .filter(l => !(l.trim().startsWith(openingLine) || l.trim().startsWith(closingLine))).join('\n').trim())
-            for (const [lc, uc] of [['component', 'Component'], ['facet', 'Facet']]) {
-                const m = new Map(), include = lc === 'component' ? includeComponents : includeFacets
+            for (const [lc, uc] of [['components', 'Component'], ['facets', 'Facet']]) {
+                const m = new Map(), include = lc === 'components' ? includeComponents : includeFacets
                 if (Array.isArray(include)) {
-                    for (const id of include) if (this.env[lc][id]) m.set(id, this.env[lc][id])
+                    let t
+                    for (const id of include) if (t = (this.env[lc][id] ?? this.app[lc].classes[id])) m.set(id, t)
                 } else if (include instanceof Set) {
                     for (const id in this.env[lc]) if (!include.has(id)) m.set(id, this.env[lc][id])
+                    for (const id in this.app[lc].classes) if (!include.has(id)) m.set(id, this.app[lc].classes[id])
                 }
                 if (m.size) {
-                    packageChunks.push(`package.${lc}s ??= {}`)
-                    for (const [id, manifest] of m.entries()) packageChunks.push(`package.${lc}s['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
+                    packageChunks.push(`Package.${lc} ??= {}`)
+                    for (const [id, manifest] of m.entries()) packageChunks.push(`Package.${lc}['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
                 }
             }
-            packageChunks.push('export default Package')
-            return packageChunks.join('/n/n')
+            packageChunks.unshift(openingLine)
+            packageChunks.push(closingLine)
+            return packageChunks.join('\n\n')
         }
     },
+
+
     exportApplication: {
         enumerable: true, value: async function (manifest) {
             const { source, priority, name, author, title, description, icon, links, meta, og, cards, schema, dc, blocks, pwa, robots, sitemap, assets, targets, vars } = manifest
@@ -255,3 +258,4 @@ const module = {
 }
 
 export { module }
+
