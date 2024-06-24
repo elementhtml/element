@@ -58,7 +58,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                    await Promise.all(Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {}).map(entry => this.loadHelper(entry[1])))
                 },
                 'xdr': async function () { this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default },
                 'ipfs://': async function () {
@@ -492,10 +491,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     loadHelper: {
         enumerable: true, value: async function (name) {
-            if (typeof this.app.helpers[name] === 'function') return true
+            if (typeof this.app.helpers[name] === 'function') return name
             if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name]()
-            if (typeof this.env.helpers[name] === 'function') return (this.app.helpers[name] = this.env.helpers[name])
-            return false
+            if (typeof this.env.helpers[name] === 'function') return ((this.app.helpers[name] = this.env.helpers[name]) && name)
         }
     },
     mergeVariables: {
@@ -824,7 +822,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
             const transformKey = transform
-            let expression
+            let expression, helperAlias
             if (this.app.transforms[transformKey] === true) {
                 let waitCount = 0
                 while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) {
@@ -841,17 +839,14 @@ const ElementHTML = Object.defineProperties({}, {
                     return data
                 }
                 expression ||= this.env.transforms[transformKey]
-                if (!expression) {
-                    await this.loadHelper('application/x-jsonata')
-                    expression = this.useHelper('application/x-jsonata', transform)
-                }
+                if (!expression) expression = this.useHelper(await this.loadHelper('application/x-jsonata'), transform)
                 this.app.transforms[transformKey] = [transform, expression]
             } else {
                 if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey]
                 if (!transform) return data
             }
             expression ||= this.app.transforms[transformKey][1]
-            const bindings = {}
+            const bindings = {}, helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
             if (element) {
                 if (transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (transform.includes('$this')) bindings.this = this.flatten(element)
@@ -859,6 +854,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (transform.includes('$host')) bindings.host = this.flatten((element.E_native ?? element).getRootNode().host)
                 if (transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
             }
+            for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
             return await expression.evaluate(data, bindings)
         }
