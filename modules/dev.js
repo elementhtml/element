@@ -57,10 +57,7 @@ const module = {
         }
     },
     exportPackage: {
-        enumerable: true, value: async function (includePackages, includeComponents, includeFacets) {
-            includePackages ??= new Set()
-            includeComponents ??= new Set()
-            includeFacets ??= new Set()
+        enumerable: true, value: async function (includePackages = new Set(), includeComponents = new Set(), includeFacets = new Set()) {
             const openingLine = 'const Package = {};\n', closingLine = '\nexport default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
             if (Array.isArray(includePackages)) {
                 for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
@@ -78,10 +75,8 @@ const module = {
                     for (const id in this.env[lc]) if (!include.has(id)) m.set(id, this.env[lc][id])
                     for (const id in this.app[lc].classes) if (!include.has(id)) m.set(id, this.app[lc].classes[id])
                 }
-                if (m.size) {
-                    packageChunks.push(`Package.${lc} ??= {}`)
-                    for (const [id, manifest] of m.entries()) packageChunks.push(`Package.${lc}['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
-                }
+                if (m.size) packageChunks.push(`Package.${lc} ??= {}`)
+                for (const id of m.keys()) packageChunks.push(`Package.${lc}['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
             }
             packageChunks.unshift(openingLine)
             packageChunks.push(closingLine)
