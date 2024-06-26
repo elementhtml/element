@@ -103,11 +103,15 @@ const module = {
                     schema: { '@context': 'https://schema.org', '@type': 'WebSite', name, headline: title, image, url, description: page.meta?.description, keywords: page.meta?.keywords, author: page.meta?.author, ...(page.schema ?? {}) },
                     twitter: { card: 'summary_large_image', image, url, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
-                for (const type in ['link', 'meta', 'og', 'twitter']) {
+                for (const type in metaMaps) {
                     let placeholder = template.content.querySelector(`meta[name="element-${type}"]`)
                         ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
                     if (!placeholder) continue
                     if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
+                    if (type === 'schema') {
+
+                        return
+                    }
                     const metaTemplate = document.createElement('template')
                     for (const n in metaMaps[type]) {
                         let el
@@ -125,6 +129,7 @@ const module = {
                         }
                         metaTemplate.content.appendChild(el)
                     }
+                    placeholder.replaceWith(...metaTemplate.content.cloneNode(true).children)
                 }
 
 
