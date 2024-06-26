@@ -104,14 +104,18 @@ const module = {
                     twitter: { card: 'summary_large_image', image, url, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
                 for (const type in metaMaps) {
-                    let placeholder = template.content.querySelector(`meta[name="element-${type}"]`)
-                        ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
+                    const placeholderSelector = type === 'schema' ? 'script[type="application/ld+json"]' : `meta[name="element-${type}"]`
+                    let placeholder = template.content.querySelector(placeholderSelector)
+                        ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement(type === schema ? 'script' : 'meta')) : undefined)
                     if (!placeholder) continue
-                    if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
                     if (type === 'schema') {
-
+                        placeholder.type ||= 'application/ld+json'
+                        const schemaData = placeholder.textContent ? JSON.parse(placeholder.textContent) : {}
+                        metaMaps[type] = { ...schemaData, ...metaMaps[type] }
+                        placeholder.textContent = JSON.stringify(metaMaps[type])
                         return
                     }
+                    if (placeholder.content && (type !== 'schema')) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
                     const metaTemplate = document.createElement('template')
                     for (const n in metaMaps[type]) {
                         let el
