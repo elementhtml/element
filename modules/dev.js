@@ -88,9 +88,13 @@ const module = {
     exportApplication: {
         enumerable: true, value: async function* (manifest, handler) {
 
-            const { global: globalDefaults, targets = [] } = manifest
-            for (const target of targets) {
-                const { path } = target
+            const { vars = {}, pages = [], assets = [] } = manifest
+            for (const page of pages) {
+                const { source, target, name, title, icon, url, published, modified, meta, sitemap, pwa, og, twitter, schema } = page
+
+            }
+            for (const asset of assets) {
+                const { source, target } = asset
 
             }
 
