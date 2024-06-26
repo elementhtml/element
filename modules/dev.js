@@ -103,37 +103,29 @@ const module = {
                     schema: { '@context': 'https://schema.org', '@type': 'WebSite', name, headline: title, image, url, description: page.meta?.description, keywords: page.meta?.keywords, author: page.meta?.author, ...(page.schema ?? {}) },
                     twitter: { card: 'summary_large_image', image, url, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
-                for (const type in metaMaps) {
+                for (const type in ['link', 'meta', 'og', 'twitter']) {
                     let placeholder = template.content.querySelector(`meta[name="element-${type}"]`)
                         ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
                     if (!placeholder) continue
                     if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
                     const metaTemplate = document.createElement('template')
                     for (const n in metaMaps[type]) {
+                        let el
                         switch (type) {
                             case 'link':
-                                const link = document.createElement('link')
-                                link.setAttribute('rel', n)
-                                link.setAttribute('href', metaMaps[type][n])
-                                metaTemplate.content.appendChild(link)
+                                el = document.createElement('link')
+                                el.setAttribute('rel', n)
+                                el.setAttribute('href', metaMaps[type][n])
                                 break
-
-
+                            case 'meta': case 'og': case 'twitter':
+                                el = document.createElement('meta')
+                                m.setAttribute(type === 'og' ? 'property' : 'name', type === 'meta' ? n : `${type}:${n}`)
+                                m.setAttribute('content', metaMaps[type][n])
+                                break
                         }
-
+                        metaTemplate.content.appendChild(el)
                     }
-
                 }
-
-
-                og.site_name ??= name
-                og.title ??= title
-                og.description ??= description
-                og.image ??= icon
-                og.url ??= url
-                og.type ??= 'website'
-                og.locale ??= 'en_US'
-                og.
 
 
 
