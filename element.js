@@ -105,7 +105,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.compile = true
             await this.installModule('compile')
             Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
-            Object.defineProperty(window, this.app._globalNamespace, { value: this })
+            Object.defineProperty(globalThis, this.app._globalNamespace, { value: this })
             protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
             for (let p of protocols) {
                 this.env.loaders[p] &&= this.env.loaders[p].bind(this)
@@ -125,7 +125,7 @@ const ElementHTML = Object.defineProperties({}, {
     Expose: {
         enumerable: true, value: async function (name = 'E') {
             this.app.expose = true
-            window[name && typeof name === 'string' ? name : 'E'] ||= this
+            globalThis[name && typeof name === 'string' ? name : 'E'] ||= this
         }
     },
     ImportPackage: {
@@ -205,7 +205,7 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(this)
                 if (!this.app.dev) {
                     console.log = () => { }
-                    window.addEventListener('unhandledrejection', event => event.preventDefault())
+                    globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
@@ -826,7 +826,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.app.transforms[transformKey] === true) {
                 let waitCount = 0
                 while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) {
-                    await new Promise(resolve => window.requestIdleCallback ? window.requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
+                    await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
                 }
             }
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
@@ -907,7 +907,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
-                window.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+                globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
             },
             selector: async function (container, position, envelope) {
                 const { vars, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
@@ -1112,11 +1112,11 @@ const ElementHTML = Object.defineProperties({}, {
                 mainWait = this.mergeVariables(mainWait, value, labels, env)
                 let ms = 0, now = Date.now()
                 if (mainWait === 'frame') {
-                    await new Promise(resolve => window.requestAnimationFrame(resolve))
+                    await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
                     return getResult()
-                } else if (window.requestIdleCallback && mainWait.startsWith('idle')) {
+                } else if (globalThis.requestIdleCallback && mainWait.startsWith('idle')) {
                     const [, timeout] = mainWait.split(':')
-                    await new Promise(resolve => window.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
+                    await new Promise(resolve => globalThis.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
                     return getResult()
                 } else if (mainWait[0] === '+') {
                     ms = parseInt(mainWait.slice(1)) || 0

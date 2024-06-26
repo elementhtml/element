@@ -88,13 +88,66 @@ const module = {
     exportApplication: {
         enumerable: true, value: async function* (manifest, handler) {
 
-            const { vars = {}, pages = [], assets = [] } = manifest
+            const { base = globalThis.location.href, vars = {}, pages = [{}], assets = [] } = manifest
             for (const page of pages) {
-                const { source, target, name, title, icon, url, published, modified, meta, sitemap, pwa, og, twitter, schema } = page
+                let { source = globalThis.location.href, target = 'index.html', name, title, image, url, published, modified, meta, sitemap, pwa, og, twitter, schema } = page
+                const sourceFetch = await fetch(new URL(source, base).href), sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
+                if (!sourceText) continue
+                const template = document.createElement('template')
+                template.innerHTML = sourceText
+
+                const metaMaps = {
+                    link: { icon: image, canonical: url, manifest: page.link.manifest ?? (pwa ? new URL('manifest.json', base).href : undefined), ...(page.link ?? {}) },
+                    meta: { 'application-name': name, ...(page.meta ?? {}) },
+                    og: { type: 'website', site_name: name, title, image, url, description: page.meta?.description, ...(page.og ?? {}) },
+                    schema: { '@context': 'https://schema.org', '@type': 'WebSite', name, headline: title, image, url, description: page.meta?.description, keywords: page.meta?.keywords, author: page.meta?.author, ...(page.schema ?? {}) },
+                    twitter: { card: 'summary_large_image', image, url, description: page.meta?.description, ...(page.twitter ?? {}) }
+                }
+                for (const type in metaMaps) {
+                    let placeholder = template.content.querySelector(`meta[name="element-${type}"]`)
+                        ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
+                    if (!placeholder) continue
+                    if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
+                    const metaTemplate = document.createElement('template')
+                    for (const n in metaMaps[type]) {
+                        switch (type) {
+                            case 'link':
+                                const link = document.createElement('link')
+                                link.setAttribute('rel', n)
+                                link.setAttribute('href', metaMaps[type][n])
+                                metaTemplate.content.appendChild(link)
+                                break
+
+
+                        }
+
+                    }
+
+                }
+
+
+                og.site_name ??= name
+                og.title ??= title
+                og.description ??= description
+                og.image ??= icon
+                og.url ??= url
+                og.type ??= 'website'
+                og.locale ??= 'en_US'
+                og.
+
+
+
+
+
+
+
 
             }
             for (const asset of assets) {
-                const { source, target } = asset
+                let { source, target = asset.source } = asset
+                if (!source || !target) continue
+
+
 
             }
 
