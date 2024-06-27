@@ -88,34 +88,42 @@ const module = {
     exportApplication: {
         enumerable: true, value: async function* (manifest, handler) {
 
-            const { base = globalThis.location.href, vars = {}, pages = [{}], assets = [] } = manifest
+            const { base, vars = {}, pages = [{}], assets = [], pwa } = manifest
+            if (!base) return
             for (const page of pages) {
-                let { source = globalThis.location.href, target = 'index.html', name, title, image, url, published, modified, meta, sitemap, pwa, og, twitter, schema } = page
-                const sourceFetch = await fetch(new URL(source, base).href), sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
+                for (const v in vars) for (const t in page) if (typeof page[t] === 'string') page[t] = page[t].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v])
+                const { source = globalThis.location.href, name = vars.name, title = vars.title, image = vars.image, sitemap } = page,
+                    pathname = (page.pathname ?? '').trim().replace(/^\/|\/$/g, ''), filename = pathname.endsWith('.html') ? pathname : `${pathname}/index.html`,
+                    canonicalUrl = new URL(pathname, base).href, canonicalImage = (new URL(image, base)).href,
+                    sourceUrl = new URL(source, globalThis.location.href).href, sourceFetch = await fetch(sourceUrl),
+                    sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
                 if (!sourceText) continue
                 const template = document.createElement('template')
                 template.innerHTML = sourceText
 
                 const metaMaps = {
-                    link: { icon: image, canonical: url, manifest: page.link.manifest ?? (pwa ? new URL('manifest.json', base).href : undefined), ...(page.link ?? {}) },
+                    link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
                     meta: { 'application-name': name, ...(page.meta ?? {}) },
-                    og: { type: 'website', site_name: name, title, image, url, description: page.meta?.description, ...(page.og ?? {}) },
-                    schema: { '@context': 'https://schema.org', '@type': 'WebSite', name, headline: title, image, url, description: page.meta?.description, keywords: page.meta?.keywords, author: page.meta?.author, ...(page.schema ?? {}) },
-                    twitter: { card: 'summary_large_image', image, url, description: page.meta?.description, ...(page.twitter ?? {}) }
+                    og: { type: 'website', site_name: name, title, image: canonicalImage, url: canonicalUrl, description: page.meta?.description, ...(page.og ?? {}) },
+                    schema: {
+                        '@context': 'https://schema.org', '@type': 'WebSite', name, headline: title, image: canonicalImage,
+                        url: canonicalUrl, description: page.meta?.description, keywords: page.meta?.keywords, author: page.meta?.author, ...(page.schema ?? {})
+                    },
+                    twitter: { card: 'summary_large_image', image: canonicalImage, url: canonicalUrl, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
+
                 for (const type in metaMaps) {
-                    const placeholderSelector = type === 'schema' ? 'script[type="application/ld+json"]' : `meta[name="element-${type}"]`
-                    let placeholder = template.content.querySelector(placeholderSelector)
-                        ?? (page[type] ? template.content.querySelector('head').insertAdjacentElement('beforeend', document.createElement(type === schema ? 'script' : 'meta')) : undefined)
+                    const head = template.content.querySelector('head'),
+                        placeholder = head?.querySelector(`meta[name="element-${type}"]`) ?? (page[type] ? head?.insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
                     if (!placeholder) continue
                     if (type === 'schema') {
-                        placeholder.type ||= 'application/ld+json'
-                        const schemaData = placeholder.textContent ? JSON.parse(placeholder.textContent) : {}
-                        metaMaps[type] = { ...schemaData, ...metaMaps[type] }
-                        placeholder.textContent = JSON.stringify(metaMaps[type])
+                        const schemaElement = document.createElement('script')
+                        schemaElement.setAttribute('type', 'application/ld+json')
+                        schemaElement.textContent = JSON.stringify(metaMaps[type])
+                        placeholder.replaceWith(schemaElement)
                         return
                     }
-                    if (placeholder.content && (type !== 'schema')) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
+                    if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
                     const metaTemplate = document.createElement('template')
                     for (const n in metaMaps[type]) {
                         let el
