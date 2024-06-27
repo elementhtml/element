@@ -119,7 +119,8 @@ const module = {
                     if (type === 'schema') {
                         const schemaElement = document.createElement('script')
                         schemaElement.setAttribute('type', 'application/ld+json')
-                        schemaElement.textContent = JSON.stringify(metaMaps[type])
+                        if (placeholder.content) metaMaps.schema = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps.schema[s]))
+                        schemaElement.textContent = JSON.stringify(metaMaps.schema)
                         placeholder.replaceWith(schemaElement)
                         return
                     }
