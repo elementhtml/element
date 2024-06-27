@@ -104,9 +104,7 @@ const module = {
                 if (!sourceText) continue
                 const template = document.createElement('template')
                 template.innerHTML = sourceText
-
-                const metaTypes = ['link', 'meta', 'og', 'schema', 'twitter']
-                for (const metaType of metaTypes) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
+                for (const metaType of ['link', 'meta', 'og', 'schema', 'twitter']) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
                 const metaMaps = {
                     link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
                     meta: { 'application-name': name, ...(page.meta ?? {}) },
@@ -150,7 +148,6 @@ const module = {
                     }
                     placeholder.replaceWith(...metaTemplate.content.cloneNode(true).children)
                 }
-
                 let swPlaceholder = pwa ? head.querySelector(`meta[name="element-sw"]`) : undefined
                 if (!swPlaceholder && pwa) swPlaceholder = head.insertAdjacentElement('beforeend', document.createElement('meta'))
                 if (swPlaceholder) {
@@ -161,12 +158,30 @@ const module = {
                     swPlaceholder.replaceWith(swElement)
                     assets[swFilename] ??= new File([new Blob(['// empty service worker'], { type: 'application/javascript' })], swFilename, { type: 'application/javascript' })
                 }
+                for (const blockPlaceholder of head.querySelectorAll('meta[name="element-block"]')) {
+                    const block = blockPlaceholder.content.trim()
+                    if (!block) continue
+                    let blockTemplateInnerHTML = (page.blocks ?? {})[block] ?? (vars.blocks ?? {})[block]
+                    for (const v in vars) blockTemplateInnerHTML = blockTemplateInnerHTML.replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v])
+                    const blockTemplate = document.createElement('template')
+                    blockTemplate.innerHTML = blockTemplateInnerHTML
+                    blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
+                }
                 yield { filepath, file: new File([new Blob([template.innerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
             }
             if (pwa) {
                 mergeVars(pwa)
                 assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
+
+            if (robots) {
+
+            }
+
+            if (sitemap) {
+
+            }
+
 
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
