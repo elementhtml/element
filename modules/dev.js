@@ -88,12 +88,15 @@ const module = {
     exportApplication: {
         enumerable: true, value: async function* (manifest, handler) {
 
-            const { base, vars = {}, pages = [{}], assets = [], pwa } = manifest
+            const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
+                slashesRegExp = /^\/|\/$/g, { base, vars = {}, pages = {}, assets = {}, pwa } = manifest
             if (!base) return
-            for (const page of pages) {
-                for (const v in vars) for (const t in page) if (typeof page[t] === 'string') page[t] = page[t].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v])
+            for (const pathname in pages) {
+                if (pathname.match(slashesRegExp)) continue
+                const page = pages[pathname]
+                mergeVars(page)
                 const { source = globalThis.location.href, name = vars.name, title = vars.title, image = vars.image, sitemap } = page,
-                    pathname = (page.pathname ?? '').trim().replace(/^\/|\/$/g, ''), filename = pathname.endsWith('.html') ? pathname : `${pathname}/index.html`,
+                    filepath = pathname.endsWith('.html') ? pathname : `${pathname}/index.html`,
                     canonicalUrl = new URL(pathname, base).href, canonicalImage = (new URL(image, base)).href,
                     sourceUrl = new URL(source, globalThis.location.href).href, sourceFetch = await fetch(sourceUrl),
                     sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
@@ -101,6 +104,8 @@ const module = {
                 const template = document.createElement('template')
                 template.innerHTML = sourceText
 
+                const metaTypes = ['link', 'meta', 'og', 'schema', 'twitter']
+                for (const metaType of metaTypes) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
                 const metaMaps = {
                     link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
                     meta: { 'application-name': name, ...(page.meta ?? {}) },
@@ -111,10 +116,10 @@ const module = {
                     },
                     twitter: { card: 'summary_large_image', image: canonicalImage, url: canonicalUrl, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
-
+                const head = template.content.querySelector('head')
+                if (!head) continue
                 for (const type in metaMaps) {
-                    const head = template.content.querySelector('head'),
-                        placeholder = head?.querySelector(`meta[name="element-${type}"]`) ?? (page[type] ? head?.insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
+                    const placeholder = head.querySelector(`meta[name="element-${type}"]`) ?? (page[type] ? head.insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
                     if (!placeholder) continue
                     if (type === 'schema') {
                         const schemaElement = document.createElement('script')
@@ -145,21 +150,37 @@ const module = {
                     placeholder.replaceWith(...metaTemplate.content.cloneNode(true).children)
                 }
 
-
-
-
-
-
-
-
+                let swPlaceholder = pwa ? head.querySelector(`meta[name="element-sw"]`) : undefined
+                if (!swPlaceholder && pwa) swPlaceholder = head.insertAdjacentElement('beforeend', document.createElement('meta'))
+                if (swPlaceholder) {
+                    const swElement = document.createElement('script'),
+                        swFilename = (swPlaceholder.content ? (swPlaceholder.content.endsWith('.js') ? swPlaceholder.content : `${swPlaceholder.content}.js`) : 'sw.js').trim()
+                    swElement.setAttribute('type', 'application/javascript')
+                    swElement.textContent = `navigator.serviceWorker.register('/${swFilename}', { scope: '/' }).catch(function(err) { console.log('ServiceWorker registration failed: ', err); });`
+                    swPlaceholder.replaceWith(swElement)
+                    assets[swFilename] ??= new File([new Blob(['// empty service worker'], { type: 'application/javascript' })], swFilename, { type: 'application/javascript' })
+                }
+                yield { filepath, file: new File([new Blob([template.innerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
             }
-            for (const asset of assets) {
-                let { source, target = asset.source } = asset
-                if (!source || !target) continue
-
-
-
+            for (const filepath in assets) {
+                if (!assets[filepath]) continue
+                if (assets[filepath] instanceof File) {
+                    yield { filepath, file: assets[filepath] }
+                    continue
+                }
+                if (assets[filepath] instanceof Blob) {
+                    yield { filepath, file: new File([assets[filepath]], filepath.split('/').pop(), { type: assets[filepath].type }) }
+                    continue
+                }
+                if (typeof assets[filepath] === 'string') {
+                    const sourceFetch = await fetch(assets[filepath])
+                    if (sourceFetch.status !== 200) continue
+                    const blob = await sourceFetch.blob()
+                    yield { filepath, file: new File([blob], filepath.split('/').pop(), { type: blob.type }) }
+                    continue
+                }
             }
+
 
 
 
