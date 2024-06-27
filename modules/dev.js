@@ -90,6 +90,7 @@ const module = {
 
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
                 slashesRegExp = /^\/|\/$/g, { base, vars = {}, pages = {}, assets = {}, pwa } = manifest
+            let { robots, sitemap } = manifest
             if (!base) return
             for (const pathname in pages) {
                 if (pathname.match(slashesRegExp)) continue
@@ -162,6 +163,11 @@ const module = {
                 }
                 yield { filepath, file: new File([new Blob([template.innerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
             }
+            if (pwa) {
+                mergeVars(pwa)
+                assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
+            }
+
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
                 if (assets[filepath] instanceof File) {
