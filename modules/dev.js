@@ -86,11 +86,16 @@ const module = {
 
 
     exportApplication: {
-        enumerable: true, value: async function* (manifest = {}) {
+        enumerable: true, value: async function* (manifest = {}, options = {}) {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
-                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest
+                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest, fileToDataURL = file => new Promise(r => {
+                    const reader = new FileReader()
+                    reader.onload = () => r(reader.result)
+                    reader.readAsDataURL(file)
+                }), optionsAs = options.as ?? {}
+            for (const rx in optionsAs) if (optionsAs[rx]) optionsAs[rx] = new RegExp(optionsAs[rx])
             Object.assign(vars, { name: vars.name ?? manifest.name, title: vars.title ?? manifest.title, description: vars.description ?? manifest.description, image: vars.image ?? manifest.image })
             let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
             switch (typeof sitemap) {
@@ -197,7 +202,10 @@ const module = {
                     blockTemplate.innerHTML = blockTemplateInnerHTML
                     blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
                 }
-                yield { filepath, file: new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
+
+                let file = new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' })
+                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
+                yield { filepath, file }
             }
             if (pwa) {
                 const pwaDefaults = {
@@ -231,33 +239,27 @@ const module = {
             }
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
-                if (assets[filepath] instanceof File) {
-                    yield { filepath, file: assets[filepath] }
-                    continue
-                }
-                if (assets[filepath] instanceof Blob) {
-                    yield { filepath, file: new File([assets[filepath]], filepath.split('/').pop(), { type: assets[filepath].type }) }
-                    continue
-                }
-                if (typeof assets[filepath] === 'string') {
-                    const sourceFetch = await fetch(assets[filepath])
+                let file = assets[filepath]
+                if (file instanceof Blob) {
+                    file = new File([file], filepath.split('/').pop(), { type: file.type })
+                } else if (typeof file === 'string') {
+                    const sourceFetch = await fetch(file)
                     if (sourceFetch.status !== 200) continue
-                    const blob = await sourceFetch.blob()
-                    yield { filepath, file: new File([blob], filepath.split('/').pop(), { type: blob.type }) }
-                    continue
+                    file = await sourceFetch.blob()
+                    file = new File([file], filepath.split('/').pop(), { type: file.type })
                 }
+                if (!(file instanceof File)) continue
+                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
+                yield { filepath, file }
             }
         }
     },
 
     saveApplication: {
         enumerable: true, value: async function (manifest, options = {}) {
-            const application = {}, fileToDataURL = file => new Promise(r => {
-                const reader = new FileReader()
-                reader.onload = () => r(reader.result)
-                reader.readAsDataURL(file)
-            }), optionsAs = options.as ?? {}
-            for (const rx in optionsAs) if (optionsAs[rx]) optionsAs[rx] = new RegExp(optionsAs[rx])
+            const application = {}, makeFile = input => {
+
+            }
             for await (const fileEntry of this.exportApplication(manifest)) {
                 let { filepath, file } = fileEntry
                 for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
