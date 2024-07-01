@@ -256,16 +256,12 @@ const module = {
                 const reader = new FileReader()
                 reader.onload = () => r(reader.result)
                 reader.readAsDataURL(file)
-            })
-            for (const rx of ['asDataUrl', 'asText', 'asBytes', 'asArrayBuffer']) if (options[rx]) options[rx] = new RegExp(options[rx])
+            }), optionsAs = options.as ?? {}
+            for (const rx in optionsAs) if (optionsAs[rx]) optionsAs[rx] = new RegExp(optionsAs[rx])
             for await (const fileEntry of this.exportApplication(manifest)) {
                 let { filepath, file } = fileEntry
-                if (options.asDataUrl && options.asDataUrl.test(filepath)) file = await fileToDataURL(file)
-                if (options.asText && options.asText.test(filepath)) file = await file.text()
-                if (options.asArrayBuffer && options.asArrayBuffer.test(filepath)) file = await file.arrayBuffer()
-                if (file.bytes && options.asBytes && options.asBytes.test(filepath)) file = await file.bytes()
+                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
                 application[filepath] ??= file
-                console.log('line 268', file)
             }
             return application
         }
