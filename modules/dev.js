@@ -211,9 +211,9 @@ const module = {
                     theme_color: '#ffffff',
                     orientation: 'portrait'
                 }
-                for (const n in pwaDefaults) if (!pwa[n]) pwa[n] = pwaDefaults[n]
+                if (typeof pwa === 'object') for (const n in pwaDefaults) if (!pwa[n]) pwa[n] = pwaDefaults[n]
                 mergeVars(pwa)
-                assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
+                assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa === true ? pwaDefaults : pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
             if (robots === true) robots = ['User-agent: *'].join('\n')
             if (robots) assets['robots.txt'] ??= new File([new Blob([JSON.stringify(robots, null, 4)], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
