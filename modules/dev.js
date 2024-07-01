@@ -87,6 +87,7 @@ const module = {
 
     exportApplication: {
         enumerable: true, value: async function* (manifest, handler) {
+            if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
                 slashesRegExp = /^\/|\/$/g, { base, vars = {}, pages = {}, assets = {}, pwa } = manifest
             let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
