@@ -89,14 +89,14 @@ const module = {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
-                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest, fileToDataURL = file => new Promise(r => {
+                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {} } = manifest, fileToDataURL = file => new Promise(r => {
                     const reader = new FileReader()
                     reader.onload = () => r(reader.result)
                     reader.readAsDataURL(file)
                 }), optionsAs = options.as ?? {}
             for (const rx in optionsAs) if (optionsAs[rx]) optionsAs[rx] = new RegExp(optionsAs[rx])
             Object.assign(vars, { name: vars.name ?? manifest.name, title: vars.title ?? manifest.title, description: vars.description ?? manifest.description, image: vars.image ?? manifest.image })
-            let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
+            let { pwa, robots, sitemap } = manifest, sitemapObj, sitemapDefaults
             switch (typeof sitemap) {
                 case 'boolean':
                     if (sitemap) {
@@ -128,7 +128,7 @@ const module = {
                 if (image) page.link.icon = image
                 for (const metaType of ['link', 'meta', 'og', 'schema', 'twitter']) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
                 const metaMaps = {
-                    link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
+                    link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? 'manifest.json' : undefined), ...(page.link ?? {}) },
                     meta: { 'application-name': name, ...(page.meta ?? {}) },
                     og: { type: 'website', site_name: name, title, image: canonicalImage, url: canonicalUrl, description: page.meta?.description, ...(page.og ?? {}) },
                     schema: {
@@ -165,6 +165,7 @@ const module = {
                     if (placeholder.content) metaMaps[type] = Object.fromEntries(placeholder.content.split(',').map(s => s.trim()).filter(s => s).map(s => metaMaps[type][s]))
                     const metaTemplate = document.createElement('template')
                     for (const n in metaMaps[type]) {
+                        if (metaMaps[type][n] == null) continue
                         let el
                         switch (type) {
                             case 'link':
@@ -208,19 +209,27 @@ const module = {
             }
             if (pwa) {
                 const pwaDefaults = {
-                    name: vars.name,
+                    name: vars.title ?? vars.name,
                     short_name: vars.name,
                     description: vars.description,
-                    icons: [{ src: '/favicon.ico', sizes: '64x64 32x32 24x24 16x16', type: 'image/x-icon' }],
+                    icons: [],
                     start_url: '/index.html',
                     display: 'standalone',
                     background_color: '#ffffff',
                     theme_color: '#ffffff',
                     orientation: 'portrait'
                 }
-                if (typeof pwa === 'object') for (const n in pwaDefaults) if (!pwa[n]) pwa[n] = pwaDefaults[n]
+                if (pwa === true) pwa = { ...pwaDefaults }
+                for (const n in pwaDefaults) pwa[n] ??= pwaDefaults[n]
+                if (pwa.icons.length === 0) {
+                    if (vars.image) {
+                        pwaDefaults.icons.push({ src: vars.image, sizes: '48x48', type: `image/${vars.image.split('.').pop()}` })
+                    } else if (assets['favicon.ico']) {
+                        pwaDefaults.icons.push({ src: 'favicon.ico', sizes: '48x48', type: 'image/x-icon' })
+                    }
+                }
                 mergeVars(pwa)
-                assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa === true ? pwaDefaults : pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
+                assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
             if (robots === true) robots = ['User-agent: *'].join('\n')
             if (robots) assets['robots.txt'] ??= new File([new Blob([JSON.stringify(robots, null, 4)], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
