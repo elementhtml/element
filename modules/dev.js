@@ -86,10 +86,12 @@ const module = {
 
 
     exportApplication: {
-        enumerable: true, value: async function* (manifest, handler) {
+        enumerable: true, value: async function* (manifest = {}) {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
+            manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
-                slashesRegExp = /^\/|\/$/g, { base, vars = {}, pages = {}, assets = {}, pwa } = manifest
+                slashesRegExp = /^\/|\/$/g, { base, name: globalName, title: globalTitle, image: globalImage, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest
+            Object.assign(vars, { name: vars.name ?? manifest.name, title: vars.title ?? manifest.title, description: vars.description ?? manifest.description, image: vars.image ?? manifest.image })
             let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
             switch (typeof sitemap) {
                 case 'boolean':
@@ -108,14 +110,16 @@ const module = {
                 if (pathname.match(slashesRegExp)) continue
                 const page = pages[pathname]
                 mergeVars(page)
-                const { source = globalThis.location.href, name = vars.name, title = vars.title, image = vars.image } = page,
-                    filepath = pathname.endsWith('.html') ? pathname : `${pathname}/index.html`,
+                const { source = globalThis.location.href, name = vars.name, title = vars.title, description = vars.description, image = vars.image } = page,
+                    filepath = pathname ? (pathname.endsWith('.html') ? pathname : `${pathname}/index.html`) : 'index.html',
                     canonicalUrl = new URL(pathname, base).href, canonicalImage = (new URL(image, base)).href,
                     sourceUrl = new URL(source, globalThis.location.href).href, sourceFetch = await fetch(sourceUrl),
                     sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
                 if (!sourceText) continue
                 const template = document.createElement('template')
                 template.innerHTML = sourceText
+                page.meta ??= {}
+                if (description) page.meta.description ??= description
                 for (const metaType of ['link', 'meta', 'og', 'schema', 'twitter']) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
                 const metaMaps = {
                     link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
@@ -135,6 +139,12 @@ const module = {
                 if (sitemapDefaults && page.sitemap) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
                 const head = template.content.querySelector('head')
                 if (!head) continue
+                if (title) {
+                    const titleElement = head.querySelector('title') ?? head.insertAdjacentElement('afterbegin', document.createElement('title'))
+                    let titleText = title
+                    for (const v in vars) titleText = titleText.replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v])
+                    titleElement.textContent = titleText
+                }
                 for (const type in metaMaps) {
                     const placeholder = head.querySelector(`meta[name="element-${type}"]`) ?? (page[type] ? head.insertAdjacentElement('beforeend', document.createElement('meta')) : undefined)
                     if (!placeholder) continue
@@ -188,6 +198,18 @@ const module = {
                 yield { filepath, file: new File([new Blob([template.innerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
             }
             if (pwa) {
+                const pwaDefaults = {
+                    name: vars.name,
+                    short_name: vars.name,
+                    description: vars.description,
+                    icons: [{ src: '/favicon.ico', sizes: '64x64 32x32 24x24 16x16', type: 'image/x-icon' }],
+                    start_url: '/index.html',
+                    display: 'standalone',
+                    background_color: '#ffffff',
+                    theme_color: '#ffffff',
+                    orientation: 'portrait'
+                }
+                for (const n in pwaDefaults) if (!pwa[n]) pwa[n] = pwaDefaults[n]
                 mergeVars(pwa)
                 assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
@@ -225,6 +247,16 @@ const module = {
             }
         }
     },
+
+    saveApplication: {
+        enumerable: true, value: async function (manifest) {
+            const application = {}
+            for await (const [filepath, file] of this.exportApplication(manifest)) {
+                application[filepath] = file
+            }
+            return application
+        }
+    }
 
 }
 
