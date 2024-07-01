@@ -115,6 +115,11 @@ const module = {
                     },
                     twitter: { card: 'summary_large_image', image: canonicalImage, url: canonicalUrl, description: page.meta?.description, ...(page.twitter ?? {}) }
                 }
+                switch (page.robots && !metaMaps.meta['robots']) {
+                    case true: metaMaps.meta['robots'] = 'index, follow'; break
+                    case false: metaMaps.meta['robots'] = 'noindex, nofollow'; break
+                    default: if (typeof page.robots === 'string') metaMaps.meta['robots'] = page.robots
+                }
                 const head = template.content.querySelector('head')
                 if (!head) continue
                 for (const type in metaMaps) {
@@ -175,7 +180,8 @@ const module = {
             }
 
             if (robots) {
-
+                if (robots === true) robots = ['User-agent: *'].join('\n')
+                assets['robots.txt'] ??= new File([new Blob([JSON.stringify(robots, null, 4)], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
             }
 
             if (sitemap) {
