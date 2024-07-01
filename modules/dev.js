@@ -90,13 +90,25 @@ const module = {
 
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
                 slashesRegExp = /^\/|\/$/g, { base, vars = {}, pages = {}, assets = {}, pwa } = manifest
-            let { robots, sitemap } = manifest
+            let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
+            switch (typeof sitemap) {
+                case 'boolean':
+                    if (sitemap) {
+                        sitemapObj = {}
+                        sitemapDefaults = { changefreq: 'weekly', priority: 0.5, lastmod: new Date().toISOString() }
+                    }
+                    break
+                case 'object':
+                    sitemapObj = {}
+                    sitemapDefaults = { changefreq: sitemap.changefreq ?? 'weekly', priority: sitemap.priority ?? 0.5, lastmod: sitemap.lastmod ?? (new Date().toISOString()) }
+                    break
+            }
             if (!base) return
             for (const pathname in pages) {
                 if (pathname.match(slashesRegExp)) continue
                 const page = pages[pathname]
                 mergeVars(page)
-                const { source = globalThis.location.href, name = vars.name, title = vars.title, image = vars.image, sitemap } = page,
+                const { source = globalThis.location.href, name = vars.name, title = vars.title, image = vars.image } = page,
                     filepath = pathname.endsWith('.html') ? pathname : `${pathname}/index.html`,
                     canonicalUrl = new URL(pathname, base).href, canonicalImage = (new URL(image, base)).href,
                     sourceUrl = new URL(source, globalThis.location.href).href, sourceFetch = await fetch(sourceUrl),
@@ -120,6 +132,7 @@ const module = {
                     case false: metaMaps.meta['robots'] = 'noindex, nofollow'; break
                     default: if (typeof page.robots === 'string') metaMaps.meta['robots'] = page.robots
                 }
+                if (sitemapDefaults && page.sitemap) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
                 const head = template.content.querySelector('head')
                 if (!head) continue
                 for (const type in metaMaps) {
@@ -178,16 +191,30 @@ const module = {
                 mergeVars(pwa)
                 assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
-
             if (robots) {
                 if (robots === true) robots = ['User-agent: *'].join('\n')
                 assets['robots.txt'] ??= new File([new Blob([JSON.stringify(robots, null, 4)], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
             }
-
             if (sitemap) {
-
+                let sitemapContent = []
+                if (typeof sitemap === 'string') sitemapContent = [sitemap]
+                if (sitemapObj) {
+                    const urlElements = []
+                    for (const loc in sitemapObj) {
+                        const urlElement = document.createElement('url')
+                        for (const n in sitemapObj[loc]) {
+                            const el = document.createElement(n)
+                            el.textContent = sitemapObj[loc][n]
+                            urlElement.appendChild(el)
+                        }
+                    }
+                    const urlsetElement = document.createElement('urlset')
+                    urlsetElement.setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9')
+                    urlsetElement.replaceChildren(...urlElements)
+                    sitemapContent = [`<?xml version="1.0" encoding="UTF-8"?>`, urlsetElement.outerHTML]
+                }
+                assets['sitemap.xml'] ??= new File([new Blob([JSON.stringify(sitemapContent.join('\n'), null, 4)], { type: 'application/xml' })], 'sitemap.xml', { type: 'application/xml' })
             }
-
 
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
