@@ -248,6 +248,7 @@ const module = {
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
                 let file = assets[filepath]
+                if (file === true) file = filepath
                 if (file instanceof Blob) {
                     file = new File([file], filepath.split('/').pop(), { type: file.type })
                 } else if (typeof file === 'string') {
