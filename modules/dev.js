@@ -142,7 +142,7 @@ const module = {
                     case false: metaMaps.meta['robots'] = 'noindex, nofollow'; break
                     default: if (typeof page.robots === 'string') metaMaps.meta['robots'] = page.robots
                 }
-                if (sitemapDefaults && page.sitemap) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
+                if (sitemapDefaults) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
                 const head = template.querySelector('head')
                 if (!head) continue
                 if (title) {
@@ -231,19 +231,19 @@ const module = {
                 mergeVars(pwa)
                 assets['manifest.json'] ??= new File([new Blob([JSON.stringify(pwa, null, 4)], { type: 'application/json' })], 'manifest.json', { type: 'application/json' })
             }
-            if (robots === true) robots = ['User-agent: *'].join('\n')
-            if (robots) assets['robots.txt'] ??= new File([new Blob([JSON.stringify(robots, null, 4)], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
+            if (robots === true) robots = ['User-agent: *', 'Disallow:'].join('\n')
+            if (robots) assets['robots.txt'] ??= new File([new Blob([robots], { type: 'text/plain' })], 'robots.txt', { type: 'text/plain' })
             if (sitemap) {
                 let sitemapContent = []
                 if (typeof sitemap === 'string') sitemapContent = [sitemap]
                 if (sitemapObj) {
                     const urlsetElement = document.createElement('urlset'), urlElements = []
                     urlsetElement.setAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9')
-                    for (const loc in sitemapObj) urlElements[urlElements.push(document.createElement('url'))].innerHTML = Object.entries(sitemapObj[loc]).map(e => `<${e[0]}>${e[1]}</${e[0]}>`).join('')
+                    for (const loc in sitemapObj) urlElements[urlElements.push(document.createElement('url')) - 1].innerHTML = (`<loc>${loc}</loc>` + Object.entries(sitemapObj[loc]).map(e => `<${e[0]}>${e[1]}</${e[0]}>`).join(''))
                     urlsetElement.replaceChildren(...urlElements)
                     sitemapContent = [`<?xml version="1.0" encoding="UTF-8"?>`, urlsetElement.outerHTML]
                 }
-                assets['sitemap.xml'] ??= new File([new Blob([JSON.stringify(sitemapContent.join('\n'), null, 4)], { type: 'application/xml' })], 'sitemap.xml', { type: 'application/xml' })
+                assets['sitemap.xml'] ??= new File([new Blob([sitemapContent.join('\n')], { type: 'application/xml' })], 'sitemap.xml', { type: 'application/xml' })
             }
             for (const filepath in assets) {
                 if (!assets[filepath]) continue
