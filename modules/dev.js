@@ -257,12 +257,9 @@ const module = {
 
     saveApplication: {
         enumerable: true, value: async function (manifest, options = {}) {
-            const application = {}, makeFile = input => {
-
-            }
-            for await (const fileEntry of this.exportApplication(manifest)) {
+            const application = {}
+            for await (const fileEntry of this.exportApplication(manifest, options)) {
                 let { filepath, file } = fileEntry
-                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
                 application[filepath] ??= file
             }
             return application
