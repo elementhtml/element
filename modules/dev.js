@@ -90,7 +90,7 @@ const module = {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
-                slashesRegExp = /^\/|\/$/g, { base, name: globalName, title: globalTitle, image: globalImage, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest
+                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, pwa } = manifest
             Object.assign(vars, { name: vars.name ?? manifest.name, title: vars.title ?? manifest.title, description: vars.description ?? manifest.description, image: vars.image ?? manifest.image })
             let { robots, sitemap } = manifest, sitemapObj, sitemapDefaults
             switch (typeof sitemap) {
@@ -116,10 +116,12 @@ const module = {
                     sourceUrl = new URL(source, globalThis.location.href).href, sourceFetch = await fetch(sourceUrl),
                     sourceText = sourceFetch.ok ? (await sourceFetch.text()) : undefined
                 if (!sourceText) continue
-                const template = document.createElement('template')
+                const template = document.createElement('html')
                 template.innerHTML = sourceText
                 page.meta ??= {}
                 if (description) page.meta.description ??= description
+                page.link ??= {}
+                if (image) page.link.icon = image
                 for (const metaType of ['link', 'meta', 'og', 'schema', 'twitter']) if (page[metaType] && (typeof page[metaType] === 'object')) mergeVars(page[metaType])
                 const metaMaps = {
                     link: { icon: image, canonical: canonicalUrl, manifest: page.link?.manifest ?? (pwa ? '/manifest.json' : undefined), ...(page.link ?? {}) },
@@ -137,7 +139,7 @@ const module = {
                     default: if (typeof page.robots === 'string') metaMaps.meta['robots'] = page.robots
                 }
                 if (sitemapDefaults && page.sitemap) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
-                const head = template.content.querySelector('head')
+                const head = template.querySelector('head')
                 if (!head) continue
                 if (title) {
                     const titleElement = head.querySelector('title') ?? head.insertAdjacentElement('afterbegin', document.createElement('title'))
@@ -168,8 +170,8 @@ const module = {
                                 break
                             case 'meta': case 'og': case 'twitter':
                                 el = document.createElement('meta')
-                                m.setAttribute(type === 'og' ? 'property' : 'name', type === 'meta' ? n : `${type}:${n}`)
-                                m.setAttribute('content', metaMaps[type][n])
+                                el.setAttribute(type === 'og' ? 'property' : 'name', type === 'meta' ? n : `${type}:${n}`)
+                                el.setAttribute('content', metaMaps[type][n])
                                 break
                         }
                         metaTemplate.content.appendChild(el)
@@ -189,13 +191,13 @@ const module = {
                 for (const blockPlaceholder of head.querySelectorAll('meta[name="element-block"]')) {
                     const block = blockPlaceholder.content.trim()
                     if (!block) continue
-                    let blockTemplateInnerHTML = (page.blocks ?? {})[block] ?? (vars.blocks ?? {})[block]
+                    let blockTemplateInnerHTML = (page.blocks ?? {})[block] ?? (blocks ?? {})[block]
                     for (const v in vars) blockTemplateInnerHTML = blockTemplateInnerHTML.replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v])
                     const blockTemplate = document.createElement('template')
                     blockTemplate.innerHTML = blockTemplateInnerHTML
                     blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
                 }
-                yield { filepath, file: new File([new Blob([template.innerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
+                yield { filepath, file: new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' }) }
             }
             if (pwa) {
                 const pwaDefaults = {
@@ -249,10 +251,21 @@ const module = {
     },
 
     saveApplication: {
-        enumerable: true, value: async function (manifest) {
-            const application = {}
-            for await (const [filepath, file] of this.exportApplication(manifest)) {
-                application[filepath] = file
+        enumerable: true, value: async function (manifest, options = {}) {
+            const application = {}, fileToDataURL = file => new Promise(r => {
+                const reader = new FileReader()
+                reader.onload = () => r(reader.result)
+                reader.readAsDataURL(file)
+            })
+            for (const rx of ['asDataUrl', 'asText', 'asBytes', 'asArrayBuffer']) if (options[rx]) options[rx] = new RegExp(options[rx])
+            for await (const fileEntry of this.exportApplication(manifest)) {
+                let { filepath, file } = fileEntry
+                if (options.asDataUrl && options.asDataUrl.test(filepath)) file = await fileToDataURL(file)
+                if (options.asText && options.asText.test(filepath)) file = await file.text()
+                if (options.asArrayBuffer && options.asArrayBuffer.test(filepath)) file = await file.arrayBuffer()
+                if (file.bytes && options.asBytes && options.asBytes.test(filepath)) file = await file.bytes()
+                application[filepath] ??= file
+                console.log('line 268', file)
             }
             return application
         }
