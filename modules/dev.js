@@ -89,7 +89,8 @@ const module = {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
-                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {} } = manifest, fileToDataURL = file => new Promise(r => {
+                slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, frameworkSrc = 'https://cdn.jsdelivr.net/gh/elementhtml/element/element.js?load&packages' } = manifest,
+                fileToDataURL = file => new Promise(r => {
                     const reader = new FileReader()
                     reader.onload = () => r(reader.result)
                     reader.readAsDataURL(file)
@@ -122,6 +123,21 @@ const module = {
                 if (!sourceText) continue
                 const template = document.createElement('html')
                 template.innerHTML = sourceText
+                const head = template.querySelector('head')
+                if (!head) continue
+                const elementFrameworkPreloadElement = head.querySelector('link[rel="modulepreload"][href*="element.js?"]'),
+                    elementFrameworkModuleElement = head.querySelector('script[type="module"][src*="element.js?"]')
+                if (!elementFrameworkModuleElement) continue
+                if (elementFrameworkPreloadElement) {
+                    const newFrameworkPreloadElement = document.createElement('link')
+                    newFrameworkPreloadElement.setAttribute('rel', 'modulepreload')
+                    newFrameworkPreloadElement.setAttribute('href', frameworkSrc)
+                    elementFrameworkPreloadElement.replaceWith(newFrameworkPreloadElement)
+                }
+                const newFrameworkModuleElement = document.createElement('script')
+                newFrameworkModuleElement.setAttribute('type', 'module')
+                newFrameworkModuleElement.setAttribute('src', frameworkSrc)
+                elementFrameworkModuleElement.replaceWith(newFrameworkModuleElement)
                 page.meta ??= {}
                 if (description) page.meta.description ??= description
                 page.link ??= {}
@@ -143,8 +159,6 @@ const module = {
                     default: if (typeof page.robots === 'string') metaMaps.meta['robots'] = page.robots
                 }
                 if (sitemapDefaults) sitemapObj[canonicalUrl] = { ...(typeof page.sitemap === 'object' ? page.sitemap : {}), ...sitemapDefaults }
-                const head = template.querySelector('head')
-                if (!head) continue
                 if (title) {
                     const titleElement = head.querySelector('title') ?? head.insertAdjacentElement('afterbegin', document.createElement('title'))
                     let titleText = title
