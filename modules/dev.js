@@ -58,22 +58,22 @@ const module = {
     },
     exportPackage: {
         enumerable: true, value: async function (includePackages = new Set(), includeComponents = new Set(), includeFacets = new Set()) {
-            const openingLine = 'const Package = {};\n', closingLine = '\nexport default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
+            const openingLine = 'const Package = {};', closingLine = 'export default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
             if (Array.isArray(includePackages)) {
                 for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
             } else if (includePackages instanceof Set) {
                 for (const [packageKey, packageUrl] of appPackages.entries()) if (!includePackages.has(packageKey)) packageUrls.push(packageUrl)
             }
-            for (const packageUrl of packageUrls) packageChunks.push((await (await fetch(packageUrl)).text()).trim().split('\n')
-                .filter(l => !(l.trim().startsWith(openingLine) || l.trim().startsWith(closingLine))).join('\n').trim())
+            for (const packageUrl of packageUrls) packageChunks.push(...(await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
+                .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)))
             for (const [lc, uc] of [['components', 'Component'], ['facets', 'Facet']]) {
                 const m = new Map(), include = lc === 'components' ? includeComponents : includeFacets
                 if (Array.isArray(include)) {
                     let t
-                    for (const id of include) if (t = (this.env[lc][id] ?? this.app[lc].classes[id])) m.set(id, t)
+                    for (const id of include) if ((!(this.app[lc].packages ?? {})[id]) && (t = (this.env[lc][id] ?? this.app[lc].classes[id]))) m.set(id, t)
                 } else if (include instanceof Set) {
-                    for (const id in this.env[lc]) if (!include.has(id)) m.set(id, this.env[lc][id])
-                    for (const id in this.app[lc].classes) if (!include.has(id)) m.set(id, this.app[lc].classes[id])
+                    for (const id in this.env[lc]) if ((!include.has(id)) && (!(this.app[lc].packages ?? {})[id])) m.set(id, this.env[lc][id])
+                    for (const id in this.app[lc].classes) if ((!include.has(id)) && (!(this.app[lc].packages ?? {})[id])) m.set(id, this.app[lc].classes[id])
                 }
                 if (m.size) packageChunks.push(`Package.${lc} ??= {}`)
                 for (const id of m.keys()) packageChunks.push(`Package.${lc}['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
@@ -202,11 +202,17 @@ const module = {
                     blockTemplate.innerHTML = blockTemplateInnerHTML
                     blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
                 }
-
+                for (const facetElement of template.querySelectorAll(`script[data-facet-cid]`)) {
+                    const newFacetElement = document.createElement('script')
+                    newFacetElement.setAttribute('src', facetElement.dataset.facetCid)
+                    newFacetElement.setAttribute('type', 'application/element')
+                    facetElement.replaceWith(newFacetElement)
+                }
                 let file = new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' })
                 for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
                 yield { filepath, file }
             }
+            assets['packages/main.js'] ??= new File([new Blob([await this.exportPackage()], { type: 'application/javascript' })], 'main.js', { type: 'application/javascript' })
             if (pwa) {
                 const pwaDefaults = {
                     name: vars.title ?? vars.name,

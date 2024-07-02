@@ -150,10 +150,18 @@ const ElementHTML = Object.defineProperties({}, {
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
                             namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
                         if (!namespaceExists) this.env.namespaces[packageKey] = componentNamespaceBase
-                        for (const c in pkgScope) envScope[`${componentNamespaceBase}/${c}.html`] = this.componentFactory(pkgScope[c])
+                        for (const componentKey in pkgScope) envScope[`${componentNamespaceBase}/${componentKey}.html`] = this.componentFactory(pkgScope[componentKey])
+                        if (this.app.dev) {
+                            this.app.components.packages ??= {}
+                            for (const componentKey in pkgScope) this.app.components.packages[componentKey] = packageKey
+                        }
                         break
                     case 'facets':
-                        for (const c in pkgScope) envScope[c] = this.facetFactory(pkgScope[c])
+                        for (const facetCid in pkgScope) envScope[facetCid] = this.facetFactory(pkgScope[facetCid])
+                        if (this.app.dev) {
+                            this.app.facets.packages ??= {}
+                            for (const facetCid in pkgScope) this.app.facets.packages[facetCid] = packageKey
+                        }
                         break
                     case 'helpers': case 'hooks': case 'loaders':
                         for (const f in pkgScope) if (typeof pkgScope[f] === 'function') envScope[f] = pkgScope[f].bind(this)
