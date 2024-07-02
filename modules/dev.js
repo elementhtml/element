@@ -140,6 +140,15 @@ const module = {
                 elementFrameworkModuleElement.replaceWith(newFrameworkModuleElement)
                 const importMapElement = head.querySelector('script[type="importmap"]')
                 if (importMapElement) importMapElement.remove()
+                if (this.app.compile) for (const facetContainer of template.querySelectorAll(`script[type="directives/element"]`)) {
+                    const src = facetContainer.getAttribute('src'), textContent = facetContainer.textContent
+                    const directives = await this.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    if (!directives) break
+                    const facetCid = await this.cid(directives), newFacetContainer = document.createElement('script')
+                    newFacetContainer.setAttribute('src', facetCid)
+                    newFacetContainer.setAttribute('type', 'application/element')
+                    facetContainer.replaceWith(newFacetContainer)
+                }
                 page.meta ??= {}
                 if (description) page.meta.description ??= description
                 page.link ??= {}
@@ -217,12 +226,6 @@ const module = {
                     const blockTemplate = document.createElement('template')
                     blockTemplate.innerHTML = blockTemplateInnerHTML
                     blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
-                }
-                for (const facetElement of template.querySelectorAll(`script[data-facet-cid]`)) {
-                    const newFacetElement = document.createElement('script')
-                    newFacetElement.setAttribute('src', facetElement.dataset.facetCid)
-                    newFacetElement.setAttribute('type', 'application/element')
-                    facetElement.replaceWith(newFacetElement)
                 }
                 let file = new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' })
                 for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataUrl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
