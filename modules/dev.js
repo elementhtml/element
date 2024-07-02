@@ -138,6 +138,8 @@ const module = {
                 newFrameworkModuleElement.setAttribute('type', 'module')
                 newFrameworkModuleElement.setAttribute('src', frameworkSrc)
                 elementFrameworkModuleElement.replaceWith(newFrameworkModuleElement)
+                const importMapElement = head.querySelector('script[type="importmap"]')
+                if (importMapElement) importMapElement.remove()
                 page.meta ??= {}
                 if (description) page.meta.description ??= description
                 page.link ??= {}
