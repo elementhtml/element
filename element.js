@@ -1177,7 +1177,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!namespaceBase) return
             const id = `${namespaceBase}/${name}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
-            for (const subspaceName in (this.app.components.classes[id].subspaces ?? {})) {
+            for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
                 this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
@@ -1419,6 +1419,7 @@ const ElementHTML = Object.defineProperties({}, {
                     static template = template
                 }
             }
+            if (manifest.descriptors) Object.defineProperties(ComponentClass.prototype, manifest.descriptors)
             ComponentClass.E = this
             return ComponentClass
         }
@@ -1432,7 +1433,7 @@ const ElementHTML = Object.defineProperties({}, {
             static id
             static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
-            static subspaces = {}
+            static subspaces = []
             static template
             constructor() {
                 super()
@@ -1445,7 +1446,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.shadowRoot.append(...shadowNodes)
                 } catch (e) { }
             }
-            static get observedAttributes() { return this.attributes.observed }
+            static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
             async connectedCallback() { }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() { return this.E.flatten(this) }

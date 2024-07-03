@@ -7,15 +7,10 @@
         #value
         #id
 
-        static E_DefaultEventType = 'change'
-        static E_ValueProperty = 'value'
+        static attributes = { ...super.attributes, observed: ['delay', 'value'] }
+        static properties = { ...super.properties, flattenable: ['delay', 'id', 'value'] }
 
-        static get observedAttributes() { return (super.observedAttributes || []).concat('delay', 'value') }
-        static get E_FlattenableProperties() { return (super.E_FlattenableProperties || []).concat('delay', 'id', 'value') }
-
-        async disconnectedCallback() {
-            if (this.#id) clearInterval(this.#id)
-        }
+        async disconnectedCallback() { if (this.#id) clearInterval(this.#id) }
 
         get delay() { return this.#delay ?? this.getAttribute('delay') }
         set delay(value) {

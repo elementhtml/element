@@ -3,8 +3,7 @@ const module = {
     exportComponent: {
         enumerable: true, value: async function (id, format = 'plain') {
             if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.components.virtuals.get(id)?.constructor?.id)
-            const componentClass = id.prototype && id.prototype instanceof this.Component ? id : this.app.components.classes[id]
-            const componentManifest = {
+            const componentClass = id.prototype && id.prototype instanceof this.Component ? id : this.app.components.classes[id], componentManifest = {
                 id, extends: componentClass.extends ?? 'HTMLElement',
                 style: componentClass.style ?? '',
                 template: componentClass.template ?? '',

@@ -1,3 +1,22 @@
+typedef string Name<>;
+
+struct AttributesConfig {
+    Name observed<>;
+};
+
+struct ComponentConfig {
+    bool openShadow;
+};
+
+struct EventsConfig {
+    Name *default;
+};
+
+struct PropertiesConfig {
+    Name flattenable<>;
+    Name *value;
+};
+
 struct Descriptor {
     string *value<>;
     bool writable;
@@ -13,9 +32,14 @@ struct DescriptorEntry {
 };
 
 struct Component {
-    string id<>;
+    AttributesConfig attributes;
+    ComponentConfig config;
+    EventsConfig events
     string extends<>;
+    string id<>;
+    PropertiesConfig properties;
     string style<>;
+    Name subspaces<>;
     string template<>;
     DescriptorEntry descriptors<>;
 };
