@@ -1425,6 +1425,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Component: {
         value: class extends globalThis.HTMLElement {
+            static attributes = { observed: [] }
             static config = { openShadow: false }
             static events = { default: undefined }
             static extends
@@ -1444,7 +1445,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.shadowRoot.append(...shadowNodes)
                 } catch (e) { }
             }
-            static get observedAttributes() { return [] }
+            static get observedAttributes() { return this.attributes.observed }
             async connectedCallback() { }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() { return this.E.flatten(this) }
