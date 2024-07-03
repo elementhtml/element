@@ -202,7 +202,6 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                Object.defineProperty(this.app, 'E_observer', { enumerable: false, writable: true })
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers', 'parsers']) {
@@ -253,23 +252,25 @@ const ElementHTML = Object.defineProperties({}, {
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
                 observerRoot = rootElement || this.app
             for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.Load(element) }
-            observerRoot.E_observer ||= new MutationObserver(async records => {
-                for (const record of records) {
-                    for (const addedNode of (record.addedNodes || [])) {
-                        if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.Load(addedNode) }
-                        if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.Load(n)
-                    }
-                    for (const removedNode of (record.removedNodes || [])) {
-                        if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
-                        if (this.isFacetContainer(removedNode)) {
-                            this.unmountFacet(removedNode)
-                        } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
-                            removedNode.disconnectedCallback()
+            if (!this.app.observers.has(observerRoot)) {
+                this.app.observers.set(observerRoot, new MutationObserver(async records => {
+                    for (const record of records) {
+                        for (const addedNode of (record.addedNodes || [])) {
+                            if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.Load(addedNode) }
+                            if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.Load(n)
+                        }
+                        for (const removedNode of (record.removedNodes || [])) {
+                            if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
+                            if (this.isFacetContainer(removedNode)) {
+                                this.unmountFacet(removedNode)
+                            } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
+                                removedNode.disconnectedCallback()
+                            }
                         }
                     }
-                }
-            })
-            observerRoot.E_observer.observe(domRoot, { subtree: true, childList: true })
+                }))
+            }
+            this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
                 Object.freeze(this.app)
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
@@ -895,7 +896,7 @@ const ElementHTML = Object.defineProperties({}, {
             components: { instances: new WeakMap(), observers: new WeakMap(), classes: {} },
             eventTarget: new EventTarget(),
             facets: { classes: {}, instances: new WeakMap() },
-            helpers: {}, libraries: {}, namespaces: {}, regexp: {}, templates: {}, transforms: {}, types: {},
+            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, templates: {}, transforms: {}, types: {},
         }
     },
     binders: {
