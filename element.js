@@ -1419,7 +1419,21 @@ const ElementHTML = Object.defineProperties({}, {
                     static template = template
                 }
             }
-            if (manifest.descriptors) Object.defineProperties(ComponentClass.prototype, manifest.descriptors)
+            if (manifest.descriptors) {
+                for (const key in manifest.descriptors) {
+                    const descriptor = manifest.descriptors[key]
+                    for (const p of ['value', 'get', 'set']) {
+                        if (descriptor[p] && (typeof descriptor[p] === string)) {
+                            if (descriptor[p] instanceof Function) {
+                                descriptor[p] = new Function()
+                            } else if (p === 'value') {
+                                try { descriptor[p] = JSON.parse(descriptor[p]) } catch (e) { }
+                            }
+                        }
+                    }
+                }
+                Object.defineProperties(ComponentClass.prototype, manifest.descriptors)
+            }
             ComponentClass.E = this
             return ComponentClass
         }
