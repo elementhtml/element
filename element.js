@@ -218,13 +218,13 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
                 if (isAttr) {
-                    const componentInstance = this.app.components.instances.set(rootElement, document.createElement(isAttr)).get(rootElement)
+                    const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
                     for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
                     if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
-                    componentInstance.E_native = rootElement
+                    this.app.components.natives.set(componentInstance, rootElement)
                     if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
                     if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                        this.app.components.observers.set(rootElement, new MutationObserver(async records => {
+                        this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
                             for (const record of records) {
                                 switch (record.type) {
                                     case 'childList':
@@ -244,7 +244,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                             }
                         }))
-                        this.app.components.observers.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                        this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
                     }
                 }
                 if (!rootElement.shadowRoot) return
@@ -283,10 +283,18 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    dispatchComponentEvent: {
+        enumerable: true, value: function (instance, value, eventName, bubbles = true, cancelable = true, composed = false) {
+            if (!eventName) eventName = instance.constructor.events?.default ?? this.sys.defaultEventTypes[instance.tagName.toLowerCase()] ?? 'click'
+            instance.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+            return value
+        }
+    },
     dispatchCompoundEvent: {
         enumerable: true, value: async function (eventName, detail, element) {
             const event = new CustomEvent(eventName, { detail })
-            return element.dispatchEvent(event) && (element.E_native?.dispatchEvent(event) || this.app.components.instances.get(element)?.dispatchEvent(event))
+            return element.dispatchEvent(event)
+                && (this.app.components.natives.get(element)?.dispatchEvent(event) || this.app.components.virtuals.get(element)?.dispatchEvent(event))
         }
     },
     flatten: {
@@ -321,7 +329,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (value.hasAttribute('itemscope')) result.itemscope = true
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
-                if (Array.isArray(value.constructor.E_FlattenableProperties)) for (const p of value.constructor.E_FlattenableProperties) result[p] = value[p]
+                if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
                 result._itemprop = {}
@@ -338,8 +346,8 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 result._options = []
-                if (value.constructor.E_ValueProperty) {
-                    result._ = value[value.constructor.E_ValueProperty]
+                if (value.constructor.properties?.value) {
+                    result._ = value[value.constructor.properties.value]
                 } else if (value.constructor.observedAttributes && value.constructor.observedAttributes.includes('value')) {
                     result._ = value.value
                 } else {
@@ -573,11 +581,11 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
             if (data === null) return
-            element = element.E_native ?? element
+            element = this.app.components.natives.get(element) ?? element
             const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
             if (typeof data !== 'object') {
-                if (element.constructor.E_ValueProperty) {
-                    try { return element[element.constructor.E_ValueProperty] = data } catch (e) { return }
+                if (element.constructor.properties?.value) {
+                    try { return element[element.constructor.properties.value] = data } catch (e) { return }
                 } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
                     try { return element.value = data } catch (e) { return }
                 } else {
@@ -651,7 +659,7 @@ const ElementHTML = Object.defineProperties({}, {
                         continue
                     case '!':
                         let eventName = k.slice(1)
-                        if (!eventName) eventName = element.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[tag] ?? 'click'
+                        if (!eventName) eventName = element.constructor.events?.default ?? this.sys.defaultEventTypes[tag] ?? 'click'
                         if (v != null) {
                             const eventOptions = (typeof v === 'object' && ('bubbles' in v || 'cancelable' in v || 'detail' in v)) ? v : { detail: v, bubbles: true, cancelable: true }
                             element.dispatchEvent(new CustomEvent(eventName, eventOptions))
@@ -748,7 +756,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScope: {
         enumerable: true, value: function (scopeStatement, element) {
-            element = element.E_native ?? element
+            element = this.app.components.natives.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             let scope, root, prop
             switch (scopeStatement) {
@@ -777,7 +785,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
-            element = element.E_native ?? element
+            element = this.app.components.natives.get(element) ?? element
             const sMap = { '$': 'root', '#': 'document' }
             let scope = element, selector = scopedSelector
             if (sMap[selector[0]]) selector = `:${sMap[selector[0]]}|${selector}`
@@ -859,8 +867,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (element) {
                 if (transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
                 if (transform.includes('$this')) bindings.this = this.flatten(element)
-                if (transform.includes('$root')) bindings.root = this.flatten((element.E_native ?? element).getRootNode())
-                if (transform.includes('$host')) bindings.host = this.flatten((element.E_native ?? element).getRootNode().host)
+                if (transform.includes('$root')) bindings.root = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode())
+                if (transform.includes('$host')) bindings.host = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode().host)
                 if (transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
             }
             for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
@@ -893,7 +901,7 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: {
             cells: {},
-            components: { instances: new WeakMap(), observers: new WeakMap(), classes: {} },
+            components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
             eventTarget: new EventTarget(),
             facets: { classes: {}, instances: new WeakMap() },
             helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, templates: {}, transforms: {}, types: {},
@@ -936,7 +944,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const catchallSelector = this.buildCatchallSelector(selector)
                             if (!event.target.matches(catchallSelector)) return
                         } else if (selector && !event.target.matches(selector)) { return }
-                        let tagDefaultEventType = event.target.constructor.E_DefaultEventType ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                        let tagDefaultEventType = event.target.constructor.events?.default ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
                         if (!eventList && (event.type !== tagDefaultEventType)) return
                         if (!keepDefault) event.preventDefault()
                         container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
@@ -1209,7 +1217,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
             let group, shape
-            if (!parseOnly) element = this.app.components.instances.get(element) ?? element
+            if (!parseOnly) element = this.app.components.virtuals.get(element) ?? element
             const canonicalizeName = (name) => {
                 let type
                 switch (name[0]) {
@@ -1417,23 +1425,19 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Component: {
         value: class extends globalThis.HTMLElement {
-            static id
+            static config = { openShadow: false }
+            static events = { default: undefined }
             static extends
+            static id
+            static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
             static subspaces = {}
             static template
             constructor() {
                 super()
                 Object.defineProperty(this, 'E', { value: this.constructor.E })
-                Object.defineProperty(this, 'E_emitValueChange', {
-                    value: function (value, eventName, bubbles = true, cancelable = true, composed = false) {
-                        if (!eventName) eventName = this.constructor.E_DefaultEventType ?? this.E.sys.defaultEventTypes[this.tagName.toLowerCase()] ?? 'click'
-                        this.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
-                        return value
-                    }
-                })
                 try {
-                    this.shadowRoot || this.attachShadow({ mode: this.constructor.E_ShadowMode ?? 'open' })
+                    this.shadowRoot || this.attachShadow({ mode: this.constructor.config.openShadow ? 'open' : 'closed' })
                     const shadowNodes = []
                     if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
                     if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
@@ -1441,7 +1445,6 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch (e) { }
             }
             static get observedAttributes() { return [] }
-            static get E_FlattenableProperties() { return this.observedAttributes }
             async connectedCallback() { }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() { return this.E.flatten(this) }
