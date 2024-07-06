@@ -26,20 +26,21 @@ const nativeElementsMap = {
             const style = container.content.querySelector('style') ?? document.createElement('style'),
                 template = container.content.querySelector('template') ?? document.createElement('template'),
                 script = container.content.querySelector('script') ?? document.createElement('script'),
-                scriptCode = script.textContent.trim() || 'export default class extends E.Component {}'
+                scriptCode = script.textContent.trim() || 'export default class extends E.Component {}',
+                className = id.split('/').pop().replace('.html', '').split('').map((c, i) => i === 0 ? c.toUpperCase() : c).join('')
             let extendsId = scriptCode.match(regexp.extends)?.groups?.extends, extendsClass = this.Component,
-                extendsStatement = `class extends E.Component {`, native
+                extendsStatement = `class ${className} extends E.Component {`, native
             if (extendsId === 'E.Component' || [].includes(extendsId)) {
                 extendsId = undefined
             } else if (extendsId in nativeElementsMap) {
                 native = extendsId
                 extendsClass = this.app.components.classes[extendsId] = this.Component
-                extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
+                extendsStatement = `class ${className} extends E.app.components.classes['${extendsId}'] {`
             } else {
                 if (extendsId) {
                     extendsId = this.resolveUrl(new URL(extendsId, id))
                     extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
-                    extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
+                    extendsStatement = `class ${className} extends E.app.components.classes['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
                 if (template.content.querySelector('template[data-slot], template[data-target]')) {
