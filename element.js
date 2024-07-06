@@ -276,6 +276,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const appDescriptors = Object.getOwnPropertyDescriptors(this.app)
                     for (const key in appDescriptors) appDescriptors[key].writable = key === '_globalNamespace'
                     Object.defineProperties(this.app, appDescriptors)
+                    Object.seal(this.app)
                 }
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 const eventMap = {
