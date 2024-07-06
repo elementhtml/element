@@ -104,8 +104,6 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (protocols) {
             this.app.compile = true
             await this.installModule('compile')
-            Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
-            Object.defineProperty(globalThis, this.app._globalNamespace, { value: this })
             protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
             for (let p of protocols) {
                 this.env.loaders[p] &&= this.env.loaders[p].bind(this)
@@ -150,7 +148,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
                             namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
                         if (!namespaceExists) this.env.namespaces[packageKey] = componentNamespaceBase
-                        for (const componentKey in pkgScope) envScope[`${componentNamespaceBase}/${componentKey}.html`] = await this.componentFactory(pkgScope[componentKey])
+                        const componentId = `${componentNamespaceBase}/${componentKey}.html`
+                        for (const componentKey in pkgScope) envScope[componentId] = await this.componentFactory(pkgScope[componentKey], componentId)
                         if (this.app.dev) {
                             this.app.components.packages ??= {}
                             for (const componentKey in pkgScope) this.app.components.packages[componentKey] = packageKey
@@ -1386,6 +1385,14 @@ const ElementHTML = Object.defineProperties({}, {
             return templateKey
         }
     },
+    setGlobalNamespace: {
+        enumerable: true, value: function () {
+            if (!this.app._globalNamespace) {
+                Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
+                Object.defineProperty(globalThis, this.app._globalNamespace, { value: this })
+            }
+        }
+    },
     sliceAndStep: {
         value: function (sig, list) {
             let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
@@ -1404,27 +1411,37 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     componentFactory: {
-        value: async function (manifest) {
+        value: async function (manifest, id) {
             let ComponentClass
             if (!(manifest.prototype instanceof this.Component)) {
                 if (!this.isPlainObject(manifest)) return
+                let extendsId
+                if (manifest.extends) {
+                    extendsId = this.resolveUrl(new URL(manifest.extends, document.location.href))
+                    let extendsClass = this.app.components.classes[extendsId] ?? this.env.components[extendsId]
+                    if (this.app.compile) extendsClass ??= await this.compileComponent(extendsId)
+                }
                 let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : document.createElement('style'),
                     template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true) : document.createElement('template')
                 if (typeof manifest.style === 'string') style.textContent = manifest.style
                 if (typeof manifest.template === 'string') template.content.textContent = manifest.template
-                if (typeof manifest.class === 'string') {
-                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${manifest.class}`], { type: 'text/javascript' }))
-                    manifest.class = (await import(classAsModuleUrl)).default
+                let classObj = manifest.class
+                if (typeof classObj === 'string') {
+                    this.setGlobalNamespace()
+                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${classObj}`], { type: 'text/javascript' }))
+                    classObj = (await import(classAsModuleUrl)).default
                     URL.revokeObjectURL(classAsModuleUrl)
                 }
-                ComponentClass = class extends (manifest.class?.prototype instanceof this.Component ? manifest.class : this.Component) {
-                    static id = manifest.id
-                    static extends = manifest.extends
+                ComponentClass = class extends (classObj?.prototype instanceof this.Component ? classObj : this.Component) {
+                    static id = id
+                    static extends = extendsId
+                    static native = manifest.native
                     static style = style
                     static template = template
                 }
             }
             ComponentClass.E = this
+            ComponentClass.prototype.E = this
             return ComponentClass
         }
     },
@@ -1434,6 +1451,7 @@ const ElementHTML = Object.defineProperties({}, {
             static config = { openShadow: false }
             static events = { default: undefined }
             static extends
+            static extendsBuiltIn
             static id
             static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
@@ -1441,7 +1459,6 @@ const ElementHTML = Object.defineProperties({}, {
             static template
             constructor() {
                 super()
-                Object.defineProperty(this, 'E', { value: this.constructor.E })
                 try {
                     this.shadowRoot || this.attachShadow({ mode: this.constructor.config.openShadow ? 'open' : 'closed' })
                     const shadowNodes = []

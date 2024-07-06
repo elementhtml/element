@@ -26,8 +26,9 @@ const nativeElementsMap = {
             const style = container.content.querySelector('style'), template = container.content.querySelector('template'),
                 script = container.content.querySelector('script'), scriptCode = script.textContent.trim()
             let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'E.Component', extendsClass = this.Component,
-                extendsStatement = `class extends E.Component {`
+                extendsStatement = `class extends E.Component {`, native
             if (extendsId in nativeElementsMap) {
+                native = extendsId
                 extendsClass = this.app.components.classes[extendsId] = this.Component
                 extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
             } else {
@@ -67,7 +68,7 @@ const nativeElementsMap = {
                 }
             }
             const sanitizedScript = scriptCode.replace(extendsRegExp, extendsStatement)
-            return this.componentFactory({ class: sanitizedScript, extends: extendsId, id, style, template })
+            return this.componentFactory({ class: sanitizedScript, extends: extendsId, native, style, template }, id)
         }
     },
     compileFacet: {
