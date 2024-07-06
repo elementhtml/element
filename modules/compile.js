@@ -25,15 +25,15 @@ const nativeElementsMap = {
             container.innerHTML = await fileFetch.text()
             const style = container.content.querySelector('style'), template = container.content.querySelector('template'),
                 script = container.content.querySelector('script'), scriptCode = script.textContent.trim()
-            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'HTMLElement', extendsClass = this.Component,
-                extendsStatement = `class extends ElementHTML.Component {`
+            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'E.Component', extendsClass = this.Component,
+                extendsStatement = `class extends E.Component {`
             if (extendsId in nativeElementsMap) {
                 extendsClass = this.app.components.classes[extendsId] = this.Component
-                extendsStatement = `class extends ElementHTML.app.components.classes.${extendsId} {`
+                extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
             } else {
                 extendsId = this.resolveUrl(new URL(extendsId, id))
                 extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
-                extendsStatement = `class extends ElementHTML.app.components.classes['${extendsId}'] {`
+                extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
                 if (template.content.querySelector('template[data-slot], template[data-target]')) {
                     const extendsTemplate = extendsClass.template.content.cloneNode(true)
@@ -66,19 +66,8 @@ const nativeElementsMap = {
                     template.content.replaceWith(...extendsTemplate.children)
                 }
             }
-            const sanitizedScript = scriptCode.replace(extendsRegExp, extendsStatement),
-                sanitizedScriptAsModule = `const ElementHTML = globalThis['${this.app._globalNamespace}']; export default ${sanitizedScript}`,
-                sanitizedScriptAsUrl = URL.createObjectURL(new Blob([sanitizedScriptAsModule], { type: 'text/javascript' })),
-                classModule = await import(sanitizedScriptAsUrl)
-            URL.revokeObjectURL(sanitizedScriptAsUrl)
-            const ComponentClass = class extends classModule.default {
-                static id = id
-                static extends = extendsId
-                static style = style
-                static template = template
-            }
-            ComponentClass.E = this
-            return ComponentClass
+            const sanitizedScript = scriptCode.replace(extendsRegExp, extendsStatement)
+            return this.componentFactory({ class: sanitizedScript, extends: extendsId, id, style, template })
         }
     },
     compileFacet: {

@@ -150,7 +150,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
                             namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
                         if (!namespaceExists) this.env.namespaces[packageKey] = componentNamespaceBase
-                        for (const componentKey in pkgScope) envScope[`${componentNamespaceBase}/${componentKey}.html`] = this.componentFactory(pkgScope[componentKey])
+                        for (const componentKey in pkgScope) envScope[`${componentNamespaceBase}/${componentKey}.html`] = await this.componentFactory(pkgScope[componentKey])
                         if (this.app.dev) {
                             this.app.components.packages ??= {}
                             for (const componentKey in pkgScope) this.app.components.packages[componentKey] = packageKey
@@ -1404,7 +1404,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     componentFactory: {
-        value: function (manifest) {
+        value: async function (manifest) {
             let ComponentClass
             if (!(manifest.prototype instanceof this.Component)) {
                 if (!this.isPlainObject(manifest)) return
@@ -1412,27 +1412,17 @@ const ElementHTML = Object.defineProperties({}, {
                     template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true) : document.createElement('template')
                 if (typeof manifest.style === 'string') style.textContent = manifest.style
                 if (typeof manifest.template === 'string') template.content.textContent = manifest.template
+                if (typeof manifest.class === 'string') {
+                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${manifest.class}`], { type: 'text/javascript' }))
+                    manifest.class = (await import(classAsModuleUrl)).default
+                    URL.revokeObjectURL(classAsModuleUrl)
+                }
                 ComponentClass = class extends (manifest.class?.prototype instanceof this.Component ? manifest.class : this.Component) {
                     static id = manifest.id
                     static extends = manifest.extends
                     static style = style
                     static template = template
                 }
-            }
-            if (manifest.descriptors) {
-                for (const key in manifest.descriptors) {
-                    const descriptor = manifest.descriptors[key]
-                    for (const p of ['value', 'get', 'set']) {
-                        if (descriptor[p] && (typeof descriptor[p] === string)) {
-                            if (descriptor[p] instanceof Function) {
-                                descriptor[p] = new Function()
-                            } else if (p === 'value') {
-                                try { descriptor[p] = JSON.parse(descriptor[p]) } catch (e) { }
-                            }
-                        }
-                    }
-                }
-                Object.defineProperties(ComponentClass.prototype, manifest.descriptors)
             }
             ComponentClass.E = this
             return ComponentClass
