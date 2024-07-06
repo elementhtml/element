@@ -95,7 +95,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./e/components`, import.meta.url)).href },
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, templates: {}, transforms: {}, types: {}
         }
     },
@@ -271,7 +271,10 @@ const ElementHTML = Object.defineProperties({}, {
             }
             this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
-                Object.freeze(this.app)
+                if (!this.app._globalNamespace) {
+                    Object.defineProperty(this.app, '_globalNamespace', { value: undefined, writable: true })
+                    Object.seal(this.app)
+                }
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 const eventMap = {
                     'beforeinstallprompt': 'installprompt', 'beforeunload': 'unload', 'appinstalled': 'install',
@@ -1203,8 +1206,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     getCustomTag: {
         value: function (element) {
-            return (element instanceof HTMLElement && element.tagName.includes('-') && element.tagName.toLowerCase())
-                || (element instanceof HTMLElement && element.getAttribute('is')?.includes('-') && element.getAttribute('is').toLowerCase())
+            let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
+            if (!tag) return
+            return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
     },
     getExports: {
@@ -1390,6 +1394,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!this.app._globalNamespace) {
                 Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
                 Object.defineProperty(globalThis, this.app._globalNamespace, { value: this })
+                Object.freeze(this.app)
             }
         }
     },

@@ -73,7 +73,7 @@ const nativeElementsMap = {
                     template.content.replaceWith(...extendsTemplate.children)
                 }
             }
-            const sanitizedScript = scriptCode.replace(extendsRegExp, extendsStatement)
+            const sanitizedScript = scriptCode.replace(regexp.extends, extendsStatement)
             return this.componentFactory({ class: sanitizedScript, extends: extendsId, native, style, template }, id)
         }
     },
