@@ -1424,11 +1424,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!(manifest.prototype instanceof this.Component)) {
                 if (!this.isPlainObject(manifest)) return
                 let extendsId
-                if (manifest.extends) {
-                    extendsId = this.resolveUrl(new URL(manifest.extends, document.location.href))
-                    let extendsClass = this.app.components.classes[extendsId] ?? this.env.components[extendsId]
-                    if (this.app.compile) extendsClass ??= await this.compileComponent(extendsId)
-                }
+                if (manifest.extends) extendsId = this.resolveUrl(new URL(manifest.extends, document.location.href))
                 let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : document.createElement('style'),
                     template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true) : document.createElement('template')
                 if (typeof manifest.style === 'string') style.textContent = manifest.style
