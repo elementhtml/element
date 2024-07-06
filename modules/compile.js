@@ -23,18 +23,24 @@ const nativeElementsMap = {
             const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
             container.innerHTML = await fileFetch.text()
-            const style = container.content.querySelector('style'), template = container.content.querySelector('template'),
-                script = container.content.querySelector('script'), scriptCode = script.textContent.trim()
-            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends || 'E.Component', extendsClass = this.Component,
+            const style = container.content.querySelector('style') ?? document.createElement('style'),
+                template = container.content.querySelector('template') ?? document.createElement('template'),
+                script = container.content.querySelector('script') ?? document.createElement('script'),
+                scriptCode = script.textContent.trim() || 'export default class extends E.Component {}'
+            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends, extendsClass = this.Component,
                 extendsStatement = `class extends E.Component {`, native
-            if (extendsId in nativeElementsMap) {
+            if (extendsId === 'E.Component' || [].includes(extendsId)) {
+                extendsId = undefined
+            } else if (extendsId in nativeElementsMap) {
                 native = extendsId
                 extendsClass = this.app.components.classes[extendsId] = this.Component
                 extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
             } else {
-                extendsId = this.resolveUrl(new URL(extendsId, id))
-                extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
-                extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
+                if (extendsId) {
+                    extendsId = this.resolveUrl(new URL(extendsId, id))
+                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
+                    extendsStatement = `class extends E.app.components.classes['${extendsId}'] {`
+                }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
                 if (template.content.querySelector('template[data-slot], template[data-target]')) {
                     const extendsTemplate = extendsClass.template.content.cloneNode(true)

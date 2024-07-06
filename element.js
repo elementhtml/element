@@ -1428,7 +1428,7 @@ const ElementHTML = Object.defineProperties({}, {
                 let classObj = manifest.class
                 if (typeof classObj === 'string') {
                     this.setGlobalNamespace()
-                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${classObj}`], { type: 'text/javascript' }))
+                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; ${classObj}`], { type: 'text/javascript' }))
                     classObj = (await import(classAsModuleUrl)).default
                     URL.revokeObjectURL(classAsModuleUrl)
                 }
