@@ -1437,15 +1437,24 @@ const ElementHTML = Object.defineProperties({}, {
                     URL.revokeObjectURL(classAsModuleUrl)
                 }
                 ComponentClass = class extends (classObj?.prototype instanceof this.Component ? classObj : this.Component) {
-                    static id = id
+                    static attributes = manifest.attributes
+                        ? ({ ...(super.attributes ?? {}), observed: Array.from(new Set([...(super.attributes.observed ?? []), ...(manifest.attributes.observed ?? [])])) })
+                        : super.attributes
+                    static config = { ...(super.config ?? {}), ...(manifest.config ?? {}) }
+                    static events = { ...(super.events ?? {}), ...(manifest.events ?? {}) }
                     static extends = extendsId
                     static native = manifest.native
+                    static id = id
+                    static properties = manifest.properties
+                        ? ({ ...(super.properties ?? {}), flattenable: Array.from(new Set([...(super.properties.flattenable ?? []), ...(manifest.properties.observed ?? [])])) })
+                        : super.properties
                     static style = style
+                    static subspaces = [...(super.subspaces ?? []), ...(manifest.subspaces ?? [])]
                     static template = template
                 }
             }
-            ComponentClass.E = this
-            ComponentClass.prototype.E = this
+            ComponentClass.E ??= this
+            ComponentClass.prototype.E ??= this
             return ComponentClass
         }
     },
@@ -1455,7 +1464,7 @@ const ElementHTML = Object.defineProperties({}, {
             static config = { openShadow: false }
             static events = { default: undefined }
             static extends
-            static extendsBuiltIn
+            static native
             static id
             static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
