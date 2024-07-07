@@ -1425,10 +1425,11 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!this.isPlainObject(manifest)) return
                 let extendsId
                 if (manifest.extends) extendsId = this.resolveUrl(new URL(manifest.extends, document.location.href))
-                let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : document.createElement('style'),
-                    template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true) : document.createElement('template')
-                if (typeof manifest.style === 'string') style.textContent = manifest.style
-                if (typeof manifest.template === 'string') template.content.textContent = manifest.template
+                let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : (manifest.style ? document.createElement('style') : undefined),
+                    template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true)
+                        : (manifest.template ? document.createElement('template') : undefined)
+                if (manifest.style && (typeof manifest.style === 'string')) style.textContent = manifest.style
+                if (manifest.template && (typeof manifest.template === 'string')) template.content.textContent = manifest.template
                 let classObj = manifest.class
                 if (typeof classObj === 'string') {
                     this.setGlobalNamespace()
@@ -1438,8 +1439,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 ComponentClass = class extends (classObj?.prototype instanceof this.Component ? classObj : this.Component) {
                     static attributes = manifest.attributes
-                        ? ({ ...(super.attributes ?? {}), observed: Array.from(new Set([...(super.attributes.observed ?? []), ...(manifest.attributes.observed ?? [])])) })
-                        : super.attributes
+                        ? ({ ...(super.attributes ?? {}), observed: Array.from(new Set([...(super.attributes?.observed ?? []), ...(manifest.attributes?.observed ?? [])])) })
+                        : (super.attributes ?? {})
                     static config = { ...(super.config ?? {}), ...(manifest.config ?? {}) }
                     static events = { ...(super.events ?? {}), ...(manifest.events ?? {}) }
                     static extends = extendsId
@@ -1447,7 +1448,7 @@ const ElementHTML = Object.defineProperties({}, {
                     static id = id
                     static properties = manifest.properties
                         ? ({ ...(super.properties ?? {}), flattenable: Array.from(new Set([...(super.properties.flattenable ?? []), ...(manifest.properties.observed ?? [])])) })
-                        : super.properties
+                        : (super.properties ?? {})
                     static style = manifest.style ? style : super.style
                     static subspaces = [...(super.subspaces ?? []), ...(manifest.subspaces ?? [])]
                     static template = manifest.template ? template : super.template
