@@ -20,7 +20,7 @@
             if (this.#delay) {
                 this.#id = setInterval(() => {
                     const v = this.E.mergeVariables(this.#value)
-                    if (v != null) return this.E_emitValueChange(v)
+                    if (v != null) return this.E.dispatchComponentEvent(this, v)
                 }, this.#delay)
             }
         }

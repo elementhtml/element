@@ -290,16 +290,17 @@ const ElementHTML = Object.defineProperties({}, {
 
     dispatchComponentEvent: {
         enumerable: true, value: function (instance, value, eventName, bubbles = true, cancelable = true, composed = false) {
-            if (!eventName) eventName = instance.constructor.events?.default ?? this.sys.defaultEventTypes[instance.tagName.toLowerCase()] ?? 'click'
-            instance.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
-            return value
-        }
-    },
-    dispatchCompoundEvent: {
-        enumerable: true, value: async function (eventName, detail, element) {
-            const event = new CustomEvent(eventName, { detail })
-            return element.dispatchEvent(event)
-                && (this.app.components.natives.get(element)?.dispatchEvent(event) || this.app.components.virtuals.get(element)?.dispatchEvent(event))
+            let virtualElement = this.app.components.virtuals.get(instance), nativeElement = this.app.components.natives.get(instance)
+            const isPair = (virtualElement || nativeElement)
+            if (isPair) {
+                virtualElement ??= instance
+                nativeElement ??= instance
+                eventName ??= virtualElement.constructor.events?.default ?? this.sys.defaultEventTypes[nativeElement.tagName.toLowerCase()] ?? 'click'
+                return virtualElement.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+                    && nativeElement.dispatchEvent(new CustomEvent(eventName, { detail: value, bubbles, cancelable, composed }))
+            }
+            eventName ??= instance instanceof this.Component ? (instance.constructor.events?.default) : this.sys.defaultEventTypes[instance.tagName.toLowerCase()]
+            return instance.dispatchEvent(new CustomEvent(eventName ?? 'click', { detail: value, bubbles, cancelable, composed }))
         }
     },
     flatten: {
@@ -1424,12 +1425,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (!(manifest.prototype instanceof this.Component)) {
                 if (!this.isPlainObject(manifest)) return
                 let extendsId
-                if (manifest.extends) extendsId = this.resolveUrl(new URL(manifest.extends, document.location.href))
-                let style = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : (manifest.style ? document.createElement('style') : undefined),
-                    template = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true)
+                if (manifest.extends) extendsId = (manifest.native && manifest.extends === manifest.native) ? manifest.extends : this.resolveUrl(manifest.extends)
+                let styleNode = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : (manifest.style ? document.createElement('style') : undefined),
+                    templateNode = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true)
                         : (manifest.template ? document.createElement('template') : undefined)
-                if (manifest.style && (typeof manifest.style === 'string')) style.textContent = manifest.style
-                if (manifest.template && (typeof manifest.template === 'string')) template.content.textContent = manifest.template
+                if (manifest.style && (typeof manifest.style === 'string')) styleNode.textContent = manifest.style
+                if (manifest.template && (typeof manifest.template === 'string')) templateNode.content.textContent = manifest.template
                 let classObj = manifest.class
                 if (typeof classObj === 'string') {
                     this.setGlobalNamespace()
@@ -1437,21 +1438,29 @@ const ElementHTML = Object.defineProperties({}, {
                     classObj = (await import(classAsModuleUrl)).default
                     URL.revokeObjectURL(classAsModuleUrl)
                 }
-                ComponentClass = class extends (classObj?.prototype instanceof this.Component ? classObj : this.Component) {
-                    static attributes = manifest.attributes
-                        ? ({ ...(super.attributes ?? {}), observed: Array.from(new Set([...(super.attributes?.observed ?? []), ...(manifest.attributes?.observed ?? [])])) })
-                        : (super.attributes ?? {})
-                    static config = { ...(super.config ?? {}), ...(manifest.config ?? {}) }
-                    static events = { ...(super.events ?? {}), ...(manifest.events ?? {}) }
+                const parentComponent = (classObj?.prototype instanceof this.Component ? classObj : this.Component),
+                    attributes = manifest.attributes
+                        ? ({ ...(parentComponent.attributes ?? {}), observed: Array.from(new Set([...(parentComponent.attributes?.observed ?? []), ...(manifest.attributes?.observed ?? [])])) })
+                        : (parentComponent.attributes ?? {}),
+                    config = { ...(parentComponent.config ?? {}), ...(manifest.config ?? {}) },
+                    events = { ...(parentComponent.events ?? {}), ...(manifest.events ?? {}) },
+                    native = manifest.native ?? parentComponent.native,
+                    properties = manifest.properties
+                        ? ({ ...(parentComponent.properties ?? {}), flattenable: Array.from(new Set([...(parentComponent.properties.flattenable ?? []), ...(manifest.properties.observed ?? [])])) })
+                        : (parentComponent.properties ?? {}),
+                    subspaces = [...(parentComponent.subspaces ?? []), ...(manifest.subspaces ?? [])],
+                    style = manifest.style ? styleNode : parentComponent.style, template = manifest.template ? templateNode : parentComponent.template
+                ComponentClass = class extends parentComponent {
+                    static attributes = attributes
+                    static config = config
+                    static events = events
                     static extends = extendsId
-                    static native = manifest.native ?? super.native
+                    static native = native
                     static id = id
-                    static properties = manifest.properties
-                        ? ({ ...(super.properties ?? {}), flattenable: Array.from(new Set([...(super.properties.flattenable ?? []), ...(manifest.properties.observed ?? [])])) })
-                        : (super.properties ?? {})
-                    static style = manifest.style ? style : super.style
-                    static subspaces = [...(super.subspaces ?? []), ...(manifest.subspaces ?? [])]
-                    static template = manifest.template ? template : super.template
+                    static properties = properties
+                    static style = style
+                    static subspaces = subspaces
+                    static template = template
                 }
             }
             ComponentClass.E = this
