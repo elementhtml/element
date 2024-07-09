@@ -9,12 +9,12 @@ struct Config {
 };
 
 struct Events {
-    string *default<>;
+    Name *default;
 };
 
 struct Properties {
     Name flattenable<>;
-    string *value<>;
+    Name *value;
 };
 
 struct Component {
@@ -22,9 +22,9 @@ struct Component {
     string *class<>;
     Config *config;
     Events *events;
-    string *extends<>;
-    string *native<>;
-    string *id<>;
+    Name *extends;
+    Name *native;
+    bool *lite;
     Properties *properties;
     string *style<>;
     Name *subspaces<>;

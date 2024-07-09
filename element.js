@@ -1439,6 +1439,7 @@ const ElementHTML = Object.defineProperties({}, {
                     URL.revokeObjectURL(classAsModuleUrl)
                 }
                 const parentComponent = (classObj?.prototype instanceof this.Component ? classObj : this.Component),
+                    lite = classObj == null,
                     attributes = manifest.attributes
                         ? ({ ...(parentComponent.attributes ?? {}), observed: Array.from(new Set([...(parentComponent.attributes?.observed ?? []), ...(manifest.attributes?.observed ?? [])])) })
                         : (parentComponent.attributes ?? {}),
@@ -1457,6 +1458,7 @@ const ElementHTML = Object.defineProperties({}, {
                     static extends = extendsId
                     static native = native
                     static id = id
+                    static lite = lite
                     static properties = properties
                     static style = style
                     static subspaces = subspaces
@@ -1476,6 +1478,7 @@ const ElementHTML = Object.defineProperties({}, {
             static extends
             static native
             static id
+            static lite
             static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
             static subspaces = []

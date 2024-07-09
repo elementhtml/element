@@ -1,30 +1,40 @@
 const module = {
 
     exportComponent: {
-        enumerable: true, value: async function (id, format = 'plain') {
-            if (id instanceof HTMLElement) id = id instanceof this.Component ? id.constructor.id : (this.app.components.virtuals.get(id)?.constructor?.id)
-            const componentClass = id.prototype && id.prototype instanceof this.Component ? id : this.app.components.classes[id], componentManifest = {
-                id, extends: componentClass.extends ?? 'HTMLElement',
-                style: componentClass.style ?? '',
-                template: componentClass.template ?? '',
-                descriptors: Object.getOwnPropertyDescriptors(componentClass),
+        enumerable: true, value: async function (id, format = undefined, options = {}) {
+            if ((id instanceof HTMLElement) || (id instanceof this.Component)) {
+                id = id instanceof this.Component ? id.constructor.id : (this.app.components.virtuals.get(id)?.constructor?.id)
+            } else if (id.prototype instanceof this.Component) {
+                id = id.id
             }
+            if (!id) throw new Error('Component id is required')
+            const classObject = this.app.components.classes[id]
+            if (!classObject) throw new Error(`Component id not found: ${id}`)
+            if (format == undefined) return classObject
+            const { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template } = classObject,
+                componentManifest = { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template },
+                classToString = lite ? undefined : classObject.toString()
+            for (const a of ['style', 'template']) {
+                if (componentManifest[a] instanceof HTMLElement) componentManifest[a] = componentManifest[a].textContent
+                if (!componentManifest[a]) delete componentManifest[a]
+            }
+            if (!(componentManifest.subspaces ?? []).length) delete componentManifest.subspaces
+            for (const a of ['extends', 'lite', 'native']) if (!componentManifest[a]) delete componentManifest[a]
+            for (const a of ['attributes', 'config', 'events', 'properties']) {
+                if (!componentManifest[a]) continue
+                for (const aa of Object.keys(componentManifest[a])) if (!componentManifest[a][aa] || (Array.isArray(componentManifest[a][aa]) && !componentManifest[a][aa].length)) delete componentManifest[a][aa]
+                if (!Object.keys(componentManifest[a]).length) delete componentManifest[a]
+            }
+            if (classToString && (classToString !== this.Component.toString())) componentManifest.class = classToString
             switch (format) {
-                case 'json': case 'xdr':
-                    if (componentManifest.style instanceof HTMLStyleElement) componentManifest.style = componentManifest.style.textContent
-                    if (componentManifest.template instanceof HTMLTemplateElement) componentManifest.template = componentManifest.template.content.cloneNode(true).textContent
-                    for (const key in componentManifest.descriptors) {
-                        const descriptor = componentManifest.descriptors[key]
-                        for (const p of ['value', 'get', 'set']) if (descriptor[p] instanceof Function) descriptor[p] = descriptor.value.toString()
-                        if (('value' in descriptor) && format === 'xdr') try { descriptor.value = JSON.stringify(descriptor.value) } catch (e) { delete componentManifest.descriptors[key] }
-                    }
-                    if (format === 'json') return JSON.stringify(componentManifest)
-                    componentManifest.descriptors = Object.entries(componentManifest.descriptors)
+                case 'plain':
+                    return componentManifest
+                case 'json':
+                    return JSON.stringify(componentManifest, options?.replacer, options?.space)
+                case 'xdr':
                     await this.loadHelper('xdr')
                     const componentType = await this.useHelper('xdr', 'factory', (new URL('../types/Component.x', import.meta.url)).href, 'Component', { name: 'Component', namespace: 'element' })
                     return this.useHelper('xdr', 'stringify', componentManifest, componentType)
-                default:
-                    return componentManifest
             }
         }
     },
