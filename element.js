@@ -1489,9 +1489,15 @@ const ElementHTML = Object.defineProperties({}, {
                     static subspaces = subspaces
                     static template = template
                 }
+                if (this.app.dev) {
+                    const cStatic = Object.getOwnPropertyDescriptors(ComponentClass), cInstance = Object.getOwnPropertyDescriptors(ComponentClass.prototype),
+                        pStatic = Object.getOwnPropertyDescriptors(parentComponent), pInstance = Object.getOwnPropertyDescriptors(parentComponent.prototype)
+                    for (const p in pStatic) if (!(p in cStatic)) Object.defineProperty(ComponentClass, p, pStatic[p])
+                    for (const p in pInstance) if (!(p in cInstance)) Object.defineProperty(ComponentClass.prototype, p, pInstance[p])
+                }
             }
-            ComponentClass.E = this
-            ComponentClass.prototype.E = this
+            Object.defineProperty(ComponentClass, 'E', { value: this })
+            Object.defineProperty(ComponentClass.prototype, 'E', { value: this })
             return ComponentClass
         }
     },
@@ -1519,7 +1525,6 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch (e) { }
             }
             static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
-            async connectedCallback() { }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() { return this.E.flatten(this) }
         }

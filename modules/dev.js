@@ -11,8 +11,46 @@ const module = {
             const classObject = this.app.components.classes[id]
             if (!classObject) throw new Error(`Component id not found: ${id}`)
             if (format == undefined) return classObject
-            const { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template } = classObject,
-                componentManifest = { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template },
+            const getAllPropertyDescriptors = cls => {
+                let ds = { static: {}, instance: {} }
+                let curr = cls, d
+                while (curr) {
+                    d = Object.getOwnPropertyDescriptors(curr)
+                    for (const p in d) if (d[p].enumerable || (d[p].set || d[p].get || (d[p].value !== undefined))) ds.static[p] ??= d[p]
+                    d = Object.getOwnPropertyDescriptors(curr.prototype)
+                    for (const p in d) if (d[p].enumerable || (d[p].set || d[p].get || (d[p].value !== undefined))) ds.instance[p] ??= d[p]
+                    curr = curr.extends ? this.app.components.classes[curr.extends] : undefined
+                }
+                for (const p of ['E', 'id', 'length', 'name', 'prototype', 'observedAttributes']) {
+                    if (!ds.static[p]) continue
+                    switch (p) {
+                        case 'length':
+                            if (ds.static[p].value === 0) delete ds.static[p]
+                            break
+                        case 'observedAttributes':
+                            if (ds.static[p].get?.toString() === Object.getOwnPropertyDescriptor(this.Component, 'observedAttributes')?.get?.toString()) delete ds.static[p]
+                            break
+                        case 'name':
+                            if (ds.static[p].value === 'ComponentClass') delete ds.static[p]
+                            break
+                        default:
+                            delete ds.static[p]
+                    }
+                }
+                for (const p of ['E', 'attributeChangedCallback']) {
+                    if (!ds.instance[p]) continue
+                    switch (p) {
+                        case 'attributeChangedCallback':
+                            if (ds.instance[p].value?.toString() === this.Component.prototype.attributeChangedCallback.toString()) delete ds.instance[p]
+                            break
+                        default:
+                            delete ds.instance[p]
+                    }
+                }
+                return ds
+            }, { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template } = classObject,
+                descriptors = getAllPropertyDescriptors(classObject),
+                componentManifest = { attributes, config, descriptors, events, extends: extendsId, native, lite, properties, style, subspaces, template },
                 classToString = lite ? undefined : classObject.toString()
             for (const a of ['style', 'template']) {
                 if (componentManifest[a] instanceof HTMLElement) componentManifest[a] = componentManifest[a].textContent
@@ -24,6 +62,28 @@ const module = {
                 if (!componentManifest[a]) continue
                 for (const aa of Object.keys(componentManifest[a])) if (!componentManifest[a][aa] || (Array.isArray(componentManifest[a][aa]) && !componentManifest[a][aa].length)) delete componentManifest[a][aa]
                 if (!Object.keys(componentManifest[a]).length) delete componentManifest[a]
+            }
+            if (format === 'class' || format === 'string') {
+                console.log('line 43', descriptors)
+                const className = options.name ?? id.split('/').pop().replace('.html', '').split('').map((s, i) => (i === 0 ? s.toUpperCase() : s)).join('')
+                if (format === 'class') {
+                    const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component { }
+                    for (const a in componentManifest) returnClass[a] = JSON.parse(JSON.stringify(componentManifest[a]))
+                    Object.defineProperties(returnClass, descriptors.static)
+                    Object.defineProperties(returnClass.prototype, descriptors.instance)
+                    return returnClass
+                }
+                if (format === 'string') {
+                    const propLines = []
+                    for (const a in componentManifest) {
+                        propLines.push(`static ${a} = ${JSON.stringify(componentManifest[a])}`)
+                    }
+                    const propBlock = propLines.length ? propLines.join(`
+                    `) : ''
+                    return `class ${className} extends ${options.E ?? 'E'}.${extendsId ? ('app.components["' + extendsId + '"]') : 'Component'} {
+                        ${propBlock}
+                    }`
+                }
             }
             if (classToString && (classToString !== this.Component.toString())) componentManifest.class = classToString
             switch (format) {
