@@ -67,22 +67,23 @@ const module = {
                 const className = options.name ?? id.split('/').pop().replace('.html', '').split('').map((s, i) => (i === 0 ? s.toUpperCase() : s)).join('')
                 switch (format) {
                     case 'class':
-                    // const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component {
-                    //     constructor() {
-                    //         super()
-                    //         console.log('')
-                    //     }
-                    // }
-                    // if (this.app.components.constructorFunctions[id]) {
-                    //     returnClass.prototype.constructor = function () {
-                    //         super()
-                    //         console.log('')
-                    //     }
-                    //     // returnClass.prototype.constructor = new Function(this.app.components.constructorFunctions[id]).bind(returnClass.prototype)
-                    // }
-                    // Object.defineProperties(returnClass, descriptors.static)
-                    // Object.defineProperties(returnClass.prototype, descriptors.instance)
-                    // return returnClass
+                        // const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component {
+                        //     constructor() {
+                        //         super()
+                        //         console.log('')
+                        //     }
+                        // }
+                        // if (this.app.components.constructorFunctions[id]) {
+                        //     returnClass.prototype.constructor = function () {
+                        //         super()
+                        //         console.log('')
+                        //     }
+                        //     // returnClass.prototype.constructor = new Function(this.app.components.constructorFunctions[id]).bind(returnClass.prototype)
+                        // }
+                        // Object.defineProperties(returnClass, descriptors.static)
+                        // Object.defineProperties(returnClass.prototype, descriptors.instance)
+                        // return returnClass
+                        break
                     case 'string':
                         console.log('line 76', descriptors)
                         console.log('line 77', this.app.components.constructorFunctions[id])
