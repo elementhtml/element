@@ -12,6 +12,11 @@
 
         async disconnectedCallback() { if (this.#id) clearInterval(this.#id) }
 
+        constructor() {
+            super()
+            console.log('')
+        }
+
         get delay() { return this.#delay ?? this.getAttribute('delay') }
         set delay(value) {
             if (typeof value === 'string') value = this.E.mergeVariables(value)

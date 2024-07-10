@@ -50,7 +50,7 @@ const module = {
                 return ds
             }, { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template } = classObject,
                 descriptors = getAllPropertyDescriptors(classObject),
-                componentManifest = { attributes, config, descriptors, events, extends: extendsId, native, lite, properties, style, subspaces, template },
+                componentManifest = { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template },
                 classToString = lite ? undefined : classObject.toString()
             for (const a of ['style', 'template']) {
                 if (componentManifest[a] instanceof HTMLElement) componentManifest[a] = componentManifest[a].textContent
@@ -65,24 +65,36 @@ const module = {
             }
             if (format === 'class' || format === 'string') {
                 const className = options.name ?? id.split('/').pop().replace('.html', '').split('').map((s, i) => (i === 0 ? s.toUpperCase() : s)).join('')
-                if (format === 'class') {
-                    const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component { }
-                    for (const a in componentManifest) returnClass[a] = JSON.parse(JSON.stringify(componentManifest[a]))
-                    Object.defineProperties(returnClass, descriptors.static)
-                    Object.defineProperties(returnClass.prototype, descriptors.instance)
-                    return returnClass
-                }
-                if (format === 'string') {
-                    console.log('line 76', descriptors)
-                    const propLines = []
-                    for (const a in componentManifest) {
-                        propLines.push(`static ${a} = ${JSON.stringify(componentManifest[a])}`)
-                    }
-                    const propBlock = propLines.length ? propLines.join(`
-                    `) : ''
-                    return `class ${className} extends ${options.E ?? 'E'}.${extendsId ? ('app.components["' + extendsId + '"]') : 'Component'} {
-                        ${propBlock}
-                    }`
+                switch (format) {
+                    case 'class':
+                    // const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component {
+                    //     constructor() {
+                    //         super()
+                    //         console.log('')
+                    //     }
+                    // }
+                    // if (this.app.components.constructorFunctions[id]) {
+                    //     returnClass.prototype.constructor = function () {
+                    //         super()
+                    //         console.log('')
+                    //     }
+                    //     // returnClass.prototype.constructor = new Function(this.app.components.constructorFunctions[id]).bind(returnClass.prototype)
+                    // }
+                    // Object.defineProperties(returnClass, descriptors.static)
+                    // Object.defineProperties(returnClass.prototype, descriptors.instance)
+                    // return returnClass
+                    case 'string':
+                        console.log('line 76', descriptors)
+                        console.log('line 77', this.app.components.constructorFunctions[id])
+                        const propLines = []
+                        for (const a in componentManifest) {
+                            propLines.push(`static ${a} = ${JSON.stringify(componentManifest[a])}`)
+                        }
+                        const propBlock = propLines.length ? propLines.join(`
+                        `) : ''
+                        return `class ${className} extends ${options.E ?? 'E'}.${extendsId ? ('app.components["' + extendsId + '"]') : 'Component'} {
+                            ${propBlock}
+                        }`
                 }
             }
             if (classToString && (classToString !== this.Component.toString())) componentManifest.class = classToString

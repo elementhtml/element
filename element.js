@@ -117,6 +117,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.dev = true
             this.app.packages = new Map()
             this.app.facets.exports = new WeakMap()
+            this.app.components.constructorFunctions = {}
             await this.installModule('dev')
         }
     },
@@ -1183,7 +1184,7 @@ const ElementHTML = Object.defineProperties({}, {
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
             regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g,
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
                 splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g
@@ -1490,6 +1491,8 @@ const ElementHTML = Object.defineProperties({}, {
                     static template = template
                 }
                 if (this.app.dev) {
+                    const constructorFunctionMatch = parentComponent.toString().match(this.sys.regexp.constructorFunction)
+                    if (constructorFunctionMatch) this.app.components.constructorFunctions[id] = constructorFunctionMatch[0].replace('constructor()', '').trim().slice(1, -1).trim()
                     const cStatic = Object.getOwnPropertyDescriptors(ComponentClass), cInstance = Object.getOwnPropertyDescriptors(ComponentClass.prototype),
                         pStatic = Object.getOwnPropertyDescriptors(parentComponent), pInstance = Object.getOwnPropertyDescriptors(parentComponent.prototype)
                     for (const p in pStatic) if (!(p in cStatic)) Object.defineProperty(ComponentClass, p, pStatic[p])
