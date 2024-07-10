@@ -131,7 +131,7 @@ const ElementHTML = Object.defineProperties({}, {
             let pkg = packageObject?.default ?? {}
             if (!this.isPlainObject(pkg)) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
-            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(this))(pkg)
+            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
@@ -209,7 +209,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            pkg.hooks?.postInstall(pkg)
+            if (pkg?.hooks?.postInstall === 'function') await (pkg.hooks.postInstall.bind(pgk))(this)
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
