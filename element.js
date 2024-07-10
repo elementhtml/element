@@ -209,7 +209,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            if (pkg?.hooks?.postInstall === 'function') await (pkg.hooks.postInstall.bind(pgk))(this)
+            if (pkg?.hooks?.postInstall === 'function') await (pkg.hooks.postInstall.bind(pkg))(this)
             if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
