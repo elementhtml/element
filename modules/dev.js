@@ -64,7 +64,6 @@ const module = {
                 if (!Object.keys(componentManifest[a]).length) delete componentManifest[a]
             }
             if (format === 'class' || format === 'string') {
-                console.log('line 43', descriptors)
                 const className = options.name ?? id.split('/').pop().replace('.html', '').split('').map((s, i) => (i === 0 ? s.toUpperCase() : s)).join('')
                 if (format === 'class') {
                     const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component { }
@@ -74,6 +73,7 @@ const module = {
                     return returnClass
                 }
                 if (format === 'string') {
+                    console.log('line 76', descriptors)
                     const propLines = []
                     for (const a in componentManifest) {
                         propLines.push(`static ${a} = ${JSON.stringify(componentManifest[a])}`)
