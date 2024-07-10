@@ -137,10 +137,11 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (scope) {
                     case 'context': case 'options':
                         for (const s in pkgScope) {
-                            if (this.isPlainObject(envScope[s])) {
-                                for (const n in pkgScope[s]) envScope[s][n] = this.isPlainObject(envScope[s][n]) ? Object.assign(envScope[s][n], pkgScope[s][n]) : pkgScope[s][n]
+                            const importItem = await this.resolvePackageItem(pkgScope[s], scope)
+                            if (this.isPlainObject(importItem)) {
+                                for (const n in importItem) envScope[s][n] = this.isPlainObject(envScope[s][n]) ? Object.assign(envScope[s][n], importItem[n]) : importItem[n]
                             } else {
-                                envScope[s] = pkgScope[s]
+                                envScope[s] = importItem
                             }
                         }
                         break
@@ -148,15 +149,20 @@ const ElementHTML = Object.defineProperties({}, {
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
                             namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
                         if (!namespaceExists) this.env.namespaces[packageKey] = componentNamespaceBase
-                        const componentId = `${componentNamespaceBase}/${componentKey}.html`
-                        for (const componentKey in pkgScope) envScope[componentId] = await this.componentFactory(pkgScope[componentKey], componentId)
+                        for (const componentKey in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[componentKey], scope), componentId = `${componentNamespaceBase}/${componentKey}.html`
+                            envScope[componentId] = await this.componentFactory(importItem, componentId)
+                        }
                         if (this.app.dev) {
                             this.app.components.packages ??= {}
                             for (const componentKey in pkgScope) this.app.components.packages[componentKey] = packageKey
                         }
                         break
                     case 'facets':
-                        for (const facetCid in pkgScope) envScope[facetCid] = this.facetFactory(pkgScope[facetCid])
+                        for (const facetCid in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[facetCid], scope)
+                            envScope[facetCid] = this.facetFactory(importItem)
+                        }
                         if (this.app.dev) {
                             this.app.facets.packages ??= {}
                             for (const facetCid in pkgScope) this.app.facets.packages[facetCid] = packageKey
@@ -167,30 +173,39 @@ const ElementHTML = Object.defineProperties({}, {
                         break
                     case 'namespaces':
                         for (const n in pkgScope) {
-                            envScope[n] = this.resolveUrl(pkgScope[n], packageUrl)
+                            const importItem = await this.resolvePackageItem(pkgScope[n], scope)
+                            envScope[n] = this.resolveUrl(importItem, packageUrl)
                             if (envScope[n].endsWith('/')) envScope[n] = envScope[n].slice(0, -1)
                         }
                         break
                     case 'regexp':
-                        for (const r in pkgScope) envScope[r] = new RegExp(pkgScope[r])
+                        for (const r in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[r], scope)
+                            envScope[r] = new RegExp(importItem)
+                        }
                         break
                     case 'templates':
                         for (const t in pkgScope) {
-                            if (pkgScope[t] instanceof HTMLElement) {
-                                envScope[t] = pkgScope[t]
-                            } else if (typeof pkgScope[t] === 'string') {
-                                if (pkgScope[t][0] === '`' && pkgScope[t].slice(-1) === '`') {
-                                    envScope[t] = ('`' + this.resolveUrl(this.resolveTemplateKey(pkgScope[t]), packageUrl) + '`')
+                            const importItem = await this.resolvePackageItem(pkgScope[t], scope)
+                            if (importItem instanceof HTMLElement) {
+                                envScope[t] = importItem
+                            } else if (typeof importItem === 'string') {
+                                if (importItem[0] === '`' && importItem.slice(-1) === '`') {
+                                    envScope[t] = ('`' + this.resolveUrl(this.resolveTemplateKey(importItem), packageUrl) + '`')
                                 } else {
                                     const templateInstance = document.createElement('template')
-                                    templateInstance.innerHTML = pkgScope[t]
+                                    templateInstance.innerHTML = importItem
                                     envScope[t] = templateInstance
                                 }
                             }
                         }
                         break
                     default:
-                        Object.assign(this.env[scope], pkg[scope])
+                        for (const i in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[i], scope)
+                            if (importItem === undefined) continue
+                            envScope[i] = importItem
+                        }
                 }
             }
             this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
@@ -1381,6 +1396,16 @@ const ElementHTML = Object.defineProperties({}, {
             } else { nodesToApply.push([buildNode(useNode), data]) }
             element[insertPosition](...nodesToApply.map(n => n[0]))
             for (const n of nodesToApply) this.render(...n)
+        }
+    },
+    resolvePackageItem: {
+        value: async function (item, scope) {
+            switch (scope) {
+                case 'components': case 'facets':
+                    return (typeof item === 'function' && !item.toString().startsWith('class ')) ? (await item(this)) : item
+                default:
+                    return typeof item === 'function' ? (await item(this)) : item
+            }
         }
     },
     resolveTemplateKey: {
