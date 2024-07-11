@@ -1,5 +1,3 @@
-<style></style>
-<template></template>
 <script>
     export default class extends `meta` {
 
@@ -11,11 +9,6 @@
         static properties = { ...super.properties, flattenable: ['delay', 'id', 'value'] }
 
         async disconnectedCallback() { if (this.#id) clearInterval(this.#id) }
-
-        constructor() {
-            super()
-            console.log('')
-        }
 
         get delay() { return this.#delay ?? this.getAttribute('delay') }
         set delay(value) {
@@ -36,6 +29,4 @@
         set value(value) { this.#value = this.E.mergeVariables(value) }
 
     }
-
-
 </script>

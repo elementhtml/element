@@ -117,7 +117,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.dev = true
             this.app.packages = new Map()
             this.app.facets.exports = new WeakMap()
-            this.app.components.constructorFunctions = {}
+            this.app.components.sources = {}
             await this.installModule('dev')
         }
     },
@@ -1444,63 +1444,47 @@ const ElementHTML = Object.defineProperties({}, {
             this.facetInstance.controller.abort()
         }
     },
+    isValidTag: {
+        value: function (tag) {
+            return !(document.createElement(tag) instanceof HTMLUnknownElement)
+        }
+    },
 
     componentFactory: {
         value: async function (manifest, id) {
             let ComponentClass
-            if (!(manifest.prototype instanceof this.Component)) {
+            if (manifest.prototype instanceof this.Component) {
+                ComponentClass = manifest
+            } else {
                 if (!this.isPlainObject(manifest)) return
-                let extendsId
-                if (manifest.extends) extendsId = (manifest.native && manifest.extends === manifest.native) ? manifest.extends : this.resolveUrl(manifest.extends)
-                let styleNode = manifest.style instanceof HTMLStyleElement ? manifest.style.cloneNode(true) : (manifest.style ? document.createElement('style') : undefined),
-                    templateNode = manifest.template instanceof HTMLTemplateElement ? manifest.template.cloneNode(true)
-                        : (manifest.template ? document.createElement('template') : undefined)
-                if (manifest.style && (typeof manifest.style === 'string')) styleNode.textContent = manifest.style
-                if (manifest.template && (typeof manifest.template === 'string')) templateNode.content.textContent = manifest.template
-                let classObj = manifest.class
-                if (typeof classObj === 'string') {
-                    this.setGlobalNamespace()
-                    const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; ${classObj}`], { type: 'text/javascript' }))
-                    classObj = (await import(classAsModuleUrl)).default
-                    URL.revokeObjectURL(classAsModuleUrl)
-                }
-                const parentComponent = (classObj?.prototype instanceof this.Component ? classObj : this.Component),
-                    lite = classObj == null,
-                    attributes = manifest.attributes
-                        ? ({ ...(parentComponent.attributes ?? {}), observed: Array.from(new Set([...(parentComponent.attributes?.observed ?? []), ...(manifest.attributes?.observed ?? [])])) })
-                        : (parentComponent.attributes ?? {}),
-                    config = { ...(parentComponent.config ?? {}), ...(manifest.config ?? {}) },
-                    events = { ...(parentComponent.events ?? {}), ...(manifest.events ?? {}) },
-                    native = manifest.native ?? parentComponent.native,
-                    properties = manifest.properties
-                        ? ({ ...(parentComponent.properties ?? {}), flattenable: Array.from(new Set([...(parentComponent.properties.flattenable ?? []), ...(manifest.properties.observed ?? [])])) })
-                        : (parentComponent.properties ?? {}),
-                    subspaces = [...(parentComponent.subspaces ?? []), ...(manifest.subspaces ?? [])],
-                    style = manifest.style ? styleNode : parentComponent.style, template = manifest.template ? templateNode : parentComponent.template
-                ComponentClass = class extends parentComponent {
-                    static attributes = attributes
-                    static config = config
-                    static events = events
-                    static extends = extendsId
-                    static native = native
-                    static id = id
-                    static lite = lite
-                    static properties = properties
-                    static style = style
-                    static subspaces = subspaces
-                    static template = template
-                }
-                if (this.app.dev) {
-                    const constructorFunctionMatch = parentComponent.toString().match(this.sys.regexp.constructorFunction)
-                    if (constructorFunctionMatch) this.app.components.constructorFunctions[id] = constructorFunctionMatch[0].replace('constructor()', '').trim().slice(1, -1).trim()
-                    const cStatic = Object.getOwnPropertyDescriptors(ComponentClass), cInstance = Object.getOwnPropertyDescriptors(ComponentClass.prototype),
-                        pStatic = Object.getOwnPropertyDescriptors(parentComponent), pInstance = Object.getOwnPropertyDescriptors(parentComponent.prototype)
-                    for (const p in pStatic) if (!(p in cStatic)) Object.defineProperty(ComponentClass, p, pStatic[p])
-                    for (const p in pInstance) if (!(p in cInstance)) Object.defineProperty(ComponentClass.prototype, p, pInstance[p])
-                }
+                const { extends: mExtends, native: mNative, script: mScript, style: mStyle, template: mTemplate } = manifest
+                let cExtends = mExtends ? ((mNative && mExtends === mNative) ? mExtends : this.resolveUrl(mExtends)) : undefined,
+                    native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.isValidTag(mNative) ? mNative : undefined,
+                    style = mStyle && (typeof mStyle === 'string') ? mStyle : '', template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : '',
+                    script = mScript && (typeof mScript === 'string') ? mScript.replace('export default ', '').trim() : 'class extends E.Component {}',
+                    [scriptHead, ...scriptBody] = script.split('{')
+                script = `  ${scriptHead} {
+
+        static {
+            this.extends = ${cExtends ? ("'" + cExtends + "'") : "undefined"}
+            this.native = ${native ? ("'" + native + "'") : "undefined"}
+            this.style = document.createElement('style')
+            this.style.textContent = \`${style}\`
+            this.template = document.createElement('template')
+            this.template.innerHTML = \`${template}\`
+        }
+
+${scriptBody.join('{')}`
+
+                this.setGlobalNamespace()
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${script}`], { type: 'text/javascript' }))
+                ComponentClass = (await import(classAsModuleUrl)).default
+                URL.revokeObjectURL(classAsModuleUrl)
             }
+            Object.defineProperty(ComponentClass, 'id', { enumerable: true, value: id })
             Object.defineProperty(ComponentClass, 'E', { value: this })
             Object.defineProperty(ComponentClass.prototype, 'E', { value: this })
+            if (this.app.dev) this.app.components.sources[id] = ComponentClass.toString()
             return ComponentClass
         }
     },
