@@ -1,114 +1,15 @@
 const module = {
 
     exportComponent: {
-        enumerable: true, value: async function (id, format = undefined, options = {}) {
+        enumerable: true, value: async function (id, format) {
             if ((id instanceof HTMLElement) || (id instanceof this.Component)) {
                 id = id instanceof this.Component ? id.constructor.id : (this.app.components.virtuals.get(id)?.constructor?.id)
             } else if (id.prototype instanceof this.Component) {
                 id = id.id
             }
             if (!id) throw new Error('Component id is required')
-            const classObject = this.app.components.classes[id]
-            if (!classObject) throw new Error(`Component id not found: ${id}`)
-            if (format == undefined) return classObject
-            const getAllPropertyDescriptors = cls => {
-                let ds = { static: {}, instance: {} }
-                let curr = cls, d
-                while (curr) {
-                    d = Object.getOwnPropertyDescriptors(curr)
-                    for (const p in d) if (d[p].enumerable || (d[p].set || d[p].get || (d[p].value !== undefined))) ds.static[p] ??= d[p]
-                    d = Object.getOwnPropertyDescriptors(curr.prototype)
-                    for (const p in d) if (d[p].enumerable || (d[p].set || d[p].get || (d[p].value !== undefined))) ds.instance[p] ??= d[p]
-                    curr = curr.extends ? this.app.components.classes[curr.extends] : undefined
-                }
-                for (const p of ['E', 'id', 'length', 'name', 'prototype', 'observedAttributes']) {
-                    if (!ds.static[p]) continue
-                    switch (p) {
-                        case 'length':
-                            if (ds.static[p].value === 0) delete ds.static[p]
-                            break
-                        case 'observedAttributes':
-                            if (ds.static[p].get?.toString() === Object.getOwnPropertyDescriptor(this.Component, 'observedAttributes')?.get?.toString()) delete ds.static[p]
-                            break
-                        case 'name':
-                            if (ds.static[p].value === 'ComponentClass') delete ds.static[p]
-                            break
-                        default:
-                            delete ds.static[p]
-                    }
-                }
-                for (const p of ['E', 'attributeChangedCallback']) {
-                    if (!ds.instance[p]) continue
-                    switch (p) {
-                        case 'attributeChangedCallback':
-                            if (ds.instance[p].value?.toString() === this.Component.prototype.attributeChangedCallback.toString()) delete ds.instance[p]
-                            break
-                        default:
-                            delete ds.instance[p]
-                    }
-                }
-                return ds
-            }, { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template } = classObject,
-                descriptors = getAllPropertyDescriptors(classObject),
-                componentManifest = { attributes, config, events, extends: extendsId, native, lite, properties, style, subspaces, template },
-                classToString = lite ? undefined : classObject.toString()
-            for (const a of ['style', 'template']) {
-                if (componentManifest[a] instanceof HTMLElement) componentManifest[a] = componentManifest[a].textContent
-                if (!componentManifest[a]) delete componentManifest[a]
-            }
-            if (!(componentManifest.subspaces ?? []).length) delete componentManifest.subspaces
-            for (const a of ['extends', 'lite', 'native']) if (!componentManifest[a]) delete componentManifest[a]
-            for (const a of ['attributes', 'config', 'events', 'properties']) {
-                if (!componentManifest[a]) continue
-                for (const aa of Object.keys(componentManifest[a])) if (!componentManifest[a][aa] || (Array.isArray(componentManifest[a][aa]) && !componentManifest[a][aa].length)) delete componentManifest[a][aa]
-                if (!Object.keys(componentManifest[a]).length) delete componentManifest[a]
-            }
-            if (format === 'class' || format === 'string') {
-                const className = options.name ?? id.split('/').pop().replace('.html', '').split('').map((s, i) => (i === 0 ? s.toUpperCase() : s)).join('')
-                switch (format) {
-                    case 'class':
-                        // const returnClass = extendsId ? class extends this.app.components.classes[extendsId] { } : class extends this.Component {
-                        //     constructor() {
-                        //         super()
-                        //         console.log('')
-                        //     }
-                        // }
-                        // if (this.app.components.constructorFunctions[id]) {
-                        //     returnClass.prototype.constructor = function () {
-                        //         super()
-                        //         console.log('')
-                        //     }
-                        //     // returnClass.prototype.constructor = new Function(this.app.components.constructorFunctions[id]).bind(returnClass.prototype)
-                        // }
-                        // Object.defineProperties(returnClass, descriptors.static)
-                        // Object.defineProperties(returnClass.prototype, descriptors.instance)
-                        // return returnClass
-                        break
-                    case 'string':
-                        console.log('line 76', descriptors)
-                        console.log('line 77', this.app.components.constructorFunctions[id])
-                        const propLines = []
-                        for (const a in componentManifest) {
-                            propLines.push(`static ${a} = ${JSON.stringify(componentManifest[a])}`)
-                        }
-                        const propBlock = propLines.length ? propLines.join(`
-                        `) : ''
-                        return `class ${className} extends ${options.E ?? 'E'}.${extendsId ? ('app.components["' + extendsId + '"]') : 'Component'} {
-                            ${propBlock}
-                        }`
-                }
-            }
-            if (classToString && (classToString !== this.Component.toString())) componentManifest.class = classToString
-            switch (format) {
-                case 'plain':
-                    return componentManifest
-                case 'json':
-                    return JSON.stringify(componentManifest, options?.replacer, options?.space)
-                case 'xdr':
-                    await this.loadHelper('xdr')
-                    const componentType = await this.useHelper('xdr', 'factory', (new URL('../types/Component.x', import.meta.url)).href, 'Component', { name: 'Component', namespace: 'element' })
-                    return this.useHelper('xdr', 'stringify', componentManifest, componentType)
-            }
+            if (!this.app.components.classes[id]) throw new Error(`Component with id '${id}' is not found`)
+            return format === 'string' ? this.app.components.classes[id].toString() : this.app.components.classes[id]
         }
     },
     exportFacet: {
