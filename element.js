@@ -1531,7 +1531,7 @@ ${scriptBody.join('{')}`
                 if (!this.isPlainObject(manifest)) return
                 const { fieldNames = [], cellNames = [], statements = [], cid } = manifest
                 if (!cid || (typeof cid !== 'string')) return
-                const source = `  class extends E.Facet {
+                const source = `  class ${cid} extends E.Facet {
 
         static cid = '${cid}'
         static fieldNames = ${JSON.stringify(Array.from(fieldNames))}
@@ -1615,11 +1615,7 @@ ${scriptBody.join('{')}`
                 }
                 container.dispatchEvent(new CustomEvent('run'))
             }
-            valueOf() {
-                const value = {}
-                for (const fieldName of this.constructor.fieldNames) value[fieldName] = this.constructor.E.getField(this, fieldName).value
-                return value
-            }
+            valueOf() { return { ...this.fields } }
             toJSON() { return this.valueOf() }
         }
     }

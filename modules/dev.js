@@ -1,45 +1,33 @@
 const module = {
 
-    exportComponent: {
-        enumerable: true, value: async function (id, format) {
-            if ((id instanceof HTMLElement) || (id instanceof this.Component)) {
-                id = id instanceof this.Component ? id.constructor.id : (this.app.components.virtuals.get(id)?.constructor?.id)
-            } else if (id.prototype instanceof this.Component) {
-                id = id.id
+    exportUnit: {
+        value: function (unitType, identifier, format) {
+            if (unitType !== 'component' && unitType !== 'facet') throw new Error(`Invalid unitType ${unitType}`)
+            let unitClass
+            if (!identifier) throw new Error(`An identifier is required`)
+            if (identifier instanceof HTMLElement) {
+                if (unitType === 'component') identifier = this.app.components.virtuals.get(identifier) ?? identifier
+                unitClass = unitType === 'component' ? identifier.constructor : this.app.facets.instances.get(identifier).constructor
+            } else if (identifier.prototype) {
+                unitClass = unitType === 'component' ? (identifier.prototype instanceof this.Component ? identifier : undefined)
+                    : (identifier.prototype instanceof this.Facet ? identifier : undefined)
+            } else if (typeof identifier === 'string') {
+                unitClass = this.app[`${unitType}s`].classes[identifier]
             }
-            if (!id) throw new Error('Component id is required')
-            if (!this.app.components.classes[id]) throw new Error(`Component with id '${id}' is not found`)
-            return format === 'string' ? this.app.components.classes[id].toString() : this.app.components.classes[id]
+            if (!unitClass) throw new Error(`No ${unitType} found with identifier ${identifier}`)
+            return format === 'string' ? unitClass.toString() : unitClass
+        }
+    },
+    exportComponent: {
+        enumerable: true, value: function (id, format) {
+            return this.exportUnit('component', id, format)
         }
     },
     exportFacet: {
-        enumerable: true, value: async function (source, format = 'plain', options = {}) {
-            const facetManifest = { fieldNames: [], cellNames: [], statements: [], cid: undefined }
-            if (!source) return facetManifest
-            let facetClass
-            switch (typeof source) {
-                case 'string':
-                    facetClass = this.app.facets.classes[source] ?? this.env.facets[source]
-                case 'function':
-                    facetClass ??= source
-                case 'object':
-                    if (source instanceof HTMLElement) facetClass ??= this.app.facets.instances.get(source)?.constructor
-            }
-            if (!facetClass) return facetManifest
-            const facetExports = this.app.facets.exports.get(facetClass) ?? {}
-            for (const p in facetManifest) facetManifest[p] = JSON.parse(JSON.stringify(facetExports[p] ?? facetClass[p]))
-            switch (format) {
-                case 'json': case 'xdr':
-                    if (format === 'json') return JSON.stringify(facetManifest, options?.replacer, options?.space)
-                    await this.loadHelper('xdr')
-                    const facetType = await this.useHelper('xdr', 'factory', (new URL('../types/Facet.x', import.meta.url)).href, 'Facet', { name: 'Facet', namespace: 'element' })
-                    return this.useHelper('xdr', 'stringify', facetManifest, facetType)
-                default:
-                    return facetManifest
-            }
+        enumerable: true, value: function (cid, format) {
+            return this.exportUnit('facet', cid, format)
         }
     },
-
 
     exportPackage: {
         enumerable: true, value: async function (includePackages = new Set(), includeComponents = new Set(), includeFacets = new Set()) {
