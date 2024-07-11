@@ -15,7 +15,16 @@ const module = {
                 unitClass = this.app[`${unitType}s`].classes[identifier]
             }
             if (!unitClass) throw new Error(`No ${unitType} found with identifier ${identifier}`)
-            return format === 'string' ? unitClass.toString() : unitClass
+            switch (format) {
+                case 'string':
+                    const unitClassString = unitClass.toString()
+                    if (unitType === 'facet') return unitClassString
+                    const componentClassString = this.Component.toString()
+                    if (unitClassString === componentClassString) return `class ${identifier} extends E.Component {}`
+                    return unitClassString
+                default:
+                    return unitClass
+            }
         }
     },
     exportComponent: {
@@ -28,10 +37,10 @@ const module = {
             return this.exportUnit('facet', cid, format)
         }
     },
-
     exportPackage: {
-        enumerable: true, value: async function (includePackages = new Set(), includeComponents = new Set(), includeFacets = new Set()) {
-            const openingLine = 'const Package = {};', closingLine = 'export default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
+        enumerable: true, value: async function (options, includes = {}) {
+            const { packages: includePackages = new Set(), components: includeComponents = new Set(), facets: includeFacets = new Set() } = includes,
+                openingLine = 'const Package = {};', closingLine = 'export default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
             if (Array.isArray(includePackages)) {
                 for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
             } else if (includePackages instanceof Set) {
@@ -39,17 +48,27 @@ const module = {
             }
             for (const packageUrl of packageUrls) packageChunks.push(...(await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
                 .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)))
-            for (const [lc, uc] of [['components', 'Component'], ['facets', 'Facet']]) {
-                const m = new Map(), include = lc === 'components' ? includeComponents : includeFacets
-                if (Array.isArray(include)) {
+            for (const [p, s] of [['components', 'component'], ['facets', 'facet']]) {
+                const m = new Map(), includeUnits = p === 'components' ? includeComponents : includeFacets
+                if (Array.isArray(includeUnits)) {
                     let t
-                    for (const id of include) if ((!(this.app[lc].packages ?? {})[id]) && (t = (this.env[lc][id] ?? this.app[lc].classes[id]))) m.set(id, t)
-                } else if (include instanceof Set) {
-                    for (const id in this.env[lc]) if ((!include.has(id)) && (!(this.app[lc].packages ?? {})[id])) m.set(id, this.env[lc][id])
-                    for (const id in this.app[lc].classes) if ((!include.has(id)) && (!(this.app[lc].packages ?? {})[id])) m.set(id, this.app[lc].classes[id])
+                    for (const id of includeUnits) if ((!(this.app[p].packages ?? {})[id]) && (t = (this.env[p][id] ?? this.app[p].classes[id]))) m.set(id, t)
+                } else if (includeUnits instanceof Set) {
+                    for (const id in this.env[p]) if ((!includeUnits.has(id)) && (!(this.app[p].packages ?? {})[id])) m.set(id, this.env[p][id])
+                    for (const id in this.app[p].classes) if ((!includeUnits.has(id)) && (!(this.app[p].packages ?? {})[id])) m.set(id, this.app[p].classes[id])
                 }
-                if (m.size) packageChunks.push(`Package.${lc} ??= {}`)
-                for (const id of m.keys()) packageChunks.push(`Package.${lc}['${id}'] = ${await this[`export${uc}`](id, 'json')}`)
+                if (m.size) packageChunks.push(`Package.${p} ??= {}`)
+                for (const id of m.keys()) {
+                    let renderId = id
+                    if (p === 'components' && options?.components?.replacers?.id) {
+                        const idReplacers = Array.isArray(options.components.replacers.id) ? options.components.replacers.id : [options.components.replacers.id]
+                        for (let r of idReplacers) {
+                            if (typeof r === 'string') r = { pattern: document.location.origin, replaceWith: r, flags: undefined }
+                            renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
+                        }
+                    }
+                    packageChunks.push(`Package.${p}['${renderId}'] = async E => (${this.exportUnit(s, id, 'string')})`)
+                }
             }
             packageChunks.unshift(openingLine)
             packageChunks.push(closingLine)

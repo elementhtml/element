@@ -1402,7 +1402,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (item, scope) {
             switch (scope) {
                 case 'components': case 'facets':
-                    return (typeof item === 'function' && !item.toString().startsWith('class ')) ? (await item(this)) : item
+                    return await item(this)
                 default:
                     return typeof item === 'function' ? (await item(this)) : item
             }
