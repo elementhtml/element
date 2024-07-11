@@ -39,6 +39,8 @@ const module = {
             }
         }
     },
+
+
     exportPackage: {
         enumerable: true, value: async function (includePackages = new Set(), includeComponents = new Set(), includeFacets = new Set()) {
             const openingLine = 'const Package = {};', closingLine = 'export default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
