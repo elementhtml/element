@@ -117,7 +117,6 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.dev = true
             this.app.packages = new Map()
             this.app.facets.exports = new WeakMap()
-            this.app.components.sources = {}
             await this.installModule('dev')
         }
     },
@@ -1489,7 +1488,6 @@ ${scriptBody.join('{')}`
             Object.defineProperty(ComponentClass, 'id', { enumerable: true, value: id })
             Object.defineProperty(ComponentClass, 'E', { value: this })
             Object.defineProperty(ComponentClass.prototype, 'E', { value: this })
-            if (this.app.dev) this.app.components.sources[id] = ComponentClass.toString()
             return ComponentClass
         }
     },
