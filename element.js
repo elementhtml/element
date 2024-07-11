@@ -1501,7 +1501,6 @@ ${scriptBody.join('{')}`
             static extends
             static native
             static id
-            static lite
             static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
             static style
             static subspaces = []
@@ -1509,11 +1508,13 @@ ${scriptBody.join('{')}`
             constructor() {
                 super()
                 try {
-                    this.shadowRoot || this.attachShadow({ mode: this.constructor.config.openShadow ? 'open' : 'closed' })
-                    const shadowNodes = []
-                    if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
-                    if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
-                    this.shadowRoot.append(...shadowNodes)
+                    if (this.constructor.style || this.constructor.template) {
+                        this.shadowRoot || this.attachShadow({ mode: this.constructor.config.openShadow ? 'open' : 'closed' })
+                        const shadowNodes = []
+                        if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
+                        if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
+                        this.shadowRoot.append(...shadowNodes)
+                    }
                 } catch (e) { }
             }
             static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
