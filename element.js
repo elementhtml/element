@@ -1468,10 +1468,15 @@ const ElementHTML = Object.defineProperties({}, {
         static {
             this.extends = ${cExtends ? ("'" + cExtends + "'") : "undefined"}
             this.native = ${native ? ("'" + native + "'") : "undefined"}
-            this.style = document.createElement('style')
-            this.style.textContent = \`${style}\`
-            this.template = document.createElement('template')
-            this.template.innerHTML = \`${template}\`
+            const styleCss = \`${style}\`, templateHtml = \`${template}\`
+            if (styleCss) {
+                this.style = document.createElement('style')
+                this.style.textContent = styleCss
+            }
+            if (templateHtml) {
+                this.template = document.createElement('template')
+                this.template.innerHTML = templateHtml
+            }
         }
 
 ${scriptBody.join('{')}`
