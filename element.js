@@ -161,7 +161,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'facets':
                         for (const facetCid in pkgScope) {
                             const importItem = await this.resolvePackageItem(pkgScope[facetCid], scope)
-                            envScope[facetCid] = this.facetFactory(importItem)
+                            envScope[facetCid] = await this.facetFactory(importItem)
                         }
                         if (this.app.dev) {
                             this.app.facets.packages ??= {}
@@ -1347,7 +1347,7 @@ const ElementHTML = Object.defineProperties({}, {
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
-                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : this.facetFactory(await import(this.resolveUrl(src)))
+                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await this.facetFactory(await import(this.resolveUrl(src))))
                     facetCid = FacetClass.cid
                     this.app.facets.classes[facetCid] = FacetClass
                     this.app.facets.classes[src] = FacetClass
@@ -1523,21 +1523,30 @@ ${scriptBody.join('{')}`
     },
 
     facetFactory: {
-        value: function (manifest) {
+        value: async function (manifest) {
             let FacetClass
             if (manifest.prototype instanceof this.Facet) {
                 FacetClass = manifest
             } else {
                 if (!this.isPlainObject(manifest)) return
                 const { fieldNames = [], cellNames = [], statements = [], cid } = manifest
-                FacetClass = class extends this.Facet {
-                    static cid = cid
-                    static fieldNames = Array.from(fieldNames)
-                    static cellNames = Array.from(cellNames)
-                    static statements = statements
-                }
+                if (!cid || (typeof cid !== 'string')) return
+                const source = `  class extends E.Facet {
+
+        static cid = '${cid}'
+        static fieldNames = ${JSON.stringify(Array.from(fieldNames))}
+        static cellNames = ${JSON.stringify(Array.from(cellNames))}
+        static statements = ${JSON.stringify(statements)}
+
+    }`
+
+                this.setGlobalNamespace()
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${source}`], { type: 'text/javascript' }))
+                FacetClass = (await import(classAsModuleUrl)).default
+                URL.revokeObjectURL(classAsModuleUrl)
             }
-            FacetClass.E = this
+            Object.defineProperty(FacetClass, 'E', { value: this })
+            Object.defineProperty(FacetClass.prototype, 'E', { value: this })
             return FacetClass
         }
     },
