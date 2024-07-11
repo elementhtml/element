@@ -1503,6 +1503,7 @@ ${scriptBody.join('{')}`
             static style
             static subspaces = []
             static template
+            static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
             constructor() {
                 super()
                 try {
@@ -1515,22 +1516,26 @@ ${scriptBody.join('{')}`
                     }
                 } catch (e) { }
             }
-            static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             valueOf() { return this.E.flatten(this) }
+            toJSON() { return this.valueOf() }
         }
     },
 
     facetFactory: {
-        value: function (facetManifest) {
-            if (facetManifest.prototype instanceof this.Facet) return facetManifest
-            if (!this.isPlainObject(facetManifest)) return
-            const { fieldNames, cellNames, statements, cid } = facetManifest
-            const FacetClass = class extends this.Facet {
-                static cid = cid
-                static fieldNames = Array.from(fieldNames)
-                static cellNames = Array.from(cellNames)
-                static statements = statements
+        value: function (manifest) {
+            let FacetClass
+            if (manifest.prototype instanceof this.Facet) {
+                FacetClass = manifest
+            } else {
+                if (!this.isPlainObject(manifest)) return
+                const { fieldNames = [], cellNames = [], statements = [], cid } = manifest
+                FacetClass = class extends this.Facet {
+                    static cid = cid
+                    static fieldNames = Array.from(fieldNames)
+                    static cellNames = Array.from(cellNames)
+                    static statements = statements
+                }
             }
             FacetClass.E = this
             return FacetClass
@@ -1601,6 +1606,12 @@ ${scriptBody.join('{')}`
                 }
                 container.dispatchEvent(new CustomEvent('run'))
             }
+            valueOf() {
+                const value = {}
+                for (const fieldName of this.constructor.fieldNames) value[fieldName] = this.constructor.E.getField(this, fieldName).value
+                return value
+            }
+            toJSON() { return this.valueOf() }
         }
     }
 
