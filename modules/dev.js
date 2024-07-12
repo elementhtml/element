@@ -37,19 +37,25 @@ const module = {
             return this.exportUnit('facet', cid, format)
         }
     },
+
     exportPackage: {
-        enumerable: true, value: async function (options, includes = {}) {
-            const { packages: includePackages = new Set(), components: includeComponents = new Set(), facets: includeFacets = new Set() } = includes,
-                openingLine = 'const Package = {};', closingLine = 'export default Package;', packageChunks = [], packageUrls = [], appPackages = this.app.packages ?? new Map()
-            if (Array.isArray(includePackages)) {
-                for (const packageKey of includePackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
-            } else if (includePackages instanceof Set) {
-                for (const [packageKey, packageUrl] of appPackages.entries()) if (!includePackages.has(packageKey)) packageUrls.push(packageUrl)
+        enumerable: true, value: async function (includes = {}, options = {}, overrides = {}) {
+            if (!includes || (typeof includes !== 'object')) throw new Error(`Invalid includes object`)
+            for (const a in this.env) includes[a] ??= new Set()
+            const openingLine = 'const Package = {};', closingLine = 'export default Package;', appPackages = this.app.packages ?? new Map(),
+                packageChunks = [], packageUrls = []
+
+            const includesPackages = includes.packages
+            if (Array.isArray(includesPackages)) {
+                for (const packageKey of includesPackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
+            } else if (includesPackages instanceof Set) {
+                for (const [packageKey, packageUrl] of appPackages.entries()) if (!includesPackages.has(packageKey)) packageUrls.push(packageUrl)
             }
             for (const packageUrl of packageUrls) packageChunks.push(...(await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
                 .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)))
+
             for (const [p, s] of [['components', 'component'], ['facets', 'facet']]) {
-                const m = new Map(), includeUnits = p === 'components' ? includeComponents : includeFacets
+                const m = new Map(), includeUnits = includes[p]
                 if (Array.isArray(includeUnits)) {
                     let t
                     for (const id of includeUnits) if ((!(this.app[p].packages ?? {})[id]) && (t = (this.env[p][id] ?? this.app[p].classes[id]))) m.set(id, t)
@@ -70,6 +76,8 @@ const module = {
                     packageChunks.push(`Package.${p}['${renderId}'] = async E => (${this.exportUnit(s, id, 'string')})`)
                 }
             }
+
+
             packageChunks.unshift(openingLine)
             packageChunks.push(closingLine)
             return packageChunks.join('\n')
