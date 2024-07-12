@@ -103,7 +103,17 @@ const module = {
                 }
             }
 
+            const includesRegexp = includes.regexp instanceof Set ? Object.keys(this.env.regexp).filter(k => !includes.regexp.has(k)) : includes.regexp
+            if (includesRegexp.length) {
+                packageObj.regexp = {}
+                for (const n of includesRegexp) if (this.env.regexp[n]) packageObj.regexp[n] = `new RegExp("${this.env.regexp[n].source}", "${this.env.regexp[n].flags}")`
+            }
 
+            const includesTemplates = includes.templates instanceof Set ? Object.keys(this.env.templates).filter(k => !includes.templates.has(k)) : includes.templates
+            if (includesTemplates.length) {
+                packageObj.templates = {}
+                for (const n of includesTemplates) if (this.env.templates[n]) packageObj.templates[n] = `E => { const t = document.createElement('template'); t.innerHTML = \`${this.env.templates[n].innerHTML}\`; return t }`
+            }
 
 
 
