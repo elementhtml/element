@@ -89,6 +89,21 @@ const module = {
                 }
             }
 
+            const includesNamespaces = includes.namespaces instanceof Set ? Object.keys(this.env.namespaces).filter(k => !includes.namespaces.has(k)) : includes.namespaces
+            if (includesNamespaces.length) {
+                packageObj.namespaces = {}
+                for (const n of includesNamespaces) packageObj.namespaces[n] = this.env.namespaces[n]
+            }
+
+            const includesOptions = includes.options instanceof Set ? Object.keys(this.env.options).filter(k => !includes.options.has(k)) : includes.options
+            if (includesOptions.length) {
+                packageObj.options = {}
+                for (const key of includesOptions) try { packageObj.options[key] = JSON.stringify(this.env.options[key]) } catch (e) {
+                    throw new Error(`Options key ${key} could not be exported`)
+                }
+            }
+
+
 
 
 
