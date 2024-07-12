@@ -115,6 +115,14 @@ const module = {
                 for (const n of includesTemplates) if (this.env.templates[n]) packageObj.templates[n] = `E => { const t = document.createElement('template'); t.innerHTML = \`${this.env.templates[n].innerHTML}\`; return t }`
             }
 
+            const includesTransforms = includes.transforms instanceof Set ? Object.keys(this.env.transforms).filter(k => !includes.transforms.has(k)) : includes.transforms
+            if (includesTransforms.length) {
+                packageObj.transforms = {}
+                for (const n of includesTransforms) {
+                    packageObj.transforms[n] = this.env.transforms[n] ?? ((this.app.transforms[n] ?? [])[0])
+                    if (!packageObj.transforms[n]) delete packageObj.transforms[n]
+                }
+            }
 
 
 
