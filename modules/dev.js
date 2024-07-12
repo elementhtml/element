@@ -41,41 +41,57 @@ const module = {
     exportPackage: {
         enumerable: true, value: async function (includes = {}, options = {}, overrides = {}) {
             if (!includes || (typeof includes !== 'object')) throw new Error(`Invalid includes object`)
-            for (const a in this.env) includes[a] ??= new Set()
+            for (const a in this.env) if (!Array.isArray(includes[a])) includes[a] ??= new Set()
             const openingLine = 'const Package = {};', closingLine = 'export default Package;', appPackages = this.app.packages ?? new Map(),
-                packageChunks = [], packageUrls = []
+                packageChunks = [], packageObj = {}
 
-            const includesPackages = includes.packages
-            if (Array.isArray(includesPackages)) {
-                for (const packageKey of includesPackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
-            } else if (includesPackages instanceof Set) {
-                for (const [packageKey, packageUrl] of appPackages.entries()) if (!includesPackages.has(packageKey)) packageUrls.push(packageUrl)
-            }
+            const includesPackages = includes.packages instanceof Set ? this.app.packages.keys().filter(k => !includes.packages.has(k))
+                : (Array.isArray(includes.packages) ? includes.packages : []), packageUrls = []
+            for (const packageKey of includesPackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
             for (const packageUrl of packageUrls) packageChunks.push(...(await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
                 .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)))
 
-            for (const [p, s] of [['components', 'component'], ['facets', 'facet']]) {
-                const m = new Map(), includeUnits = includes[p]
-                if (Array.isArray(includeUnits)) {
-                    let t
-                    for (const id of includeUnits) if ((!(this.app[p].packages ?? {})[id]) && (t = (this.env[p][id] ?? this.app[p].classes[id]))) m.set(id, t)
-                } else if (includeUnits instanceof Set) {
-                    for (const id in this.env[p]) if ((!includeUnits.has(id)) && (!(this.app[p].packages ?? {})[id])) m.set(id, this.env[p][id])
-                    for (const id in this.app[p].classes) if ((!includeUnits.has(id)) && (!(this.app[p].packages ?? {})[id])) m.set(id, this.app[p].classes[id])
-                }
-                if (m.size) packageChunks.push(`Package.${p} ??= {}`)
-                for (const id of m.keys()) {
+            const includesComponents = includes.components instanceof Set ? Object.keys(this.app.components.classes).filter(k => !includes.components.has(k)) : includes.components
+            if (includesComponents.length) {
+                packageObj.components = {}
+                const idReplacers = options?.components?.replacers?.id
+                for (const id of includesComponents) {
                     let renderId = id
-                    if (p === 'components' && options?.components?.replacers?.id) {
-                        const idReplacers = Array.isArray(options.components.replacers.id) ? options.components.replacers.id : [options.components.replacers.id]
+                    if (idReplacers) {
                         for (let r of idReplacers) {
                             if (typeof r === 'string') r = { pattern: document.location.origin, replaceWith: r, flags: undefined }
                             renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
                         }
                     }
-                    packageChunks.push(`Package.${p}['${renderId}'] = async E => (${this.exportUnit(s, id, 'string')})`)
+                    packageObj.components[renderId] = this.exportComponent(id, 'string')
                 }
             }
+
+            const includesContext = includes.context instanceof Set ? Object.keys(this.env.context).filter(k => !includes.context.has(k)) : includes.context
+            if (includesContext.length) {
+                packageObj.context = {}
+                for (const key of includesContext) try { packageObj.context[key] = JSON.stringify(this.env.context[key]) } catch (e) {
+                    throw new Error(`Context key ${key} could not be exported`)
+                }
+            }
+
+            const includesFacets = includes.facets instanceof Set ? Object.keys(this.app.facets.classes).filter(k => !includes.facets.has(k)) : includes.facets
+            if (includesFacets.length) {
+                packageObj.facets = {}
+                for (const cid of includesFacets) packageObj.facets[cid] = this.exportFacet(cid, 'string')
+            }
+
+            for (const ft of ['helpers', 'loaders']) {
+                const includesFt = includes[ft] instanceof Set ? Object.keys(this.app.devarchives[ft]).filter(k => !includes[ft].has(k)) : includes[ft]
+                if (includesFt.length) {
+                    packageObj[ft] = {}
+                    for (const n of includesFt) packageObj[ft][n] = this.app.devarchives[ft][n].toString()
+                }
+            }
+
+
+
+
 
 
             packageChunks.unshift(openingLine)

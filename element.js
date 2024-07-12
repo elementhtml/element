@@ -117,6 +117,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.dev = true
             this.app.packages = new Map()
             this.app.facets.exports = new WeakMap()
+            this.app.devarchives = {}
             await this.installModule('dev')
         }
     },
@@ -169,7 +170,11 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'helpers': case 'hooks': case 'loaders':
-                        for (const f in pkgScope) if (typeof pkgScope[f] === 'function') envScope[f] = pkgScope[f].bind(this)
+                        if (this.app.dev) this.app.devarchives[scope] ??= {}
+                        for (const f in pkgScope) if (typeof pkgScope[f] === 'function') {
+                            this.app.devarchives[scope][f] = pkgScope[f]
+                            envScope[f] = pkgScope[f].bind(this)
+                        }
                         break
                     case 'namespaces':
                         for (const n in pkgScope) {
@@ -224,7 +229,10 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(this[f])
                 }
                 Object.freeze(this)
-                if (!this.app.dev) {
+                if (this.app.dev) {
+                    for (const f in this.app.devarchives) Object.freeze(this.app.devarchives[f])
+                    Object.freeze(this.app.devarchives)
+                } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
@@ -1622,10 +1630,16 @@ ${scriptBody.join('{')}`
 
 })
 ElementHTML.Component.E = ElementHTML
-for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
+for (const scope of ['helpers', 'loaders']) {
+    if (ElementHTML.app.dev) ElementHTML.app.devarchives[scope] = {}
+    for (const n in ElementHTML.env[scope]) {
+        ElementHTML.app.devarchives[scope][n] = ElementHTML.env[scope][n]
+        ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
+    }
+}
 if (metaOptions.has('packages')) {
     const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
         importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }
