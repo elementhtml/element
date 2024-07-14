@@ -115,9 +115,10 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: {
         enumerable: true, value: async function () {
             this.app.dev = true
-            this.app.packages = new Map()
             this.app.facets.exports = new WeakMap()
             this.app.devarchives = {}
+            this.app.devpackages = {}
+            this.app.devoptions = JSON.stringify(this.env.options)
             await this.installModule('dev')
         }
     },
@@ -136,16 +137,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 switch (scope) {
-                    case 'context': case 'options':
-                        for (const s in pkgScope) {
-                            const importItem = await this.resolvePackageItem(pkgScope[s], scope)
-                            if (this.isPlainObject(importItem)) {
-                                for (const n in importItem) envScope[s][n] = this.isPlainObject(envScope[s][n]) ? Object.assign(envScope[s][n], importItem[n]) : importItem[n]
-                            } else {
-                                envScope[s] = importItem
-                            }
-                        }
-                        break
                     case 'components':
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
                             namespaceExists = Object.values({ ...this.env.namespaces, ...(pkg.namespaces ?? {}) }).includes(componentNamespaceBase)
@@ -154,9 +145,11 @@ const ElementHTML = Object.defineProperties({}, {
                             const importItem = await this.resolvePackageItem(pkgScope[componentKey], scope), componentId = `${componentNamespaceBase}/${componentKey}.html`
                             envScope[componentId] = await this.componentFactory(importItem, componentId)
                         }
-                        if (this.app.dev) {
-                            this.app.components.packages ??= {}
-                            for (const componentKey in pkgScope) this.app.components.packages[componentKey] = packageKey
+                        break
+                    case 'context': case 'options':
+                        for (const s in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[s], scope)
+                            try { envScope[s] = JSON.parse(JSON.stringify(importItem)) } catch (e) { throw new Error(`Invalid package ${scope} item ${s} in ${packageKey}`) }
                         }
                         break
                     case 'facets':
@@ -164,16 +157,24 @@ const ElementHTML = Object.defineProperties({}, {
                             const importItem = await this.resolvePackageItem(pkgScope[facetCid], scope)
                             envScope[facetCid] = await this.facetFactory(importItem)
                         }
-                        if (this.app.dev) {
-                            this.app.facets.packages ??= {}
-                            for (const facetCid in pkgScope) this.app.facets.packages[facetCid] = packageKey
-                        }
                         break
                     case 'helpers': case 'hooks': case 'loaders':
                         if (this.app.dev) this.app.devarchives[scope] ??= {}
                         for (const f in pkgScope) if (typeof pkgScope[f] === 'function') {
-                            this.app.devarchives[scope][f] = pkgScope[f]
-                            envScope[f] = pkgScope[f].bind(this)
+                            if (scope === 'hooks') {
+                                envScope[f] ??= []
+                                let newHookIndex = envScope[f].push(pkgScope[f].bind(this)) - 1
+                                if (this.app.dev) {
+                                    this.app.devarchives.hooks[f] ??= []
+                                    this.app.devpackages.hooks ??= {}
+                                    this.app.devpackages.hooks[f] ??= []
+                                    this.app.devarchives.hooks[f][newHookIndex] = pkgScope[f]
+                                    this.app.devpackages.hooks[f][newHookIndex] = packageKey
+                                }
+                            } else {
+                                this.app.devarchives[scope][f] = pkgScope[f]
+                                envScope[f] = pkgScope[f].bind(this)
+                            }
                         }
                         break
                     case 'namespaces':
@@ -1634,9 +1635,9 @@ const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, fl
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 for (const scope of ['helpers', 'loaders']) {
-    if (ElementHTML.app.dev) ElementHTML.app.devarchives[scope] = {}
+    // if (ElementHTML.app.dev) ElementHTML.app.devarchives[scope] = {}
     for (const n in ElementHTML.env[scope]) {
-        ElementHTML.app.devarchives[scope][n] = ElementHTML.env[scope][n]
+        // ElementHTML.app.devarchives[scope][n] = ElementHTML.env[scope][n]
         ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
     }
 }

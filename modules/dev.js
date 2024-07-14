@@ -51,7 +51,7 @@ const module = {
             for (const packageUrl of packageUrls) packageSource += (`\n` + (await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
                 .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)).join(`\n`))
 
-            const includesComponents = includes.components instanceof Set ? Object.keys(this.app.components.classes).filter(k => !includes.components.has(k)) : includes.components
+            const includesComponents = Array.from(new Set(includes.components instanceof Set ? Object.keys(this.app.components.classes).filter(k => !includes.components.has(k)) : includes.components)).sort()
             if (includesComponents.length) {
                 packageSource += `\nPackage.components ??= {}\n`
                 const idReplacers = options?.components?.replacers?.id
@@ -67,7 +67,7 @@ const module = {
                 }
             }
 
-            const includesContext = includes.context instanceof Set ? Object.keys(this.env.context).filter(k => !includes.context.has(k)) : includes.context
+            const includesContext = Array.from(new Set(includes.context instanceof Set ? Object.keys(this.env.context).filter(k => !includes.context.has(k)) : includes.context)).sort()
             if (includesContext.length) {
                 packageSource += `\nPackage.context ??= {}\n`
                 for (const key of includesContext) try { packageSource += `\nPackage.context['${key}'] = ${JSON.stringify(this.env.context[key])}` } catch (e) {
@@ -75,30 +75,53 @@ const module = {
                 }
             }
 
-            const includesFacets = includes.facets instanceof Set ? Object.keys(this.app.facets.classes).filter(k => !includes.facets.has(k)) : includes.facets
+            const includesFacets = Array.from(new Set(includes.facets instanceof Set ? Object.keys(this.app.facets.classes).filter(k => !includes.facets.has(k)) : includes.facets)).sort()
             if (includesFacets.length) {
                 packageSource += `\nPackage.facets ??= {}\n`
                 for (const cid of includesFacets) packageSource += `\nPackage.facets['${cid}'] = E => (${this.exportFacet(cid, 'string')})`
             }
 
-            for (const ft of ['helpers', 'loaders']) {
-                const includesFt = includes[ft] instanceof Set ? Object.keys(this.app.devarchives[ft]).filter(k => !includes[ft].has(k)) : includes[ft]
+            for (const ft of ['helpers', 'hooks', 'loaders']) {
+                const includesFt = Array.from(new Set(includes[ft] instanceof Set ? Object.keys(this.app.devarchives[ft] ?? {}).filter(k => !includes[ft].has(k)) : includes[ft])).sort()
                 if (includesFt.length) {
                     packageSource += `\nPackage.${ft} ??= {}\n`
-                    for (const n of includesFt) packageSource += `\nPackage.${ft}['${n}'] = ${this.app.devarchives[ft][n].toString()}`
+                    const isHooks = ft === 'hooks', hookPackages = isHooks ? options?.hooks?.packages : new Set(), hookPackagesIsSet = hookPackages instanceof Set
+                    if (isHooks && (hookPackagesIsSet || Array.isArray(hookPackages))) {
+                        for (const hookName of includesFt) {
+                            let packagesWithHooksWithThisName = this.app.devpackages.hooks[hookName]
+                            if (!packagesWithHooksWithThisName) continue
+                            for (const hookPackage of packagesWithHooksWithThisName) {
+                                if (hookPackagesIsSet ? !hookPackages.has(hookPackage) : hookPackages.includes(hookPackage)) {
+                                    packageSource += `\nPackage.hooks['${hookName}'] ??= []\n`
+                                    packageSource += `\nPackage.hooks['${hookName}'].push(${this.app.devarchives[ft][hookName][hookPackage].toString()})`
+                                }
+                            }
+                        }
+                    } else {
+                        for (const n of includesFt) packageSource += `\nPackage.${ft}['${n}'] = ${this.app.devarchives[ft][n].toString()}`
+                    }
                 }
             }
 
             const includesNamespaces = includes.namespaces instanceof Set ? Object.keys(this.env.namespaces).filter(k => !includes.namespaces.has(k)) : includes.namespaces
             if (includesNamespaces.length) {
-                packageSource += `\nPackage.namespaces ??= {}\n`
-                for (const n of includesNamespaces) packageSource += `\nPackage.namespaces['${n}'] = '${this.env.namespaces[n]}'`
+                if (includesNamespaces.length > 1) packageSource += `\nPackage.namespaces ??= {}\n`
+                for (const n of includesNamespaces) if (n !== 'e') packageSource += `\nPackage.namespaces['${n}'] = '${this.env.namespaces[n]}'`
             }
 
-            const includesOptions = includes.options instanceof Set ? Object.keys(this.env.options).filter(k => !includes.options.has(k)) : includes.options
-            if (includesOptions.length) {
-                packageSource += `\nPackage.options ??= {}\n`
-                for (const key of includesOptions) try { packageSource += `\nPackage.options['${key}'] = ${JSON.stringify(this.env.options[key])}` } catch (e) {
+            const includesOptions = includes.options instanceof Set ? Object.keys(this.env.options).filter(k => !includes.options.has(k)) : includes.options,
+                currentOptionsToString = JSON.stringify(this.env.options)
+            if (currentOptionsToString !== this.app.devoptions) {
+                const builtInOptions = JSON.parse(this.app.devoptions)
+                let optionInitialized = false
+                for (const key of includesOptions) try {
+                    if (this.env.options[key] === undefined) throw new Error(`Options key ${key} is undefined`)
+                    const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify(this.env.options[key])
+                    if (builtInOptionString !== currentOptionString) {
+                        if (!optionInitialized) packageSource += `\nPackage.options ??= {}\n`
+                        packageSource += `\nPackage.options['${key}'] = ${currentOptionString}`
+                    }
+                } catch (e) {
                     throw new Error(`Options key ${key} could not be exported`)
                 }
             }
