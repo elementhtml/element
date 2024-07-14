@@ -116,9 +116,8 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function () {
             this.app.dev = true
             this.app.facets.exports = new WeakMap()
-            this.app.devarchives = {}
-            this.app.devpackages = {}
-            this.app.devoptions = JSON.stringify(this.env.options)
+            this.app.packages = new Map()
+            this.app.archives = new Map()
             await this.installModule('dev')
         }
     },
@@ -133,9 +132,22 @@ const ElementHTML = Object.defineProperties({}, {
             let pkg = packageObject?.default ?? {}
             if (!this.isPlainObject(pkg)) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
+            if (this.app.dev) {
+                this.app.archives.set(packageKey, new Map())
+                this.app.packages.set(packageKey, new Map())
+            }
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
+                if (this.app.dev) {
+                    if (!this.app.archives.has(scope)) this.app.archives.set(scope, new Map())
+                    if (!this.app.packages.has(scope)) this.app.packages.set(scope, new Map())
+                    for (const i in pkgScope) {
+                        if (scope === 'hooks') continue
+                        this.app.archives.get(scope).set(i, pkgScope[i])
+                        this.app.packages.get(scope).set(i, packageKey)
+                    }
+                }
                 switch (scope) {
                     case 'components':
                         const componentNamespaceBase = (new URL('../components', packageUrl)).href,
@@ -144,12 +156,22 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const componentKey in pkgScope) {
                             const importItem = await this.resolvePackageItem(pkgScope[componentKey], scope), componentId = `${componentNamespaceBase}/${componentKey}.html`
                             envScope[componentId] = await this.componentFactory(importItem, componentId)
+                            if (this.app.dev) {
+                                this.app.archives.get(scope).set(componentId, pkgScope[componentKey])
+                                this.app.packages.get(scope).set(componentId, packageKey)
+                                if (!this.app.archives.has('namespaces')) this.app.archives.set('namespaces', new Map())
+                                if (!this.app.packages.has('namespaces')) this.app.packages.set('namespaces', new Map())
+                                this.app.archives.get('namespaces').set(packageKey, componentNamespaceBase)
+                                this.app.packages.get('namespaces').set(packageKey, packageKey)
+                            }
                         }
                         break
                     case 'context': case 'options':
                         for (const s in pkgScope) {
                             const importItem = await this.resolvePackageItem(pkgScope[s], scope)
-                            try { envScope[s] = JSON.parse(JSON.stringify(importItem)) } catch (e) { throw new Error(`Invalid package ${scope} item ${s} in ${packageKey}`) }
+                            try {
+                                envScope[s] = JSON.parse(JSON.stringify(importItem))
+                            } catch (e) { throw new Error(`Invalid package ${scope} item ${s} in ${packageKey}`) }
                         }
                         break
                     case 'facets':
@@ -159,20 +181,17 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'helpers': case 'hooks': case 'loaders':
-                        if (this.app.dev) this.app.devarchives[scope] ??= {}
                         for (const f in pkgScope) if (typeof pkgScope[f] === 'function') {
                             if (scope === 'hooks') {
                                 envScope[f] ??= []
                                 let newHookIndex = envScope[f].push(pkgScope[f].bind(this)) - 1
                                 if (this.app.dev) {
-                                    this.app.devarchives.hooks[f] ??= []
-                                    this.app.devpackages.hooks ??= {}
-                                    this.app.devpackages.hooks[f] ??= []
-                                    this.app.devarchives.hooks[f][newHookIndex] = pkgScope[f]
-                                    this.app.devpackages.hooks[f][newHookIndex] = packageKey
+                                    if (!this.app.archives.get(scope).has(f)) this.app.archives.get(scope).set(f, [])
+                                    if (!this.app.packages.get(scope).has(f)) this.app.packages.get(scope).set(f, [])
+                                    this.app.archives.get(scope).get(f)[newHookIndex] = pkgScope[f]
+                                    this.app.packages.get(scope).get(f)[newHookIndex] = packageKey
                                 }
                             } else {
-                                this.app.devarchives[scope][f] = pkgScope[f]
                                 envScope[f] = pkgScope[f].bind(this)
                             }
                         }
@@ -206,17 +225,16 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                         break
-                    default:
-                        for (const i in pkgScope) {
-                            const importItem = await this.resolvePackageItem(pkgScope[i], scope)
+                    case 'types':
+                        for (const t in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[t], scope)
                             if (importItem === undefined) continue
-                            envScope[i] = importItem
+                            envScope[t] = importItem
                         }
                 }
             }
             this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
             if (pkg?.hooks?.postInstall === 'function') await (pkg.hooks.postInstall.bind(pkg))(this)
-            if (this.app.dev) this.app.packages.set(packageKey, packageUrl)
         }
     },
     Load: {
@@ -229,14 +247,13 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const b in this[f]) this[f][b] = this[f][b].bind(this)
                     Object.freeze(this[f])
                 }
-                Object.freeze(this)
                 if (this.app.dev) {
-                    for (const f in this.app.devarchives) Object.freeze(this.app.devarchives[f])
-                    Object.freeze(this.app.devarchives)
+                    for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
                 } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
+                Object.freeze(this)
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
@@ -1634,13 +1651,7 @@ ElementHTML.Component.E = ElementHTML
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
-for (const scope of ['helpers', 'loaders']) {
-    // if (ElementHTML.app.dev) ElementHTML.app.devarchives[scope] = {}
-    for (const n in ElementHTML.env[scope]) {
-        // ElementHTML.app.devarchives[scope][n] = ElementHTML.env[scope][n]
-        ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
-    }
-}
+for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
 if (metaOptions.has('packages')) {
     const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
         importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }

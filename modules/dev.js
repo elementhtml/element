@@ -41,121 +41,128 @@ const module = {
     exportPackage: {
         enumerable: true, value: async function (includes = {}, options = {}, overrides = {}) {
             if (!includes || (typeof includes !== 'object')) throw new Error(`Invalid includes object`)
-            for (const a in this.env) if (!Array.isArray(includes[a])) includes[a] ??= new Set()
-            const openingLine = 'const Package = {};', closingLine = 'export default Package;', appPackages = this.app.packages ?? new Map()
+            const includesScopes = new Map()
+            for (const a in this.env) {
+                if (!Array.isArray(includes[a])) includes[a] ??= new Set()
+                if (!this.app.archives.has(a)) this.app.archives.set(a, new Map())
+                if (!this.app.packages.has(a)) this.app.packages.set(a, new Map())
+                switch (a) {
+                    case 'components': case 'facets':
+                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app[a].classes).filter(k => !includes[a].has(k)) : includes[a]))
+                            .filter(c => !this.app.packages[a].has(c) || allowPackages.has(this.app.packages[a].get(c))).sort())
+                        break
+                    case 'context':
+                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.env[a]).filter(k => !includes[a].has(k)) : includes[a])).sort())
+                        break
+                    case 'helpers': case 'hooks': case 'loaders':
+                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app.archives[a] ?? {}).filter(k => !includes[a].has(k)) : includes[a])).sort())
+                        break
+                    default:
+                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app[a]).filter(k => !includes[a].has(k)) : includes[a]))
+                            .filter(c => !this.app.packages[a].has(c) || allowPackages.has(this.app.packages[a].get(c))).sort())
+                }
+            }
+            const openingLine = 'const Package = {};', closingLine = 'export default Package;',
+                allowPackages = new Set(includes.packages instanceof Set ? this.app.packages.keys().filter(k => !includes.packages.has(k)) : (Array.isArray(includes.packages)
+                    ? this.app.packages.keys().filter(p => includes.packages.includes(p)) : this.app.packages.keys()))
             let packageSource = `${openingLine}\n`
 
-            const includesPackages = includes.packages instanceof Set ? this.app.packages.keys().filter(k => !includes.packages.has(k))
-                : (Array.isArray(includes.packages) ? includes.packages : []), packageUrls = []
-            for (const packageKey of includesPackages) if (appPackages.has(packageKey)) packageUrls.push(appPackages.get(packageKey))
-            for (const packageUrl of packageUrls) packageSource += (`\n` + (await (await fetch(packageUrl)).text()).trim().split('\n').map(s => s.trim())
-                .filter(s => !s.startsWith('//')).filter(s => s).filter(s => !s.startsWith(openingLine)).filter(s => !s.startsWith(closingLine)).join(`\n`))
-
-            const includesComponents = Array.from(new Set(includes.components instanceof Set ? Object.keys(this.app.components.classes).filter(k => !includes.components.has(k)) : includes.components)).sort()
-            if (includesComponents.length) {
-                packageSource += `\nPackage.components ??= {}\n`
-                const idReplacers = options?.components?.replacers?.id
-                for (const id of includesComponents) {
-                    let renderId = id
-                    if (idReplacers) {
-                        for (let r of idReplacers) {
-                            if (typeof r === 'string') r = { pattern: document.location.origin, replaceWith: r, flags: undefined }
-                            renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
-                        }
-                    }
-                    packageSource += `\nPackage.components['${renderId}'] = E => (${this.exportComponent(id, 'string')})`
-                }
-            }
-
-            const includesContext = Array.from(new Set(includes.context instanceof Set ? Object.keys(this.env.context).filter(k => !includes.context.has(k)) : includes.context)).sort()
-            if (includesContext.length) {
-                packageSource += `\nPackage.context ??= {}\n`
-                for (const key of includesContext) try { packageSource += `\nPackage.context['${key}'] = ${JSON.stringify(this.env.context[key])}` } catch (e) {
-                    throw new Error(`Context key ${key} could not be exported`)
-                }
-            }
-
-            const includesFacets = Array.from(new Set(includes.facets instanceof Set ? Object.keys(this.app.facets.classes).filter(k => !includes.facets.has(k)) : includes.facets)).sort()
-            if (includesFacets.length) {
-                packageSource += `\nPackage.facets ??= {}\n`
-                for (const cid of includesFacets) packageSource += `\nPackage.facets['${cid}'] = E => (${this.exportFacet(cid, 'string')})`
-            }
-
-            for (const ft of ['helpers', 'hooks', 'loaders']) {
-                const includesFt = Array.from(new Set(includes[ft] instanceof Set ? Object.keys(this.app.devarchives[ft] ?? {}).filter(k => !includes[ft].has(k)) : includes[ft])).sort()
-                if (includesFt.length) {
-                    packageSource += `\nPackage.${ft} ??= {}\n`
-                    const isHooks = ft === 'hooks', hookPackages = isHooks ? options?.hooks?.packages : new Set(), hookPackagesIsSet = hookPackages instanceof Set
-                    if (isHooks && (hookPackagesIsSet || Array.isArray(hookPackages))) {
-                        for (const hookName of includesFt) {
-                            let packagesWithHooksWithThisName = this.app.devpackages.hooks[hookName]
-                            if (!packagesWithHooksWithThisName) continue
-                            for (const hookPackage of packagesWithHooksWithThisName) {
-                                if (hookPackagesIsSet ? !hookPackages.has(hookPackage) : hookPackages.includes(hookPackage)) {
-                                    packageSource += `\nPackage.hooks['${hookName}'] ??= []\n`
-                                    packageSource += `\nPackage.hooks['${hookName}'].push(${this.app.devarchives[ft][hookName][hookPackage].toString()})`
+            for (const [scope, scopeItems] of includesScopes) {
+                if (!scopeItems.length) continue
+                if (scope !== 'options') packageSource += `\nPackage.${scope} ??= {}\n`
+                const scopeOptions = options[scope] ?? {}
+                switch (scope) {
+                    case 'components':
+                        const idReplacers = scopeOptions.replacers?.id
+                        for (const id of scopeItems) {
+                            let renderId = id
+                            if (idReplacers) {
+                                for (let r of idReplacers) {
+                                    if (typeof r === 'string') r = { pattern: document.location.origin, replaceWith: r, flags: undefined }
+                                    renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
                                 }
                             }
+                            packageSource += `\nPackage.${scope}['${renderId}'] = E => (${this.exportComponent(id, 'string')})`
                         }
-                    } else {
-                        for (const n of includesFt) packageSource += `\nPackage.${ft}['${n}'] = ${this.app.devarchives[ft][n].toString()}`
-                    }
+                        break
+                    case 'context':
+                        for (const key of scopeItems) try { packageSource += `\nPackage.${scope}['${key}'] = ${JSON.stringify(this.env.context[key])}` } catch (e) {
+                            throw new Error(`${scope} key ${key} could not be exported`)
+                        }
+                        break
+                    case 'facets':
+                        for (const cid of scopeItems) packageSource += `\nPackage.${scope}['${cid}'] = E => (${this.exportFacet(cid, 'string')})`
+                        break
+                    case 'helpers': case 'hooks': case 'loaders':
+                        const isHooks = scope === 'hooks', hookPackages = isHooks ? scopeOptions.packages : new Set(), hookPackagesIsSet = hookPackages instanceof Set
+                        if (isHooks && (hookPackagesIsSet || Array.isArray(hookPackages))) {
+                            for (const hookName of scopeItems) {
+                                let packagesWithHooksWithThisName = this.app.packages[scope][hookName]
+                                if (!packagesWithHooksWithThisName) continue
+                                for (const hookPackage of packagesWithHooksWithThisName) {
+                                    if (hookPackagesIsSet ? !hookPackages.has(hookPackage) : hookPackages.includes(hookPackage)) {
+                                        packageSource += `\nPackage.${scope}['${hookName}'] ??= []\n`
+                                        packageSource += `\nPackage.${scope}['${hookName}'].push(${this.app.archives[scope][hookName][hookPackage].toString()})`
+                                    }
+                                }
+                            }
+                        } else {
+                            for (const n of scopeItems) packageSource += `\nPackage.${scope}['${n}'] = ${this.app.archives[scope][n].toString()}`
+                        }
+                        break
+                    case 'namespaces':
+                        const nsReplacers = scopeOptions.replacers?.id
+                        for (const n of scopeItems) if (n !== 'e') {
+                            let renderNamespace = this.env[scope][n]
+                            if (nsReplacers) {
+                                for (let r of nsReplacers) {
+                                    if (typeof r === 'string') r = { pattern: document.location.origin, replaceWith: r, flags: undefined }
+                                    renderNamespace = renderNamespace.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
+                                }
+                            }
+                            packageSource += `\nPackage.${scope}['${n}'] = '${renderNamespace}'`
+                        }
+                        break
+                    case 'options':
+                        const currentOptionsToString = JSON.stringify(this.env[scope]), builtinOptionsToString = JSON.stringify(this.app.archives.get(scope))
+                        if (currentOptionsToString !== builtinOptionsToString) {
+                            const builtInOptions = JSON.parse(builtinOptionsToString)
+                            let optionsInitialized = false
+                            for (const key of scopeItems) try {
+                                if (this.env[scope][key] === undefined) throw new Error(`${scope} key ${key} is undefined`)
+                                const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify(this.env[scope][key])
+                                if (builtInOptionString !== currentOptionString) {
+                                    if (!optionsInitialized) {
+                                        packageSource += `\nPackage.${scope} ??= {}\n`
+                                        optionsInitialized = true
+                                    }
+                                    packageSource += `\nPackage.${scope}['${key}'] = ${currentOptionString}`
+                                }
+                            } catch (e) {
+                                throw new Error(`${scope} key ${key} could not be exported`)
+                            }
+                        }
+                        break
+                    case 'regexp':
+                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = new RegExp("${this.env[scope][n].source}", "${this.env[scope][n].flags}")`
+                        break
+                    case 'templates':
+                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = E => { const t = document.createElement('template'); t.innerHTML = \`${this.env[scope][n].innerHTML}\`; return t }`
+                        break
+                    case 'transforms':
+                        for (const n of scopeItems) {
+                            const transform = this.env[scope][n] ?? ((this.app[scope][n] ?? [])[0])
+                            if (!transform) throw new Error(`${scope} ${n} could not be found`)
+                            packageSource += `\nPackage.${scope}['${n}'] = \`${transform}\``
+                        }
+                        break
+                    case 'types':
+                        for (const n of scopeItems) if (this.env[scope][n]) try { packageSource += `\nPackage.${scope}['${n}'] = ${JSON.stringify(this.env[scope][n])}` } catch (e) {
+                            throw new Error(`${scope} ${n} could not be exported`)
+                        }
+                        break
                 }
             }
-
-            const includesNamespaces = includes.namespaces instanceof Set ? Object.keys(this.env.namespaces).filter(k => !includes.namespaces.has(k)) : includes.namespaces
-            if (includesNamespaces.length) {
-                if (includesNamespaces.length > 1) packageSource += `\nPackage.namespaces ??= {}\n`
-                for (const n of includesNamespaces) if (n !== 'e') packageSource += `\nPackage.namespaces['${n}'] = '${this.env.namespaces[n]}'`
-            }
-
-            const includesOptions = includes.options instanceof Set ? Object.keys(this.env.options).filter(k => !includes.options.has(k)) : includes.options,
-                currentOptionsToString = JSON.stringify(this.env.options)
-            if (currentOptionsToString !== this.app.devoptions) {
-                const builtInOptions = JSON.parse(this.app.devoptions)
-                let optionInitialized = false
-                for (const key of includesOptions) try {
-                    if (this.env.options[key] === undefined) throw new Error(`Options key ${key} is undefined`)
-                    const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify(this.env.options[key])
-                    if (builtInOptionString !== currentOptionString) {
-                        if (!optionInitialized) packageSource += `\nPackage.options ??= {}\n`
-                        packageSource += `\nPackage.options['${key}'] = ${currentOptionString}`
-                    }
-                } catch (e) {
-                    throw new Error(`Options key ${key} could not be exported`)
-                }
-            }
-
-            const includesRegexp = includes.regexp instanceof Set ? Object.keys(this.env.regexp).filter(k => !includes.regexp.has(k)) : includes.regexp
-            if (includesRegexp.length) {
-                packageSource += `\nPackage.regexp ??= {}\n`
-                for (const n of includesRegexp) if (this.env.regexp[n]) packageSource += `\nPackage.regexp['${n}'] = new RegExp("${this.env.regexp[n].source}", "${this.env.regexp[n].flags}")`
-            }
-
-            const includesTemplates = includes.templates instanceof Set ? Object.keys(this.env.templates).filter(k => !includes.templates.has(k)) : includes.templates
-            if (includesTemplates.length) {
-                packageSource += `\nPackage.templates ??= {}\n`
-                for (const n of includesTemplates) if (this.env.templates[n]) packageSource += `\nPackage.templates['${n}'] = E => { const t = document.createElement('template'); t.innerHTML = \`${this.env.templates[n].innerHTML}\`; return t }`
-            }
-
-            const includesTransforms = includes.transforms instanceof Set ? Object.keys(this.env.transforms).filter(k => !includes.transforms.has(k)) : includes.transforms
-            if (includesTransforms.length) {
-                packageSource += `\nPackage.transforms ??= {}\n`
-                for (const n of includesTransforms) {
-                    const transform = this.env.transforms[n] ?? ((this.app.transforms[n] ?? [])[0])
-                    if (!transform) throw new Error(`Transform ${n} could not be found`)
-                    packageSource += `\nPackage.transforms['${n}'] = \`${transform}\``
-                }
-            }
-
-            const includesTypes = includes.types instanceof Set ? Object.keys(this.env.types).filter(k => !includes.types.has(k)) : includes.types
-            if (includesTypes.length) {
-                packageSource += `\nPackage.types ??= {}\n`
-                for (const n of includesTypes) if (this.env.types[n]) try { packageSource += `\nPackage.types['${n}'] = ${JSON.stringify(this.env.types[n])}` } catch (e) {
-                    throw new Error(`Type ${n} could not be exported`)
-                }
-            }
-
             packageSource += `\n${closingLine}`
             return packageSource
         }
