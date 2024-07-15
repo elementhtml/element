@@ -50,11 +50,6 @@ const module = {
                 if (!this.app.packages.has(a)) this.app.packages.set(a, new Map())
                 let packagesA, includesA = includes[a]
                 switch (a) {
-                    case 'components': case 'facets':
-                        packagesA = this.app.packages.get(a)
-                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.app[a].classes).filter(k => !includesA.has(k)) : includesA))
-                            .filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
-                        break
                     case 'context':
                         includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA)).sort())
                         break
@@ -63,15 +58,16 @@ const module = {
                         break
                     default:
                         packagesA = this.app.packages.get(a)
-                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA))
-                            .filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys((a === 'components' || a === 'facets') ? this.app[a].classes : this.env[a])
+                            .filter(k => !includesA.has(k)) : includesA)).filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
                 }
             }
             let packageSource = `${openingLine}\n`
-
             for (const [scope, scopeItems] of includesScopes) {
                 if (!scopeItems.length) continue
-                if (scope !== 'options') packageSource += `\nPackage.${scope} ??= {}\n`
+                const manualScopes = new Set(['options', 'namespaces'])
+                let scopeInitialized = false
+                if (!manualScopes.has(scope)) scopeInitialized = !!(packageSource += `\nPackage.${scope} ??= {}\n`)
                 const scopeOptions = options[scope] ?? {}
                 switch (scope) {
                     case 'components':
@@ -122,6 +118,7 @@ const module = {
                                     renderNamespace = renderNamespace.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
                                 }
                             }
+                            if (!scopeInitialized) scopeInitialized = !!(packageSource += `\nPackage.${scope} ??= {}\n`)
                             packageSource += `\nPackage.${scope}['${n}'] = '${renderNamespace}'`
                         }
                         break
@@ -129,15 +126,11 @@ const module = {
                         const currentOptionsToString = JSON.stringify(this.env[scope]), builtinOptionsToString = JSON.stringify(this.app.archives.get(scope))
                         if (currentOptionsToString !== builtinOptionsToString) {
                             const builtInOptions = JSON.parse(builtinOptionsToString)
-                            let optionsInitialized = false
                             for (const key of scopeItems) try {
                                 if (this.env[scope][key] === undefined) throw new Error(`${scope} key ${key} is undefined`)
                                 const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify(this.env[scope][key])
                                 if (builtInOptionString !== currentOptionString) {
-                                    if (!optionsInitialized) {
-                                        packageSource += `\nPackage.${scope} ??= {}\n`
-                                        optionsInitialized = true
-                                    }
+                                    if (!scopeInitialized) scopeInitialized = !!(packageSource += `\nPackage.${scope} ??= {}\n`)
                                     packageSource += `\nPackage.${scope}['${key}'] = ${currentOptionString}`
                                 }
                             } catch (e) {

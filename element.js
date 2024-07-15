@@ -118,6 +118,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.facets.exports = new WeakMap()
             this.app.packages = new Map()
             this.app.archives = new Map()
+            this.app.archives.set('options', JSON.parse(JSON.stringify(this.env.options)))
             await this.installModule('dev')
         }
     },
@@ -132,10 +133,6 @@ const ElementHTML = Object.defineProperties({}, {
             let pkg = packageObject?.default ?? {}
             if (!this.isPlainObject(pkg)) return
             for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
-            if (this.app.dev) {
-                this.app.archives.set(packageKey, new Map())
-                this.app.packages.set(packageKey, new Map())
-            }
             if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
