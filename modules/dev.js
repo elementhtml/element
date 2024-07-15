@@ -41,30 +41,32 @@ const module = {
     exportPackage: {
         enumerable: true, value: async function (includes = {}, options = {}, overrides = {}) {
             if (!includes || (typeof includes !== 'object')) throw new Error(`Invalid includes object`)
-            const includesScopes = new Map()
+            const includesScopes = new Map(), openingLine = 'const Package = {};', closingLine = 'export default Package;',
+                allowPackages = new Set(includes.packages instanceof Set ? this.app.packages.keys().filter(k => !includes.packages.has(k)) : (Array.isArray(includes.packages)
+                    ? this.app.packages.keys().filter(p => includes.packages.includes(p)) : this.app.packages.keys()))
             for (const a in this.env) {
                 if (!Array.isArray(includes[a])) includes[a] ??= new Set()
                 if (!this.app.archives.has(a)) this.app.archives.set(a, new Map())
                 if (!this.app.packages.has(a)) this.app.packages.set(a, new Map())
+                let packagesA, includesA = includes[a]
                 switch (a) {
                     case 'components': case 'facets':
-                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app[a].classes).filter(k => !includes[a].has(k)) : includes[a]))
-                            .filter(c => !this.app.packages[a].has(c) || allowPackages.has(this.app.packages[a].get(c))).sort())
+                        packagesA = this.app.packages.get(a)
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.app[a].classes).filter(k => !includesA.has(k)) : includesA))
+                            .filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
                         break
                     case 'context':
-                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.env[a]).filter(k => !includes[a].has(k)) : includes[a])).sort())
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA)).sort())
                         break
                     case 'helpers': case 'hooks': case 'loaders':
-                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app.archives[a] ?? {}).filter(k => !includes[a].has(k)) : includes[a])).sort())
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.app.archives[a] ?? {}).filter(k => !includesA.has(k)) : includesA)).sort())
                         break
                     default:
-                        includesScopes.set(a, Array.from(new Set(includes[a] instanceof Set ? Object.keys(this.app[a]).filter(k => !includes[a].has(k)) : includes[a]))
-                            .filter(c => !this.app.packages[a].has(c) || allowPackages.has(this.app.packages[a].get(c))).sort())
+                        packagesA = this.app.packages.get(a)
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA))
+                            .filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
                 }
             }
-            const openingLine = 'const Package = {};', closingLine = 'export default Package;',
-                allowPackages = new Set(includes.packages instanceof Set ? this.app.packages.keys().filter(k => !includes.packages.has(k)) : (Array.isArray(includes.packages)
-                    ? this.app.packages.keys().filter(p => includes.packages.includes(p)) : this.app.packages.keys()))
             let packageSource = `${openingLine}\n`
 
             for (const [scope, scopeItems] of includesScopes) {
