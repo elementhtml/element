@@ -164,7 +164,6 @@ const module = {
             return packageSource
         }
     },
-
     exportApplication: {
         enumerable: true, value: async function* (options = { as: 'auto' }, manifest = {}) {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
