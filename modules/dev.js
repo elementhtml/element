@@ -37,7 +37,6 @@ const module = {
             return this.exportUnit('facet', cid, format)
         }
     },
-
     exportPackage: {
         enumerable: true, value: async function (includes = {}, options = {}, overrides = {}) {
             if (!includes || (typeof includes !== 'object')) throw new Error(`Invalid includes object`)
@@ -51,16 +50,19 @@ const module = {
                 let packagesA, includesA = includes[a]
                 switch (a) {
                     case 'context':
-                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA)).sort())
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.env[a]).filter(k => !includesA.has(k)) : includesA)))
                         break
                     case 'helpers': case 'hooks': case 'loaders':
-                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.app.archives[a] ?? {}).filter(k => !includesA.has(k)) : includesA)).sort())
+                        includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys(this.app.archives[a] ?? {}).filter(k => !includesA.has(k)) : includesA)))
                         break
                     default:
                         packagesA = this.app.packages.get(a)
                         includesScopes.set(a, Array.from(new Set(includesA instanceof Set ? Object.keys((a === 'components' || a === 'facets') ? this.app[a].classes : this.env[a])
-                            .filter(k => !includesA.has(k)) : includesA)).filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))).sort())
+                            .filter(k => !includesA.has(k)) : includesA)).filter(c => !packagesA.has(c) || allowPackages.has(packagesA.get(c))))
                 }
+                const includesScopesA = includesScopes.get(a), overridesA = overrides[a] ?? {}
+                if (overridesA && (typeof overridesA === 'object')) for (const ov in overridesA) if (!includesScopesA.includes(ov)) includesScopesA.push(ov)
+                includesScopesA.sort()
             }
             let packageSource = `${openingLine}\n`
             for (const [scope, scopeItems] of includesScopes) {
@@ -80,16 +82,16 @@ const module = {
                                     renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
                                 }
                             }
-                            packageSource += `\nPackage.${scope}['${renderId}'] = E => (${this.exportComponent(id, 'string')})`
+                            packageSource += `\nPackage.${scope}['${renderId}'] = E => (${this.exportComponent((overrides[scope] ?? {})[id] ?? id, 'string')})`
                         }
                         break
                     case 'context':
-                        for (const key of scopeItems) try { packageSource += `\nPackage.${scope}['${key}'] = ${JSON.stringify(this.env.context[key])}` } catch (e) {
+                        for (const key of scopeItems) try { packageSource += `\nPackage.${scope}['${key}'] = ${JSON.stringify((overrides[scope] ?? {})[key] ?? this.env.context[key] ?? 'null')}` } catch (e) {
                             throw new Error(`${scope} key ${key} could not be exported`)
                         }
                         break
                     case 'facets':
-                        for (const cid of scopeItems) packageSource += `\nPackage.${scope}['${cid}'] = E => (${this.exportFacet(cid, 'string')})`
+                        for (const cid of scopeItems) packageSource += `\nPackage.${scope}['${cid}'] = E => (${this.exportFacet((overrides[scope] ?? {})[cid] ?? cid, 'string')})`
                         break
                     case 'helpers': case 'hooks': case 'loaders':
                         const isHooks = scope === 'hooks', hookPackages = isHooks ? scopeOptions.packages : new Set(), hookPackagesIsSet = hookPackages instanceof Set
@@ -100,12 +102,12 @@ const module = {
                                 for (const hookPackage of packagesWithHooksWithThisName) {
                                     if (hookPackagesIsSet ? !hookPackages.has(hookPackage) : hookPackages.includes(hookPackage)) {
                                         packageSource += `\nPackage.${scope}['${hookName}'] ??= []\n`
-                                        packageSource += `\nPackage.${scope}['${hookName}'].push(${this.app.archives[scope][hookName][hookPackage].toString()})`
+                                        packageSource += `\nPackage.${scope}['${hookName}'].push(${((overrides[scope] ?? {})[hookName] ?? this.app.archives[scope][hookName][hookPackage]).toString()})`
                                     }
                                 }
                             }
                         } else {
-                            for (const n of scopeItems) packageSource += `\nPackage.${scope}['${n}'] = ${this.app.archives[scope][n].toString()}`
+                            for (const n of scopeItems) packageSource += `\nPackage.${scope}['${n}'] = ${((overrides[scope] ?? {})[n] ?? this.app.archives[scope][n]).toString()}`
                         }
                         break
                     case 'namespaces':
@@ -119,7 +121,7 @@ const module = {
                                 }
                             }
                             if (!scopeInitialized) scopeInitialized = !!(packageSource += `\nPackage.${scope} ??= {}\n`)
-                            packageSource += `\nPackage.${scope}['${n}'] = '${renderNamespace}'`
+                            packageSource += `\nPackage.${scope}['${n}'] = '${(overrides[scope] ?? {})[n] ?? renderNamespace}'`
                         }
                         break
                     case 'options':
@@ -128,7 +130,7 @@ const module = {
                             const builtInOptions = JSON.parse(builtinOptionsToString)
                             for (const key of scopeItems) try {
                                 if (this.env[scope][key] === undefined) throw new Error(`${scope} key ${key} is undefined`)
-                                const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify(this.env[scope][key])
+                                const builtInOptionString = JSON.stringify(builtInOptions[key]), currentOptionString = JSON.stringify((overrides[scope] ?? {})[key] ?? this.env[scope][key] ?? null)
                                 if (builtInOptionString !== currentOptionString) {
                                     if (!scopeInitialized) scopeInitialized = !!(packageSource += `\nPackage.${scope} ??= {}\n`)
                                     packageSource += `\nPackage.${scope}['${key}'] = ${currentOptionString}`
@@ -139,20 +141,20 @@ const module = {
                         }
                         break
                     case 'regexp':
-                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = new RegExp("${this.env[scope][n].source}", "${this.env[scope][n].flags}")`
+                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = new RegExp("${((overrides[scope] ?? {})[n] ?? this.env[scope][n]).source}", "${((overrides[scope] ?? {})[n] ?? this.env[scope][n]).flags}")`
                         break
                     case 'templates':
-                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = E => { const t = document.createElement('template'); t.innerHTML = \`${this.env[scope][n].innerHTML}\`; return t }`
+                        for (const n of scopeItems) if (this.env[scope][n]) packageSource += `\nPackage.${scope}['${n}'] = E => { const t = document.createElement('template'); t.innerHTML = \`${(overrides[scope] ?? {})[n] ?? this.env[scope][n].innerHTML ?? ''}\`; return t }`
                         break
                     case 'transforms':
                         for (const n of scopeItems) {
-                            const transform = this.env[scope][n] ?? ((this.app[scope][n] ?? [])[0])
+                            const transform = ((overrides[scope] ?? {})[n]) ?? this.env[scope][n] ?? ((this.app[scope][n] ?? [])[0])
                             if (!transform) throw new Error(`${scope} ${n} could not be found`)
                             packageSource += `\nPackage.${scope}['${n}'] = \`${transform}\``
                         }
                         break
                     case 'types':
-                        for (const n of scopeItems) if (this.env[scope][n]) try { packageSource += `\nPackage.${scope}['${n}'] = ${JSON.stringify(this.env[scope][n])}` } catch (e) {
+                        for (const n of scopeItems) if (this.env[scope][n]) try { packageSource += `\nPackage.${scope}['${n}'] = ${JSON.stringify((overrides[scope] ?? {})[n] ?? this.env[scope][n] ?? {})}` } catch (e) {
                             throw new Error(`${scope} ${n} could not be exported`)
                         }
                         break
@@ -368,8 +370,13 @@ const module = {
         }
     },
 
-    saveApplication: {
-        enumerable: true, value: async function (manifest, options = {}) {
+    publish: {
+        enumerable: true, value: async function (what = 'application', manifest = {}, options = {}) {
+        }
+    },
+
+    save: {
+        enumerable: true, value: async function (what = 'application', manifest = {}, options = {}) {
             const application = {}
             for await (const fileEntry of this.exportApplication(manifest, options)) {
                 let { filepath, file } = fileEntry
@@ -378,6 +385,7 @@ const module = {
             return application
         }
     }
+
 
 }
 
