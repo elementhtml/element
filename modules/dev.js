@@ -166,7 +166,7 @@ const module = {
     },
 
     exportApplication: {
-        enumerable: true, value: async function* (manifest = {}, options = {}) {
+        enumerable: true, value: async function* (manifest = {}, options = { as: 'auto' }) {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
@@ -186,7 +186,7 @@ const module = {
                         if (asFunc === 'auto') {
                             return (await isBinaryFile(f)) ? await fileToDataURL(f) : await f.text()
                         } else {
-                            return (asFunc === 'dataurl') ? await fileToDataURL(f) : (f[asFunc] ? await f[asFunc]() : undefined)
+                            return (asFunc === 'dataurl') ? await fileToDataURL(f) : (f[asFunc] ? await f[asFunc]() : (asFunc === 'file' ? f : undefined))
                         }
                     }
                     return f
