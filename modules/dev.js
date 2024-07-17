@@ -175,7 +175,22 @@ const module = {
                     const reader = new FileReader()
                     reader.onload = () => r(reader.result)
                     reader.readAsDataURL(file)
-                }), optionsAs = typeof options.as === 'string' ? { [options.as]: '.*' } : (options.as ?? {})
+                }), optionsAs = typeof options.as === 'string' ? { [options.as]: '.*' } : (options.as ?? {}), isBinaryFile = f => {
+                    return new Promise(r => {
+                        const reader = new FileReader()
+                        reader.onloadend = (e) => r(new Uint8Array(e.target.result).some(byte => byte === 0))
+                        reader.readAsArrayBuffer(f.slice(0, 512))
+                    })
+                }, renderFile = async (fp, f) => {
+                    for (const asFunc in optionsAs) if (optionsAs[asFunc].test(fp)) {
+                        if (asFunc === 'auto') {
+                            return (await isBinaryFile(f)) ? await fileToDataURL(f) : await f.text()
+                        } else {
+                            return (asFunc === 'dataurl') ? await fileToDataURL(f) : (f[asFunc] ? await f[asFunc]() : undefined)
+                        }
+                    }
+                    return f
+                }
             for (const rx in optionsAs) if (optionsAs[rx]) optionsAs[rx] = new RegExp(optionsAs[rx])
             Object.assign(vars, { name: vars.name ?? manifest.name, title: vars.title ?? manifest.title, description: vars.description ?? manifest.description, image: vars.image ?? manifest.image })
             let { pwa, robots, sitemap } = manifest, sitemapObj, sitemapDefaults
@@ -309,8 +324,7 @@ const module = {
                     blockPlaceholder.replaceWith(...blockTemplate.content.cloneNode(true).children)
                 }
                 let file = new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' })
-                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataurl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
-                yield { filepath, file }
+                yield { filepath, file: await renderFile(filepath, file) }
             }
             assets['packages/main.js'] ??= new File([new Blob([await this.exportPackage()], { type: 'application/javascript' })], 'main.js', { type: 'application/javascript' })
             if (pwa) {
@@ -364,20 +378,38 @@ const module = {
                     file = new File([file], filepath.split('/').pop(), { type: file.type })
                 }
                 if (!(file instanceof File)) continue
-                for (const asFunc in optionsAs) if (optionsAs[asFunc].test(filepath)) file = (asFunc === 'dataurl') ? await fileToDataURL(file) : (file[asFunc] ? await file[asFunc]() : undefined)
-                yield { filepath, file }
+                yield { filepath, file: await renderFile(filepath, file) }
             }
         }
     },
 
     grab: {
         enumerable: true, value: async function (what = 'application', ...args) {
-            const application = {}
-            for await (const fileEntry of this.exportApplication(...args)) {
-                let { filepath, file } = fileEntry
-                application[filepath] ??= file
+            let useFunc
+            switch (what) {
+                case 'component': case 'facet':
+                    args[1] ??= 'string'
+                    useFunc = what === 'component' ? 'exportComponent' : 'exportFacet'
+                    const appWhats = this.app[`${what}s`].classes, endsWithTest = what === 'component' ? `${args[0]}.html`.replace('.html.html', '.html') : args[0]
+                    if (!appWhats[args[0]]) {
+                        for (const i in appWhats) {
+                            if (i.endsWith(endsWithTest)) {
+                                args[0] = i
+                                break
+                            }
+                        }
+                    }
+                case 'package':
+                    useFunc ??= 'exportPackage'
+                    return await this[useFunc](...args)
+                case 'application':
+                    const application = {}
+                    for await (const fileEntry of this.exportApplication(...args)) {
+                        let { filepath, file } = fileEntry
+                        application[filepath] ??= file
+                    }
+                    return application
             }
-            return application
         }
     },
 
