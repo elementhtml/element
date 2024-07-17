@@ -417,7 +417,35 @@ const module = {
     },
 
     publish: {
-        enumerable: true, value: async function (what = 'application', ...args) {
+        enumerable: true, value: async function (what = 'application', adaptor = undefined, ...args) {
+            if (typeof adaptor === 'string') {
+                try { adaptor = (await import(adaptor)).default } catch (e) {
+                    throw new Error(`Could not import adaptor "${adaptor}"`)
+                }
+            }
+            if (!(adaptor instanceof Function)) return await this.save(what, adaptor, ...args)
+
+
+            switch (what) {
+                case 'component': case 'facet':
+
+
+                    return
+                case 'package':
+
+
+                    return
+                case 'application':
+                    console.log(`Publishing application to "${adaptor.name}"...`)
+                    for await (const { filepath, file } of this.exportApplication()) {
+                        console.log(`${filepath} starting...`)
+                        for await (const progress of adaptor(filepath, file)) {
+                            console.log(`${filepath} ${progress}...`)
+                        }
+                        console.log(`${filepath} completed.`)
+                    }
+                    return console.log(`Application published to "${adaptor.name}".`)
+            }
         }
     },
 
@@ -425,18 +453,29 @@ const module = {
         enumerable: true, value: async function (what = 'application', fsOptions = { mode: 'readwrite' }, ...args) {
             if (!fsOptions || typeof fsOptions !== 'object') fsOptions = { mode: 'readwrite' }
             fsOptions.mode = 'readwrite'
-            const application = {}, dir = await window.showDirectoryPicker(fsOptions)
-            console.log(`Creating application within the "${dir.name}" directory...`)
-            for await (const { filepath, file } of this.exportApplication()) {
-                const pathParts = filepath.split('/'), fileName = pathParts.pop()
-                let subDir = dir
-                for (const part of pathParts) subDir = await subDir.getDirectoryHandle(part, { create: true })
-                const fileHandle = await subDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
-                await writableStream.write(file)
-                await writableStream.close()
-                console.log('Created: ', filepath)
+            const dir = await window.showDirectoryPicker(fsOptions)
+            switch (what) {
+                case 'component': case 'facet':
+
+
+                    return
+                case 'package':
+
+
+                    return
+                case 'application':
+                    console.log(`Creating application within the "${dir.name}" directory...`)
+                    for await (const { filepath, file } of this.exportApplication()) {
+                        const pathParts = filepath.split('/'), fileName = pathParts.pop()
+                        let subDir = dir
+                        for (const part of pathParts) subDir = await subDir.getDirectoryHandle(part, { create: true })
+                        const fileHandle = await subDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
+                        await writableStream.write(file)
+                        await writableStream.close()
+                        console.log('Created: ', filepath)
+                    }
+                    return console.log(`Finished creating application.`)
             }
-            console.log(`Finished creating application.`)
         }
     }
 
