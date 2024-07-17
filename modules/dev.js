@@ -422,13 +422,21 @@ const module = {
     },
 
     save: {
-        enumerable: true, value: async function (what = 'application', ...args) {
-            const application = {}
-            for await (const fileEntry of this.exportApplication(manifest, options)) {
-                let { filepath, file } = fileEntry
-                application[filepath] ??= file
+        enumerable: true, value: async function (what = 'application', fsOptions = { mode: 'readwrite' }, ...args) {
+            if (!fsOptions || typeof fsOptions !== 'object') fsOptions = { mode: 'readwrite' }
+            fsOptions.mode = 'readwrite'
+            const application = {}, dir = await window.showDirectoryPicker(fsOptions)
+            console.log(`Creating application within the "${dir.name}" directory...`)
+            for await (const { filepath, file } of this.exportApplication()) {
+                const pathParts = filepath.split('/'), fileName = pathParts.pop()
+                let subDir = dir
+                for (const part of pathParts) subDir = await subDir.getDirectoryHandle(part, { create: true })
+                const fileHandle = await subDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
+                await writableStream.write(file)
+                await writableStream.close()
+                console.log('Created: ', filepath)
             }
-            return application
+            console.log(`Finished creating application.`)
         }
     }
 
