@@ -166,9 +166,13 @@ const module = {
     },
 
     exportApplication: {
-        enumerable: true, value: async function* (manifest = {}, options = { as: 'auto' }) {
+        enumerable: true, value: async function* (options = { as: 'auto' }, manifest = {}) {
             if (typeof manifest === 'string') manifest = await fetch(this.resolveUrl(manifest)).then(r => r.json())
             manifest.base ??= document.location.href.split('/').slice(0, -1).join('/')
+            options ??= { as: 'auto' }
+            if (typeof options === 'string') options = { as: options }
+            if (typeof options !== 'object') options = { as: 'auto' }
+            options.as ??= 'auto'
             const mergeVars = (obj) => { for (const v in vars) for (const k in obj) if (typeof obj[k] === 'string') obj[k] = obj[k].replace(new RegExp(`\\$\\{${v}}`, 'g'), vars[v]) },
                 slashesRegExp = /^\/|\/$/g, { base, blocks = {}, vars = {}, pages = { '': {} }, assets = {}, frameworkSrc = 'https://cdn.jsdelivr.net/gh/elementhtml/element/element.js?load&packages' } = manifest,
                 fileToDataURL = file => new Promise(r => {
