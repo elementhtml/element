@@ -439,9 +439,7 @@ const module = {
                     console.log(`Publishing application to "${adaptor.name}"...`)
                     for await (const { filepath, file } of this.exportApplication()) {
                         console.log(`${filepath} starting...`)
-                        for await (const progress of adaptor(filepath, file)) {
-                            console.log(`${filepath} ${progress}...`)
-                        }
+                        for await (const progress of adaptor(filepath, file)) console.log(`${filepath} ${progress}...`)
                         console.log(`${filepath} completed.`)
                     }
                     return console.log(`Application published to "${adaptor.name}".`)
