@@ -448,26 +448,31 @@ const module = {
     },
 
     save: {
-        enumerable: true, value: async function (what = 'application', fsOptions = { mode: 'readwrite' }, ...args) {
-            if (!fsOptions || typeof fsOptions !== 'object') fsOptions = { mode: 'readwrite' }
-            fsOptions.mode = 'readwrite'
-            const dir = await window.showDirectoryPicker(fsOptions)
+        enumerable: true, value: async function (what = 'application', dir = undefined, ...args) {
             switch (what) {
-                case 'component': case 'facet':
-
-
-                    return
-                case 'package':
-
-
+                case 'component': case 'facet': case 'package':
+                    args.unshift(dir)
+                    const suggestedName = `${(typeof args[0] === 'string' ? (args[0] ?? what) : what)}.js`.replace('.js.js', '.js'),
+                        unitText = await E.grab(what, ...args), fileHandle = await window.showSaveFilePicker({
+                            types: [{
+                                description: 'JavaScript Files',
+                                accept: { 'application/javascript': ['.js'] }
+                            }], suggestedName
+                        }), writable = await fileHandle.createWritable()
+                    await writable.write(new Blob([unitText], { type: 'application/javascript' }))
+                    await writable.close()
                     return
                 case 'application':
-                    console.log(`Creating application within the "${dir.name}" directory...`)
-                    for await (const { filepath, file } of this.exportApplication()) {
+                    let useDir = dir
+                    if (!dir || !(dir instanceof FileSystemDirectoryHandle)) {
+                        if (dir !== undefined) args.unshift(dir)
+                        useDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+                    }
+                    console.log(`Creating application within the "${useDir.name}" directory...`)
+                    for await (const { filepath, file } of this.exportApplication(...args)) {
                         const pathParts = filepath.split('/'), fileName = pathParts.pop()
-                        let subDir = dir
-                        for (const part of pathParts) subDir = await subDir.getDirectoryHandle(part, { create: true })
-                        const fileHandle = await subDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
+                        for (const part of pathParts) useDir = await useDir.getDirectoryHandle(part, { create: true })
+                        const fileHandle = await useDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
                         await writableStream.write(file)
                         await writableStream.close()
                         console.log('Created: ', filepath)
