@@ -346,5 +346,4 @@ const nativeElementsMap = {
         }
     }
 }
-
 export { module }

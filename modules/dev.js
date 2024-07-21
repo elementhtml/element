@@ -473,5 +473,4 @@ const module = {
         }
     }
 }
-
 export { module }
