@@ -1,5 +1,4 @@
 const module = {
-
     exportUnit: {
         value: function (unitType, identifier, format) {
             if (unitType !== 'component' && unitType !== 'facet') throw new Error(`Invalid unitType ${unitType}`)
@@ -385,7 +384,6 @@ const module = {
             }
         }
     },
-
     grab: {
         enumerable: true, value: async function (what = 'application', ...args) {
             let useFunc
@@ -449,7 +447,6 @@ const module = {
             }
         }
     },
-
     send: {
         enumerable: true, value: async function (what = 'application', adaptor = undefined, ...args) {
             if (typeof adaptor === 'string') try { adaptor = (await import(adaptor)).default } catch (e) {
@@ -475,7 +472,6 @@ const module = {
             }
         }
     }
-
 }
 
 export { module }
