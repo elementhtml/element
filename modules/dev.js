@@ -415,51 +415,19 @@ const module = {
             }
         }
     },
-
-    publish: {
-        enumerable: true, value: async function (what = 'application', adaptor = undefined, ...args) {
-            if (typeof adaptor === 'string') {
-                try { adaptor = (await import(adaptor)).default } catch (e) {
-                    throw new Error(`Could not import adaptor "${adaptor}"`)
-                }
-            }
-            if (!(adaptor instanceof Function)) return await this.save(what, adaptor, ...args)
-
-
-            switch (what) {
-                case 'component': case 'facet':
-
-
-                    return
-                case 'package':
-
-
-                    return
-                case 'application':
-                    console.log(`Publishing application to "${adaptor.name}"...`)
-                    for await (const { filepath, file } of this.exportApplication()) {
-                        console.log(`${filepath} starting...`)
-                        for await (const progress of adaptor(filepath, file)) console.log(`${filepath} ${progress}...`)
-                        console.log(`${filepath} completed.`)
-                    }
-                    return console.log(`Application published to "${adaptor.name}".`)
-            }
-        }
-    },
-
     save: {
         enumerable: true, value: async function (what = 'application', dir = undefined, ...args) {
             switch (what) {
                 case 'component': case 'facet': case 'package':
                     args.unshift(dir)
                     const suggestedName = `${(typeof args[0] === 'string' ? (args[0] ?? what) : what)}.js`.replace('.js.js', '.js'),
-                        unitText = await E.grab(what, ...args), fileHandle = await window.showSaveFilePicker({
+                        sourceCode = await E.grab(what, ...args), fileHandle = await window.showSaveFilePicker({
                             types: [{
                                 description: 'JavaScript Files',
                                 accept: { 'application/javascript': ['.js'] }
                             }], suggestedName
                         }), writable = await fileHandle.createWritable()
-                    await writable.write(new Blob([unitText], { type: 'application/javascript' }))
+                    await writable.write(new Blob([sourceCode], { type: 'application/javascript' }))
                     await writable.close()
                     return
                 case 'application':
@@ -478,6 +446,32 @@ const module = {
                         console.log('Created: ', filepath)
                     }
                     return console.log(`Finished creating application.`)
+            }
+        }
+    },
+
+    send: {
+        enumerable: true, value: async function (what = 'application', adaptor = undefined, ...args) {
+            if (typeof adaptor === 'string') try { adaptor = (await import(adaptor)).default } catch (e) {
+                throw new Error(`Could not import adaptor "${adaptor}"`)
+            }
+            if (!(adaptor instanceof Function)) return await this.save(what, adaptor, ...args)
+            switch (what) {
+                case 'component': case 'facet': case 'package':
+                    const fileName = `${(typeof args[0] === 'string' ? (args[0] ?? what) : what)}.js`.replace('.js.js', '.js'), sourceCode = await E.grab(what, ...args),
+                        file = new File(new Blob([sourceCode], { type: 'application/javascript' }), fileName, { type: 'application/javascript' })
+                    console.log(`Send of ${what} ${fileName} starting...`)
+                    for await (const progress of adaptor(what, fileName, file)) console.log(`${fileName} ${progress}...`)
+                    console.log(`Send of ${what} ${fileName} completed`)
+                    return
+                case 'application':
+                    console.log(`Publishing application to "${adaptor.name}"...`)
+                    for await (const { filepath, file } of this.exportApplication(...args)) {
+                        console.log(`${filepath} starting...`)
+                        for await (const progress of adaptor(what, filepath, file)) console.log(`${filepath} ${progress}...`)
+                        console.log(`${filepath} completed.`)
+                    }
+                    return console.log(`Application published to "${adaptor.name}".`)
             }
         }
     }
