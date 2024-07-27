@@ -1587,7 +1587,21 @@ ${scriptBody.join('{')}`
             }
             async run(container, env) {
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
-                    const { steps = [] } = statement, labels = {}
+                    const { steps = [] } = statement, labels = {}, saveToLabel = (stepIndex, label, value, labelMode) => {
+                        labels[`${stepIndex}`] = value
+                        if (label && (label != stepIndex)) {
+                            switch (label[0]) {
+                                case '@':
+                                    env.fields[label.slice(1)].set(value, labelMode)
+                                    break
+                                case '#':
+                                    env.cells[label.slice(1)].set(value, labelMode)
+                                    break
+                                default:
+                                    labels[label] = value
+                            }
+                        }
+                    }
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
@@ -1601,7 +1615,11 @@ ${scriptBody.join('{')}`
                             }
                             Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
+                        const runStep = async event => {
+                            if (stepIndex) {
+                                const previousStepIndex = stepIndex - 1, previousStep = steps[previousStepIndex]
+                                saveToLabel(previousStepIndex, previousStep.label, event.detail, previousStep.labelMode)
+                            }
                             let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
                             if (detail == undefined) {
                                 if (typeof defaultExpression !== 'string') {
@@ -1621,19 +1639,11 @@ ${scriptBody.join('{')}`
                                     detail = defaultExpression
                                 }
                             }
-                            switch (label[0]) {
-                                case '@':
-                                    env.fields[label.slice(1)].set(detail, labelMode)
-                                    break
-                                case '#':
-                                    env.cells[label.slice(1)].set(detail, labelMode)
-                                    break
-                                default:
-                                    labels[label] = detail
-                            }
-                            labels[`${stepIndex}`] = detail
+                            saveToLabel(stepIndex, label, detail, labelMode)
                             if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: this.controller.signal })
+                        }
+                        if (!stepIndex) container.addEventListener('run', runStep, { signal: this.controller.signal })
+                        container.addEventListener(`done-${statementIndex}-${stepIndex - 1}`, runStep, { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
