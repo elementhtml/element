@@ -893,8 +893,20 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
             if (!this.app.transforms[transformKey]) {
                 this.app.transforms[transformKey] = true
-                if (transformKey[0] === '`') [transform, expression] = this.env.transforms[transformKey] ? [transformKey, this.env.transforms[transformKey]]
-                    : [await fetch(this.resolveUrl(transformKey.slice(1, -1).trim())).then(r => r.text()), undefined]
+                if (transformKey[0] === '`') {
+                    if (this.env.transforms[transformKey]) {
+                        [transform, expression] = [transformKey, this.env.transforms[transformKey]]
+                    } else {
+                        let transformUrl = transformKey.slice(1, -1).trim()
+                        if (transformUrl.startsWith('~')) {
+                            transformUrl = `transforms/${transformUrl.slice(1)}`
+                        } else if (!transformUrl.includes('/') && !transformUrl.includes('.')) {
+                            transformUrl = `transforms/${transformUrl}`
+                        }
+                        if (transformUrl.endsWith('.') || !transformUrl.includes('.')) transformUrl = `${transformUrl}.jsonata`.replace('..', '.');
+                        [transform, expression] = [await fetch(this.resolveUrl(transformUrl)).then(r => r.text()), undefined]
+                    }
+                }
                 if (!transform) {
                     delete this.app.transforms[transformKey]
                     return data
