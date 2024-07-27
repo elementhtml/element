@@ -1011,7 +1011,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const r = target.map(t => t[t.type].get())
                             return r.some(rr => rr == undefined) ? undefined : r
                         }
-                        items = target
+                        items.push(...target)
                         break
                     case 'object':
                         if (Array.isArray(target)) target = Object.fromEntries(target)
@@ -1021,7 +1021,7 @@ const ElementHTML = Object.defineProperties({}, {
                             for (const key in target) r[key] = target[key][target[key].type].get()
                             return Object.values(r).every(rr => rr == undefined) ? undefined : r
                         }
-                        items = Object.values(target)
+                        items.push(...Object.values(target))
                 }
                 for (const item of items) {
                     item[item.type].eventTarget.addEventListener('change', event => {
@@ -1149,8 +1149,10 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'array':
                         if (Array.isArray(value)) for (const [i, v] of value.entries()) if (v != undefined) target[i][target[i].type].set(v, target[i].mode)
                         break
-                    default:
-                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined) target[k][target[k].type].set(v, target[k].mode)
+                    case 'object':
+                        if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined) if (k in target) {
+                            target[k][target[k].type].set(v, target[k].mode)
+                        }
                 }
                 return getReturnValue()
             },
@@ -1294,6 +1296,7 @@ const ElementHTML = Object.defineProperties({}, {
                         group[key] = { name, mode, type }
                         if (!parseOnly) group[key][type] = getStateTarget(name, mode, type)
                     }
+                    break
                 case '[':
                     group = []
                     shape = 'array'
@@ -1303,6 +1306,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const { name, mode, type } = canonicalizeName(t), index = group.push({ name, mode, type }) - 1
                         if (!parseOnly) group[index][type] = getStateTarget(name, mode, type)
                     }
+                    break
                 default:
                     shape = 'single'
                     expression = expression.trim()
