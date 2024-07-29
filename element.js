@@ -374,6 +374,8 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
                 for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
                 if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
+                result.dataset = {}
+                for (const p in value.dataset) result.dataset[p] = result[`$${p}`] = value.dataset[p]
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
                 result._itemprop = {}
