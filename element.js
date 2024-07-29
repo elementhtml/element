@@ -786,7 +786,9 @@ const ElementHTML = Object.defineProperties({}, {
                                 setProperty(k.slice(1), v, element)
                         }
                     case '`':
-                        let nestingTargets = Array.of(this.resolveScopedSelector(k.slice(1, -1), element) ?? [])
+                        let nestingTargets = this.resolveScopedSelector(k.slice(1, -1), element)
+                        if (!nestingTargets) continue
+                        if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
                         await Promise.all(nestingTargets.map(t => this.render(t, v)))
                         continue
                     case '~':
