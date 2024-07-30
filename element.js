@@ -1235,10 +1235,10 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            const [namespace, name] = tag.split('-'), namespaceBase = this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
-            if (!namespaceBase) return
-            const id = `${namespaceBase}/${name}.html`
+            const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
+                ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
+            console.log('line 1240', tag, id, this.app.components.classes[id])
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]

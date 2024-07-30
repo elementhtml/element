@@ -30,7 +30,8 @@ const nativeElementsMap = {
                 className = id.split('/').pop().replace('.html', '').split('').map((c, i) => i === 0 ? c.toUpperCase() : c).join('')
             let extendsId = scriptCode.match(regexp.extends)?.groups?.extends, extendsClass = this.Component,
                 extendsStatement = `export default class ${className} extends E.Component {`, native
-            if (extendsId === 'E.Component' || [].includes(extendsId)) {
+            console.log('compile.js: line 33: ', className, extendsId)
+            if (extendsId == null || (extendsId === 'E.Component')) {
                 extendsId = undefined
             } else if (extendsId in nativeElementsMap) {
                 native = extendsId
