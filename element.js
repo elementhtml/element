@@ -904,11 +904,15 @@ const ElementHTML = Object.defineProperties({}, {
                         let transformUrl = transformKey.slice(1, -1).trim()
                         if (transformUrl.startsWith('~')) {
                             transformUrl = `transforms/${transformUrl.slice(1)}`
-                        } else if (!transformUrl.includes('/') && !transformUrl.includes('.')) {
+                        } else if (!transformUrl.includes('/') && (!transformUrl.includes('.') || transformUrl.endsWith('.js'))) {
                             transformUrl = `transforms/${transformUrl}`
                         }
-                        if (transformUrl.endsWith('.') || !transformUrl.includes('.')) transformUrl = `${transformUrl}.jsonata`.replace('..', '.');
-                        [transform, expression] = [await fetch(this.resolveUrl(transformUrl)).then(r => r.text()), undefined]
+                        if (transformUrl.endsWith('.') || !transformUrl.includes('.')) transformUrl = `${transformUrl}.jsonata`.replace('..', '.')
+                        if (transformUrl.endsWith('.js')) {
+                            [transform, expression] = [transform, (await import(this.resolveUrl(transformUrl))).default]
+                        } else {
+                            [transform, expression] = [await fetch(this.resolveUrl(transformUrl)).then(r => r.text()), undefined]
+                        }
                     }
                 }
                 if (!transform) {
