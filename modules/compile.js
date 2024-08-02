@@ -209,6 +209,7 @@ const nativeElementsMap = {
     canonicalizeDirectives: {
         value: async function (directives) {
             directives = directives.trim()
+            if (!directives) return 'null'
             const canonicalizedDirectivesMap = {}, canonicalizedDirectives = []
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
