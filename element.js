@@ -1196,11 +1196,23 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
             },
             wait: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression } = vars,
-                    useExpression = this.mergeVariables(expression, value, labels, env),
-                    getResult = () => (override == null) ? value : this.mergeVariables(override.slice(0, -1).trim(), value, labels, env)
+                const { labels, env, vars } = envelope, { expression } = vars, useExpression = this.mergeVariables(expression, value, labels, env)
                 let [mainWait, override] = useExpression.split('(')
                 mainWait = this.mergeVariables(mainWait, value, labels, env)
+                if (override) override = override.slice(0, -1).trim()
+                const getResult = () => {
+                    switch (override) {
+                        case undefined: return value ?? true
+                        case '': return value || true
+                        case '$': return value
+                        default:
+                            try {
+                                return JSON.parse(override)
+                            } catch (e) {
+                                return this.mergeVariables(override, value, labels, env)
+                            }
+                    }
+                }
                 let ms = 0, now = Date.now()
                 if (mainWait === 'frame') {
                     await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
