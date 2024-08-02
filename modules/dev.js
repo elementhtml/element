@@ -238,7 +238,7 @@ const module = {
                 elementFrameworkModuleElement.replaceWith(newFrameworkModuleElement)
                 const importMapElement = head.querySelector('script[type="importmap"]')
                 if (importMapElement) importMapElement.remove()
-                if (this.app.compile) for (const facetContainer of template.querySelectorAll(`script[type="directives/element"]`)) {
+                if (this.app.compile) for (const facetContainer of template.querySelectorAll(`script[type="directives/element"],script[type="facet/element"]:not([src])`)) {
                     const src = facetContainer.getAttribute('src'), textContent = facetContainer.textContent
                     const directives = await this.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
