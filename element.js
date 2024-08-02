@@ -1513,7 +1513,8 @@ const ElementHTML = Object.defineProperties({}, {
                 const { extends: mExtends, native: mNative, script: mScript, style: mStyle, template: mTemplate } = manifest
                 let cExtends = mExtends ? ((mNative && mExtends === mNative) ? mExtends : this.resolveUrl(mExtends)) : undefined,
                     native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.isValidTag(mNative) ? mNative : undefined,
-                    style = mStyle && (typeof mStyle === 'string') ? mStyle : '', template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : '',
+                    style = mStyle && (typeof mStyle === 'string') ? mStyle : (mStyle instanceof HTMLElement ? mStyle.textContent : ''),
+                    template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : (mTemplate instanceof HTMLElement ? mTemplate.innerHTML : ''),
                     script = mScript && (typeof mScript === 'string') ? mScript.replace('export default ', '').trim() : 'class extends E.Component {}',
                     [scriptHead, ...scriptBody] = script.split('{')
                 script = `  ${scriptHead} {
@@ -1548,7 +1549,7 @@ ${scriptBody.join('{')}`
     Component: {
         value: class extends globalThis.HTMLElement {
             static attributes = { observed: [] }
-            static config = { openShadow: false }
+            static shadow = { mode: 'open' }
             static events = { default: undefined }
             static extends
             static native
@@ -1562,11 +1563,9 @@ ${scriptBody.join('{')}`
                 super()
                 try {
                     if (this.constructor.style || this.constructor.template) {
-                        this.shadowRoot || this.attachShadow({ mode: this.constructor.config.openShadow ? 'open' : 'closed' })
-                        const shadowNodes = []
-                        if (this.constructor.style) shadowNodes.push(this.constructor.style.cloneNode(true))
-                        if (this.constructor.template) shadowNodes.push(...this.constructor.template.content.cloneNode(true).children)
-                        this.shadowRoot.append(...shadowNodes)
+                        const shadowRoot = this.attachShadow(this.constructor.shadow)
+                        if (this.constructor.style) shadowRoot.append(this.constructor.style.cloneNode(true))
+                        if (this.constructor.template) shadowRoot.append(...this.constructor.template.content.cloneNode(true).children)
                     }
                 } catch (e) { }
             }
