@@ -901,17 +901,24 @@ const ElementHTML = Object.defineProperties({}, {
                     if (this.env.transforms[transformKey]) {
                         [transform, expression] = [transformKey, this.env.transforms[transformKey]]
                     } else {
-                        let transformUrl = transformKey.slice(1, -1).trim()
+                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default', isJsOrWasm
+                        if (transformUrl.includes('|') && (transformUrl.includes('.js|') || transformUrl.includes('.wasm|'))) {
+                            isJsOrWasm = true;
+                            [transformUrl, functionName] = transformUrl.split('|')
+                        } else {
+                            isJsOrWasm = transformUrl.endsWith('.js') || transformUrl.endsWith('.wasm')
+                        }
                         if (transformUrl.startsWith('~')) {
                             transformUrl = `transforms/${transformUrl.slice(1)}`
-                        } else if (!transformUrl.includes('/') && (!transformUrl.includes('.') || transformUrl.endsWith('.js'))) {
+                        } else if (!transformUrl.includes('/') && (!transformUrl.includes('.') || isJsOrWasm)) {
                             transformUrl = `transforms/${transformUrl}`
                         }
                         if (transformUrl.endsWith('.') || !transformUrl.includes('.')) transformUrl = `${transformUrl}.jsonata`.replace('..', '.')
-                        if (transformUrl.endsWith('.js')) {
-                            [transform, expression] = [transform, (await import(this.resolveUrl(transformUrl))).default]
+                        transformUrl = this.resolveUrl(transformUrl)
+                        if (isJsOrWasm) {
+                            [transform, expression] = [transform, (await this.getExports(transformUrl))[functionName]]
                         } else {
-                            [transform, expression] = [await fetch(this.resolveUrl(transformUrl)).then(r => r.text()), undefined]
+                            [transform, expression] = [await fetch(transformUrl).then(r => r.text()), undefined]
                         }
                     }
                 }
