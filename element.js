@@ -1401,8 +1401,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     mountFacet: {
         value: async function (facetContainer) {
-            const { type, textContent } = facetContainer
-            let src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
+            let { type, textContent } = facetContainer, src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
+            if (type === 'facet/element') type = src ? 'application/element' : 'directives/element'
             switch (type) {
                 case 'directives/element':
                     if (!this.app.compile) return
@@ -1411,7 +1411,6 @@ const ElementHTML = Object.defineProperties({}, {
                     facetCid = await this.cid(directives)
                     this.app.facets.classes[facetCid] ??= await this.compileFacet(directives, facetCid)
                     break
-                case 'facet/element':
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
                     FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await this.facetFactory(await import(this.resolveUrl(src))))
