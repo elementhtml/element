@@ -923,14 +923,19 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!transform) return data
             }
             expression ||= this.app.transforms[transformKey][1]
-            const bindings = {}, helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
+            const bindings = {}, isFunc = typeof expression === 'function'
             if (element) {
-                if (transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
-                if (transform.includes('$this')) bindings.this = this.flatten(element)
-                if (transform.includes('$root')) bindings.root = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode())
-                if (transform.includes('$host')) bindings.host = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode().host)
-                if (transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
+                if (isFunc || transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
+                if (isFunc || transform.includes('$this')) bindings.this = this.flatten(element)
+                if (isFunc || transform.includes('$root')) bindings.root = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode())
+                if (isFunc || transform.includes('$host')) bindings.host = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode().host)
+                if (isFunc || transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
             }
+            if (isFunc) {
+                for (const [k, v] of Object.entries(variableMap)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
+                return await expression(data, bindings)
+            }
+            const helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
             for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
             for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
             return await expression.evaluate(data, bindings)
@@ -1238,7 +1243,6 @@ const ElementHTML = Object.defineProperties({}, {
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
-            console.log('line 1240', tag, id, this.app.components.classes[id])
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]

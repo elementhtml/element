@@ -30,7 +30,6 @@ const nativeElementsMap = {
                 className = id.split('/').pop().replace('.html', '').split('').map((c, i) => i === 0 ? c.toUpperCase() : c).join('')
             let extendsId = scriptCode.match(regexp.extends)?.groups?.extends, extendsClass = this.Component,
                 extendsStatement = `export default class ${className} extends E.Component {`, native
-            console.log('compile.js: line 33: ', className, extendsId)
             if (extendsId == null || (extendsId === 'E.Component')) {
                 extendsId = undefined
             } else if (extendsId in nativeElementsMap) {
@@ -334,8 +333,6 @@ const nativeElementsMap = {
             },
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-                if (expression.startsWith('`~/')) expression = '`transforms' + expression.slice(2)
-                if (expression.endsWith('.`')) expression = expression.slice(0, -1) + 'jsonata`'
                 return { handler: 'transform', ctx: { vars: { expression } } }
             },
             variable: function (expression, hasDefault) {
