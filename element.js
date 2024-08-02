@@ -931,13 +931,10 @@ const ElementHTML = Object.defineProperties({}, {
                 if (isFunc || transform.includes('$host')) bindings.host = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode().host)
                 if (isFunc || transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
             }
-            if (isFunc) {
-                for (const [k, v] of Object.entries(variableMap)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
-                return await expression(data, bindings)
-            }
+            for (const [k, v] of Object.entries(variableMap)) if (isFunc || transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
+            if (isFunc) return await expression(data, bindings)
             const helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
             for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
-            for (const [k, v] of Object.entries(variableMap)) if (transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
             return await expression.evaluate(data, bindings)
         }
     },
