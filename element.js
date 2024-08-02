@@ -901,12 +901,11 @@ const ElementHTML = Object.defineProperties({}, {
                     if (this.env.transforms[transformKey]) {
                         [transform, expression] = [transformKey, this.env.transforms[transformKey]]
                     } else {
-                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default', isJsOrWasm
+                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default',
+                            isJsOrWasm = transformUrl.endsWith('.js') || transformUrl.endsWith('.wasm')
                         if (transformUrl.includes('|') && (transformUrl.includes('.js|') || transformUrl.includes('.wasm|'))) {
                             isJsOrWasm = true;
                             [transformUrl, functionName] = transformUrl.split('|')
-                        } else {
-                            isJsOrWasm = transformUrl.endsWith('.js') || transformUrl.endsWith('.wasm')
                         }
                         if (transformUrl.startsWith('~')) {
                             transformUrl = `transforms/${transformUrl.slice(1)}`
