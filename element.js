@@ -542,7 +542,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     isFacetContainer: {
         enumerable: true, value: function (element) {
-            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'application/element'))
+            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'facet/element' || element.type === 'application/element'))
         }
     },
     isPlainObject: {
@@ -1411,6 +1411,7 @@ const ElementHTML = Object.defineProperties({}, {
                     facetCid = await this.cid(directives)
                     this.app.facets.classes[facetCid] ??= await this.compileFacet(directives, facetCid)
                     break
+                case 'facet/element':
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
                     FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await this.facetFactory(await import(this.resolveUrl(src))))
