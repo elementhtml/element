@@ -171,7 +171,7 @@ const nativeElementsMap = {
                                 case "{": case "[":
                                     params = this.parsers.json(handlerExpression, hasDefault)
                                     break
-                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9":
+                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
                                     let t
                                     switch (handlerExpression) {
                                         case 'null': case 'true': case 'false':
@@ -250,6 +250,16 @@ const nativeElementsMap = {
         value: {
             json: function (expression, hasDefault) {
                 let value = null
+                if (expression.startsWith('{') && expression.endsWith('}')) {
+                    expression = expression.slice(1, -1)
+                    if (!expression.includes('"')) {
+                        expression = `{"${expression}": true}`
+                    } else if (!expression.includes(':')) {
+                        expression = `{${expression}: true}`
+                    } else {
+                        expression = `{${expression.split(',').map(s => s.trim()).map(s => s.includes(':') ? s : (`${s.includes('"') ? s : ('"' + s + '"')}: true`)).join(',')}}`
+                    }
+                }
                 try { value = JSON.parse(expression) } catch (e) { }
                 return { handler: 'json', ctx: { vars: { value } } }
             },
