@@ -655,11 +655,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const setProperty = (k, v, element) => {
-                if (k.includes('(') && k.endsWith(')')) {
-                    return v != undefined ? this.runElementMethod(k, v, element) : undefined
-                } else if (v === undefined) {
-                    try { return delete element[k] } catch (e) { return }
-                }
+                if (v === undefined) try { return delete element[k] } catch (e) { return }
+                if (k.includes('(') && k.endsWith(')')) return this.runElementMethod(k, v, element)
                 element[k] = v
             }
             for (const [k, v] of Object.entries(data)) {
@@ -1012,8 +1009,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
                 for (let eventName of eventNames) {
-                    let keepDefault = eventName.slice(-2).includes('+'), exactMatch = eventName.slice(-2).includes('=')
-                    if (keepDefault || exactMatch) eventName = eventName.replace('=', '').replace('+', '')
+                    let keepDefault = eventName.slice(-3).includes('+'), exactMatch = eventName.slice(-3).includes('='), once = eventName.slice(-3).includes('-')
+                    if (keepDefault) eventName = eventName.replace('+', '')
+                    if (exactMatch) eventName = eventName.replace('=', '')
+                    if (once) eventName = eventName.replace('-', '')
                     scope.addEventListener(eventName, event => {
                         let targetElement
                         if (selector.endsWith('}') && selector.includes('{')) {
@@ -1031,7 +1030,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!eventList && (event.type !== tagDefaultEventType)) return
                         if (!keepDefault) event.preventDefault()
                         container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
-                    }, { signal })
+                    }, { signal, once })
                 }
                 return { selector, scope }
             },
