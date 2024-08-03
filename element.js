@@ -728,10 +728,9 @@ const ElementHTML = Object.defineProperties({}, {
                                 continue
                             default:
                                 if (k[0] === '<' && k.slice(-1) === '>') {
-                                    const posMap = { '?++': 'after', '?--': 'before', '?-': 'prepend', '?+': 'append', '?**': 'replaceWith', '?*': 'replaceChildren' }
-                                    let renderExpression = k.slice(1, -1), insertSelector,
-                                        posMatch = renderExpression.match(new RegExp((Object.keys(posMap).map(s => `( \\${s.split('').join('\\')} )`).join('|')), 'gi'))
-                                    if (posMatch) [renderExpression, insertSelector] = renderExpression.split(posMatch).map(s => s.trim())
+                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, tagSignatureInsertPosition = 'replaceChildren'
+                                    if (renderExpression.includes('::')) [renderExpression, tagSignatureInsertPosition] = renderExpression.split('::').map(s => s.trim())
+                                    tagSignatureInsertPosition ||= 'replaceChildren'
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                         renderExpression = renderExpression.slice(1, -1)
                                         let useTemplate
@@ -771,13 +770,13 @@ const ElementHTML = Object.defineProperties({}, {
                                         } else {
                                             useTemplate = this.resolveScopedSelector(renderExpression, element)
                                         }
-                                        if (useTemplate) this.renderWithTemplate(element, v, useTemplate, posMap[(posMatch ?? '').trim()], insertSelector)
+                                        if (useTemplate) this.renderWithTemplate(element, v, useTemplate, tagSignatureInsertPosition, insertSelector)
                                         continue
                                     }
                                     const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
                                         idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
                                         attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
-                                    this.renderWithTemplate(element, v, tagMatch[0], posMap[(posMatch ?? '').trim()], insertSelector, (idMatch[0] ?? '').slice(1),
+                                    this.renderWithTemplate(element, v, tagMatch[0], tagSignatureInsertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
                                         (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
                                         Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
                                     )

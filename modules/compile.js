@@ -251,16 +251,8 @@ const nativeElementsMap = {
         value: {
             json: function (expression, hasDefault) {
                 let value = null
-                if (expression.startsWith('{') && expression.endsWith('}')) {
-                    expression = expression.slice(1, -1)
-                    if (!expression.includes('"')) {
-                        expression = `{"${expression}": true}`
-                    } else if (!expression.includes(':')) {
-                        expression = `{${expression}: true}`
-                    } else {
-                        expression = `{${expression.split(',').map(s => s.trim()).map(s => s.includes(':') ? s : (`${s.includes('"') ? s : ('"' + s + '"')}: true`)).join(',')}}`
-                    }
-                }
+                if (expression.startsWith('{') && expression.endsWith('}') && !expression.includes(':')) expression =
+                    `{${expression.slice(1, -1).split(',').map(s => s.trim()).map(s => `${s.includes('"') ? s : ('"' + s + '"')}: null`).join(',')}}`
                 try { value = JSON.parse(expression) } catch (e) { }
                 return { handler: 'json', ctx: { vars: { value } } }
             },
