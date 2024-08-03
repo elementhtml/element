@@ -1002,11 +1002,18 @@ const ElementHTML = Object.defineProperties({}, {
                 const { vars, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
                 if (!scope) return {}
                 let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
-                if (eventList) eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                if (eventList) {
+                    eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                } else if (container.dataset.facetCid) {
+                    const { statements } = this.app.facets.classes[container.dataset.facetCid] ?? {}
+                    if (!statements) return { selector, scope }
+                    const [statementIndex, stepIndex] = position.split('-').map(s => parseInt(s))
+                    if (statements[statementIndex].steps.length === stepIndex + 1) return { selector, scope }
+                }
                 const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
                 for (let eventName of eventNames) {
-                    let keepDefault = eventName.endsWith('+')
-                    if (keepDefault) eventName = eventName.slice(0, -1)
+                    let keepDefault = eventName.slice(-2).includes('+'), exactMatch = eventName.slice(-2).includes('=')
+                    if (keepDefault || exactMatch) eventName = eventName.replace('=', '').replace('+', '')
                     scope.addEventListener(eventName, event => {
                         if (selector.endsWith('}') && selector.includes('{')) {
                             const target = this.resolveSelector(selector, scope)
@@ -1015,7 +1022,8 @@ const ElementHTML = Object.defineProperties({}, {
                             if (selector.length === 1) return
                             const catchallSelector = this.buildCatchallSelector(selector)
                             if (!event.target.matches(catchallSelector)) return
-                        } else if (selector && !event.target.matches(selector)) { return }
+                        } else if (selector && exactMatch && !event.target.matches(selector)) { return }
+                        console.log('line 1027', selector, eventName, exactMatch)
                         let tagDefaultEventType = event.target.constructor.events?.default ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
                         if (!eventList && (event.type !== tagDefaultEventType)) return
                         if (!keepDefault) event.preventDefault()
