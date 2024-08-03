@@ -96,7 +96,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, templates: {}, transforms: {}, types: {}
+            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
@@ -206,18 +206,18 @@ const ElementHTML = Object.defineProperties({}, {
                             envScope[r] = new RegExp(importItem)
                         }
                         break
-                    case 'templates':
-                        for (const t in pkgScope) {
-                            const importItem = await this.resolvePackageItem(pkgScope[t], scope)
+                    case 'snippets':
+                        for (const s in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[s], scope)
                             if (importItem instanceof HTMLElement) {
-                                envScope[t] = importItem
+                                envScope[s] = importItem
                             } else if (typeof importItem === 'string') {
                                 if (importItem[0] === '`' && importItem.slice(-1) === '`') {
-                                    envScope[t] = ('`' + this.resolveUrl(this.resolveTemplateKey(importItem), packageUrl) + '`')
+                                    envScope[s] = ('`' + this.resolveUrl(this.resolveSnippetKey(importItem), packageUrl) + '`')
                                 } else {
-                                    const templateInstance = document.createElement('template')
-                                    templateInstance.innerHTML = importItem
-                                    envScope[t] = templateInstance
+                                    const snippetInstance = document.createElement('template')
+                                    snippetInstance.innerHTML = importItem
+                                    envScope[s] = snippetInstance
                                 }
                             }
                         }
@@ -735,50 +735,49 @@ const ElementHTML = Object.defineProperties({}, {
                                     tagSignatureInsertPosition ||= 'replaceChildren'
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                         renderExpression = renderExpression.slice(1, -1)
-                                        let useTemplate
+                                        let useSnippet
                                         if (renderExpression[0] === '`' && renderExpression.slice(-1) === '`') {
                                             renderExpression = renderExpression.slice(1, -1)
-                                            if (this.app.templates[renderExpression] === true) {
+                                            if (this.app.snippets[renderExpression] === true) {
                                                 let waitCount = 0
-                                                while ((waitCount <= 100) && (this.app.templates[renderExpression] === true)) {
-                                                    await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
-                                                }
+                                                while ((waitCount <= 100) && (this.app.snippets[renderExpression] === true)) await new Promise(resolve => requestIdleCallback
+                                                    ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
                                             }
-                                            if (this.app.templates[renderExpression] === true) delete this.app.templates[renderExpression]
-                                            if (this.app.templates[renderExpression] && (this.app.templates[renderExpression] instanceof HTMLTemplateElement)) {
-                                                useTemplate = this.app.templates[renderExpression]
-                                            } else if (this.env.templates[renderExpression]) {
-                                                this.app.templates[renderExpression] = true
-                                                const envTemplate = this.env.templates[renderExpression]
-                                                useTemplate = document.createElement('template')
-                                                if (envTemplate instanceof HTMLElement) {
-                                                    useTemplate.innerHTML = envTemplate instanceof HTMLTemplateElement ? envTemplate.innerHTML : envTemplate.outerHTML
-                                                } else if (typeof envTemplate === 'string') {
-                                                    if (envTemplate[0] === '`' && envTemplate.endsWith('`')) {
-                                                        let templateUrl = this.resolveTemplateKey(envTemplate)
-                                                        useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
+                                            if (this.app.snippets[renderExpression] === true) delete this.app.snippets[renderExpression]
+                                            if (this.app.snippets[renderExpression] && (this.app.snippets[renderExpression] instanceof HTMLTemplateElement)) {
+                                                useSnippet = this.app.snippets[renderExpression]
+                                            } else if (this.env.snippets[renderExpression]) {
+                                                this.app.snippets[renderExpression] = true
+                                                const envSnippet = this.env.snippets[renderExpression]
+                                                useSnippet = document.createElement('template')
+                                                if (envSnippet instanceof HTMLElement) {
+                                                    useSnippet.innerHTML = envSnippet instanceof HTMLTemplateElement ? envSnippet.innerHTML : envSnippet.outerHTML
+                                                } else if (typeof envSnippet === 'string') {
+                                                    if (envSnippet[0] === '`' && envSnippet.endsWith('`')) {
+                                                        let snippetUrl = this.resolveSnippetKey(envSnippet)
+                                                        useSnippet.innerHTML = await (await fetch(this.resolveUrl(snippetUrl))).text()
                                                     } else {
-                                                        useTemplate.innerHTML = envTemplate
+                                                        useSnippet.innerHTML = envSnippet
                                                     }
                                                 }
                                             } else {
-                                                this.app.templates[renderExpression] = true
-                                                useTemplate = document.createElement('template')
-                                                let templateUrl = renderExpression
-                                                if (templateUrl.startsWith('~/') || templateUrl.endsWith('.')) templateUrl = this.resolveTemplateKey('`' + templateUrl + '`')
-                                                useTemplate.innerHTML = await (await fetch(this.resolveUrl(templateUrl))).text()
+                                                this.app.snippets[renderExpression] = true
+                                                useSnippet = document.createElement('template')
+                                                let snippetUrl = renderExpression
+                                                if (snippetUrl.startsWith('~/') || snippetUrl.endsWith('.')) snippetUrl = this.resolveSnippetKey('`' + snippetUrl + '`')
+                                                useSnippet.innerHTML = await (await fetch(this.resolveUrl(snippetUrl))).text()
                                             }
-                                            this.app.templates[renderExpression] = useTemplate
+                                            this.app.snippets[renderExpression] = useSnippet
                                         } else {
-                                            useTemplate = this.resolveScopedSelector(renderExpression, element)
+                                            useSnippet = this.resolveScopedSelector(renderExpression, element)
                                         }
-                                        if (useTemplate) this.renderWithTemplate(element, v, useTemplate, tagSignatureInsertPosition, insertSelector)
+                                        if (useSnippet) this.renderWithSnippet(element, v, useSnippet, tagSignatureInsertPosition, insertSelector)
                                         continue
                                     }
                                     const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
                                         idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
                                         attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
-                                    this.renderWithTemplate(element, v, tagMatch[0], tagSignatureInsertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
+                                    this.renderWithSnippet(element, v, tagMatch[0], tagSignatureInsertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
                                         (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
                                         Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
                                     )
@@ -977,7 +976,7 @@ const ElementHTML = Object.defineProperties({}, {
             components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
             eventTarget: new EventTarget(),
             facets: { classes: {}, instances: new WeakMap() },
-            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, templates: {}, transforms: {}, types: {},
+            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, snippets: {}, transforms: {}, types: {},
         }
     },
     binders: {
@@ -1435,7 +1434,7 @@ const ElementHTML = Object.defineProperties({}, {
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
-    renderWithTemplate: {
+    renderWithSnippet: {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
@@ -1475,14 +1474,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    resolveTemplateKey: {
-        value: function (templateKey) {
-            if (templateKey[0] === '`' && templateKey.endsWith('`')) {
-                templateKey = templateKey.slice(1, -1)
-                if (templateKey.startsWith('~/')) templateKey = `templates${templateKey.slice(1)}`
-                if (templateKey.endsWith('.')) templateKey = `${templateKey}html`
+    resolveSnippetKey: {
+        value: function (snippetKey) {
+            if (snippetKey[0] === '`' && snippetKey.endsWith('`')) {
+                snippetKey = snippetKey.slice(1, -1)
+                if (snippetKey.startsWith('~/')) snippetKey = `snippets${snippetKey.slice(1)}`
+                if (snippetKey.endsWith('.')) snippetKey = `${snippetKey}html`
             }
-            return templateKey
+            return snippetKey
         }
     },
     setGlobalNamespace: {
