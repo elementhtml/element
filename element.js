@@ -647,7 +647,9 @@ const ElementHTML = Object.defineProperties({}, {
                         case 'object':
                             return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
                         default:
-                            if (typeof data === 'string') return element[data.includes('<') && data.includes('>') ? 'innerHTML' : 'textContent'] = data
+                            if (typeof data === 'string') return element[
+                                ((data.includes('<') && data.includes('>')) || (data.includes('&') && data.includes(';'))) ? 'innerHTML' : 'textContent'
+                            ] = data
                             return element.textContent = (data == undefined) ? '' : data
                     }
                 }
