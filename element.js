@@ -1015,19 +1015,22 @@ const ElementHTML = Object.defineProperties({}, {
                     let keepDefault = eventName.slice(-2).includes('+'), exactMatch = eventName.slice(-2).includes('=')
                     if (keepDefault || exactMatch) eventName = eventName.replace('=', '').replace('+', '')
                     scope.addEventListener(eventName, event => {
+                        let targetElement
                         if (selector.endsWith('}') && selector.includes('{')) {
-                            const target = this.resolveSelector(selector, scope)
-                            if (!target || (Array.isArray(target) && !target.length)) return
+                            targetElement = this.resolveSelector(selector, scope)
+                            if (!targetElement || (Array.isArray(targetElement) && !targetElement.length)) return
                         } else if (selector[0] === '$') {
                             if (selector.length === 1) return
                             const catchallSelector = this.buildCatchallSelector(selector)
-                            if (!event.target.matches(catchallSelector)) return
+                            targetElement = exactMatch ? event.target : event.target.closest(selector)
+                            if (!targetElement.matches(catchallSelector)) return
                         } else if (selector && exactMatch && !event.target.matches(selector)) { return }
-                        console.log('line 1027', selector, eventName, exactMatch)
-                        let tagDefaultEventType = event.target.constructor.events?.default ?? this.sys.defaultEventTypes[event.target.tagName.toLowerCase()] ?? 'click'
+                        targetElement ??= (exactMatch ? event.target : event.target.closest(selector))
+                        if (!targetElement) return
+                        let tagDefaultEventType = targetElement.constructor.events?.default ?? this.sys.defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'
                         if (!eventList && (event.type !== tagDefaultEventType)) return
                         if (!keepDefault) event.preventDefault()
-                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(event.target, undefined, event) }))
+                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
                     }, { signal })
                 }
                 return { selector, scope }
