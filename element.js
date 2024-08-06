@@ -355,8 +355,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof HTMLElement) {
                 let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
-                    style = Object.fromEntries(Object.entries(value.style).filter(ent => !!ent[1] && (parseInt(ent[0]) != ent[0]))),
-                    innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
+                    style = {}, computedStyle = {}, innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
                 result = {
                     ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
                     ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
@@ -364,9 +363,20 @@ const ElementHTML = Object.defineProperties({}, {
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                         'selected', 'slot', 'tagName', 'title'], []))),
-                    innerHTML, textContent, innerText, style, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
+                    innerHTML, textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
                     '.': (textContent.includes('<') && textContent.includes('>')) ? innerHTML : textContent,
                     '..': textContent, '...': innerText, '<>': innerHTML, '#': value.id
+                }
+                for (const r in value.style) {
+                    const ruleValue = value.style.getPropertyValue(r)
+                    if (!ruleValue) continue
+                    result.style[r] = result[`^${r}`] = ruleValue
+                }
+                const computedStyles = window.getComputedStyle(value)
+                for (const s of computedStyles) {
+                    const styleValue = computedStyles.getPropertyValue(s)
+                    if (!styleValue) continue
+                    result.computedStyle[s] = computedStyles.getPropertyValue(s)
                 }
                 for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
                 for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
