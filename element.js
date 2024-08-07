@@ -372,12 +372,12 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!ruleValue) continue
                     result.style[r] = result[`^${r}`] = ruleValue
                 }
-                const computedStyles = window.getComputedStyle(value)
-                for (const s of computedStyles) {
-                    const styleValue = computedStyles.getPropertyValue(s)
-                    if (!styleValue) continue
-                    result.computedStyle[s] = computedStyles.getPropertyValue(s)
-                }
+                Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
+                const computedStyleDescriptors = {}
+                for (const s of result.computedStyle._) computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                Object.defineProperties(result.computedStyle, computedStyleDescriptors)
+
+
                 for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
                 for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
                 if (value.hasAttribute('itemscope')) result.itemscope = true
