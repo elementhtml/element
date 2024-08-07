@@ -355,7 +355,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof HTMLElement) {
                 let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
-                    style = {}, computedStyle = {}, innerHTML = value.innerHTML, textContent = value.textContent, innerText = value.innerText
+                    style = {}, computedStyle = {}, textContent = value.textContent, innerText = value.innerText
                 result = {
                     ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
                     ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
@@ -363,10 +363,18 @@ const ElementHTML = Object.defineProperties({}, {
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                         'selected', 'slot', 'tagName', 'title'], []))),
-                    innerHTML, textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
-                    '.': (textContent.includes('<') && textContent.includes('>')) ? innerHTML : textContent,
-                    '..': textContent, '...': innerText, '<>': innerHTML, '#': value.id
+                    textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
+                    '..': textContent, '...': innerText, '#': value.id
                 }
+                Object.defineProperty(result, 'innerHTML', { enumerable: true, get: () => value.innerHTML })
+                Object.defineProperty(result, '<>', { enumerable: true, get: () => value.innerHTML })
+                Object.defineProperty(result, '.', {
+                    enumerable: true,
+                    get: () => {
+                        const t = value.textContent
+                        return ((t.includes('<') && t.includes('>')) || (t.includes('&') && t.includes(';'))) ? value.innerHTML : t
+                    }
+                })
                 for (const r in value.style) {
                     const ruleValue = value.style.getPropertyValue(r)
                     if (!ruleValue) continue
@@ -376,8 +384,6 @@ const ElementHTML = Object.defineProperties({}, {
                 const computedStyleDescriptors = {}
                 for (const s of result.computedStyle._) computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
                 Object.defineProperties(result.computedStyle, computedStyleDescriptors)
-
-
                 for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
                 for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
                 if (value.hasAttribute('itemscope')) result.itemscope = true
