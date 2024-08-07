@@ -585,8 +585,28 @@ const ElementHTML = Object.defineProperties({}, {
                 const [k, v] = s.trim().split(':').map(ss => s.trim())
                 return [k, this.mergeVariables(v, value, labels, env, true)]
             }))
-            const merge = exp => this.mergeVariables(exp.slice(2, -1), value, labels, env, true)
-            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression) : expression.replace(this.sys.regexp.hasVariable, merge)
+            const merge = (exp, canBeNotString) => {
+                if (!inner) exp = exp.trim().slice(2, -1).trim()
+                let retval
+                if (exp.includes('.')) {
+                    const fragments = exp.split('.').map(s => s.trim())
+                    retval = this.mergeVariables(fragments.shift(), value, labels, env, true)
+                    for (const frag of fragments) {
+                        if (retval == undefined) break
+                        if (typeof retval !== 'object') {
+                            retval = undefined
+                            break
+                        }
+                        retval = retval[frag]
+                    }
+                } else {
+                    retval = this.mergeVariables(exp, value, labels, env, true)
+                }
+                if (typeof retval === 'string') return retval
+                if (canBeNotString) return retval
+                return retval === undefined ? '' : JSON.stringify(retval)
+            }
+            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression, true) : expression.replace(this.sys.regexp.hasVariable, merge)
         }
     },
     parse: {
