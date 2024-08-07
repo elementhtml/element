@@ -487,67 +487,12 @@ const ElementHTML = Object.defineProperties({}, {
     },
     getCell: {
         enumerable: true, value: function (name) {
-            if (!name) return
-            if (!this.app.cells[name]) {
-                const cell = {
-                    type: 'cell',
-                    channel: new BroadcastChannel(name),
-                    eventTarget: new EventTarget(),
-                    get: function () { return this.value },
-                    set: function (value, labelMode) {
-                        let isSame = this.value === value
-                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
-                        if (isSame) {
-                            if (labelMode === 'force') cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                            return
-                        }
-                        this.channel.postMessage(value)
-                        this.value = value
-                        if (labelMode !== 'silent') cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                        return this
-                    },
-                    value: undefined, name
-                }
-                cell.channel.addEventListener('message', event => {
-                    if (event.data === cell.value) return
-                    cell.value = event.data
-                    cell.eventTarget.dispatchEvent(new CustomEvent('change', { detail: event.data }))
-                })
-                this.app.cells[name] = cell
-            }
-            return this.app.cells[name]
+            return this.getStateContainer(name)
         }
     },
     getField: {
         enumerable: true, value: function (facetInstanceOrContainer, fieldName) {
-            if (!fieldName) return
-            let fields
-            if (facetInstanceOrContainer instanceof this.Facet) {
-                fields = facetInstanceOrContainer.fields
-            } else if (facetInstanceOrContainer instanceof HTMLElement) {
-                fields = this.app.facets.instances.get(facetInstanceOrContainer).fields
-            }
-            if (!fields[fieldName]) {
-                const field = {
-                    type: 'field',
-                    eventTarget: new EventTarget(),
-                    get: function () { return this.value },
-                    set: function (value, labelMode) {
-                        let isSame = this.value === value
-                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
-                        if (isSame) {
-                            if (labelMode === 'force') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                            return this
-                        }
-                        this.value = value
-                        if (labelMode !== 'silent') field.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                        return this
-                    },
-                    value: undefined, fieldName
-                }
-                fields[fieldName] = field
-            }
-            return fields[fieldName]
+            return this.getStateContainer(fieldName, facetInstanceOrContainer)
         }
     },
     isFacetContainer: {
@@ -604,7 +549,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (typeof retval === 'string') return retval
                 if (canBeNotString) return retval
-                return retval === undefined ? '' : JSON.stringify(retval)
+                try { return retval === undefined ? '' : JSON.stringify(retval) } catch (e) { return undefined }
             }
             return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression, true) : expression.replace(this.sys.regexp.hasVariable, merge)
         }
@@ -1222,7 +1167,6 @@ const ElementHTML = Object.defineProperties({}, {
                             target[k][target[k].type].set(v, target[k].mode)
                         }
                 }
-                return getReturnValue()
             },
             string: async function (container, position, envelope, value) {
                 return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
@@ -1337,6 +1281,45 @@ const ElementHTML = Object.defineProperties({}, {
     getExports: {
         value: async function (url) {
             return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
+        }
+    },
+    getStateContainer: {
+        value: function (name, facetInstanceOrContainer) {
+            if (!name) return
+            const type = facetInstanceOrContainer ? 'field' : 'cell'
+            let containers
+            switch (type) {
+                case 'field':
+                    if (facetInstanceOrContainer instanceof this.Facet) {
+                        containers = facetInstanceOrContainer.fields
+                    } else if (facetInstanceOrContainer instanceof HTMLElement) {
+                        containers = this.app.facets.instances.get(facetInstanceOrContainer).fields
+                    }
+                    break
+                case 'cell':
+                    containers = this.app.cells
+                    break
+            }
+            if (!containers[name]) {
+                const container = {
+                    type, eventTarget: new EventTarget(),
+                    get: function () { return this.value },
+                    set: function (value, labelMode) {
+                        let isSame = this.value === value
+                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                        if (isSame) {
+                            if (labelMode === 'force') container.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                            return this
+                        }
+                        this.value = value
+                        if (labelMode !== 'silent') container.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                        return this
+                    },
+                    value: undefined, name
+                }
+                containers[name] = container
+            }
+            return containers[name]
         }
     },
     getStateGroup: {
