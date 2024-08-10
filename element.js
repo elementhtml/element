@@ -606,32 +606,35 @@ const ElementHTML = Object.defineProperties({}, {
     },
     render: {
         enumerable: true, value: async function (element, data) {
-            if (!(element instanceof HTMLElement)) return
+            const isElement = element instanceof HTMLElement, isFragment = element instanceof DocumentFragment
+            if (!(isElement || (isFragment && (typeof data === 'object')))) return
             if (data === null) return
-            element = this.app.components.natives.get(element) ?? element
-            const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-            if (typeof data !== 'object') {
-                if (element.constructor.properties?.value) {
-                    try { return element[element.constructor.properties.value] = data } catch (e) { return }
-                } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
-                    try { return element.value = data } catch (e) { return }
-                } else {
-                    switch (tag) {
-                        case 'meta':
-                            return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                        case 'data': case 'input': case 'meter': case 'select': case 'textarea':
-                            return element.value = data
-                        case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
-                            return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
-                        case 'area': case 'link':
-                            return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
-                        case 'object':
-                            return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
-                        default:
-                            if (typeof data === 'string') return element[
-                                ((data.includes('<') && data.includes('>')) || (data.includes('&') && data.includes(';'))) ? 'innerHTML' : 'textContent'
-                            ] = data
-                            return element.textContent = (data == undefined) ? '' : data
+            if (isElement) {
+                element = this.app.components.natives.get(element) ?? element
+                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+                if (typeof data !== 'object') {
+                    if (element.constructor.properties?.value) {
+                        try { return element[element.constructor.properties.value] = data } catch (e) { return }
+                    } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
+                        try { return element.value = data } catch (e) { return }
+                    } else {
+                        switch (tag) {
+                            case 'meta':
+                                return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
+                            case 'data': case 'input': case 'meter': case 'select': case 'textarea':
+                                return element.value = data
+                            case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
+                                return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
+                            case 'area': case 'link':
+                                return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
+                            case 'object':
+                                return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
+                            default:
+                                if (typeof data === 'string') return element[
+                                    ((data.includes('<') && data.includes('>')) || (data.includes('&') && data.includes(';'))) ? 'innerHTML' : 'textContent'
+                                ] = data
+                                return element.textContent = (data == undefined) ? '' : data
+                        }
                     }
                 }
             }
@@ -641,7 +644,7 @@ const ElementHTML = Object.defineProperties({}, {
                 element[k] = v
             }
             for (const [k, v] of Object.entries(data)) {
-                if (!k) continue
+                if (!k || (isFragment && k[0] !== '`')) continue
                 switch (k[0]) {
                     case '#':
                         if (k === '#') { element.setAttribute('id', v); continue }
@@ -742,7 +745,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                 this.app.snippets[renderExpression] = true
                                                 useSnippet = document.createElement('template')
                                                 let snippetUrl = renderExpression
-                                                if (snippetUrl.startsWith('~/') || snippetUrl.endsWith('.')) snippetUrl = this.resolveSnippetKey('`' + snippetUrl + '`')
+                                                snippetUrl = this.resolveSnippetKey('`' + snippetUrl + '`')
                                                 useSnippet.innerHTML = await (await fetch(this.resolveUrl(snippetUrl))).text()
                                             }
                                             this.app.snippets[renderExpression] = useSnippet
@@ -1473,7 +1476,7 @@ const ElementHTML = Object.defineProperties({}, {
             insertPosition ||= 'replaceChildren'
             let useNode
             if (tag instanceof HTMLTemplateElement) {
-                useNode = tag.content.cloneNode(true).firstElementChild
+                useNode = tag.content.cloneNode(true)
             } else if (tag instanceof HTMLElement) {
                 useNode = tag.cloneNode(true)
             } else if (typeof tag === 'string') {
@@ -1489,8 +1492,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (Array.isArray(data)) {
                 for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
             } else { nodesToApply.push([buildNode(useNode), data]) }
-            element[insertPosition](...nodesToApply.map(n => n[0]))
             for (const n of nodesToApply) this.render(...n)
+            element[insertPosition](...nodesToApply.map(n => n[0] instanceof DocumentFragment ? Array.from(n[0].cloneNode(true).children) : n[0]).flat())
         }
     },
     resolvePackageItem: {
@@ -1507,8 +1510,16 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (snippetKey) {
             if (snippetKey[0] === '`' && snippetKey.endsWith('`')) {
                 snippetKey = snippetKey.slice(1, -1)
-                if (snippetKey.startsWith('~/')) snippetKey = `snippets${snippetKey.slice(1)}`
+                switch (snippetKey[0]) {
+                    case '.': case '/': break
+                    case '~':
+                        if (snippetKey[1] === '/') snippetKey = `snippets${snippetKey.slice(1)}`
+                        break
+                    default:
+                        if (!snippetKey.startsWith('snippets/')) snippetKey = `snippets/${snippetKey}`
+                }
                 if (snippetKey.endsWith('.')) snippetKey = `${snippetKey}html`
+                if (!snippetKey.includes('.')) snippetKey = `${snippetKey}.html`
             }
             return snippetKey
         }
