@@ -1147,7 +1147,7 @@ const ElementHTML = Object.defineProperties({}, {
             ...Object.fromEntries(
                 ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async function (container, position, envelope, value) {
                     if (value != undefined && (typeof value === 'string')) document.location[k] = value
-                    return document.location[k]
+                    return document.location[k].slice(1) || undefined
                 }]))),
             selector: async function (container, position, envelope, value) {
                 const { vars } = envelope, { selector, scope } = vars
