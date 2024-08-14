@@ -878,28 +878,50 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
             if (!this.app.transforms[transformKey]) {
                 this.app.transforms[transformKey] = true
-                if (transformKey[0] === '`') {
-                    if (this.env.transforms[transformKey]) {
-                        [transform, expression] = [transformKey, this.env.transforms[transformKey]]
-                    } else {
-                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default',
-                            isJsOrWasm = transformUrl.endsWith('.js') || transformUrl.endsWith('.wasm')
-                        if (transformUrl.includes('|') && (transformUrl.includes('.js|') || transformUrl.includes('.wasm|'))) {
-                            isJsOrWasm = true;
-                            [transformUrl, functionName] = transformUrl.split('|')
+                resolveBackticks: {
+                    if (transformKey[0] === '`') {
+                        if (this.env.transforms[transformKey]) {
+                            [transform, expression] = [transformKey, this.env.transforms[transformKey]]
+                            break resolveBackticks
                         }
-                        if (transformUrl.startsWith('~')) {
-                            transformUrl = `transforms/${transformUrl.slice(1)}`
-                        } else if (!transformUrl.includes('/') && (!transformUrl.includes('.') || isJsOrWasm)) {
-                            transformUrl = `transforms/${transformUrl}`
+                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default', isJSONata, isJS, isWASM
+                        const usesSubFunction = transformUrl.includes('|'), isRemote = transformUrl.includes('://'),
+                            isJsOrWasm = usesSubFunction || (isJS = transformUrl.endsWith('.js')) || (isWASM = transformUrl.endsWith('.wasm'))
+                        if (usesSubFunction) [transformUrl, functionName] = transformUrl.split('|')
+                        if (isRemote) {
+                            transformUrl = this.resolveUrl(transformUrl);
+                            [transform, expression] = isJsOrWasm ? [transform, (await this.getExports(transformUrl))[functionName]]
+                                : [await fetch(transformUrl).then(r => r.text()), undefined]
+                            break resolveBackticks
                         }
-                        if (transformUrl.endsWith('.') || !transformUrl.includes('.')) transformUrl = `${transformUrl}.jsonata`.replace('..', '.')
-                        transformUrl = this.resolveUrl(transformUrl)
+                        if (!this.sys.regexp.isLocalUrl.test(transformUrl)) transformUrl = `transforms/${transformUrl}`
                         if (isJsOrWasm) {
-                            [transform, expression] = [transform, (await this.getExports(transformUrl))[functionName]]
+                            isJS ??= transformUrl.endsWith('.js')
+                            isWASM ??= transformUrl.endsWith('.wasm')
                         } else {
-                            [transform, expression] = [await fetch(transformUrl).then(r => r.text()), undefined]
+                            isJSONata = transformUrl.endsWith('.jsonata')
                         }
+                        if (isJS || isWASM || isJSONata) {
+                            transformUrl = this.resolveUrl(transformUrl);
+                            [transform, expression] = isJsOrWasm ? [transform, (await this.getExports(transformUrl))[functionName]]
+                                : [await fetch(transformUrl).then(r => r.text()), undefined]
+                            break resolveBackticks
+                        }
+                        let checkURL = this.resolveUrl(`${transformUrl}.js`)
+                        isJS = (await fetch(checkURL, { method: 'HEAD' })).ok
+                        if (isJS) {
+                            [transform, expression] = [transform, (await this.getExports(checkURL))[functionName]]
+                            break resolveBackticks
+                        }
+                        checkURL = this.resolveUrl(`${transformUrl}.wasm`)
+                        isWASM = (await fetch(checkURL, { method: 'HEAD' })).ok
+                        if (isWASM) {
+                            [transform, expression] = [transform, (await this.getExports(checkURL))[functionName]]
+                            break resolveBackticks
+                        }
+                        checkURL = this.resolveUrl(`${transformUrl}.jsonata`)
+                        [transform, expression] = [await fetch(checkURL).then(r => r.text()), undefined]
+                        break resolveBackticks
                     }
                 }
                 if (!transform) {
@@ -1244,7 +1266,7 @@ const ElementHTML = Object.defineProperties({}, {
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
-                splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g
+                splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
             })
         })
     },
