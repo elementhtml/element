@@ -1094,14 +1094,14 @@ const ElementHTML = Object.defineProperties({}, {
                         let rv
                         if (Array.isArray(v)) {
                             rv = []
-                            for (const vv of v) rv.push(typeof vv === 'string' && vv[0] === '$' ? this.mergeVariables(vv, value, labels, env) : vv)
+                            for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
                         } else {
                             rv = {}
                             for (let kk in v) {
                                 const vv = v[kk]
-                                if (typeof kk === 'string' && kk[0] === '$') kk = this.mergeVariables(kk, value, labels, env)
+                                if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
                                 if (typeof kk !== 'string' && typeof kk !== 'number') continue
-                                rv[kk] = typeof vv === 'string' && vv[0] === '$' ? this.mergeVariables(vv, value, labels, env) : vv
+                                rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
                             }
                         }
                         return rv
