@@ -609,9 +609,10 @@ const ElementHTML = Object.defineProperties({}, {
             const isElement = element instanceof HTMLElement, isFragment = element instanceof DocumentFragment
             if (!(isElement || (isFragment && (typeof data === 'object')))) return
             if (data === null) return
+            let tag
             if (isElement) {
                 element = this.app.components.natives.get(element) ?? element
-                const tag = (element.getAttribute('is') || element.tagName).toLowerCase()
+                tag = (element.getAttribute('is') || element.tagName).toLowerCase()
                 if (typeof data !== 'object') {
                     if (element.constructor.properties?.value) {
                         try { return element[element.constructor.properties.value] = data } catch (e) { return }
@@ -643,6 +644,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (k.includes('(') && k.endsWith(')')) return this.runElementMethod(k, v, element)
                 element[k] = v
             }
+            const snippetUsageCounter = {}
             for (const [k, v] of Object.entries(data)) {
                 if (!k || (isFragment && k[0] !== '`')) continue
                 switch (k[0]) {
@@ -715,11 +717,12 @@ const ElementHTML = Object.defineProperties({}, {
                             default:
                                 if (k[0] === '<' && k.slice(-1) === '>') {
                                     if (v === false) continue
-                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, tagSignatureInsertPosition = 'replaceChildren'
+                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, tagSignatureInsertPosition
                                     if (renderExpression.includes('::')) [renderExpression, tagSignatureInsertPosition] = renderExpression.split('::').map(s => s.trim())
-                                    tagSignatureInsertPosition ||= 'replaceChildren'
-                                    if (tagSignatureInsertPosition.includes('|')) [tagSignatureInsertPosition, insertSelector] = tagSignatureInsertPosition.split('|', 2).map(s => s.trim())
-                                    tagSignatureInsertPosition ||= 'replaceChildren'
+                                    if (tagSignatureInsertPosition && tagSignatureInsertPosition.includes('|')) [tagSignatureInsertPosition, insertSelector] = tagSignatureInsertPosition.split('|', 2).map(s => s.trim())
+                                    const snippetUsageCounterIndex = insertSelector || ':scope'
+                                    if (!tagSignatureInsertPosition) tagSignatureInsertPosition = snippetUsageCounter[snippetUsageCounterIndex] ? 'append' : (['html', 'head', 'body'].includes(tag) ? 'append' : 'replaceChildren')
+                                    snippetUsageCounter[snippetUsageCounterIndex] = snippetUsageCounter[snippetUsageCounterIndex] ? (snippetUsageCounter[snippetUsageCounterIndex] + 1) : 1
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                         renderExpression = renderExpression.slice(1, -1)
                                         let useSnippet
