@@ -1085,7 +1085,30 @@ const ElementHTML = Object.defineProperties({}, {
     },
     handlers: {
         value: {
-            json: async function (container, position, envelope, value) { return envelope.vars.value },
+            json: async function (container, position, envelope, value) {
+                let v = envelope.vars.value
+                if (v === null) return v
+                switch (typeof v) {
+                    case 'object':
+                        const { labels, env } = envelope
+                        let rv
+                        if (Array.isArray(v)) {
+                            rv = []
+                            for (const vv of v) rv.push(typeof vv === 'string' && vv[0] === '$' ? this.mergeVariables(vv, value, labels, env) : vv)
+                        } else {
+                            rv = {}
+                            for (let kk in v) {
+                                const vv = v[kk]
+                                if (typeof kk === 'string' && kk[0] === '$') kk = this.mergeVariables(kk, value, labels, env)
+                                if (typeof kk !== 'string' && typeof kk !== 'number') continue
+                                rv[kk] = typeof vv === 'string' && vv[0] === '$' ? this.mergeVariables(vv, value, labels, env) : vv
+                            }
+                        }
+                        return rv
+                    default:
+                        return v
+                }
+            },
             network: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = vars
                 let url = this.mergeVariables(expression, value, labels, env)

@@ -251,9 +251,38 @@ const nativeElementsMap = {
         value: {
             json: function (expression, hasDefault) {
                 let value = null
-                if (expression.startsWith('{') && expression.endsWith('}') && !expression.includes(':')) expression =
-                    `{${expression.slice(1, -1).split(',').map(s => s.trim()).map(s => `${s.includes('"') ? s : ('"' + s + '"')}: true`).join(',')}}`
-                try { value = JSON.parse(expression) } catch (e) { }
+                if (expression[0] === '{' && expression.endsWith('}')) {
+                    value = {}
+                    for (const pair of expression.slice(1, -1).split(',')) {
+                        let [k, v = true] = pair.trim().split(':').map(s => {
+                            s = s.trim()
+                            switch (s) {
+                                case 'true': return true
+                                case 'false': return false
+                                case 'null': return null
+                                default:
+                                    if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
+                                    return '${' + s + '}'
+                            }
+                        })
+                        value[k] = v
+                    }
+                } else if (expression[0] === '[' && expression.endsWith(']')) {
+                    value = []
+                    for (let s of expression.slice(1, -1).split(',')) {
+                        s = s.trim()
+                        switch (s) {
+                            case 'true': s = true; break
+                            case 'false': s = false; break
+                            case 'null': s = null; break
+                            default:
+                                s = (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) ? JSON.parse(s) : ('${' + s + '}')
+                        }
+                        value.push(s)
+                    }
+                } else {
+                    try { value = JSON.parse(expression) } catch (e) { }
+                }
                 return { handler: 'json', ctx: { vars: { value } } }
             },
             network: function (expression, hasDefault) {
