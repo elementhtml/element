@@ -252,7 +252,7 @@ const nativeElementsMap = {
             json: function (expression, hasDefault) {
                 let value = null
                 if (expression.startsWith('{') && expression.endsWith('}') && !expression.includes(':')) expression =
-                    `{${expression.slice(1, -1).split(',').map(s => s.trim()).map(s => `${s.includes('"') ? s : ('"' + s + '"')}: null`).join(',')}}`
+                    `{${expression.slice(1, -1).split(',').map(s => s.trim()).map(s => `${s.includes('"') ? s : ('"' + s + '"')}: true`).join(',')}}`
                 try { value = JSON.parse(expression) } catch (e) { }
                 return { handler: 'json', ctx: { vars: { value } } }
             },
