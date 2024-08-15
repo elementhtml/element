@@ -797,43 +797,39 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (scopeStatement, element) {
             element = this.app.components.natives.get(element) ?? element
             if (!scopeStatement) return element.parentElement
-            let scope, root, prop
             switch (scopeStatement) {
-                case ':':
-                    prop = 'body'
-                case '~':
-                    prop ||= 'head'
-                    root = element.getRootNode()
-                    return (root instanceof ShadowRoot) ? root : document[prop]
-                case '*': case ':root': case ':host':
-                    scope = element.getRootNode()
-                    if (scopeStatement === ':host' && scope instanceof ShadowRoot) return scope.host
+                case ':head': case 'head': return document.head
+                case ':body': case 'body': return document.body
+                case ':': case '~':
+                    let root = element.getRootNode()
+                    return (root instanceof ShadowRoot) ? root : (scopeStatement === '~' ? document.head : document.body)
+                case ':root': case 'root':
+                    return element.getRootNode()
+                case ':host': case 'host':
+                    return element.getRootNode().host ?? document.documentElement
+                case '*':
+                    let scope = element.getRootNode()
                     return (scope === document) ? document.documentElement : scope
-                case ':document':
-                    prop = 'documentElement'
-                case ':body':
-                    prop ||= 'body'
-                case ':head':
-                    prop ||= 'head'
-                    return document[prop]
+                case ':documentElement': case ':html': case 'documentElement': case 'html': return document.documentElement
+                case ':document': case 'document': return document
+                case ':window': case 'window': return window
                 default:
-                    if (scopeStatement.startsWith('#')) return document.documentElement
-                    return element.parentElement.closest(scopeStatement)
+                    return element.closest(scopeStatement)
             }
         }
     },
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
             element = this.app.components.natives.get(element) ?? element
-            const sMap = { '$': 'root', '#': 'document' }
-            let scope = element, selector = scopedSelector
-            if (sMap[selector[0]]) selector = `:${sMap[selector[0]]}|${selector}`
-            if (selector.includes('|')) {
-                const [scopeStatement, selectorStatement] = selector.split('|').map(s => s.trim())
+            if (this.sys.impliedScopes.has(scopedSelector)) return this.resolveScope(scopedSelector, element)
+            if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `:${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
+            let scope = element
+            if (scopedSelector.includes('|')) {
+                const [scopeStatement, selectorStatement] = scopedSelector.split('|').map(s => s.trim())
                 scope = this.resolveScope(scopeStatement, element)
-                selector = selectorStatement
+                scopedSelector = selectorStatement
             }
-            return this.resolveSelector(selector, scope)
+            return this.resolveSelector(scopedSelector, scope)
         }
     },
     resolveSelector: {
@@ -1280,6 +1276,9 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
+            impliedScopes: Object.freeze({ '$': '*', '#': 'html' }),
+            autoScopes: Object.freeze(new Set([':head', ':body', 'head', 'body', ':', '~', ':root', 'root', ':host', 'host', '*', ':documentElement',
+                ':html', 'html', ':document', 'document', 'documentElement', ':window', 'window']))
         })
     },
 
