@@ -96,7 +96,16 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {}, types: {}
+            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {
+                split: async function (data, bindings) {
+                    if (typeof data !== 'string') {
+                        for (const s of ['/', ' ']) if (data.indexOf(s) > -1) return data.split(s)
+                        return data.split()
+                    } else if (Array.isArray(data) && data.length && (typeof data[0] === 'string')) {
+                        return data[0].split(...data.slice(1))
+                    }
+                }
+            }, types: {}
         }
     },
 
