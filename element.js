@@ -643,7 +643,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (k.includes('(') && k.endsWith(')')) return this.runElementMethod(k, v, element)
                 element[k] = v
             }
-            console.log('line 646', element, data)
             for (const [k, v] of Object.entries(data)) {
                 if (!k || (isFragment && k[0] !== '`')) continue
                 switch (k[0]) {
@@ -696,24 +695,30 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         continue
                     case '.': case '<':
-                        if (!v) { element.replaceChildren(); continue }
                         switch (k) {
                             case '<>':
+                                if (!v) { element.replaceChildren(); continue }
                                 element.innerHTML = v
                                 continue
                             case '.':
+                                if (!v) { element.replaceChildren(); continue }
                                 element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
                                 continue
                             case '..':
+                                if (!v) { element.replaceChildren(); continue }
                                 element.textContent = v
                                 continue
                             case '...':
+                                if (!v) { element.replaceChildren(); continue }
                                 element.innerText = v
                                 continue
                             default:
                                 if (k[0] === '<' && k.slice(-1) === '>') {
+                                    if (v === false) continue
                                     let renderExpression = k.slice(1, -1).trim(), insertSelector, tagSignatureInsertPosition = 'replaceChildren'
                                     if (renderExpression.includes('::')) [renderExpression, tagSignatureInsertPosition] = renderExpression.split('::').map(s => s.trim())
+                                    tagSignatureInsertPosition ||= 'replaceChildren'
+                                    if (tagSignatureInsertPosition.includes('|')) [tagSignatureInsertPosition, insertSelector] = tagSignatureInsertPosition.split('|', 2).map(s => s.trim())
                                     tagSignatureInsertPosition ||= 'replaceChildren'
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                         renderExpression = renderExpression.slice(1, -1)
@@ -753,7 +758,6 @@ const ElementHTML = Object.defineProperties({}, {
                                         } else {
                                             useSnippet = this.resolveScopedSelector(renderExpression, element)
                                         }
-                                        console.log('line 755', element, v, useSnippet)
                                         if (useSnippet) this.renderWithSnippet(element, v, useSnippet, tagSignatureInsertPosition, insertSelector)
                                         continue
                                     }
