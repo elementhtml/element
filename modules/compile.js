@@ -305,20 +305,20 @@ const nativeElementsMap = {
                 if (!expression.includes('|')) {
                     switch (expression[0]) {
                         case '#':
-                            expression = `:document|${expression}`
+                            expression = `html|${expression}`
                             break
                         case '@':
-                            expression = `:root|[name="${expression.slice(1)}"]`
+                            expression = `*|[name="${expression.slice(1)}"]`
                             break
                         case '^':
-                            expression = `:root|[style~="${expression.slice(1)}"]`
+                            expression = `*|[style~="${expression.slice(1)}"]`
                             break
                         case '~':
-                            expression = `:root|[itemscope] [itemprop="${expression.slice(1)}"]`
+                            expression = `*|[itemscope] [itemprop="${expression.slice(1)}"]`
                             break
                         case '.':
                         default:
-                            expression = `:root|${expression}`
+                            expression = `*|${expression}`
                     }
                 }
                 const [scope, selector] = expression.split('|').map(s => s.trim())

@@ -798,21 +798,21 @@ const ElementHTML = Object.defineProperties({}, {
             element = this.app.components.natives.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             switch (scopeStatement) {
-                case ':head': case 'head': return document.head
-                case ':body': case 'body': return document.body
+                case 'head': return document.head
+                case 'body': return document.body
                 case ':': case '~':
                     let root = element.getRootNode()
                     return (root instanceof ShadowRoot) ? root : (scopeStatement === '~' ? document.head : document.body)
-                case ':root': case 'root':
+                case 'root':
                     return element.getRootNode()
-                case ':host': case 'host':
+                case 'host':
                     return element.getRootNode().host ?? document.documentElement
                 case '*':
                     let scope = element.getRootNode()
                     return (scope === document) ? document.documentElement : scope
-                case ':documentElement': case ':html': case 'documentElement': case 'html': return document.documentElement
-                case ':document': case 'document': return document
-                case ':window': case 'window': return window
+                case 'documentElement': case 'html': return document.documentElement
+                case 'document': return document
+                case 'window': return window
                 default:
                     return element.closest(scopeStatement)
             }
@@ -1277,8 +1277,7 @@ const ElementHTML = Object.defineProperties({}, {
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ '$': '*', '#': 'html' }),
-            autoScopes: Object.freeze(new Set([':head', ':body', 'head', 'body', ':', '~', ':root', 'root', ':host', 'host', '*', ':documentElement',
-                ':html', 'html', ':document', 'document', 'documentElement', ':window', 'window']))
+            autoScopes: Object.freeze(new Set(['head', 'body', ':', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window']))
         })
     },
 
