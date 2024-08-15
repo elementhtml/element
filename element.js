@@ -717,11 +717,12 @@ const ElementHTML = Object.defineProperties({}, {
                             default:
                                 if (k[0] === '<' && k.slice(-1) === '>') {
                                     if (v === false) continue
-                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, tagSignatureInsertPosition
-                                    if (renderExpression.includes('::')) [renderExpression, tagSignatureInsertPosition] = renderExpression.split('::').map(s => s.trim())
-                                    if (tagSignatureInsertPosition && tagSignatureInsertPosition.includes('|')) [tagSignatureInsertPosition, insertSelector] = tagSignatureInsertPosition.split('|', 2).map(s => s.trim())
+                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, insertPosition
+                                    if (renderExpression.includes('::')) [renderExpression, insertPosition] = renderExpression.split('::').map(s => s.trim())
+                                    if (insertPosition && insertPosition.includes('|')) [insertPosition, insertSelector] = insertPosition.split('|', 2).map(s => s.trim())
                                     const snippetUsageCounterIndex = insertSelector || ':scope'
-                                    if (!tagSignatureInsertPosition) tagSignatureInsertPosition = snippetUsageCounter[snippetUsageCounterIndex] ? 'append' : (['html', 'head', 'body'].includes(tag) ? 'append' : 'replaceChildren')
+                                    if (insertPosition && !(insertPosition in this.sys.insertPositions)) insertPosition = undefined
+                                    if (!insertPosition) insertPosition = snippetUsageCounter[snippetUsageCounterIndex] ? 'append' : (['html', 'head', 'body'].includes(tag) ? 'append' : 'replaceChildren')
                                     snippetUsageCounter[snippetUsageCounterIndex] = snippetUsageCounter[snippetUsageCounterIndex] ? (snippetUsageCounter[snippetUsageCounterIndex] + 1) : 1
                                     if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
                                         renderExpression = renderExpression.slice(1, -1)
@@ -761,13 +762,13 @@ const ElementHTML = Object.defineProperties({}, {
                                         } else {
                                             useSnippet = this.resolveScopedSelector(renderExpression, element)
                                         }
-                                        if (useSnippet) this.renderWithSnippet(element, v, useSnippet, tagSignatureInsertPosition, insertSelector)
+                                        if (useSnippet) this.renderWithSnippet(element, v, useSnippet, insertPosition, insertSelector)
                                         continue
                                     }
                                     const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
                                         idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
                                         attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
-                                    this.renderWithSnippet(element, v, tagMatch[0], tagSignatureInsertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
+                                    this.renderWithSnippet(element, v, tagMatch[0], insertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
                                         (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
                                         Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
                                     )
@@ -1276,7 +1277,9 @@ const ElementHTML = Object.defineProperties({}, {
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
                 splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
-            })
+            }),
+            voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
+            insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
         })
     },
 
@@ -1501,11 +1504,10 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
-            console.log('line 1495', element, data, tag)
             const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
             classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
             const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
-            insertPosition ||= 'replaceChildren'
+            if (this.sys.voidElementTags.has(element.tagName.toLowerCase()) && !this.sys.insertPositions[insertPosition]) insertPosition = insertPosition === 'prepend' ? 'before' : 'after'
             let useNode
             if (tag instanceof HTMLTemplateElement) {
                 useNode = tag.content.cloneNode(true)
@@ -1524,7 +1526,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (Array.isArray(data)) {
                 for (const vv of data) if (vv) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
             } else if (data) { nodesToApply.push([buildNode(useNode), data]) }
-            console.log('line 1518', nodesToApply)
             if (!nodesToApply.length) return
             for (const n of nodesToApply) if (n[1] && (n[1] !== true)) this.render(...n)
             element[insertPosition](...nodesToApply.map(n => n[0] instanceof DocumentFragment ? Array.from(n[0].cloneNode(true).children) : n[0]).flat())
