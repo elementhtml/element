@@ -643,6 +643,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (k.includes('(') && k.endsWith(')')) return this.runElementMethod(k, v, element)
                 element[k] = v
             }
+            console.log('line 646', element, data)
             for (const [k, v] of Object.entries(data)) {
                 if (!k || (isFragment && k[0] !== '`')) continue
                 switch (k[0]) {
@@ -732,7 +733,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                 const envSnippet = this.env.snippets[renderExpression]
                                                 useSnippet = document.createElement('template')
                                                 if (envSnippet instanceof HTMLElement) {
-                                                    useSnippet.innerHTML = envSnippet instanceof HTMLTemplateElement ? envSnippet.innerHTML : envSnippet.outerHTML
+                                                    useSnippet = envSnippet.cloneNode(true)
                                                 } else if (typeof envSnippet === 'string') {
                                                     if (envSnippet[0] === '`' && envSnippet.endsWith('`')) {
                                                         let snippetUrl = this.resolveSnippetKey(envSnippet)
@@ -752,6 +753,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         } else {
                                             useSnippet = this.resolveScopedSelector(renderExpression, element)
                                         }
+                                        console.log('line 755', element, v, useSnippet)
                                         if (useSnippet) this.renderWithSnippet(element, v, useSnippet, tagSignatureInsertPosition, insertSelector)
                                         continue
                                     }
@@ -1492,6 +1494,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
             if (!element) return
+            console.log('line 1495', element, data, tag)
             const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
             classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
             const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
@@ -1512,9 +1515,11 @@ const ElementHTML = Object.defineProperties({}, {
             }
             let nodesToApply = []
             if (Array.isArray(data)) {
-                for (const vv of data) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
-            } else { nodesToApply.push([buildNode(useNode), data]) }
-            for (const n of nodesToApply) this.render(...n)
+                for (const vv of data) if (vv) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
+            } else if (data) { nodesToApply.push([buildNode(useNode), data]) }
+            console.log('line 1518', nodesToApply)
+            if (!nodesToApply.length) return
+            for (const n of nodesToApply) if (n[1] && (n[1] !== true)) this.render(...n)
             element[insertPosition](...nodesToApply.map(n => n[0] instanceof DocumentFragment ? Array.from(n[0].cloneNode(true).children) : n[0]).flat())
         }
     },
@@ -1568,7 +1573,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (facetContainer) {
             const facetInstance = this.app.facets.instances.get(facetContainer)
             for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
-            this.facetInstance.controller.abort()
+            facetInstance.controller.abort()
         }
     },
     isValidTag: {
