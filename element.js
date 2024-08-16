@@ -96,16 +96,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {
-                split: async function (data, bindings) {
-                    if (typeof data !== 'string') {
-                        for (const s of ['/', ' ']) if (data.indexOf(s) > -1) return data.split(s)
-                        return data.split()
-                    } else if (Array.isArray(data) && data.length && (typeof data[0] === 'string')) {
-                        return data[0].split(...data.slice(1))
-                    }
-                }
-            }, types: {}
+            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
@@ -895,6 +886,23 @@ const ElementHTML = Object.defineProperties({}, {
                 this.app.transforms[transformKey] = true
                 resolveBackticks: {
                     if (transformKey[0] === '`') {
+                        if (transformKey.endsWith(')`') && transformKey.includes('(')) {
+                            const [methodName, argsList] = transformKey.slice(1, -2).split('(').map((s, i) => i ? s.split(',').map(s => ss.trim()) : s.trim()),
+                                dataPrototype = data?.constructor?.prototype
+                            if (dataPrototype) {
+                                if (typeof data[methodName] !== 'function') return data[methodName]
+                                if (typeof data[methodName] === 'function') {
+                                    const args = []
+                                    for (const a of argsList) {
+
+                                    }
+                                    return data[methodName](...args)
+                                }
+                            } else {
+                                return
+                            }
+                            break resolveBackticks
+                        }
                         if (this.env.transforms[transformKey]) {
                             [transform, expression] = [transformKey, this.env.transforms[transformKey]]
                             break resolveBackticks
@@ -941,14 +949,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (!transform) {
                     delete this.app.transforms[transformKey]
-                    return data
+                    return
                 }
                 expression ||= this.env.transforms[transformKey]
                 if (!expression) expression = this.useHelper(await this.loadHelper('application/x-jsonata'), transform)
                 this.app.transforms[transformKey] = [transform, expression]
             } else {
                 if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey]
-                if (!transform) return data
+                if (!transform) return
             }
             expression ||= this.app.transforms[transformKey][1]
             const bindings = {}, isFunc = typeof expression === 'function'
@@ -1095,28 +1103,7 @@ const ElementHTML = Object.defineProperties({}, {
     handlers: {
         value: {
             json: async function (container, position, envelope, value) {
-                let v = envelope.vars.value
-                if (v === null) return v
-                switch (typeof v) {
-                    case 'object':
-                        const { labels, env } = envelope
-                        let rv
-                        if (Array.isArray(v)) {
-                            rv = []
-                            for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
-                        } else {
-                            rv = {}
-                            for (let kk in v) {
-                                const vv = v[kk]
-                                if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
-                                if (typeof kk !== 'string' && typeof kk !== 'number') continue
-                                rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
-                            }
-                        }
-                        return rv
-                    default:
-                        return v
-                }
+                return this.mergeJsonValueWithVariables(envelope.vars.value, envelope, value)
             },
             network: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = vars
@@ -1339,6 +1326,44 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
+    canonicalizeJsonExpressionToUnmergedValue: {
+        value: function (expression) {
+            let value = null
+            if (expression[0] === '{' && expression.endsWith('}')) {
+                value = {}
+                for (const pair of expression.slice(1, -1).split(',')) {
+                    let [k, v = true] = pair.trim().split(':').map(s => {
+                        s = s.trim()
+                        switch (s) {
+                            case 'true': return true
+                            case 'false': return false
+                            case 'null': return null
+                            default:
+                                if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
+                                return '${' + s + '}'
+                        }
+                    })
+                    value[k] = v
+                }
+            } else if (expression[0] === '[' && expression.endsWith(']')) {
+                value = []
+                for (let s of expression.slice(1, -1).split(',')) {
+                    s = s.trim()
+                    switch (s) {
+                        case 'true': s = true; break
+                        case 'false': s = false; break
+                        case 'null': s = null; break
+                        default:
+                            s = (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) ? JSON.parse(s) : ('${' + s + '}')
+                    }
+                    value.push(s)
+                }
+            } else {
+                try { value = JSON.parse(expression) } catch (e) { }
+            }
+            return value
+        }
+    },
     generateUUIDWithNoDashes: {
         value: function () {
             return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
@@ -1493,6 +1518,31 @@ const ElementHTML = Object.defineProperties({}, {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
             for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
             Object.defineProperties(this, module)
+        }
+    },
+    mergeJsonValueWithVariables: {
+        value: function (v, envelope, value) {
+            if (v === null) return v
+            switch (typeof v) {
+                case 'object':
+                    const { labels, env } = envelope
+                    let rv
+                    if (Array.isArray(v)) {
+                        rv = []
+                        for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
+                    } else {
+                        rv = {}
+                        for (let kk in v) {
+                            const vv = v[kk]
+                            if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
+                            if (typeof kk !== 'string' && typeof kk !== 'number') continue
+                            rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
+                        }
+                    }
+                    return rv
+                default:
+                    return v
+            }
         }
     },
     mountFacet: {
