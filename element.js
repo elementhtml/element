@@ -887,14 +887,17 @@ const ElementHTML = Object.defineProperties({}, {
                 resolveBackticks: {
                     if (transformKey[0] === '`') {
                         if (transformKey.endsWith(')`') && transformKey.includes('(')) {
-                            const [methodName, argsList] = transformKey.slice(1, -2).split('(').map((s, i) => i ? s.split(',').map(s => ss.trim()) : s.trim()),
+                            const [methodName, argsList] = transformKey.slice(1, -2).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
                                 dataPrototype = data?.constructor?.prototype
                             if (dataPrototype) {
                                 if (typeof data[methodName] !== 'function') return data[methodName]
                                 if (typeof data[methodName] === 'function') {
                                     const args = []
-                                    for (const a of argsList) {
-
+                                    for (let a of argsList) {
+                                        let isSpread = a.startsWith('...')
+                                        if (isSpread) a = a.slice(3)
+                                        a = this.parseToValueOrVariable(a)
+                                        isSpread ? args.push(...a) : args.push(a)
                                     }
                                     return data[methodName](...args)
                                 }
@@ -1326,38 +1329,32 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
+    parseToValueOrVariable: {
+        value: function (s) {
+            if (typeof s !== 'string') return s
+            s = s.trim()
+            switch (s) {
+                case 'true': return true
+                case 'false': return false
+                case 'null': return null
+                default:
+                    if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
+                    return '${' + s + '}'
+            }
+        }
+    },
     canonicalizeJsonExpressionToUnmergedValue: {
         value: function (expression) {
             let value = null
             if (expression[0] === '{' && expression.endsWith('}')) {
                 value = {}
                 for (const pair of expression.slice(1, -1).split(',')) {
-                    let [k, v = true] = pair.trim().split(':').map(s => {
-                        s = s.trim()
-                        switch (s) {
-                            case 'true': return true
-                            case 'false': return false
-                            case 'null': return null
-                            default:
-                                if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
-                                return '${' + s + '}'
-                        }
-                    })
+                    let [k, v = true] = pair.trim().split(':').map(s => this.parseToValueOrVariable(s))
                     value[k] = v
                 }
             } else if (expression[0] === '[' && expression.endsWith(']')) {
                 value = []
-                for (let s of expression.slice(1, -1).split(',')) {
-                    s = s.trim()
-                    switch (s) {
-                        case 'true': s = true; break
-                        case 'false': s = false; break
-                        case 'null': s = null; break
-                        default:
-                            s = (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) ? JSON.parse(s) : ('${' + s + '}')
-                    }
-                    value.push(s)
-                }
+                for (let s of expression.slice(1, -1).split(',')) value.push(this.parseToValueOrVariable(s))
             } else {
                 try { value = JSON.parse(expression) } catch (e) { }
             }
