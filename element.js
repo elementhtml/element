@@ -890,7 +890,6 @@ const ElementHTML = Object.defineProperties({}, {
                             const [methodName, argsList] = transformKey.slice(1, -2).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
                                 dataPrototype = data?.constructor?.prototype
                             if (dataPrototype) {
-                                if (typeof data[methodName] !== 'function') return data[methodName]
                                 if (typeof data[methodName] === 'function') {
                                     const args = []
                                     for (let a of argsList) {
@@ -902,10 +901,8 @@ const ElementHTML = Object.defineProperties({}, {
                                     }
                                     return data[methodName](...args)
                                 }
-                            } else {
-                                return
                             }
-                            break resolveBackticks
+                            return
                         }
                         if (this.env.transforms[transformKey]) {
                             [transform, expression] = [transformKey, this.env.transforms[transformKey]]
