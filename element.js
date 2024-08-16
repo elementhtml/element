@@ -542,14 +542,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (exp.includes('.')) {
                     const fragments = exp.split('.').map(s => s.trim())
                     retval = this.mergeVariables(fragments.shift(), value, labels, env, true)
-                    for (const frag of fragments) {
-                        if (retval == undefined) break
-                        if (typeof retval !== 'object') {
-                            retval = undefined
-                            break
-                        }
-                        retval = retval[frag]
-                    }
+                    for (const frag of fragments) if ((retval = retval?.[frag]) == undefined) break
                 } else {
                     retval = this.mergeVariables(exp, value, labels, env, true)
                 }
