@@ -542,11 +542,15 @@ const ElementHTML = Object.defineProperties({}, {
                 if (exp.includes('.')) {
                     const fragments = exp.split('.').map(s => s.trim())
                     retval = this.mergeVariables(fragments.shift(), value, labels, env, true)
-                    for (const frag of fragments) if ((retval = retval?.[frag]) == undefined) break
+                    for (const frag of fragments) {
+                        retval = (frag.endsWith(')') && frag.includes('(')) ? this.runFragmentAsMethod(frag, retval) : retval?.[frag]
+                        if (retval == undefined) break
+                    }
                 } else {
                     retval = this.mergeVariables(exp, value, labels, env, true)
                 }
                 if (typeof retval === 'string') return retval
+                if (typeof retval === 'function') retval = undefined
                 if (canBeNotString) return retval
                 try { return retval === undefined ? '' : JSON.stringify(retval) } catch (e) { return undefined }
             }
@@ -853,16 +857,6 @@ const ElementHTML = Object.defineProperties({}, {
             return new URL(value, base ?? document.baseURI).href
         }
     },
-    runElementMethod: {
-        enumerable: true, value: function (statement, arg, element) {
-            let [funcName, ...argsRest] = statement.split('(')
-            if (typeof element[funcName] === 'function') {
-                argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim())) : []
-                return element[funcName](...argsRest, ...([arg]))
-            }
-        }
-    },
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
@@ -879,24 +873,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.app.transforms[transformKey] = true
                 resolveBackticks: {
                     if (transformKey[0] === '`') {
-                        if (transformKey.endsWith(')`') && transformKey.includes('(')) {
-                            const [methodName, argsList] = transformKey.slice(1, -2).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
-                                dataPrototype = data?.constructor?.prototype
-                            if (dataPrototype) {
-                                if (typeof data[methodName] === 'function') {
-                                    const args = []
-                                    for (let a of argsList) {
-                                        let isSpread = a.startsWith('...')
-                                        if (isSpread) a = a.slice(3)
-                                        a = this.parseToValueOrVariable(a)
-                                        if (isSpread && !Array.isArray(a)) a = [a]
-                                        isSpread ? args.push(...a) : args.push(a)
-                                    }
-                                    return data[methodName](...args)
-                                }
-                            }
-                            return
-                        }
+                        if (transformKey.endsWith(')`') && transformKey.includes('(')) return this.runFragmentAsMethod(transformKey.slice(1, -1), data)
                         if (this.env.transforms[transformKey]) {
                             [transform, expression] = [transformKey, this.env.transforms[transformKey]]
                             break resolveBackticks
@@ -1321,8 +1298,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     parseToValueOrVariable: {
-        value: function (s) {
+        value: function (s, emptyDefault = undefined) {
             if (typeof s !== 'string') return s
+            if (!s.length) return emptyDefault
             s = s.trim()
             switch (s) {
                 case 'true': return true
@@ -1340,12 +1318,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (expression[0] === '{' && expression.endsWith('}')) {
                 value = {}
                 for (const pair of expression.slice(1, -1).split(',')) {
-                    let [k, v = true] = pair.trim().split(':').map(s => this.parseToValueOrVariable(s))
+                    let [k, v = true] = pair.trim().split(':').map(s => this.parseToValueOrVariable(s, null))
                     value[k] = v
                 }
             } else if (expression[0] === '[' && expression.endsWith(']')) {
                 value = []
-                for (let s of expression.slice(1, -1).split(',')) value.push(this.parseToValueOrVariable(s))
+                for (let s of expression.slice(1, -1).split(',')) value.push(this.parseToValueOrVariable(s, null))
             } else {
                 try { value = JSON.parse(expression) } catch (e) { }
             }
@@ -1487,7 +1465,15 @@ const ElementHTML = Object.defineProperties({}, {
                             return labels[expression]
                     }
                 case '~':
-                    return env.context[expression.slice(1)]
+                    expression = expression.slice(1)
+                    const system = {
+                        document, window, E: {
+                            app: { compile: this.app.compile, dev: this.app.dev, expose: this.app.expose, namespaces: this.app.namespaces, _globalNamespace: this.app._globalNamespace },
+                            env: { namespaces: this.env.namespaces, options: this.env.options },
+                            version: this.version
+                        }
+                    }
+                    return env.context[expression] ?? system[expression]
                 case '#':
                     return (env.cells[expression.slice(1)] ?? {})?.get()
                 case '@':
@@ -1625,6 +1611,36 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!snippetKey.includes('.')) snippetKey = `${snippetKey}.html`
             }
             return snippetKey
+        }
+    },
+    runElementMethod: {
+        value: function (statement, arg, element) {
+            let [funcName, ...argsRest] = statement.split('(')
+            if (typeof element[funcName] === 'function') {
+                argsRest = argsRest.join('(').slice(0, -1)
+                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim())) : []
+                return element[funcName](...argsRest, ...([arg]))
+            }
+        }
+    },
+    runFragmentAsMethod: {
+        value: function (fragment, value) {
+            const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
+                valuePrototype = value?.constructor?.prototype
+            if (valuePrototype) {
+                if (typeof value[methodName] === 'function') {
+                    const args = []
+                    for (let a of argsList) {
+                        let isSpread = a.startsWith('...')
+                        if (isSpread) a = a.slice(3)
+                        a = this.parseToValueOrVariable(a)
+                        if (isSpread && !Array.isArray(a)) a = [a]
+                        isSpread ? args.push(...a) : args.push(a)
+                    }
+                    return value[methodName](...args)
+                }
+            }
+            return
         }
     },
     setGlobalNamespace: {
