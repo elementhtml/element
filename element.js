@@ -897,6 +897,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         let isSpread = a.startsWith('...')
                                         if (isSpread) a = a.slice(3)
                                         a = this.parseToValueOrVariable(a)
+                                        if (isSpread && !Array.isArray(a)) a = [a]
                                         isSpread ? args.push(...a) : args.push(a)
                                     }
                                     return data[methodName](...args)
