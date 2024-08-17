@@ -1498,20 +1498,24 @@ const ElementHTML = Object.defineProperties({}, {
     },
     mergeArgs: {
         value: function (args, value, envelope = {}) {
-            if (value === undefined) {
-                const newArgs = []
-                for (let a of (args ?? [])) {
-                    const aSpread = a.startsWith('...')
-                    if (aSpread) a = a.slice(3)
-                    a = this.parseToValueOrVariable(a)
-                    if (aSpread && !Array.isArray(a)) a = [a]
-                    aSpread ? newArgs.push(...a) : newArgs.push(a)
+            const newArgs = []
+            for (let a of (args ?? [])) {
+                const aSpread = a.startsWith('...')
+                if (aSpread) a = a.slice(3)
+                a = this.parseToValueOrVariable(a)
+                if (aSpread && !Array.isArray(a)) a = [a]
+                if (value !== undefined) {
+                    if (aSpread) {
+                        const newA = []
+                        for (const aa of a) newA.push(this.mergeVariables(aa, value, envelope))
+                        a = newA
+                    } else {
+                        a = this.mergeVariables(a, value, envelope)
+                    }
                 }
-                return newArgs
+                aSpread ? newArgs.push(...a) : newArgs.push(a)
             }
-            const mergedArgs = [], { labels, env } = envelope
-            for (const a of args) mergedArgs.push(this.mergeVariables(a, value, labels, env))
-            return mergedArgs
+            return newArgs
         }
     },
     mergeJsonValueWithVariables: {
