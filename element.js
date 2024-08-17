@@ -1837,8 +1837,7 @@ ${scriptBody.join('{')}`
                             saveToLabel(stepIndex, label, detail, labelMode)
                             if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                         }
-                        if (!stepIndex) container.addEventListener('run', runStep, { signal: this.controller.signal })
-                        container.addEventListener(`done-${statementIndex}-${stepIndex - 1}`, runStep, { signal: this.controller.signal })
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', runStep, { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
