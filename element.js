@@ -1835,7 +1835,6 @@ ${scriptBody.join('{')}`
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 let passedInValue = labels[`${previousStepIndex}`]
                                 if (passedInValue === undefined) return
-
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
                                     ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
                                 container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
