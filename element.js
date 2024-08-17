@@ -1559,6 +1559,9 @@ const ElementHTML = Object.defineProperties({}, {
             for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
             Object.freeze(fields)
             Object.freeze(cells)
+            facetInstance.observer = new MutationObserver(records => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
+            facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
+            facetInstance.disabled = facetContainer.hasAttribute('disabled')
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
@@ -1663,6 +1666,7 @@ const ElementHTML = Object.defineProperties({}, {
             const facetInstance = this.app.facets.instances.get(facetContainer)
             for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
             facetInstance.controller.abort()
+            facetInstance.observer.disconnect()
         }
     },
     isValidTag: {
@@ -1777,7 +1781,9 @@ ${scriptBody.join('{')}`
             controller
             controllers = {}
             fields = {}
+            observer
             vars = {}
+            disabled
             constructor() {
                 this.controller = new AbortController()
                 for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
@@ -1819,14 +1825,15 @@ ${scriptBody.join('{')}`
                         if (stepIndex) {
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
+                                if (this.disabled) return
                                 let passedInValue = labels[`${previousStepIndex}`]
-                                // if (passedInValue === undefined) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
                                     ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
                         } else {
                             container.addEventListener('run', async event => {
+                                if (this.disabled) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
                                     ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
