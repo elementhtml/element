@@ -1827,16 +1827,26 @@ ${scriptBody.join('{')}`
                             }
                             Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
-                            if (stepIndex) {
-                                const previousStepIndex = stepIndex - 1, previousStep = steps[previousStepIndex]
-                                saveToLabel(previousStepIndex, previousStep.label, event.detail, previousStep.labelMode)
-                            }
-                            let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
-                            if (defaultExpression) detail ??= this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env)
-                            saveToLabel(stepIndex, label, detail, labelMode)
-                            if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                        container.addEventListener(`done-${position}`, async event => {
+                            saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
+                        if (stepIndex) {
+                            const previousStepIndex = stepIndex - 1
+                            container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
+                                let passedInValue = labels[`${previousStepIndex}`]
+                                if (passedInValue === undefined) return
+
+                                let detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
+                                    ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
+                                container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                            }, { signal: this.controller.signal })
+                        } else {
+                            container.addEventListener('run', async event => {
+                                let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
+                                    ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
+                                container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                            }, { signal: this.controller.signal })
+                        }
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
