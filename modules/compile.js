@@ -268,7 +268,7 @@ const nativeElementsMap = {
                 return { handler: 'pattern', ctx: { binder: true, vars: { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) } } }
             },
             proxy: function (expression, hasDefault) {
-                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim()), isSpread = expression.includes('...')
+                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
                 if (!parentExpression || (childExpression === '')) return
                 let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
                 parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
@@ -279,7 +279,7 @@ const nativeElementsMap = {
                     [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                     childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 }
-                return { handler: 'proxy', ctx: { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper, isSpread } } }
+                return { handler: 'proxy', ctx: { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper } } }
             },
             router: function (expression, hasDefault) {
                 let handler

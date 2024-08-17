@@ -989,7 +989,6 @@ const ElementHTML = Object.defineProperties({}, {
             proxy: async function (container, position, envelope) {
                 const { vars } = envelope, { parentObjectName, useHelper, isSpread } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-                if (!isSpread) for (const argScope of ['parentArgs', 'childArgs']) vars[argScope] = this.mergeArgs(vars[argScope])
             },
             routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
@@ -1121,7 +1120,6 @@ const ElementHTML = Object.defineProperties({}, {
             },
             proxy: async function (container, position, envelope, value) {
                 const { vars, labels, env } = envelope, { isSpread, useHelper, parentObjectName, childMethodName } = vars, umMergedArgs = {}
-                if (isSpread) for (const argScope of ['parentArgs', 'childArgs']) umMergedArgs[argScope] = this.mergeArgs(vars[argScope])
                 const { parentArgs, childArgs } = umMergedArgs
                 if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...this.mergeArgs(parentArgs, value, envelope)))
                 if (childMethodName) {
@@ -1651,12 +1649,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (fragment, value) {
             const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
                 valuePrototype = value?.constructor?.prototype
-            if (valuePrototype) {
-                if (typeof value[methodName] === 'function') {
-                    const unmergedArgs = this.mergeArgs(argsList)
-                    return value[methodName](...this.mergeArgs(unmergedArgs, value))
-                }
-            }
+            if (valuePrototype && (typeof value[methodName] === 'function')) return value[methodName](...this.mergeArgs(argsList, value))
             return
         }
     },
