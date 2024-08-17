@@ -1827,7 +1827,7 @@ ${scriptBody.join('{')}`
                             }
                             Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
                         }
-                        const runStep = async event => {
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', async event => {
                             if (stepIndex) {
                                 const previousStepIndex = stepIndex - 1, previousStep = steps[previousStepIndex]
                                 saveToLabel(previousStepIndex, previousStep.label, event.detail, previousStep.labelMode)
@@ -1836,8 +1836,7 @@ ${scriptBody.join('{')}`
                             if (defaultExpression) detail ??= this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env)
                             saveToLabel(stepIndex, label, detail, labelMode)
                             if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${stepIndex - 1}` : 'run', runStep, { signal: this.controller.signal })
+                        }, { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
