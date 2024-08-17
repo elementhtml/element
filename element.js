@@ -1307,7 +1307,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'null': return null
                 default:
                     if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
-                    if (s[0] === '$' && s.startsWith('${') && s.endsWith('}')) return s
+                    if (this.sys.regexp.hasVariable.test(s)) return s
                     return '${' + s + '}'
             }
         }
@@ -1649,6 +1649,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (fragment, value) {
             const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
                 valuePrototype = value?.constructor?.prototype
+            console.log('line 1652', methodName, argsList, value)
             if (valuePrototype && (typeof value[methodName] === 'function')) return value[methodName](...this.mergeArgs(argsList, value))
             return
         }
@@ -1832,24 +1833,7 @@ ${scriptBody.join('{')}`
                                 saveToLabel(previousStepIndex, previousStep.label, event.detail, previousStep.labelMode)
                             }
                             let detail = await this.constructor.E.handlers[handler](container, position, envelope, event.detail)
-                            if (detail == undefined) {
-                                if (typeof defaultExpression !== 'string') {
-                                    detail = defaultExpression
-                                } else if (((defaultExpression[0] === '"') && defaultExpression.endsWith('"')) || ((defaultExpression[0] === "'") && defaultExpression.endsWith("'"))) {
-                                    detail = defaultExpression.slice(1, -1)
-                                } else if (defaultExpression.match(this.constructor.E.sys.regexp.hasVariable)) {
-                                    detail = this.constructor.E.mergeVariables(defaultExpression, undefined, labels, env)
-                                } else if (defaultExpression.match(this.constructor.E.sys.regexp.isJSONObject) || defaultExpression.match(this.constructor.E.sys.regexp.isNumeric)
-                                    || ['true', 'false', 'null'].includes(defaultExpression) || (defaultExpression[0] === '[' && defaultExpression.endsWith(']'))) {
-                                    try {
-                                        detail = JSON.parse(defaultExpression)
-                                    } catch (e) {
-                                        detail = defaultExpression
-                                    }
-                                } else {
-                                    detail = defaultExpression
-                                }
-                            }
+                            if (defaultExpression) detail ??= this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env)
                             saveToLabel(stepIndex, label, detail, labelMode)
                             if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                         }
