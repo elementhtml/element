@@ -1207,9 +1207,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             wait: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { expression } = vars, mergedExpression = this.mergeVariables(expression, value, labels, env),
-                    done = () => {
-                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
-                    }
+                    done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                 let ms = 0, now = Date.now()
                 if (mergedExpression === 'frame') {
                     await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
