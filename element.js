@@ -1206,48 +1206,36 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
             },
             wait: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression } = vars, useExpression = this.mergeVariables(expression, value, labels, env)
-                let [mainWait, override] = useExpression.split('(')
-                mainWait = this.mergeVariables(mainWait, value, labels, env)
-                if (override) override = override.slice(0, -1).trim()
-                const getResult = () => {
-                    switch (override) {
-                        case undefined: return value ?? true
-                        case '': return value || true
-                        case '$': return value
-                        default:
-                            try {
-                                return JSON.parse(override)
-                            } catch (e) {
-                                return this.mergeVariables(override, value, labels, env)
-                            }
+                const { labels, env, vars } = envelope, { expression } = vars, mergedExpression = this.mergeVariables(expression, value, labels, env),
+                    done = () => {
+                        container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                     }
-                }
                 let ms = 0, now = Date.now()
-                if (mainWait === 'frame') {
+                if (mergedExpression === 'frame') {
                     await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
-                    return getResult()
-                } else if (globalThis.requestIdleCallback && mainWait.startsWith('idle')) {
-                    const [, timeout] = mainWait.split(':')
-                    await new Promise(resolve => globalThis.requestIdleCallback(resolve, { timeout: (parseInt(timeout) || -1) }))
-                    return getResult()
-                } else if (mainWait[0] === '+') {
-                    ms = parseInt(mainWait.slice(1)) || 0
-                } else if (this.sys.regexp.isNumeric.test(mainWait)) {
-                    ms = (parseInt(mainWait) || 0) - now
+                    done()
+                } else if (mergedExpression.startsWith('idle')) {
+                    let timeout = mergedExpression.split(':')[0]
+                    timeout = timeout ? (parseInt(timeout) || 1) : 1
+                    await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
+                    done()
+                } else if (mergedExpression[0] === '+') {
+                    ms = parseInt(mergedExpression.slice(1)) || 1
+                } else if (this.sys.regexp.isNumeric.test(mergedExpression)) {
+                    ms = (parseInt(mergedExpression) || 1) - now
                 } else {
-                    let mainWaitSplit = mainWait.split(':').map(s => s.trim())
-                    if ((mainWaitSplit.length === 3) && mainWaitSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
-                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mainWait}Z`)
+                    let mergedExpressionSplit = mergedExpression.split(':').map(s => s.trim())
+                    if ((mergedExpressionSplit.length === 3) && mergedExpressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
+                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mergedExpression}Z`)
                         if (ms < 0) ms = (ms + (1000 * 3600 * 24))
                         ms = ms - now
                     } else {
-                        ms = Date.parse(mainWait) - now
+                        ms = Date.parse(mergedExpression) - now
                     }
                 }
                 ms = Math.max(ms, 0)
                 await new Promise(resolve => setTimeout(resolve, ms))
-                return getResult()
+                done()
             }
         }
     },
@@ -1834,16 +1822,16 @@ ${scriptBody.join('{')}`
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 let passedInValue = labels[`${previousStepIndex}`]
-                                if (passedInValue === undefined) return
+                                // if (passedInValue === undefined) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
                                     ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
-                                container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
                         } else {
                             container.addEventListener('run', async event => {
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
                                     ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
-                                container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
                         }
                     }
