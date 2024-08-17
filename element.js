@@ -524,6 +524,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (expression, value, labels, env, inner) {
             if (!expression) return inner ? value : undefined
             if (typeof expression !== 'string') return expression
+            if (expression === (inner ? '$' : '${$}')) return value
             const isMatch = expression.match(this.sys.regexp.hasVariable)
             labels ||= {}
             env ||= {}
@@ -986,10 +987,9 @@ const ElementHTML = Object.defineProperties({}, {
                 return { regexp }
             },
             proxy: async function (container, position, envelope) {
-                const { vars } = envelope, { parentObjectName, useHelper } = vars
+                const { vars } = envelope, { parentObjectName, useHelper, isSpread } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-                for (const [i, a] of (vars.childArgs ?? []).entries()) try { vars.childArgs[i] = JSON.parse(a) } catch (e) { vars.childArgs[i] = a }
-                for (const [i, a] of (vars.parentsArgs ?? []).entries()) try { vars.parentsArgs[i] = JSON.parse(a) } catch (e) { vars.parentsArgs[i] = a }
+                if (!isSpread) for (const argScope of ['parentArgs', 'childArgs']) vars[argScope] = this.mergeArgs(vars[argScope])
             },
             routerhash: async function (container, position, envelope) {
                 const { signal } = envelope
@@ -1120,16 +1120,17 @@ const ElementHTML = Object.defineProperties({}, {
                 return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
             },
             proxy: async function (container, position, envelope, value) {
-                const { vars, labels, env } = envelope, { useHelper, parentObjectName, parentArgs, childMethodName } = vars,
-                    getArgs = (args, value, labels, env) => args.map(a => this.mergeVariables(a.trim(), value, labels, env))
-                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...getArgs(parentArgs, value, labels, env)))
+                const { vars, labels, env } = envelope, { isSpread, useHelper, parentObjectName, childMethodName } = vars, umMergedArgs = {}
+                if (isSpread) for (const argScope of ['parentArgs', 'childArgs']) umMergedArgs[argScope] = this.mergeArgs(vars[argScope])
+                const { parentArgs, childArgs } = umMergedArgs
+                if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...this.mergeArgs(parentArgs, value, envelope)))
                 if (childMethodName) {
                     const { childArgs } = vars
                     if (!(globalThis[parentObjectName] instanceof Object)) return
                     if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                    return globalThis[parentObjectName][childMethodName](...getArgs(childArgs, value, labels, env))
+                    return globalThis[parentObjectName][childMethodName](...this.mergeArgs(childArgs, value, envelope))
                 }
-                return globalThis[parentObjectName](...getArgs(parentArgs, value, labels, env))
+                return globalThis[parentObjectName](...this.mergeArgs(childArgs, value, envelope))
             },
             router: async function (container, position, envelope, value) {
                 switch (typeof value) {
@@ -1308,6 +1309,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'null': return null
                 default:
                     if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
+                    if (s[0] === '$' && s.startsWith('${') && s.endsWith('}')) return s
                     return '${' + s + '}'
             }
         }
@@ -1494,6 +1496,24 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperties(this, module)
         }
     },
+    mergeArgs: {
+        value: function (args, value, envelope = {}) {
+            if (value === undefined) {
+                const newArgs = []
+                for (let a of (args ?? [])) {
+                    const aSpread = a.startsWith('...')
+                    if (aSpread) a = a.slice(3)
+                    a = this.parseToValueOrVariable(a)
+                    if (aSpread && !Array.isArray(a)) a = [a]
+                    aSpread ? newArgs.push(...a) : newArgs.push(a)
+                }
+                return newArgs
+            }
+            const mergedArgs = [], { labels, env } = envelope
+            for (const a of args) mergedArgs.push(this.mergeVariables(a, value, labels, env))
+            return mergedArgs
+        }
+    },
     mergeJsonValueWithVariables: {
         value: function (v, envelope, value) {
             if (v === null) return v
@@ -1629,15 +1649,8 @@ const ElementHTML = Object.defineProperties({}, {
                 valuePrototype = value?.constructor?.prototype
             if (valuePrototype) {
                 if (typeof value[methodName] === 'function') {
-                    const args = []
-                    for (let a of argsList) {
-                        let isSpread = a.startsWith('...')
-                        if (isSpread) a = a.slice(3)
-                        a = this.parseToValueOrVariable(a)
-                        if (isSpread && !Array.isArray(a)) a = [a]
-                        isSpread ? args.push(...a) : args.push(a)
-                    }
-                    return value[methodName](...args)
+                    const unmergedArgs = this.mergeArgs(argsList)
+                    return value[methodName](...this.mergeArgs(unmergedArgs, value))
                 }
             }
             return
