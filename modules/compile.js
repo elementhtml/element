@@ -43,10 +43,10 @@ const nativeElementsMap = {
                     extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
-                if (template.content.querySelector('template[data-slot], template[data-target]')) {
+                if (template.content.querySelector('template[slot], template[data-target]')) {
                     const extendsTemplate = extendsClass.template.content.cloneNode(true)
-                    for (const t of template.content.querySelectorAll('template[data-slot]')) {
-                        const slotName = t.dataset.slot, slot = slotName ? extendsTemplate.querySelector(`slot[name="${slotName}"]`) : extendsTemplate.querySelector('slot:not([name])')
+                    for (const t of template.content.querySelectorAll('template[slot]')) {
+                        const slotName = t.getAttribute('slot'), slot = slotName ? extendsTemplate.querySelector(`slot[name="${slotName}"]`) : extendsTemplate.querySelector('slot:not([name])')
                         if (slot) slot.replaceWith(...t.content.cloneNode(true).children)
                     }
                     for (const t of template.content.querySelectorAll('template[data-target]')) {

@@ -653,11 +653,6 @@ const ElementHTML = Object.defineProperties({}, {
                         } else {
                             element.setAttribute(`aria-${k.slice(1)}`, v)
                         }
-                    case '&':
-                        const className = k.slice(1)
-                        if (!className) continue
-                        element.classList.toggle(className, v)
-                        continue
                     case '^':
                         const styleRule = k.slice(1)
                         if (!styleRule) continue
@@ -771,8 +766,12 @@ const ElementHTML = Object.defineProperties({}, {
                                         Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
                                     )
                                     continue
+                                } else if (k[0] === '.' && k.length > 1 && k[1] !== '.') {
+                                    const className = k.slice(1)
+                                    if (!className) continue
+                                    element.classList.toggle(className, v)
+                                    continue
                                 }
-                                setProperty(k.slice(1), v, element)
                         }
                     case '`':
                         let nestingTargets = this.resolveScopedSelector(k.slice(1, -1), element)
