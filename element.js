@@ -851,11 +851,11 @@ const ElementHTML = Object.defineProperties({}, {
                 const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
 
                 const combinatorProcessors = {
-                    '>': (sc, sg) => { },
-                    '+': (sc, sg) => { },
-                    '~': (sc, sg) => { },
+                    '>': (sc, sg, im) => { },
+                    '+': (sc, sg, im) => { },
+                    '~': (sc, sg, im) => { },
                     '|': true,
-                    '||': (sc, sg) => { }
+                    '||': (sc, sg, im) => { }
                 }, defaultCombinatorProcessor = (a, b) => { }
 
                 const branches = selector.split(branchSplitter), matches = []
@@ -867,16 +867,17 @@ const ElementHTML = Object.defineProperties({}, {
                         let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
                             combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
                         if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
-                        currentScope = combinatorProcessor(currentScope, segment)
+                        currentScope = combinatorProcessor(currentScope, segment, isMulti)
+                        if (!currentScope?.length) break
                     }
-
-
+                    if (!currentScope?.length) continue
+                    if (!isMulti) return currentScope
+                    matches.push(...currentScope)
                 }
-
-
-
+                if (!matches.length) return
+                return this.sliceAndStep(sliceSignature, matches)
             } else {
-                return sliceSignature ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
+                return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
             }
         }
     },
