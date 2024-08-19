@@ -850,29 +850,55 @@ const ElementHTML = Object.defineProperties({}, {
                 const chunkSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
                 const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
 
-                const setBuilders = {
-                    '>': (sc, sg) => { },
-                    '+': (sc, sg) => { },
-                    '~': (sc, sg) => { },
+                const combinatorProcessors = {
+                    '>': sc => Array.from(sc.chilren()),
+                    '+': sc => sc.nextElementSibling() ?? [],
+                    '~': sc => {
+                        const siblings = []
+                        let sibling = sc.nextElementSibling
+                        while (sibling) {
+                            siblings.push(sibling)
+                            sibling = sibling.nextElementSibling
+                        }
+                        return siblings
+                    },
                     '|': true,
-                    '||': (sc, sg) => { }
-                }, defaultSetBuilder = (sc, sg) => {
-
-                }
+                    '||': sc => {
+                        const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
+                        let totalColumns = 0, colStart = 0, colEnd = 0;
+                        for (const col of colElements) {
+                            const span = parseInt(col.getAttribute('span') || '1', 10), colIsSc = col === sc
+                            if (colIsSc) colStart = totalColumns
+                            totalColumns += span
+                            if (colIsSc) colEnd = totalColumns - 1
+                        }
+                        for (const row of table.querySelectorAll('tr')) {
+                            let currentColumn = 0
+                            for (const cell of row.children) {
+                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10), cellStart = currentColumn, cellEnd = currentColumn + colspan - 1
+                                if ((cellStart >= colStart && cellStart <= colEnd) || (cellEnd >= colStart && cellEnd <= colEnd)) matchedCells.push(cell);
+                                currentColumn += colspan
+                            }
+                        }
+                        return matchedCells
+                    }
+                }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*'))
 
                 const branches = selector.split(branchSplitter), matches = []
                 for (const branch of branches) {
                     let currentScope = [scope]
                     const segments = branch.split(chunkSplitter)
                     for (let segment of segments) {
-                        const hasNonDefaultCombinator = segment[0] in setBuilders
+                        const hasNonDefaultCombinator = segment[0] in combinatorProcessors
                         let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
-                            setBuilder = nonDefaultCombinator ? setBuilders[nonDefaultCombinator] : defaultSetBuilder
+                            combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultcombinatorProcessor
                         if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
                         const segmentSet = []
                         for (const s of currentScope) {
-                            const qualified = setBuilder(s, segment)
+                            const qualified = combinatorProcessor(s)
                             //filter qualified by each qualifier
+
+
                             segmentSet.push(...qualified)
                         }
                         currentScope = [...segmentSet]
