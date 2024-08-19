@@ -839,20 +839,40 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             const multiMatcher = /.*\{.*\}$/
-            const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/
-            const chunkSplitter = /\s*(?=[>+~\s])\s*(?![^"']*["'][^"']*$)/
-            const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
             const hasAdvancedSelectors = /(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
 
-            const isMulti = multiMatcher.test(selector), matches = []
+            const isMulti = multiMatcher.test(selector)
             let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
 
             if (hasAdvancedSelectors.test(selector)) {
+                const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/
+                const chunkSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
+                const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
 
-                const chunksAndCombinators = branch.split(chunkSplitter)
-                const chunks = segments.filter((v, i) => !(i % 2))
-                const combinators = segments.filter((v, i) => i % 2)
+                const combinatorProcessors = {
+                    '>': (sc, sg) => { },
+                    '+': (sc, sg) => { },
+                    '~': (sc, sg) => { },
+                    '|': true,
+                    '||': (sc, sg) => { }
+                }, defaultCombinatorProcessor = (a, b) => { }
+
+                const branches = selector.split(branchSplitter), matches = []
+                for (const branch of branches) {
+                    let currentScope = scope
+                    const segments = branch.split(chunkSplitter)
+                    for (let segment of segments) {
+                        const hasNonDefaultCombinator = segment[0] in combinatorProcessors
+                        let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
+                            combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
+                        if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
+                        currentScope = combinatorProcessor(currentScope, segment)
+                    }
+
+
+                }
+
 
 
             } else {
