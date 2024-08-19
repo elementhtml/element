@@ -856,7 +856,9 @@ const ElementHTML = Object.defineProperties({}, {
                     '~': (sc, sg, im) => { },
                     '|': true,
                     '||': (sc, sg, im) => { }
-                }, defaultCombinatorProcessor = (a, b) => { }
+                }, defaultCombinatorProcessor = (sc, sg, im) => {
+
+                }
 
                 const branches = selector.split(branchSplitter), matches = []
                 for (const branch of branches) {
