@@ -307,7 +307,7 @@ const nativeElementsMap = {
                         case '@':
                             expression = `*|[name="${expression.slice(1)}"]`
                             break
-                        case '^':
+                        case '%':
                             expression = `*|[style~="${expression.slice(1)}"]`
                             break
                         case '~':

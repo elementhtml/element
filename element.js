@@ -378,7 +378,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const r in value.style) {
                     const ruleValue = value.style.getPropertyValue(r)
                     if (!ruleValue) continue
-                    result.style[r] = result[`^${r}`] = ruleValue
+                    result.style[r] = result[`%${r}`] = ruleValue
                 }
                 Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
                 const computedStyleDescriptors = {}
@@ -388,7 +388,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
                 if (value.hasAttribute('itemscope')) result.itemscope = true
                 for (const c of Object.keys(classList)) result[`&${c}`] = true
-                for (const ent of Object.entries(style)) result[`^${ent[0]}`] = ent[1]
+                for (const ent of Object.entries(style)) result[`%${ent[0]}`] = ent[1]
                 if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
                 result.dataset = {}
                 for (const p in value.dataset) result.dataset[p] = result[`$${p}`] = value.dataset[p]
@@ -653,7 +653,7 @@ const ElementHTML = Object.defineProperties({}, {
                         } else {
                             element.setAttribute(`aria-${k.slice(1)}`, v)
                         }
-                    case '^':
+                    case '%':
                         const styleRule = k.slice(1)
                         if (!styleRule) continue
                         element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
@@ -717,7 +717,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (insertPosition && !(insertPosition in this.sys.insertPositions)) insertPosition = undefined
                                     if (!insertPosition) insertPosition = snippetUsageCounter[snippetUsageCounterIndex] ? 'append' : (['html', 'head', 'body'].includes(tag) ? 'append' : 'replaceChildren')
                                     snippetUsageCounter[snippetUsageCounterIndex] = snippetUsageCounter[snippetUsageCounterIndex] ? (snippetUsageCounter[snippetUsageCounterIndex] + 1) : 1
-                                    if (renderExpression[0] === '%' && renderExpression.slice(-1) === '%') {
+                                    if (renderExpression[0] === '&' && renderExpression.slice(-1) === '&') {
                                         renderExpression = renderExpression.slice(1, -1)
                                         let useSnippet
                                         if (renderExpression[0] === '`' && renderExpression.slice(-1) === '`') {
@@ -797,7 +797,7 @@ const ElementHTML = Object.defineProperties({}, {
             switch (scopeStatement) {
                 case 'head': return document.head
                 case 'body': return document.body
-                case ':': case '~':
+                case '^': case '~':
                     let root = element.getRootNode()
                     return (root instanceof ShadowRoot) ? root : (scopeStatement === '~' ? document.head : document.body)
                 case 'root':
@@ -819,7 +819,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (scopedSelector, element) {
             element = this.app.components.natives.get(element) ?? element
             if (this.sys.impliedScopes.has(scopedSelector)) return this.resolveScope(scopedSelector, element)
-            if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `:${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
+            if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
             if (scopedSelector.includes('|')) {
                 const [scopeStatement, selectorStatement] = scopedSelector.split('|').map(s => s.trim())
@@ -832,16 +832,32 @@ const ElementHTML = Object.defineProperties({}, {
     resolveSelector: {
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
-            if (selector[0] === '$') {
+            if (selector[0] === ':') {
                 if (!selector) return scope
                 const catchallSelector = this.buildCatchallSelector(selector)
                 return scope.querySelector(catchallSelector)
             }
-            if (selector.includes('{') && selector.endsWith('}')) {
-                let [selectorStem, sig] = selector.split('{')
-                return this.sliceAndStep(sig.slice(0, -1), Array.from(scope.querySelectorAll(selectorStem)))
+
+            const multiMatcher = /.*\{.*\}$/
+            const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/
+            const chunkSplitter = /\s*(?=[>+~\s])\s*(?![^"']*["'][^"']*$)/
+            const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
+            const hasAdvancedSelectors = /(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
+
+            const isMulti = multiMatcher.test(selector), matches = []
+            let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
+            if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
+
+            if (hasAdvancedSelectors.test(selector)) {
+
+                const chunksAndCombinators = branch.split(chunkSplitter)
+                const chunks = segments.filter((v, i) => !(i % 2))
+                const combinators = segments.filter((v, i) => i % 2)
+
+
+            } else {
+                return sliceSignature ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
             }
-            return scope.querySelector(selector)
         }
     },
     resolveUrl: {
@@ -1250,8 +1266,8 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
-            impliedScopes: Object.freeze({ '$': '*', '#': 'html' }),
-            autoScopes: Object.freeze(new Set(['head', 'body', ':', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window']))
+            impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
+            autoScopes: Object.freeze(new Set(['head', 'body', '^', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window']))
         })
     },
 
