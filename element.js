@@ -850,33 +850,38 @@ const ElementHTML = Object.defineProperties({}, {
                 const chunkSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
                 const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
 
-                const combinatorProcessors = {
-                    '>': (sc, sg, im) => { },
-                    '+': (sc, sg, im) => { },
-                    '~': (sc, sg, im) => { },
+                const setBuilders = {
+                    '>': (sc, sg) => { },
+                    '+': (sc, sg) => { },
+                    '~': (sc, sg) => { },
                     '|': true,
-                    '||': (sc, sg, im) => { }
-                }, defaultCombinatorProcessor = (sc, sg, im) => {
+                    '||': (sc, sg) => { }
+                }, defaultSetBuilder = (sc, sg) => {
 
                 }
 
                 const branches = selector.split(branchSplitter), matches = []
                 for (const branch of branches) {
-                    let currentScope = scope
+                    let currentScope = [scope]
                     const segments = branch.split(chunkSplitter)
                     for (let segment of segments) {
-                        const hasNonDefaultCombinator = segment[0] in combinatorProcessors
+                        const hasNonDefaultCombinator = segment[0] in setBuilders
                         let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
-                            combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
+                            setBuilder = nonDefaultCombinator ? setBuilders[nonDefaultCombinator] : defaultSetBuilder
                         if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
-                        currentScope = combinatorProcessor(currentScope, segment, isMulti)
+                        const segmentSet = []
+                        for (const s of currentScope) {
+                            const qualified = setBuilder(s, segment)
+                            //filter qualified by each qualifier
+                            segmentSet.push(...qualified)
+                        }
+                        currentScope = [...segmentSet]
                         if (!currentScope?.length) break
                     }
                     if (!currentScope?.length) continue
-                    if (!isMulti) return currentScope
+                    if (!isMulti) return currentScope[0]
                     matches.push(...currentScope)
                 }
-                if (!matches.length) return
                 return this.sliceAndStep(sliceSignature, matches)
             } else {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
