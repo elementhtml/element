@@ -839,7 +839,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             const multiMatcher = /.*\{.*\}$/
-            const hasAdvancedSelectors = /(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
+            const hasAdvancedSelectors = /(?:\[(?<p>%[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?:\[(?<amp>&[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?<at>@[\w-]+|@"[^"]*")|(?<e>![\w-]+)|(?<t>~[\w-]+|~"[^"]*")/g
 
             const isMulti = multiMatcher.test(selector)
             let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
@@ -882,23 +882,47 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return matchedCells
                     }
-                }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*'))
+                }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*')),
+                    qualifierProcessors = {
+                        'p': () => { },
+                        'amp': () => { },
+                        'at': () => { },
+                        'e': () => { },
+                        't': () => { }
+                    }
 
-                const branches = selector.split(branchSplitter), matches = []
+                const branches = selector.split(branchSplitter)
                 for (const branch of branches) {
                     let currentScope = [scope]
                     const segments = branch.split(chunkSplitter)
                     for (let segment of segments) {
                         const hasNonDefaultCombinator = segment[0] in combinatorProcessors
                         let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
-                            combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultcombinatorProcessor
+                            combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
                         if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
-                        const segmentSet = []
+                        const segmentSet = [], qualifiers = segment.match(qualifierMatcher)
+                        if (!qualifiers?.length) break
                         for (const s of currentScope) {
-                            const qualified = combinatorProcessor(s)
-                            //filter qualified by each qualifier
+                            let qualified = combinatorProcessor(s)
+                            for (const qualifier of qualifiers) {
+
+                                if (hasAdvancedSelectors.test(qualifier)) {
+                                    let match
+                                    while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
+                                        for (const label of qualifierProcessors) if (match.groups[label]) {
+                                            const qualifierProcessor = qualifierProcessors[label]
+                                            //more to do here...
+
+                                        }
+
+                                    }
 
 
+                                } else {
+                                    qualified = qualified.filter(q => q.matches(qualifier));
+                                }
+                                if (!qualified?.length) break
+                            }
                             segmentSet.push(...qualified)
                         }
                         currentScope = [...segmentSet]
