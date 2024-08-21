@@ -838,18 +838,34 @@ const ElementHTML = Object.defineProperties({}, {
                 return scope.querySelector(catchallSelector)
             }
 
-            const multiMatcher = /.*\{.*\}$/
-            const hasAdvancedSelectors = /(?:\[(?<p>%[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?:\[(?<amp>&[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?<at>@[\w-]+|@"[^"]*")|(?<e>![\w-]+)|(?<t>~[\w-]+|~"[^"]*")/g
-
-            const isMulti = multiMatcher.test(selector)
+            const multiMatcher = /.*\{.*\}$/, isMulti = multiMatcher.test(selector)
             let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
 
+            try {
+                return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
+            } catch (e) {
+                const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/, branches = selector.split(branchSplitter), matches = []
+                for (const branch of branches) {
+                    try {
+                        const branchMatches = isMulti ? Array.from(scope.querySelectorAll(branch)) : [scope.querySelector(branch)].filter(n => !!n)
+                        if (!branchMatches.length) continue
+                        if (!isMulti) return branchMatches[0]
+                        matches.push(...branchMatches)
+                    } catch (ee) {
+
+                    }
+                }
+                return isMulti ? this.sliceAndStep(sliceSignature, matches) : matches[0]
+            }
+
+            const hasAdvancedSelectors = /(?:\[(?<p>%[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?:\[(?<amp>&[a-zA-Z\w-]+)(?:[\^$*~|]?="[^"]*"|=\w+)\])|(?<at>@[\w-]+|@"[^"]*")|(?<e>![\w-]+)|(?<t>~[\w-]+|~"[^"]*")/g
+
+
             hasAdvancedSelectors.lastIndex = 0
             if (hasAdvancedSelectors.test(selector)) {
-                const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/
                 const chunkSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
-                const qualifierMatcher = /([a-zA-Z][\w-]*)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(@[\w-]+|@"[^"]*")|(![\w-]+)|(~[\w-]+|~"[^"]*")/g
+                const qualifierMatcher = /(\[%[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(\[&[a-zA-Z\w-]+(?:[\^$*~|]?="[^"]*"|=\w+)\])|(~[\w-]+|~"[^"]*")|(@[\w-]+|@"[^"]*")|(![\w-]+)|(\#\w+)|(\.\w+)|(\[\w[\w-]*[\^$*~|]?=?"[^"']*"?\])|([a-zA-Z][\w-]*)/g
 
                 const combinatorProcessors = {
                     '>': sc => Array.from(sc.chilren()),
@@ -895,10 +911,12 @@ const ElementHTML = Object.defineProperties({}, {
                         },
                         'at': (sc, sel) => sc.getAttribute('name') === sel.slice(1).trim(),
                         'e': (sc, sel) => { },
-                        't': (sc, sel) => sc.getAttribute('itemprop') === sel.slice(1).trim()
+                        't': (sc, sel) => {
+                            console.log('line 899', sc, sel)
+                            return sc.getAttribute('itemprop') === sel.slice(1).trim()
+                        }
                     }
 
-                const branches = selector.split(branchSplitter), matches = []
                 for (const branch of branches) {
                     let currentScope = [scope]
                     const segments = branch.split(chunkSplitter)
@@ -912,6 +930,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const s of currentScope) {
                             let qualified = combinatorProcessor(s)
                             for (const qualifier of qualifiers) {
+                                console.log('line 918', qualifier)
                                 const selectorIsQualifier = selector === qualifier
                                 hasAdvancedSelectors.lastIndex = 0
                                 if (selectorIsQualifier || hasAdvancedSelectors.test(qualifier)) {
