@@ -842,6 +842,57 @@ const ElementHTML = Object.defineProperties({}, {
             let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
 
+            const combinatorProcessors = {
+                '>': sc => Array.from(sc.chilren()),
+                '+': sc => sc.nextElementSibling() ?? [],
+                '~': sc => {
+                    const siblings = []
+                    let sibling = sc.nextElementSibling
+                    while (sibling) {
+                        siblings.push(sibling)
+                        sibling = sibling.nextElementSibling
+                    }
+                    return siblings
+                },
+                '|': true,
+                '||': sc => {
+                    const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
+                    let totalColumns = 0, colStart = 0, colEnd = 0;
+                    for (const col of colElements) {
+                        const span = parseInt(col.getAttribute('span') || '1', 10), colIsSc = col === sc
+                        if (colIsSc) colStart = totalColumns
+                        totalColumns += span
+                        if (colIsSc) colEnd = totalColumns - 1
+                    }
+                    for (const row of table.querySelectorAll('tr')) {
+                        let currentColumn = 0
+                        for (const cell of row.children) {
+                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10), cellStart = currentColumn, cellEnd = currentColumn + colspan - 1
+                            if ((cellStart >= colStart && cellStart <= colEnd) || (cellEnd >= colStart && cellEnd <= colEnd)) matchedCells.push(cell);
+                            currentColumn += colspan
+                        }
+                    }
+                    return matchedCells
+                }
+            }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*')),
+                qualifierProcessors = {
+                    'p': (sc, sel) => {
+                        const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim())
+                        return sc.style[property] === value
+                    },
+                    'amp': (sc, sel) => {
+                        const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim()), computedStyle = window.getComputedStyle(sc)
+                        return computedStyle.getPropertyValue(property) === value
+                    },
+                    'at': (sc, sel) => sc.getAttribute('name') === sel.slice(1).trim(),
+                    'e': (sc, sel) => { },
+                    't': (sc, sel) => {
+                        console.log('line 899', sc, sel)
+                        return sc.getAttribute('itemprop') === sel.slice(1).trim()
+                    }
+                }
+
+
             try {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
             } catch (e) {
@@ -851,44 +902,23 @@ const ElementHTML = Object.defineProperties({}, {
                     try {
                         branchMatches.push(...(isMulti ? Array.from(scope.querySelectorAll(branch)) : [scope.querySelector(branch)].filter(n => !!n)))
                     } catch (ee) {
-                        const segmentSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
-                        const segments = branch.split(segmentSplitter)
+                        const segmentSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/, segments = branch.split(segmentSplitter)
+                        let segmentTracks = [scope]
+                        for (const segment of segments) {
+                            try {
+                                const newTracks = []
+                                for (const track of segmentTracks) newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
+                                segmentTracks = newTracks
+                            } catch (eee) {
+                                const hasNonDefaultCombinator = segment[0] in combinatorProcessors
+                                let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
+                                    combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
 
-                        for (let segment of segments) {
-                            const hasNonDefaultCombinator = segment[0] in combinatorProcessors
-                            let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
-                                combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
-                            if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
-                            const segmentSet = [], qualifiers = segment.match(qualifierMatcher)
-                            if (!qualifiers?.length) break
-                            for (const s of currentScope) {
-                                let qualified = combinatorProcessor(s)
-                                for (const qualifier of qualifiers) {
-                                    console.log('line 918', qualifier)
-                                    const selectorIsQualifier = selector === qualifier
-                                    hasAdvancedSelectors.lastIndex = 0
-                                    if (selectorIsQualifier || hasAdvancedSelectors.test(qualifier)) {
-                                        let match
-                                        hasAdvancedSelectors.lastIndex = 0
-                                        while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
-                                            for (const label in qualifierProcessors) if (match.groups[label]) {
-                                                const qualifierProcessor = qualifierProcessors[label]
-                                                qualified = qualified.filter(q => qualifierProcessor(q, qualifier))
-                                                break
-                                            }
-                                        }
-                                    } else {
-                                        qualified = qualified.filter(q => q.matches(qualifier))
-                                    }
-                                    if (!qualified?.length) break
-                                }
-                                segmentSet.push(...qualified)
+
+
                             }
-                            currentScope = [...segmentSet]
-                            if (!currentScope?.length) break
                         }
-
-
+                        branchMatches.push(...segmentTracks)
                     }
                     if (!branchMatches.length) continue
                     if (!isMulti) return branchMatches[0]
