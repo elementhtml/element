@@ -922,11 +922,46 @@ const ElementHTML = Object.defineProperties({}, {
                                             indexOfNextClause = remainingSegment.indexOf(clauseOpener, 1)
                                             if (indexOfNextClause != -1) break
                                         }
-                                        const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause)
+                                        const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause).trim()
                                         try {
                                             qualified = qualified.filter(n => n.matches(thisClause))
                                             if (!qualified.length) break
                                         } catch (eeee) {
+                                            switch (thisClause[0]) {
+                                                case '@':
+                                                    qualified = qualified.filter(n => n.getAttribute('name') === thisClause.slice(1))
+                                                    break
+                                                case '!':
+                                                    //kind of event filter here???
+                                                    break
+                                                case '~':
+                                                    qualified = qualified.filter(n => n.getAttribute('itemprop') === thisClause.slice(1))
+                                                    break
+                                                case '$':
+                                                    qualified = qualified.filter(n => n.value === thisClause.slice(1))
+                                                    break
+                                                case '[':
+                                                    const flag = thisClause[1], [checkKey, checkValue] = thisClause.slice(2, -1).split('=').map(s => s.trim())
+                                                    switch (flag) {
+                                                        case '%':
+                                                            qualified = qualified.filter(n => n.style[checkKey] === checkValue)
+                                                            break
+                                                        case '&':
+                                                            qualified = qualified.filter(n => window.getComputedStyle(sc).getPropertyValue(checkKey) === checkValue)
+                                                            break
+                                                        case '?':
+                                                            qualified = qualified.filter(n => n.dataset[checkKey] === checkValue)
+                                                            break
+                                                        case '$':
+                                                            qualified = qualified.filter(n => n[checkKey] === checkValue)
+                                                            break
+                                                        case '.':
+                                                            break
+                                                    }
+                                                    break
+                                                default:
+
+                                            }
 
                                         }
                                         remainingSegment = remainingSegment.slice(indexOfNextClause + 1)
