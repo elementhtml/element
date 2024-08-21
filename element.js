@@ -845,16 +845,54 @@ const ElementHTML = Object.defineProperties({}, {
             try {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
             } catch (e) {
-                const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/, branches = selector.split(branchSplitter), matches = []
+                const matches = [], branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/, branches = selector.split(branchSplitter)
                 for (const branch of branches) {
+                    const branchMatches = []
                     try {
-                        const branchMatches = isMulti ? Array.from(scope.querySelectorAll(branch)) : [scope.querySelector(branch)].filter(n => !!n)
-                        if (!branchMatches.length) continue
-                        if (!isMulti) return branchMatches[0]
-                        matches.push(...branchMatches)
+                        branchMatches.push(...(isMulti ? Array.from(scope.querySelectorAll(branch)) : [scope.querySelector(branch)].filter(n => !!n)))
                     } catch (ee) {
+                        const segmentSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
+                        const segments = branch.split(segmentSplitter)
+
+                        for (let segment of segments) {
+                            const hasNonDefaultCombinator = segment[0] in combinatorProcessors
+                            let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
+                                combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
+                            if (nonDefaultCombinator) segment = segment.slice(nonDefaultCombinator.length).trim()
+                            const segmentSet = [], qualifiers = segment.match(qualifierMatcher)
+                            if (!qualifiers?.length) break
+                            for (const s of currentScope) {
+                                let qualified = combinatorProcessor(s)
+                                for (const qualifier of qualifiers) {
+                                    console.log('line 918', qualifier)
+                                    const selectorIsQualifier = selector === qualifier
+                                    hasAdvancedSelectors.lastIndex = 0
+                                    if (selectorIsQualifier || hasAdvancedSelectors.test(qualifier)) {
+                                        let match
+                                        hasAdvancedSelectors.lastIndex = 0
+                                        while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
+                                            for (const label in qualifierProcessors) if (match.groups[label]) {
+                                                const qualifierProcessor = qualifierProcessors[label]
+                                                qualified = qualified.filter(q => qualifierProcessor(q, qualifier))
+                                                break
+                                            }
+                                        }
+                                    } else {
+                                        qualified = qualified.filter(q => q.matches(qualifier))
+                                    }
+                                    if (!qualified?.length) break
+                                }
+                                segmentSet.push(...qualified)
+                            }
+                            currentScope = [...segmentSet]
+                            if (!currentScope?.length) break
+                        }
+
 
                     }
+                    if (!branchMatches.length) continue
+                    if (!isMulti) return branchMatches[0]
+                    matches.push(...branchMatches)
                 }
                 return isMulti ? this.sliceAndStep(sliceSignature, matches) : matches[0]
             }
