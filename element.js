@@ -1733,7 +1733,6 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (fragment, value) {
             const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
                 valuePrototype = value?.constructor?.prototype
-            console.log('line 1652', methodName, argsList, value)
             if (valuePrototype && (typeof value[methodName] === 'function')) return value[methodName](...this.mergeArgs(argsList, value))
             return
         }
