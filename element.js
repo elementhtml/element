@@ -854,7 +854,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return siblings
                 },
-                '|': true,
                 '||': sc => {
                     const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
                     let totalColumns = 0, colStart = 0, colEnd = 0;
@@ -886,10 +885,7 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     'at': (sc, sel) => sc.getAttribute('name') === sel.slice(1).trim(),
                     'e': (sc, sel) => { },
-                    't': (sc, sel) => {
-                        console.log('line 899', sc, sel)
-                        return sc.getAttribute('itemprop') === sel.slice(1).trim()
-                    }
+                    't': (sc, sel) => sc.getAttribute('itemprop') === sel.slice(1).trim()
                 }
 
 
@@ -905,18 +901,40 @@ const ElementHTML = Object.defineProperties({}, {
                         const segmentSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/, segments = branch.split(segmentSplitter)
                         let segmentTracks = [scope]
                         for (const segment of segments) {
-                            try {
-                                const newTracks = []
-                                for (const track of segmentTracks) newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
-                                segmentTracks = newTracks
-                            } catch (eee) {
-                                const hasNonDefaultCombinator = segment[0] in combinatorProcessors
-                                let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : undefined,
-                                    combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
+                            const newTracks = []
+                            for (const track of segmentTracks) {
+                                try {
+                                    newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
+                                } catch (eee) {
+                                    const hasNonDefaultCombinator = segment[0] in combinatorProcessors
+                                    let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '',
+                                        combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
 
+                                    const nonStandardSelectors = {
+                                        attributeLike: ['%', '&', '?', '.', '..', '...', '<>', '$'],
+                                        classLike: ['@', '!', '~', '$']
+                                    }, clauseOpeners = ['[', '#', '.', ...nonStandardSelectors.classLike]
 
+                                    let qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
+                                    while (remainingSegment) {
+                                        let indexOfNextClause
+                                        for (const clauseOpener of clauseOpeners) {
+                                            indexOfNextClause = remainingSegment.indexOf(clauseOpener, 1)
+                                            if (indexOfNextClause != -1) break
+                                        }
+                                        const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause)
+                                        try {
+                                            qualified = qualified.filter(n => n.matches(thisClause))
+                                            if (!qualified.length) break
+                                        } catch (eeee) {
 
+                                        }
+                                        remainingSegment = remainingSegment.slice(indexOfNextClause + 1)
+                                    }
+                                    newTracks.push(...qualified)
+                                }
                             }
+                            segmentTracks = newTracks
                         }
                         branchMatches.push(...segmentTracks)
                     }
