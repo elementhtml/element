@@ -884,11 +884,17 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*')),
                     qualifierProcessors = {
-                        'p': () => { },
-                        'amp': () => { },
-                        'at': () => { },
-                        'e': () => { },
-                        't': () => { }
+                        'p': (sc, sel) => {
+                            const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim())
+                            return sc.style[property] === value
+                        },
+                        'amp': (sc, sel) => {
+                            const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim()), computedStyle = window.getComputedStyle(sc)
+                            return computedStyle.getPropertyValue(property) === value
+                        },
+                        'at': (sc, sel) => sc.getAttribute('name') === sel.slice(1).trim(),
+                        'e': (sc, sel) => { },
+                        't': (sc, sel) => sc.getAttribute('itemprop') === sel.slice(1).trim()
                     }
 
                 const branches = selector.split(branchSplitter)
@@ -910,7 +916,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
                                         for (const label of qualifierProcessors) if (match.groups[label]) {
                                             const qualifierProcessor = qualifierProcessors[label]
-                                            qualified = qualified.filter(q => qualifierProcessor(q, match.groups[label]))
+                                            qualified = qualified.filter(q => qualifierProcessor(q, qualifier))
                                             break
                                         }
                                     }
