@@ -905,21 +905,17 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const s of currentScope) {
                             let qualified = combinatorProcessor(s)
                             for (const qualifier of qualifiers) {
-
                                 if (hasAdvancedSelectors.test(qualifier)) {
                                     let match
                                     while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
                                         for (const label of qualifierProcessors) if (match.groups[label]) {
                                             const qualifierProcessor = qualifierProcessors[label]
-                                            //more to do here...
-
+                                            qualified = qualified.filter(q => qualifierProcessor(q, match.groups[label]))
+                                            break
                                         }
-
                                     }
-
-
                                 } else {
-                                    qualified = qualified.filter(q => q.matches(qualifier));
+                                    qualified = qualified.filter(q => q.matches(qualifier))
                                 }
                                 if (!qualified?.length) break
                             }
