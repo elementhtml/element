@@ -955,7 +955,26 @@ const ElementHTML = Object.defineProperties({}, {
                                                         case '$':
                                                             qualified = qualified.filter(n => n[checkKey] === checkValue)
                                                             break
+                                                        case '<':
+                                                            if (checkKey[0] === '>') qualified = qualified.filter(n => n.innerHTML === checkValue)
+                                                            break
                                                         case '.':
+                                                            const textMatchType = `${flag}${checkKey}`
+                                                            switch (textMatchType) {
+                                                                case '.':
+                                                                    if ((checkValue.includes('<') && checkValue.includes('>')) || (checkValue.includes('&') && checkValue.includes(';'))) {
+                                                                        qualified = qualified.filter(n => n.innerHTML.includes(checkValue))
+                                                                    } else {
+                                                                        qualified = qualified.filter(n => n.textContent === checkValue)
+                                                                    }
+                                                                    break
+                                                                case '..':
+                                                                    qualified = qualified.filter(n => n.innerText === checkValue)
+                                                                    break
+                                                                case '...':
+                                                                    qualified = qualified.filter(n => n.textContent === checkValue)
+                                                                    break
+                                                            }
                                                             break
                                                     }
                                                     break
