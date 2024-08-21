@@ -845,6 +845,7 @@ const ElementHTML = Object.defineProperties({}, {
             let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
 
+            hasAdvancedSelectors.lastIndex = 0
             if (hasAdvancedSelectors.test(selector)) {
                 const branchSplitter = /\s*,\s*(?![^"']*["'][^"']*$)/
                 const chunkSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/
@@ -897,7 +898,7 @@ const ElementHTML = Object.defineProperties({}, {
                         't': (sc, sel) => sc.getAttribute('itemprop') === sel.slice(1).trim()
                     }
 
-                const branches = selector.split(branchSplitter)
+                const branches = selector.split(branchSplitter), matches = []
                 for (const branch of branches) {
                     let currentScope = [scope]
                     const segments = branch.split(chunkSplitter)
@@ -911,10 +912,13 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const s of currentScope) {
                             let qualified = combinatorProcessor(s)
                             for (const qualifier of qualifiers) {
-                                if (hasAdvancedSelectors.test(qualifier)) {
+                                const selectorIsQualifier = selector === qualifier
+                                hasAdvancedSelectors.lastIndex = 0
+                                if (selectorIsQualifier || hasAdvancedSelectors.test(qualifier)) {
                                     let match
+                                    hasAdvancedSelectors.lastIndex = 0
                                     while ((match = hasAdvancedSelectors.exec(qualifier)) !== null) {
-                                        for (const label of qualifierProcessors) if (match.groups[label]) {
+                                        for (const label in qualifierProcessors) if (match.groups[label]) {
                                             const qualifierProcessor = qualifierProcessors[label]
                                             qualified = qualified.filter(q => qualifierProcessor(q, qualifier))
                                             break
@@ -934,6 +938,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!isMulti) return currentScope[0]
                     matches.push(...currentScope)
                 }
+                if (!isMulti) return matches[0]
                 return this.sliceAndStep(sliceSignature, matches)
             } else {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
