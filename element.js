@@ -909,32 +909,48 @@ const ElementHTML = Object.defineProperties({}, {
                                     const nonStandardSelectors = {
                                         attributeLike: ['%', '&', '?', '.', '..', '...', '<>', '$'],
                                         classLike: ['@', '!', '~', '$']
-                                    }, clauseOpeners = ['[', '#', '.', ...nonStandardSelectors.classLike]
+                                    }, clauseOpeners = {
+                                        '[': true,
+                                        '#': true,
+                                        '.': true,
+                                        '@': (n, c) => n.getAttribute('name') === c,
+                                        '!': (n, c) => {
+                                            //some kind of event filter here??? - returns false for now to stop the process
+                                            return false
+                                        },
+                                        '^': (n, c) => n.getAttribute('itemprop') === c,
+                                        '$': (n, c) => n.value === c
+                                    }, comparators = {
+                                        '=': () => { },
+                                        '~=': () => { },
+                                        '|=': () => { },
+                                        '^=': () => { },
+                                        '$=': () => { },
+                                        '*=': () => { },
+                                        '<': () => { },
+                                        '>': () => { },
+                                        '<=': () => { },
+                                        '>=': () => { },
+                                        '==': () => { }
+                                    }
 
                                     let qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
                                         let indexOfNextClause
-                                        for (const clauseOpener of clauseOpeners) {
+                                        for (const clauseOpener in clauseOpeners) {
                                             indexOfNextClause = remainingSegment.indexOf(clauseOpener, 1)
                                             if (indexOfNextClause != -1) break
                                         }
                                         const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause).trim()
+                                        let writeIndex = 0
                                         try {
-                                            qualified = qualified.filter(n => n.matches(thisClause))
-                                            if (!qualified.length) break
+                                            for (let i = 0; i < qualified.length; i++) if (qualified[i].matches(thisClause)) qualified[writeIndex++] = qualified[i]
                                         } catch (eeee) {
-                                            switch (thisClause[0]) {
-                                                case '@':
-                                                    qualified = qualified.filter(n => n.getAttribute('name') === thisClause.slice(1))
-                                                    break
-                                                case '!':
-                                                    //kind of event filter here???
-                                                    break
-                                                case '~':
-                                                    qualified = qualified.filter(n => n.getAttribute('itemprop') === thisClause.slice(1))
-                                                    break
-                                                case '$':
-                                                    qualified = qualified.filter(n => n.value === thisClause.slice(1))
+                                            const clauseOpener = clauseOpeners[thisClause[0]]
+                                            switch (clauseOpener) {
+                                                case '@': case '!': case '^': case '$':
+                                                    const clauseMain = thisClause.slice(1)
+                                                    for (let i = 0; i < qualified.length; i++) if (clauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
                                                     break
                                                 case '[':
                                                     const flag = thisClause[1], [checkKey, checkValue] = thisClause.slice(2, -1).split('=').map(s => s.trim())
@@ -979,6 +995,8 @@ const ElementHTML = Object.defineProperties({}, {
                                             }
 
                                         }
+                                        qualified.length = writeIndex
+                                        if (!qualified.length) break
                                         remainingSegment = remainingSegment.slice(indexOfNextClause + 1)
                                     }
                                     newTracks.push(...qualified)
