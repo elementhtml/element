@@ -973,19 +973,19 @@ const ElementHTML = Object.defineProperties({}, {
                                                             const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1)
                                                             switch (clauseFlag) {
                                                                 case '%':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].style.getPropertyValue(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].style.getPropertyValue(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
                                                                     break
                                                                 case '&':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(window.getComputedStyle(qualified[i]).getPropertyValue(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(window.getComputedStyle(qualified[i]).getPropertyValue(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
                                                                     break
                                                                 case '?':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].dataset[clauseProperty], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].dataset[clauseProperty], clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
                                                                     break
                                                                 case '$':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseProperty], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseProperty], clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
                                                                     break
                                                                 case '@':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
                                                                     break
                                                                 default:
                                                                     for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseKey), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
