@@ -832,15 +832,11 @@ const ElementHTML = Object.defineProperties({}, {
     resolveSelector: {
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
-            if (selector[0] === ':') {
-                if (!selector) return scope
-                const catchallSelector = this.buildCatchallSelector(selector)
-                return scope.querySelector(catchallSelector)
-            }
+            if (selector[0] === ':') return scope.querySelector(this.buildCatchallSelector(selector))
 
-            const multiMatcher = /.*\{.*\}$/, isMulti = multiMatcher.test(selector)
-            let lastIndex = isMulti ? selector.lastIndexOf('{') : undefined, sliceSignature
-            if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndex), selector.slice(lastIndex + 1, -1)]
+            let sliceSignature
+            const lastIndexOfOpenCurlyBracket = selector.lastIndexOf('{'), isMulti = selector.endsWith('}') && (lastIndexOfOpenCurlyBracket > 0)
+            if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndexOfOpenCurlyBracket), selector.slice(lastIndexOfOpenCurlyBracket + 1, -1)]
 
             const combinatorProcessors = {
                 '>': sc => Array.from(sc.chilren()),
