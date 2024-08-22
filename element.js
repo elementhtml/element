@@ -956,7 +956,6 @@ const ElementHTML = Object.defineProperties({}, {
                                                     const comparatorProcessor = comparators[clauseComparator],
                                                         clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1),
                                                         clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
-
                                                     let clauseInputValueType
                                                     switch (clauseKey) {
                                                         case '...':
@@ -968,55 +967,31 @@ const ElementHTML = Object.defineProperties({}, {
                                                             for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseInputValueType], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                             break
                                                         case '.':
-                                                            for (let i = 0; i < qualified.length; i++) {
-                                                                const n = qualified[i], clauseInputValue = this.sys.isHTML.test(n.textContent) ? n.innerHTML : n.textContent
-                                                                if (comparatorProcessor(clauseInputValue, clauseReferenceValue)) qualified[writeIndex++] = n
-                                                            }
+                                                            for (let i = 0, n = qualified[i], tc = n.textContent; i < qualified.length; i++) if (comparatorProcessor(this.sys.isHTML.test(tc = (n = qualified[i]).textContent) ? n.innerHTML : tc, clauseReferenceValue)) qualified[writeIndex++] = n
                                                             break
                                                         default:
                                                             const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1)
-                                                            switch (clauseFlag) { }
-                                                    }
-
-                                                    switch (clauseFlag) {
-                                                        case '%':
-                                                            qualified = qualified.filter(n => n.style[checkKey] === checkValue)
-                                                            for (let i = 0; i < qualified.length; i++) if (qualified[i].style[checkKey] === checkValue) qualified[writeIndex++] = qualified[i]
-                                                            break
-                                                        case '&':
-                                                            qualified = qualified.filter(n => window.getComputedStyle(sc).getPropertyValue(checkKey) === checkValue)
-                                                            break
-                                                        case '?':
-                                                            qualified = qualified.filter(n => n.dataset[checkKey] === checkValue)
-                                                            break
-                                                        case '$':
-                                                            qualified = qualified.filter(n => n[checkKey] === checkValue)
-                                                            break
-                                                        case '<':
-                                                            if (checkKey[0] === '>') qualified = qualified.filter(n => n.innerHTML === checkValue)
-                                                            break
-                                                        case '.':
-                                                            const textMatchType = `${flag}${checkKey}`
-                                                            switch (textMatchType) {
-                                                                case '.':
-                                                                    if ((checkValue.includes('<') && checkValue.includes('>')) || (checkValue.includes('&') && checkValue.includes(';'))) {
-                                                                        qualified = qualified.filter(n => n.innerHTML.includes(checkValue))
-                                                                    } else {
-                                                                        qualified = qualified.filter(n => n.textContent === checkValue)
-                                                                    }
+                                                            switch (clauseFlag) {
+                                                                case '%':
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].style.getPropertyValue(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                                     break
-                                                                case '..':
-                                                                    qualified = qualified.filter(n => n.innerText === checkValue)
+                                                                case '&':
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(window.getComputedStyle(qualified[i]).getPropertyValue(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                                     break
-                                                                case '...':
-                                                                    qualified = qualified.filter(n => n.textContent === checkValue)
+                                                                case '?':
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].dataset[clauseProperty], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                                     break
+                                                                case '$':
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseProperty], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    break
+                                                                case '@':
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseProperty), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                                    break
+                                                                default:
+                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseKey), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                             }
-                                                            break
                                                     }
                                                     break
-                                                default:
-
                                             }
 
                                         }
