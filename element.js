@@ -920,10 +920,9 @@ const ElementHTML = Object.defineProperties({}, {
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
                                         qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
-                                        let indexOfNextClause = -1
+                                        let indexOfNextClause = -1, writeIndex = 0
                                         for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
                                         const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause).trim()
-                                        let writeIndex = 0
                                         try {
                                             for (let i = 0; i < qualified.length; i++) if (qualified[i].matches(thisClause)) qualified[writeIndex++] = qualified[i]
                                         } catch (eeee) {
@@ -934,12 +933,11 @@ const ElementHTML = Object.defineProperties({}, {
                                                     for (let i = 0; i < qualified.length; i++) if (clauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
                                                     break
                                                 case '[':
-                                                    let indexOfComparator, clauseComparator
+                                                    let indexOfComparator, clauseComparator, clauseInputValueType
                                                     for (clauseComparator in comparators) if ((indexOfComparator = thisClause.indexOf(clauseComparator, 1)) !== -1) break
-                                                    const comparatorProcessor = comparators[clauseComparator],
-                                                        clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1),
-                                                        clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
-                                                    let clauseInputValueType
+                                                    const clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1),
+                                                        clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined,
+                                                        comparatorProcessor = comparators[clauseComparator]
                                                     switch (clauseKey) {
                                                         case '...':
                                                             clauseInputValueType = 'textContent'
@@ -953,26 +951,15 @@ const ElementHTML = Object.defineProperties({}, {
                                                             for (let i = 0, n = qualified[i], tc = n.textContent; i < qualified.length; i++) if (comparatorProcessor(this.sys.isHTML.test(tc = (n = qualified[i]).textContent) ? n.innerHTML : tc, clauseReferenceValue)) qualified[writeIndex++] = n
                                                             break
                                                         default:
-                                                            const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1)
-                                                            switch (clauseFlag) {
-                                                                case '%':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].style.getPropertyValue(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
-                                                                    break
-                                                                case '&':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(window.getComputedStyle(qualified[i]).getPropertyValue(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
-                                                                    break
-                                                                case '?':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].dataset[clauseProperty], clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
-                                                                    break
-                                                                case '$':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseProperty], clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
-                                                                    break
-                                                                case '@':
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = qualified[i]
-                                                                    break
-                                                                default:
-                                                                    for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseKey), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                            const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1), flagProcessorMap = {
+                                                                '%': (n, cp, ck) => n.style.getPropertyValue(cp),
+                                                                '&': (n, cp, ck) => window.getComputedStyle(n).getPropertyValue(cp),
+                                                                '?': (n, cp, ck) => n.dataset[cp],
+                                                                '$': (n, cp, ck) => n[cp],
+                                                                '@': (n, cp, ck) => n.getAttribute(cp),
+                                                                '': (n, cp, ck) => n.getAttribute(ck),
                                                             }
+                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(flagProcessorMap[clauseFlag](n = qualified[i], clauseProperty, clauseKey), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = n
                                                     }
                                             }
                                         }
