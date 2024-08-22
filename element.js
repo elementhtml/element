@@ -951,15 +951,15 @@ const ElementHTML = Object.defineProperties({}, {
                                                             for (let i = 0, n = qualified[i], tc = n.textContent; i < qualified.length; i++) if (comparatorProcessor(this.sys.isHTML.test(tc = (n = qualified[i]).textContent) ? n.innerHTML : tc, clauseReferenceValue)) qualified[writeIndex++] = n
                                                             break
                                                         default:
-                                                            const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1), flagProcessorMap = {
-                                                                '%': (n, cp, ck) => n.style.getPropertyValue(cp),
-                                                                '&': (n, cp, ck) => window.getComputedStyle(n).getPropertyValue(cp),
-                                                                '?': (n, cp, ck) => n.dataset[cp],
-                                                                '$': (n, cp, ck) => n[cp],
-                                                                '@': (n, cp, ck) => n.getAttribute(cp),
-                                                                '': (n, cp, ck) => n.getAttribute(ck),
-                                                            }
-                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(flagProcessorMap[clauseFlag](n = qualified[i], clauseProperty, clauseKey), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = n
+                                                            const flagProcessorMap = {
+                                                                '%': (n, cp) => n.style.getPropertyValue(cp),
+                                                                '&': (n, cp) => window.getComputedStyle(n).getPropertyValue(cp),
+                                                                '?': (n, cp) => n.dataset[cp],
+                                                                '$': (n, cp) => n[cp],
+                                                                '@': (n, cp) => n.getAttribute(cp),
+                                                                '': (n, cp) => n.getAttribute(cp),
+                                                            }, clauseFlag = clauseKey[0] in flagProcessorMap ? clauseKey[0] : '', clauseProperty = clauseKey.slice(clauseFlag.length)
+                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(flagProcessorMap[clauseFlag](n = qualified[i], clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = n
                                                     }
                                             }
                                         }
