@@ -886,10 +886,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 try {
                                     newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
                                 } catch (eee) {
-                                    const hasNonDefaultCombinator = segment[0] in combinatorProcessors, nonStandardSelectors = {
-                                        attributeLike: ['%', '&', '?', '.', '..', '...', '<>', '$'],
-                                        classLike: ['@', '!', '~', '$']
-                                    }, clauseOpeners = {
+                                    const hasNonDefaultCombinator = ((segment[0] === '|') || (segment[0] in combinatorProcessors)), clauseOpeners = {
                                         '[': true,
                                         '#': true,
                                         '.': true,
@@ -901,9 +898,10 @@ const ElementHTML = Object.defineProperties({}, {
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
                                     }, canonicalizeColor = (color, includeAlpha) => {
-                                        const tempElement = document.createElement('div')
-                                        tempElement.style.color = color
-                                        let computedColor = window.getComputedStyle(tempElement).getPropertyValue('color')
+                                        const oldHeadColor = document.head.style.getPropertyValue('color')
+                                        document.head.style.setProperty('color', color)
+                                        let computedColor = window.getComputedStyle(document.head).getPropertyValue('color')
+                                        document.head.style.setProperty('color', oldHeadColor)
                                         if (!includeAlpha && computedColor.startsWith('rgba')) {
                                             const rgbaMatch = computedColor.match(/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/)
                                             if (rgbaMatch) computedColor = `rgb(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]})`
@@ -913,18 +911,18 @@ const ElementHTML = Object.defineProperties({}, {
                                         }
                                         return computedColor;
                                     }, comparators = {
-                                        '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) == canonicalizeColor(rv)) : (iv == rv),
                                         '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
                                         '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
                                         '^=': (iv, rv, f, p) => iv.startsWith(rv),
                                         '$=': (iv, rv, f, p) => iv.endsWith(rv),
                                         '*=': (iv, rv, f, p) => iv.includes(rv),
                                         '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
-                                        '<': (iv, rv, f, p) => parseFloat(iv) < parseFloat(rv),
-                                        '>': (iv, rv, f, p) => parseFloat(iv) > parseFloat(rv),
+                                        '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) === canonicalizeColor(rv, true)) : (iv == rv),
+                                        '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) === canonicalizeColor(rv)) : (iv == rv),
                                         '<=': (iv, rv, f, p) => parseFloat(iv) <= parseFloat(rv),
                                         '>=': (iv, rv, f, p) => parseFloat(iv) >= parseFloat(rv),
-                                        '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) == canonicalizeColor(rv, true)) : (iv == rv),
+                                        '<': (iv, rv, f, p) => parseFloat(iv) < parseFloat(rv),
+                                        '>': (iv, rv, f, p) => parseFloat(iv) > parseFloat(rv),
                                         '': iv => !!iv
                                     }
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
@@ -932,22 +930,23 @@ const ElementHTML = Object.defineProperties({}, {
                                     while (remainingSegment) {
                                         let indexOfNextClause = -1, writeIndex = 0
                                         for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
-                                        const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause).trim()
+                                        const noIndexOfNextClause = indexOfNextClause === -1, thisClause = remainingSegment.slice(0, noIndexOfNextClause ? undefined : indexOfNextClause).trim()
                                         try {
                                             for (let i = 0; i < qualified.length; i++) if (qualified[i].matches(thisClause)) qualified[writeIndex++] = qualified[i]
                                         } catch (eeee) {
-                                            const clauseOpener = clauseOpeners[thisClause[0]]
+                                            const clauseOpener = thisClause[0]
                                             switch (clauseOpener) {
                                                 case '@': case '!': case '^': case '$':
                                                     const clauseMain = thisClause.slice(1)
                                                     for (let i = 0; i < qualified.length; i++) if (clauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
                                                     break
                                                 case '[':
-                                                    let indexOfComparator, clauseComparator, clauseInputValueType
+                                                    let indexOfComparator, clauseComparator, clauseInputValueType, partValue
                                                     for (clauseComparator in comparators) if ((indexOfComparator = thisClause.indexOf(clauseComparator, 1)) !== -1) break
-                                                    const clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1),
-                                                        clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined,
-                                                        comparatorProcessor = comparators[clauseComparator]
+                                                    const comparatorProcessor = comparators[clauseComparator],
+                                                        clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1)
+                                                    let clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
+                                                    if (clauseReferenceValue && (clauseReferenceValue.length > 1) && (clauseReferenceValue[0] == '"' || clauseReferenceValue[0] == "'") && (clauseReferenceValue.endsWith('"') || clauseReferenceValue.endsWith("'"))) clauseReferenceValue = clauseReferenceValue.slice(1, -1)
                                                     switch (clauseKey) {
                                                         case '...':
                                                             clauseInputValueType = 'textContent'
@@ -975,7 +974,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         }
                                         qualified.length = writeIndex
                                         if (!qualified.length) break
-                                        remainingSegment = remainingSegment.slice(indexOfNextClause + 1)
+                                        remainingSegment = remainingSegment.slice(thisClause.length)
                                     }
                                     newTracks.push(...qualified)
                                 }
