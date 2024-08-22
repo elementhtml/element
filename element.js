@@ -904,17 +904,17 @@ const ElementHTML = Object.defineProperties({}, {
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
                                     }, comparators = {
-                                        '=': (iv, rv) => { },
-                                        '~=': (iv, rv) => { },
-                                        '|=': (iv, rv) => { },
-                                        '^=': (iv, rv) => { },
-                                        '$=': (iv, rv) => { },
-                                        '*=': (iv, rv) => { },
-                                        '<': (iv, rv) => { },
-                                        '>': (iv, rv) => { },
-                                        '<=': (iv, rv) => { },
-                                        '>=': (iv, rv) => { },
-                                        '==': (iv, rv) => { },
+                                        '=': (iv, rv, f) => { },
+                                        '~=': (iv, rv, f) => { },
+                                        '|=': (iv, rv, f) => { },
+                                        '^=': (iv, rv, f) => { },
+                                        '$=': (iv, rv, f) => { },
+                                        '*=': (iv, rv, f) => { },
+                                        '<': (iv, rv, f) => { },
+                                        '>': (iv, rv, f) => { },
+                                        '<=': (iv, rv, f) => { },
+                                        '>=': (iv, rv, f) => { },
+                                        '==': (iv, rv, f) => { },
                                         '': iv => !!iv
                                     }
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
