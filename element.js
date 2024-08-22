@@ -835,7 +835,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (selector[0] === ':') return scope.querySelector(this.buildCatchallSelector(selector))
 
             let sliceSignature
-            const lastIndexOfOpenCurlyBracket = selector.lastIndexOf('{'), isMulti = selector.endsWith('}') && (lastIndexOfOpenCurlyBracket > 0)
+            const lastIndexOfOpenCurlyBracket = selector.lastIndexOf('{'), isMulti = (lastIndexOfOpenCurlyBracket > 0) && selector.endsWith('}')
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndexOfOpenCurlyBracket), selector.slice(lastIndexOfOpenCurlyBracket + 1, -1)]
 
             const combinatorProcessors = {
