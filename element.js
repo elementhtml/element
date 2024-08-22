@@ -916,9 +916,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         '>': (iv, rv, f, p) => { },
                                         '<=': (iv, rv, f, p) => { },
                                         '>=': (iv, rv, f, p) => { },
-                                        '==': (iv, rv, f, p) => {
-
-                                        },
+                                        '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) == canonicalizeColor(rv, true)) : (iv == rv),
                                         '': iv => !!iv
                                     }
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
