@@ -921,26 +921,24 @@ const ElementHTML = Object.defineProperties({}, {
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
                                     }, comparators = {
-                                        '=': () => { },
-                                        '~=': () => { },
-                                        '|=': () => { },
-                                        '^=': () => { },
-                                        '$=': () => { },
-                                        '*=': () => { },
-                                        '<': () => { },
-                                        '>': () => { },
-                                        '<=': () => { },
-                                        '>=': () => { },
-                                        '==': () => { }
+                                        '=': (iv, rv) => { },
+                                        '~=': (iv, rv) => { },
+                                        '|=': (iv, rv) => { },
+                                        '^=': (iv, rv) => { },
+                                        '$=': (iv, rv) => { },
+                                        '*=': (iv, rv) => { },
+                                        '<': (iv, rv) => { },
+                                        '>': (iv, rv) => { },
+                                        '<=': (iv, rv) => { },
+                                        '>=': (iv, rv) => { },
+                                        '==': (iv, rv) => { },
+                                        '': iv => !!iv
                                     }
 
                                     let qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
-                                        let indexOfNextClause
-                                        for (const clauseOpener in clauseOpeners) {
-                                            indexOfNextClause = remainingSegment.indexOf(clauseOpener, 1)
-                                            if (indexOfNextClause != -1) break
-                                        }
+                                        let indexOfNextClause = -1
+                                        for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
                                         const thisClause = remainingSegment.slice(0, indexOfNextClause === -1 ? undefined : indexOfNextClause).trim()
                                         let writeIndex = 0
                                         try {
@@ -953,10 +951,37 @@ const ElementHTML = Object.defineProperties({}, {
                                                     for (let i = 0; i < qualified.length; i++) if (clauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
                                                     break
                                                 case '[':
-                                                    const flag = thisClause[1], [checkKey, checkValue] = thisClause.slice(2, -1).split('=').map(s => s.trim())
-                                                    switch (flag) {
+                                                    let indexOfComparator, clauseComparator
+                                                    for (clauseComparator in comparators) if ((indexOfComparator = thisClause.indexOf(clauseComparator, 1)) !== -1) break
+                                                    const comparatorProcessor = comparators[clauseComparator],
+                                                        clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1),
+                                                        clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
+
+                                                    let clauseInputValueType
+                                                    switch (clauseKey) {
+                                                        case '...':
+                                                            clauseInputValueType = 'textContent'
+                                                        case '..':
+                                                            clauseInputValueType ??= 'innerText'
+                                                        case '<>':
+                                                            clauseInputValueType ??= 'innerHTML'
+                                                            for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseInputValueType], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
+                                                            break
+                                                        case '.':
+                                                            for (let i = 0; i < qualified.length; i++) {
+                                                                const n = qualified[i], clauseInputValue = this.sys.isHTML.test(n.textContent) ? n.innerHTML : n.textContent
+                                                                if (comparatorProcessor(clauseInputValue, clauseReferenceValue)) qualified[writeIndex++] = n
+                                                            }
+                                                            break
+                                                        default:
+                                                            const clauseFlag = clauseKey[0], clauseProperty = clauseKey.slice(1)
+                                                            switch (clauseFlag) { }
+                                                    }
+
+                                                    switch (clauseFlag) {
                                                         case '%':
                                                             qualified = qualified.filter(n => n.style[checkKey] === checkValue)
+                                                            for (let i = 0; i < qualified.length; i++) if (qualified[i].style[checkKey] === checkValue) qualified[writeIndex++] = qualified[i]
                                                             break
                                                         case '&':
                                                             qualified = qualified.filter(n => window.getComputedStyle(sc).getPropertyValue(checkKey) === checkValue)
@@ -1416,7 +1441,8 @@ const ElementHTML = Object.defineProperties({}, {
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
+                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
+                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
                 splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
             }),
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
