@@ -993,7 +993,6 @@ const ElementHTML = Object.defineProperties({}, {
                                                     }
                                                     break
                                             }
-
                                         }
                                         qualified.length = writeIndex
                                         if (!qualified.length) break
