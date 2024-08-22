@@ -904,18 +904,29 @@ const ElementHTML = Object.defineProperties({}, {
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
                                     }, canonicalizeColor = (color, includeAlpha) => {
-
+                                        const tempElement = document.createElement('div')
+                                        tempElement.style.color = color
+                                        let computedColor = window.getComputedStyle(tempElement).getPropertyValue('color')
+                                        if (!includeAlpha && computedColor.startsWith('rgba')) {
+                                            const rgbaMatch = computedColor.match(/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/)
+                                            if (rgbaMatch) computedColor = `rgb(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]})`
+                                        } else if (includeAlpha && computedColor.startsWith('rgb')) {
+                                            const rgbMatch = computedColor.match(/rgb\((\d+), (\d+), (\d+)\)/)
+                                            if (rgbMatch) computedColor = `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, 1)`
+                                        }
+                                        return computedColor;
                                     }, comparators = {
                                         '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) == canonicalizeColor(rv)) : (iv == rv),
-                                        '~=': (iv, rv, f, p) => { },
-                                        '|=': (iv, rv, f, p) => { },
-                                        '^=': (iv, rv, f, p) => { },
-                                        '$=': (iv, rv, f, p) => { },
-                                        '*=': (iv, rv, f, p) => { },
-                                        '<': (iv, rv, f, p) => { },
-                                        '>': (iv, rv, f, p) => { },
-                                        '<=': (iv, rv, f, p) => { },
-                                        '>=': (iv, rv, f, p) => { },
+                                        '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
+                                        '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
+                                        '^=': (iv, rv, f, p) => iv.startsWith(rv),
+                                        '$=': (iv, rv, f, p) => iv.endsWith(rv),
+                                        '*=': (iv, rv, f, p) => iv.includes(rv),
+                                        '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
+                                        '<': (iv, rv, f, p) => parseFloat(iv) < parseFloat(rv),
+                                        '>': (iv, rv, f, p) => parseFloat(iv) > parseFloat(rv),
+                                        '<=': (iv, rv, f, p) => parseFloat(iv) <= parseFloat(rv),
+                                        '>=': (iv, rv, f, p) => parseFloat(iv) >= parseFloat(rv),
                                         '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) == canonicalizeColor(rv, true)) : (iv == rv),
                                         '': iv => !!iv
                                     }
@@ -954,10 +965,10 @@ const ElementHTML = Object.defineProperties({}, {
                                                             break
                                                         default:
                                                             const flagProcessorMap = {
-                                                                '%': (n, cp) => n.style.getPropertyValue(cp),
-                                                                '&': (n, cp) => window.getComputedStyle(n).getPropertyValue(cp),
+                                                                '%': (n, cp) => `${n.style.getPropertyValue(cp)}`,
+                                                                '&': (n, cp) => `${window.getComputedStyle(n).getPropertyValue(cp)}`,
                                                                 '?': (n, cp) => n.dataset[cp],
-                                                                '$': (n, cp) => n[cp],
+                                                                '$': (n, cp) => `${n[cp]}`,
                                                                 '@': (n, cp) => n.getAttribute(cp),
                                                                 '': (n, cp) => n.getAttribute(cp),
                                                             }, clauseFlag = clauseKey[0] in flagProcessorMap ? clauseKey[0] : '', clauseProperty = clauseKey.slice(clauseFlag.length)
