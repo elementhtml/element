@@ -878,7 +878,7 @@ const ElementHTML = Object.defineProperties({}, {
                     try {
                         branchMatches.push(...(isMulti ? Array.from(scope.querySelectorAll(branch)) : [scope.querySelector(branch)].filter(n => !!n)))
                     } catch (ee) {
-                        const segmentSplitter = /(?<=[^\s>+~|])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~])\s*/, segments = branch.split(segmentSplitter)
+                        const segmentSplitter = /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, segments = branch.split(segmentSplitter)
                         let segmentTracks = [scope]
                         for (const segment of segments) {
                             const newTracks = []
@@ -918,9 +918,9 @@ const ElementHTML = Object.defineProperties({}, {
                                         '*=': (iv, rv, f, p) => iv.includes(rv),
                                         '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
                                         '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) === canonicalizeColor(rv, true)) : (iv == rv),
-                                        '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) === canonicalizeColor(rv)) : (iv == rv),
                                         '<=': (iv, rv, f, p) => parseFloat(iv) <= parseFloat(rv),
                                         '>=': (iv, rv, f, p) => parseFloat(iv) >= parseFloat(rv),
+                                        '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) === canonicalizeColor(rv)) : (iv == rv),
                                         '<': (iv, rv, f, p) => parseFloat(iv) < parseFloat(rv),
                                         '>': (iv, rv, f, p) => parseFloat(iv) > parseFloat(rv),
                                         '': iv => !!iv
@@ -929,7 +929,11 @@ const ElementHTML = Object.defineProperties({}, {
                                         qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
                                         let indexOfNextClause = -1, writeIndex = 0
-                                        for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
+                                        if (remainingSegment[0] === '[') {
+                                            indexOfNextClause = remainingSegment.indexOf(']', 1) + 1
+                                        } else {
+                                            for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
+                                        }
                                         const noIndexOfNextClause = indexOfNextClause === -1, thisClause = remainingSegment.slice(0, noIndexOfNextClause ? undefined : indexOfNextClause).trim()
                                         try {
                                             for (let i = 0; i < qualified.length; i++) if (qualified[i].matches(thisClause)) qualified[writeIndex++] = qualified[i]
