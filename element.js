@@ -833,11 +833,9 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
             if (selector[0] === ':') return scope.querySelector(this.buildCatchallSelector(selector))
-
             let sliceSignature
             const lastIndexOfOpenCurlyBracket = selector.lastIndexOf('{'), isMulti = (lastIndexOfOpenCurlyBracket > 0) && selector.endsWith('}')
             if (isMulti) [selector, sliceSignature] = [selector.slice(0, lastIndexOfOpenCurlyBracket), selector.slice(lastIndexOfOpenCurlyBracket + 1, -1)]
-
             const combinatorProcessors = {
                 '>': sc => Array.from(sc.chilren()),
                 '+': sc => sc.nextElementSibling() ?? [],
@@ -871,7 +869,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 '': sc => Array.from(sc.querySelectorAll('*'))
             }
-
             try {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
             } catch (e) {
@@ -993,7 +990,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return isMulti ? this.sliceAndStep(sliceSignature, matches) : matches[0]
             }
-
         }
     },
     resolveUrl: {
