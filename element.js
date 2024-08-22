@@ -868,22 +868,9 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                     return matchedCells
-                }
-            }, defaultCombinatorProcessor = sc => Array.from(sc.querySelectorAll('*')),
-                qualifierProcessors = {
-                    'p': (sc, sel) => {
-                        const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim())
-                        return sc.style[property] === value
-                    },
-                    'amp': (sc, sel) => {
-                        const [property, value] = sel.slice(2, -1).split('=').map(s => s.trim()), computedStyle = window.getComputedStyle(sc)
-                        return computedStyle.getPropertyValue(property) === value
-                    },
-                    'at': (sc, sel) => sc.getAttribute('name') === sel.slice(1).trim(),
-                    'e': (sc, sel) => { },
-                    't': (sc, sel) => sc.getAttribute('itemprop') === sel.slice(1).trim()
-                }
-
+                },
+                '': sc => Array.from(sc.querySelectorAll('*'))
+            }
 
             try {
                 return isMulti ? this.sliceAndStep(sliceSignature, Array.from(scope.querySelectorAll(selector))) : scope.querySelector(selector)
@@ -902,11 +889,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 try {
                                     newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
                                 } catch (eee) {
-                                    const hasNonDefaultCombinator = segment[0] in combinatorProcessors
-                                    let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '',
-                                        combinatorProcessor = nonDefaultCombinator ? combinatorProcessors[nonDefaultCombinator] : defaultCombinatorProcessor
-
-                                    const nonStandardSelectors = {
+                                    const hasNonDefaultCombinator = segment[0] in combinatorProcessors, nonStandardSelectors = {
                                         attributeLike: ['%', '&', '?', '.', '..', '...', '<>', '$'],
                                         classLike: ['@', '!', '~', '$']
                                     }, clauseOpeners = {
@@ -934,8 +917,8 @@ const ElementHTML = Object.defineProperties({}, {
                                         '==': (iv, rv) => { },
                                         '': iv => !!iv
                                     }
-
-                                    let qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
+                                    let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
+                                        qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
                                         let indexOfNextClause = -1
                                         for (const c in clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
@@ -991,7 +974,6 @@ const ElementHTML = Object.defineProperties({}, {
                                                                     for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i].getAttribute(clauseKey), clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                             }
                                                     }
-                                                    break
                                             }
                                         }
                                         qualified.length = writeIndex
