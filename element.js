@@ -818,11 +818,12 @@ const ElementHTML = Object.defineProperties({}, {
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
             element = this.app.components.natives.get(element) ?? element
-            if (this.sys.impliedScopes.has(scopedSelector)) return this.resolveScope(scopedSelector, element)
+            if (this.sys.impliedScopes[scopedSelector]) return this.resolveScope(this.sys.impliedScopes[scopedSelector], element)
             if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
             if (scopedSelector.includes('|')) {
-                const [scopeStatement, selectorStatement] = scopedSelector.split('|').map(s => s.trim())
+                const pipeSplitter = /(?<!\|)\|(?!\|)(?![^\[]*\])/
+                const [scopeStatement, selectorStatement] = scopedSelector.split(pipeSplitter, 2).map(s => s.trim())
                 scope = this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
             }
