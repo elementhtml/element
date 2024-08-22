@@ -903,18 +903,22 @@ const ElementHTML = Object.defineProperties({}, {
                                         },
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
+                                    }, canonicalizeColor = (color, includeAlpha) => {
+
                                     }, comparators = {
-                                        '=': (iv, rv, f) => { },
-                                        '~=': (iv, rv, f) => { },
-                                        '|=': (iv, rv, f) => { },
-                                        '^=': (iv, rv, f) => { },
-                                        '$=': (iv, rv, f) => { },
-                                        '*=': (iv, rv, f) => { },
-                                        '<': (iv, rv, f) => { },
-                                        '>': (iv, rv, f) => { },
-                                        '<=': (iv, rv, f) => { },
-                                        '>=': (iv, rv, f) => { },
-                                        '==': (iv, rv, f) => { },
+                                        '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) == canonicalizeColor(rv)) : (iv == rv),
+                                        '~=': (iv, rv, f, p) => { },
+                                        '|=': (iv, rv, f, p) => { },
+                                        '^=': (iv, rv, f, p) => { },
+                                        '$=': (iv, rv, f, p) => { },
+                                        '*=': (iv, rv, f, p) => { },
+                                        '<': (iv, rv, f, p) => { },
+                                        '>': (iv, rv, f, p) => { },
+                                        '<=': (iv, rv, f, p) => { },
+                                        '>=': (iv, rv, f, p) => { },
+                                        '==': (iv, rv, f, p) => {
+
+                                        },
                                         '': iv => !!iv
                                     }
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
@@ -959,7 +963,7 @@ const ElementHTML = Object.defineProperties({}, {
                                                                 '@': (n, cp) => n.getAttribute(cp),
                                                                 '': (n, cp) => n.getAttribute(cp),
                                                             }, clauseFlag = clauseKey[0] in flagProcessorMap ? clauseKey[0] : '', clauseProperty = clauseKey.slice(clauseFlag.length)
-                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(flagProcessorMap[clauseFlag](n = qualified[i], clauseProperty), clauseReferenceValue, clauseFlag)) qualified[writeIndex++] = n
+                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(flagProcessorMap[clauseFlag](n = qualified[i], clauseProperty), clauseReferenceValue, clauseFlag, clauseProperty)) qualified[writeIndex++] = n
                                                     }
                                             }
                                         }
