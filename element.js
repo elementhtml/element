@@ -854,15 +854,15 @@ const ElementHTML = Object.defineProperties({}, {
                                 try {
                                     newTracks.push(...Array.from(track.querySelectorAll(`:scope ${segment}`)))
                                 } catch (eee) {
-                                    const hasNonDefaultCombinator = ((segment[0] === '|') || (segment[0] in this.sys.selectorCombinators))
-                                    let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = this.sys.selectorCombinators[nonDefaultCombinator],
+                                    const hasNonDefaultCombinator = ((segment[0] === '|') || (segment[0] in this.sys.selector.combinators))
+                                    let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = this.sys.selector.combinators[nonDefaultCombinator],
                                         qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
                                         let indexOfNextClause = -1, writeIndex = 0
                                         if (remainingSegment[0] === '[') {
                                             indexOfNextClause = remainingSegment.indexOf(']', 1) + 1
                                         } else {
-                                            for (const c in this.sys.selectorClauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
+                                            for (const c in this.sys.selector.clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
                                         }
                                         const noIndexOfNextClause = indexOfNextClause === -1, thisClause = remainingSegment.slice(0, noIndexOfNextClause ? undefined : indexOfNextClause).trim()
                                         try {
@@ -872,12 +872,12 @@ const ElementHTML = Object.defineProperties({}, {
                                             switch (clauseOpener) {
                                                 case '@': case '!': case '^': case '$':
                                                     const clauseMain = thisClause.slice(1)
-                                                    for (let i = 0; i < qualified.length; i++) if (this.sys.selectorClauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
+                                                    for (let i = 0; i < qualified.length; i++) if (this.sys.selector.clauseOpeners[clauseOpener](qualified[i], clauseMain)) qualified[writeIndex++] = qualified[i]
                                                     break
                                                 case '[':
                                                     let indexOfComparator, clauseComparator, clauseInputValueType
-                                                    for (clauseComparator in this.sys.selectorComparators) if ((indexOfComparator = thisClause.indexOf(clauseComparator, 1)) !== -1) break
-                                                    const comparatorProcessor = this.sys.selectorComparators[clauseComparator],
+                                                    for (clauseComparator in this.sys.selector.comparators) if ((indexOfComparator = thisClause.indexOf(clauseComparator, 1)) !== -1) break
+                                                    const comparatorProcessor = this.sys.selector.comparators[clauseComparator],
                                                         clauseKey = clauseComparator ? thisClause.slice(1, indexOfComparator).trim() : thisClause.slice(1, -1)
                                                     let clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
                                                     if (clauseReferenceValue && (clauseReferenceValue.length > 1) && (clauseReferenceValue[0] == '"' || clauseReferenceValue[0] == "'") && (clauseReferenceValue.endsWith('"') || clauseReferenceValue.endsWith("'"))) clauseReferenceValue = clauseReferenceValue.slice(1, -1)
@@ -894,8 +894,8 @@ const ElementHTML = Object.defineProperties({}, {
                                                             for (let i = 0, n = qualified[i], tc = n.textContent; i < qualified.length; i++) if (comparatorProcessor(this.sys.isHTML.test(tc = (n = qualified[i]).textContent) ? n.innerHTML : tc, clauseReferenceValue)) qualified[writeIndex++] = n
                                                             break
                                                         default:
-                                                            const clauseFlag = clauseKey[0] in this.sys.selectorFlags ? clauseKey[0] : '', clauseProperty = clauseKey.slice(clauseFlag.length)
-                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(this.sys.selectorFlags[clauseFlag](n = qualified[i], clauseProperty), clauseReferenceValue, clauseFlag, clauseProperty)) qualified[writeIndex++] = n
+                                                            const clauseFlag = clauseKey[0] in this.sys.selector.flags ? clauseKey[0] : '', clauseProperty = clauseKey.slice(clauseFlag.length)
+                                                            for (let i = 0, n = qualified[i]; i < qualified.length; i++) if (comparatorProcessor(this.sys.selector.flags[clauseFlag](n = qualified[i], clauseProperty), clauseReferenceValue, clauseFlag, clauseProperty)) qualified[writeIndex++] = n
                                                     }
                                             }
                                         }
@@ -1313,108 +1313,112 @@ const ElementHTML = Object.defineProperties({}, {
     sys: {
         value: Object.freeze({
 
-            colorCalculateLuminance: color => {
-                const [r, g, b] = this.sys.colorToArray(color)
-                return 0.2126 * r + 0.7152 * g + 0.0722 * b
-            },
-            colorCanonicalize: (color, includeAlpha) => {
-                if ((includeAlpha && color.startsWith('rgba(')) || (!includeAlpha && color.startsWith('rgb('))) return color
-                const oldHeadColor = document.head.style.getPropertyValue('color')
-                document.head.style.setProperty('color', color)
-                let computedColor = window.getComputedStyle(document.head).getPropertyValue('color')
-                document.head.style.setProperty('color', oldHeadColor)
-                const colorArray = this.sys.colorToArray(computedColor, includeAlpha)
-                return includeAlpha ? `rgba(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]}, ${colorArray[4]})` : `rgb(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]})`
-            },
-            colorRgbToHsl: (r, g, b) => {
-                r /= 255, g /= 255, b /= 255;
-                const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
-                let h, s, l = (max + min) / 2
-                if (max === min) return [0, 0, l * 100]
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-                switch (max) {
-                    case r: h = (g - b) / d + (g < b ? 6 : 0); break
-                    case g: h = (b - r) / d + 2; break
-                    case b: h = (r - g) / d + 4; break
+            color: Object.freeze({
+                calculateLuminance: color => {
+                    const [r, g, b] = this.sys.color.toArray(color)
+                    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+                },
+                canonicalize: (color, includeAlpha) => {
+                    if ((includeAlpha && color.startsWith('rgba(')) || (!includeAlpha && color.startsWith('rgb('))) return color
+                    const oldHeadColor = document.head.style.getPropertyValue('color')
+                    document.head.style.setProperty('color', color)
+                    let computedColor = window.getComputedStyle(document.head).getPropertyValue('color')
+                    document.head.style.setProperty('color', oldHeadColor)
+                    const colorArray = this.sys.color.toArray(computedColor, includeAlpha)
+                    return includeAlpha ? `rgba(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]}, ${colorArray[4]})` : `rgb(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]})`
+                },
+                rgbToHsl: (r, g, b) => {
+                    r /= 255, g /= 255, b /= 255;
+                    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+                    let h, s, l = (max + min) / 2
+                    if (max === min) return [0, 0, l * 100]
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+                    switch (max) {
+                        case r: h = (g - b) / d + (g < b ? 6 : 0); break
+                        case g: h = (b - r) / d + 2; break
+                        case b: h = (r - g) / d + 4; break
+                    }
+                    h /= 6
+                    return [h * 360, s * 100, l * 100]
+                },
+                toArray: (color, includeAlpha) => {
+                    if (Array.isArray(color)) return color
+                    if (!color.startsWith('rgb')) color = this.sys.color.canonicalize(color)
+                    const useRx = color.startsWith('rgba') ? /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/ : /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
+                        [, r, g, b, a = 1] = color.match(useRx)
+                    return includeAlpha ? [r, g, b, a] : [r, g, b]
                 }
-                h /= 6
-                return [h * 360, s * 100, l * 100]
-            },
-            colorToArray: (color, includeAlpha) => {
-                if (Array.isArray(color)) return color
-                if (!color.startsWith('rgb')) color = this.sys.colorCanonicalize(color)
-                const useRx = color.startsWith('rgba') ? /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/ : /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
-                    [, r, g, b, a = 1] = color.match(useRx)
-                return includeAlpha ? [r, g, b, a] : [r, g, b]
-            },
+            }),
 
-            selectorClauseOpeners: Object.freeze({
-                '[': true,
-                '#': true,
-                '.': true,
-                '@': (n, c) => n.getAttribute('name') === c,
-                '!': (n, c) => {
-                    //some kind of event filter here??? - returns false for now to stop the process
-                    return false
-                },
-                '^': (n, c) => n.getAttribute('itemprop') === c,
-                '$': (n, c) => n.value === c
-            }),
-            selectorCombinators: Object.freeze({
-                '>': sc => Array.from(sc.chilren()),
-                '+': sc => sc.nextElementSibling() ?? [],
-                '~': sc => {
-                    const siblings = []
-                    let sibling = sc.nextElementSibling
-                    while (sibling) {
-                        siblings.push(sibling)
-                        sibling = sibling.nextElementSibling
-                    }
-                    return siblings
-                },
-                '||': sc => {
-                    const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
-                    let totalColumns = 0, colStart = 0, colEnd = 0;
-                    for (const col of colElements) {
-                        const span = parseInt(col.getAttribute('span') || '1', 10), colIsSc = col === sc
-                        if (colIsSc) colStart = totalColumns
-                        totalColumns += span
-                        if (colIsSc) colEnd = totalColumns - 1
-                    }
-                    for (const row of table.querySelectorAll('tr')) {
-                        let currentColumn = 0
-                        for (const cell of row.children) {
-                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10), cellStart = currentColumn, cellEnd = currentColumn + colspan - 1
-                            if ((cellStart >= colStart && cellStart <= colEnd) || (cellEnd >= colStart && cellEnd <= colEnd)) matchedCells.push(cell);
-                            currentColumn += colspan
+            selector: Object.freeze({
+                clauseOpeners: Object.freeze({
+                    '[': true,
+                    '#': true,
+                    '.': true,
+                    '@': (n, c) => n.getAttribute('name') === c,
+                    '!': (n, c) => {
+                        //some kind of event filter here??? - returns false for now to stop the process
+                        return false
+                    },
+                    '^': (n, c) => n.getAttribute('itemprop') === c,
+                    '$': (n, c) => n.value === c
+                }),
+                combinators: Object.freeze({
+                    '>': sc => Array.from(sc.chilren()),
+                    '+': sc => sc.nextElementSibling() ?? [],
+                    '~': sc => {
+                        const siblings = []
+                        let sibling = sc.nextElementSibling
+                        while (sibling) {
+                            siblings.push(sibling)
+                            sibling = sibling.nextElementSibling
                         }
-                    }
-                    return matchedCells
-                },
-                '': sc => Array.from(sc.querySelectorAll('*'))
-            }),
-            selectorComparators: Object.freeze({
-                '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
-                '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
-                '^=': (iv, rv, f, p) => iv.startsWith(rv),
-                '$=': (iv, rv, f, p) => iv.endsWith(rv),
-                '*=': (iv, rv, f, p) => iv.includes(rv),
-                '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
-                '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.colorCanonicalize(iv, true) === this.sys.colorCanonicalize(rv, true)) : (iv == rv),
-                '<=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.colorRgbToHsl(...this.sys.colorToArray(iv))[0] <= this.sys.colorRgbToHsl(...this.sys.colorToArray(rv))[0] : parseFloat(iv) <= parseFloat(rv),
-                '>=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.colorRgbToHsl(...this.sys.colorToArray(iv))[0] >= this.sys.colorRgbToHsl(...this.sys.colorToArray(rv))[0] : parseFloat(iv) >= parseFloat(rv),
-                '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.colorCanonicalize(iv) === this.sys.colorCanonicalize(rv)) : (iv == rv),
-                '<': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.colorCalculateLuminance(iv) < this.sys.colorCalculateLuminance(rv) : parseFloat(iv) < parseFloat(rv),
-                '>': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.colorCalculateLuminance(iv) > this.sys.colorCalculateLuminance(rv) : parseFloat(iv) > parseFloat(rv),
-                '': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? (this.sys.colorToArray(iv, true)[3] > 0) : !!iv
-            }),
-            selectorFlags: Object.freeze({
-                '%': (n, cp) => `${n.style.getPropertyValue(cp)}`,
-                '&': (n, cp) => `${window.getComputedStyle(n).getPropertyValue(cp)}`,
-                '?': (n, cp) => n.dataset[cp],
-                '$': (n, cp) => `${n[cp]}`,
-                '@': (n, cp) => n.getAttribute(cp),
-                '': (n, cp) => n.getAttribute(cp),
+                        return siblings
+                    },
+                    '||': sc => {
+                        const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
+                        let totalColumns = 0, colStart = 0, colEnd = 0;
+                        for (const col of colElements) {
+                            const span = parseInt(col.getAttribute('span') || '1', 10), colIsSc = col === sc
+                            if (colIsSc) colStart = totalColumns
+                            totalColumns += span
+                            if (colIsSc) colEnd = totalColumns - 1
+                        }
+                        for (const row of table.querySelectorAll('tr')) {
+                            let currentColumn = 0
+                            for (const cell of row.children) {
+                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10), cellStart = currentColumn, cellEnd = currentColumn + colspan - 1
+                                if ((cellStart >= colStart && cellStart <= colEnd) || (cellEnd >= colStart && cellEnd <= colEnd)) matchedCells.push(cell);
+                                currentColumn += colspan
+                            }
+                        }
+                        return matchedCells
+                    },
+                    '': sc => Array.from(sc.querySelectorAll('*'))
+                }),
+                comparators: Object.freeze({
+                    '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
+                    '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
+                    '^=': (iv, rv, f, p) => iv.startsWith(rv),
+                    '$=': (iv, rv, f, p) => iv.endsWith(rv),
+                    '*=': (iv, rv, f, p) => iv.includes(rv),
+                    '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
+                    '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv),
+                    '<=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv),
+                    '>=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv),
+                    '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv),
+                    '<': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv),
+                    '>': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv),
+                    '': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv
+                }),
+                flags: Object.freeze({
+                    '%': (n, cp) => `${n.style.getPropertyValue(cp)}`,
+                    '&': (n, cp) => `${window.getComputedStyle(n).getPropertyValue(cp)}`,
+                    '?': (n, cp) => n.dataset[cp],
+                    '$': (n, cp) => `${n[cp]}`,
+                    '@': (n, cp) => n.getAttribute(cp),
+                    '': (n, cp) => n.getAttribute(cp),
+                })
             }),
 
             defaultEventTypes: Object.freeze({
