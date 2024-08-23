@@ -1352,7 +1352,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (Array.isArray(color)) return color
                     if (!color.startsWith('rgb')) color = this.sys.color.canonicalize(color)
                     const useRx = color.startsWith('rgba') ? /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/ : /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
-                        [, r, g, b, a = 1] = color.match(useRx)
+                        [, r, g, b, a = 1] = color.match(useRx) ?? [, 0, 0, 0, (includeAlpha ? 0 : 1)]
                     return includeAlpha ? [r, g, b, a] : [r, g, b]
                 }
             },
@@ -1410,17 +1410,17 @@ const ElementHTML = Object.defineProperties({}, {
                     '$=': function (iv, rv, f, p) { return iv.endsWith(rv) },
                     '*=': function (iv, rv, f, p) { return iv.includes(rv) },
                     '/=': function (iv, rv, f, p) { return (new RegExp(rv)).test(iv) },
-                    '==': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv) },
-                    '<=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv) },
-                    '>=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv) },
-                    '=': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv) },
-                    '<': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv) },
-                    '>': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv) },
-                    '': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv }
+                    '==': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('olor'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv) },
+                    '<=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('olor')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv) },
+                    '>=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('olor')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv) },
+                    '=': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('olor'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv) },
+                    '<': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv) },
+                    '>': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv) },
+                    '': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv }
                 },
                 flags: {
                     '%': function (n, cp) { return `${n.style.getPropertyValue(cp)}` },
-                    '&': function (n, cp) { return `${window.getComputedStyle(n).getPropertyValue(cp)}` },
+                    '&': function (n, cp) { return `${window.getComputedStyle(n)[cp]}` },
                     '?': function (n, cp) { return n.dataset[cp] },
                     '$': function (n, cp) { return `${n[cp]}` },
                     '@': function (n, cp) { return n.getAttribute(cp) },
