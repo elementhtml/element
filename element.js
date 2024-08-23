@@ -1362,10 +1362,6 @@ const ElementHTML = Object.defineProperties({}, {
                     '#': true,
                     '.': true,
                     '@': function (n, c) { return n.getAttribute('name') === c },
-                    '!': function (n, c) {
-                        //some kind of event filter here??? - returns false for now to stop the process
-                        return false
-                    },
                     '^': function (n, c) { return n.getAttribute('itemprop') === c },
                     '$': function (n, c) { return n.value === c }
                 },
