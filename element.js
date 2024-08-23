@@ -828,9 +828,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.sys.impliedScopes[scopedSelector]) return this.resolveScope(this.sys.impliedScopes[scopedSelector], element)
             if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
-            if (scopedSelector.includes('|')) {
-                const pipeSplitter = /(?<!\|)\|(?!\|)(?![^\[]*\])/
-                const [scopeStatement, selectorStatement] = scopedSelector.split(pipeSplitter, 2).map(s => s.trim())
+            if (this.sys.regexp.pipeSplitter.test(scopedSelector)) {
+                const [scopeStatement, selectorStatement] = scopedSelector.split(this.sys.regexp.pipeSplitter, 2).map(s => s.trim())
                 scope = this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
             }
@@ -929,8 +928,8 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (value, base) {
             if (typeof value !== 'string') return value
             if (value.startsWith('https://') || value.startsWith('http://')) return value
-            if (value.includes('://')) {
-                const [protocol, hostpath] = value.split(/\:\/\/(.+)/), helperName = `${protocol}://`
+            if (this.sys.regexp.protocolSplitter.test(value)) {
+                const [protocol, hostpath] = value.split(this.sys.regexp.protocolSplitter), helperName = `${protocol}://`
                 if (typeof this.app.helpers[helperName] === 'function') return this.useHelper(helperName, hostpath)
                 if (typeof this.env.helpers[helperName] === 'function') return this.env.helpers[helperName](hostpath)
                 return value
@@ -1351,7 +1350,7 @@ const ElementHTML = Object.defineProperties({}, {
                 toArray: function (color, includeAlpha) {
                     if (Array.isArray(color)) return color
                     if (!color.startsWith('rgb')) color = this.sys.color.canonicalize(color)
-                    const useRx = color.startsWith('rgba') ? /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/ : /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
+                    const useRx = color.startsWith('rgba') ? this.sys.regexp.isRgba : this.sys.regexp.isRbg,
                         [, r, g, b, a = 1] = color.match(useRx) ?? [, 0, 0, 0, (includeAlpha ? 0 : 1)]
                     return includeAlpha ? [r, g, b, a] : [r, g, b]
                 }
@@ -1404,7 +1403,7 @@ const ElementHTML = Object.defineProperties({}, {
                     '': function (sc) { return Array.from(sc.querySelectorAll('*')) }
                 },
                 comparators: {
-                    '~=': function (iv, rv, f, p) { return iv === rv || iv.split(/\s+/).includes(rv) },
+                    '~=': function (iv, rv, f, p) { return iv === rv || iv.split(this.sys.regexp.spaceSplitter).includes(rv) },
                     '|=': function (iv, rv, f, p) { return iv === rv || iv.startsWith(`${rv}-`) },
                     '^=': function (iv, rv, f, p) { return iv.startsWith(rv) },
                     '$=': function (iv, rv, f, p) { return iv.endsWith(rv) },
@@ -1436,9 +1435,10 @@ const ElementHTML = Object.defineProperties({}, {
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
-                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi,
+                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/,
+                isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
-                splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
+                spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
             }),
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
