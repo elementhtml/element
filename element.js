@@ -388,21 +388,28 @@ const ElementHTML = Object.defineProperties({}, {
                     result.style[r] = result[`%${r}`] = ruleValue
                 }
                 Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
-                const computedStyleDescriptors = {}
-                for (const s of result.computedStyle._) computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                const computedStyleDescriptors = {}, directComputedStyleDescriptors = {}
+                for (const s of result.computedStyle._) {
+                    computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                    directComputedStyleDescriptors[`&${s}`] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                }
                 Object.defineProperties(result.computedStyle, computedStyleDescriptors)
+                Object.defineProperties(result, directComputedStyleDescriptors)
                 for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
                 for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
                 if (value.hasAttribute('itemscope')) result.itemscope = true
-                for (const c of Object.keys(classList)) result[`&${c}`] = true
+                for (const c of Object.keys(classList)) result[`.${c}`] = true
                 for (const ent of Object.entries(style)) result[`%${ent[0]}`] = ent[1]
                 if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
                 result.dataset = {}
-                for (const p in value.dataset) result.dataset[p] = result[`$${p}`] = value.dataset[p]
+                for (const p in value.dataset) result.dataset[p] = result[`?${p}`] = value.dataset[p]
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
                 result._itemprop = {}
                 for (const c of value.querySelectorAll('[itemprop]')) result._itemprop[c.getAttribute('itemprop')] ||= this.flatten(c)._
+                if (value.hasAttribute('itemprop')) result['^'] = value.getAttribute('itemprop')
+                result.$ = value.value
+                result['@'] = value.name
                 result._rows = []
                 const rows = Array.from(value.querySelectorAll('tr'))
                 if (rows.length) {
@@ -666,6 +673,10 @@ const ElementHTML = Object.defineProperties({}, {
                         element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
                         continue
                     case '@':
+                        if (k === '@') {
+                            element.name = v;
+                            continue
+                        }
                         const attrName = k.slice(1) || 'name'
                         switch (v) {
                             case true: case false:
@@ -786,10 +797,12 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
                         await Promise.all(nestingTargets.map(t => this.render(t, v)))
                         continue
-                    case '~':
+                    case '^':
                         if (element.hasAttribute('itemscope')) {
                             this.render(element.querySelector(`[itemprop="${k.slice(1)}"]`), v)
                             break
+                        } else {
+                            element.setAttribute(`itemprop`, k.slice(1))
                         }
                     default:
                         setProperty(k, v, element)
