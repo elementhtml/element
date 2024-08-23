@@ -899,18 +899,35 @@ const ElementHTML = Object.defineProperties({}, {
                                         '^': (n, c) => n.getAttribute('itemprop') === c,
                                         '$': (n, c) => n.value === c
                                     }, canonicalizeColor = (color, includeAlpha) => {
+                                        if ((includeAlpha && color.startsWith('rgba(')) || (!includeAlpha && color.startsWith('rgb('))) return color
                                         const oldHeadColor = document.head.style.getPropertyValue('color')
                                         document.head.style.setProperty('color', color)
                                         let computedColor = window.getComputedStyle(document.head).getPropertyValue('color')
                                         document.head.style.setProperty('color', oldHeadColor)
-                                        if (!includeAlpha && computedColor.startsWith('rgba')) {
-                                            const rgbaMatch = computedColor.match(/rgba\((\d+), (\d+), (\d+), ([\d.]+)\)/)
-                                            if (rgbaMatch) computedColor = `rgb(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]})`
-                                        } else if (includeAlpha && computedColor.startsWith('rgb')) {
-                                            const rgbMatch = computedColor.match(/rgb\((\d+), (\d+), (\d+)\)/)
-                                            if (rgbMatch) computedColor = `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, 1)`
+                                        const colorArray = colorToArray(computedColor, includeAlpha)
+                                        return includeAlpha ? `rgba(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]}, ${colorArray[4]})` : `rgb(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]})`
+                                    }, colorToArray = (color, includeAlpha) => {
+                                        if (Array.isArray(color)) return color
+                                        if (!color.startsWith('rgb')) color = canonicalizeColor(color)
+                                        const useRx = color.startsWith('rgba') ? /rgba\((\d+), (\d+), (\d+), (\d+)\)/ : /rgb\((\d+), (\d+), (\d+)\)/,
+                                            [, r, g, b, a = 1] = color.match(useRx)
+                                        return includeAlpha ? [r, g, b, a] : [r, g, b]
+                                    }, calculateLuminance = color => {
+                                        const [r, g, b] = colorToArray(color)
+                                        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+                                    }, rgbToHsl = (r, g, b) => {
+                                        r /= 255, g /= 255, b /= 255;
+                                        const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+                                        let h, s, l = (max + min) / 2
+                                        if (max === min) return [0, 0, l * 100]
+                                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+                                        switch (max) {
+                                            case r: h = (g - b) / d + (g < b ? 6 : 0); break
+                                            case g: h = (b - r) / d + 2; break
+                                            case b: h = (r - g) / d + 4; break
                                         }
-                                        return computedColor;
+                                        h /= 6
+                                        return [h * 360, s * 100, l * 100]
                                     }, comparators = {
                                         '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
                                         '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
@@ -919,12 +936,12 @@ const ElementHTML = Object.defineProperties({}, {
                                         '*=': (iv, rv, f, p) => iv.includes(rv),
                                         '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
                                         '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv, true) === canonicalizeColor(rv, true)) : (iv == rv),
-                                        '<=': (iv, rv, f, p) => parseFloat(iv) <= parseFloat(rv),
-                                        '>=': (iv, rv, f, p) => parseFloat(iv) >= parseFloat(rv),
+                                        '<=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? rgbToHsl(...colorToArray(iv))[0] <= rgbToHsl(...colorToArray(rv))[0] : parseFloat(iv) <= parseFloat(rv),
+                                        '>=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? rgbToHsl(...colorToArray(iv))[0] >= rgbToHsl(...colorToArray(rv))[0] : parseFloat(iv) >= parseFloat(rv),
                                         '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (canonicalizeColor(iv) === canonicalizeColor(rv)) : (iv == rv),
-                                        '<': (iv, rv, f, p) => parseFloat(iv) < parseFloat(rv),
-                                        '>': (iv, rv, f, p) => parseFloat(iv) > parseFloat(rv),
-                                        '': iv => !!iv
+                                        '<': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? calculateLuminance(iv) < calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv),
+                                        '>': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? calculateLuminance(iv) > calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv),
+                                        '': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? (colorToArray(iv, true)[3] > 0) : !!iv
                                     }
                                     let nonDefaultCombinator = hasNonDefaultCombinator ? (segment[0] === '|' ? '||' : segment[0]) : '', combinatorProcessor = combinatorProcessors[nonDefaultCombinator],
                                         qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
