@@ -1,4 +1,58 @@
 const module = {
+    commands: {
+        enumerable: true, value: {
+
+        }
+    },
+    devControllers: {
+        value: Object.freeze({
+            console: Object.freeze({
+                show: {}
+            })
+        })
+    },
+    console: {
+        enumerable: true, value: {
+            show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
+                if (clear === undefined && typeof filters === 'boolean') {
+                    clear = filters
+                    filters = {}
+                }
+                if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
+                run ?? true
+                const tableData = {}
+                let signal
+                if (label) {
+                    if (run === false) {
+                        if (this.devControllers.console.show[label]) {
+                            this.devControllers.console.show[label].abort()
+                            delete this.devControllers.console.show[label]
+                            return
+                        }
+                    } else if (run === true) {
+                        if (this.devControllers.console.show[label]) this.devControllers.console.show[label].abort()
+                        this.devControllers.console.show[label] = new AbortController()
+                        signal = this.devControllers.console.show[label].signal
+                    }
+                }
+                switch (what) {
+                    case 'cells':
+                        const cellNames = Object.keys(this.app.cells).sort()
+                        for (const cellName of cellNames) {
+                            if (filters[cellName] !== false) {
+                                tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
+                                if (run === true) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, true), { signal })
+                            }
+                        }
+                        break
+                }
+                if (clear) console.clear()
+                console.table(tableData)
+            }
+
+        }
+    },
+
     exportUnit: {
         value: function (unitType, identifier, format) {
             if (unitType !== 'component' && unitType !== 'facet') throw new Error(`Invalid unitType ${unitType}`)
