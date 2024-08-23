@@ -40,7 +40,7 @@ const module = {
                         for (const cellName of cellNames) {
                             if (filters[cellName] === false) continue
                             tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
-                            if (run === true) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, true), { signal })
+                            if (run === true) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, clear), { signal })
                         }
                         break
                 }
