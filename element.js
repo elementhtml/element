@@ -237,6 +237,13 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
+                for (const s in this.sys.selector) {
+                    for (const ss in this.sys.selector[s]) if (typeof this.sys.selector[s][ss] === 'function') this.sys.selector[s][ss] = this.sys.selector[s][ss].bind(this)
+                    Object.freeze(this.sys.selector[s])
+                }
+                Object.freeze(this.sys.selector)
+                for (const c in this.sys.color) if (typeof this.sys.color[c] === 'function') this.sys.color[c] = this.sys.color[c].bind(this)
+                Object.freeze(this.sys.color)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers', 'parsers']) {
@@ -1313,12 +1320,12 @@ const ElementHTML = Object.defineProperties({}, {
     sys: {
         value: Object.freeze({
 
-            color: Object.freeze({
-                calculateLuminance: color => {
+            color: {
+                calculateLuminance: function (color) {
                     const [r, g, b] = this.sys.color.toArray(color)
                     return 0.2126 * r + 0.7152 * g + 0.0722 * b
                 },
-                canonicalize: (color, includeAlpha) => {
+                canonicalize: function (color, includeAlpha) {
                     if ((includeAlpha && color.startsWith('rgba(')) || (!includeAlpha && color.startsWith('rgb('))) return color
                     const oldHeadColor = document.head.style.getPropertyValue('color')
                     document.head.style.setProperty('color', color)
@@ -1327,7 +1334,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const colorArray = this.sys.color.toArray(computedColor, includeAlpha)
                     return includeAlpha ? `rgba(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]}, ${colorArray[4]})` : `rgb(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]})`
                 },
-                rgbToHsl: (r, g, b) => {
+                rgbToHsl: function (r, g, b) {
                     r /= 255, g /= 255, b /= 255;
                     const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
                     let h, s, l = (max + min) / 2
@@ -1341,32 +1348,32 @@ const ElementHTML = Object.defineProperties({}, {
                     h /= 6
                     return [h * 360, s * 100, l * 100]
                 },
-                toArray: (color, includeAlpha) => {
+                toArray: function (color, includeAlpha) {
                     if (Array.isArray(color)) return color
                     if (!color.startsWith('rgb')) color = this.sys.color.canonicalize(color)
                     const useRx = color.startsWith('rgba') ? /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/ : /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
                         [, r, g, b, a = 1] = color.match(useRx)
                     return includeAlpha ? [r, g, b, a] : [r, g, b]
                 }
-            }),
+            },
 
             selector: Object.freeze({
-                clauseOpeners: Object.freeze({
+                clauseOpeners: {
                     '[': true,
                     '#': true,
                     '.': true,
-                    '@': (n, c) => n.getAttribute('name') === c,
-                    '!': (n, c) => {
+                    '@': function (n, c) { return n.getAttribute('name') === c },
+                    '!': function (n, c) {
                         //some kind of event filter here??? - returns false for now to stop the process
                         return false
                     },
-                    '^': (n, c) => n.getAttribute('itemprop') === c,
-                    '$': (n, c) => n.value === c
-                }),
-                combinators: Object.freeze({
-                    '>': sc => Array.from(sc.chilren()),
-                    '+': sc => sc.nextElementSibling() ?? [],
-                    '~': sc => {
+                    '^': function (n, c) { return n.getAttribute('itemprop') === c },
+                    '$': function (n, c) { return n.value === c }
+                },
+                combinators: {
+                    '>': function (sc) { return Array.from(sc.chilren()) },
+                    '+': function (sc) { return sc.nextElementSibling() ?? [] },
+                    '~': function (sc) {
                         const siblings = []
                         let sibling = sc.nextElementSibling
                         while (sibling) {
@@ -1375,7 +1382,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return siblings
                     },
-                    '||': sc => {
+                    '||': function (sc) {
                         const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
                         let totalColumns = 0, colStart = 0, colEnd = 0;
                         for (const col of colElements) {
@@ -1394,31 +1401,31 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return matchedCells
                     },
-                    '': sc => Array.from(sc.querySelectorAll('*'))
-                }),
-                comparators: Object.freeze({
-                    '~=': (iv, rv, f, p) => iv === rv || iv.split(/\s+/).includes(rv),
-                    '|=': (iv, rv, f, p) => iv === rv || iv.startsWith(`${rv}-`),
-                    '^=': (iv, rv, f, p) => iv.startsWith(rv),
-                    '$=': (iv, rv, f, p) => iv.endsWith(rv),
-                    '*=': (iv, rv, f, p) => iv.includes(rv),
-                    '/=': (iv, rv, f, p) => (new RegExp(rv)).test(iv),
-                    '==': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv),
-                    '<=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv),
-                    '>=': (iv, rv, f, p) => (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv),
-                    '=': (iv, rv, f, p) => ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv),
-                    '<': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv),
-                    '>': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv),
-                    '': (iv, rv, f, p) => (f === '&' && p?.endsWith('color')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv
-                }),
-                flags: Object.freeze({
-                    '%': (n, cp) => `${n.style.getPropertyValue(cp)}`,
-                    '&': (n, cp) => `${window.getComputedStyle(n).getPropertyValue(cp)}`,
-                    '?': (n, cp) => n.dataset[cp],
-                    '$': (n, cp) => `${n[cp]}`,
-                    '@': (n, cp) => n.getAttribute(cp),
-                    '': (n, cp) => n.getAttribute(cp),
-                })
+                    '': function (sc) { return Array.from(sc.querySelectorAll('*')) }
+                },
+                comparators: {
+                    '~=': function (iv, rv, f, p) { return iv === rv || iv.split(/\s+/).includes(rv) },
+                    '|=': function (iv, rv, f, p) { return iv === rv || iv.startsWith(`${rv}-`) },
+                    '^=': function (iv, rv, f, p) { return iv.startsWith(rv) },
+                    '$=': function (iv, rv, f, p) { return iv.endsWith(rv) },
+                    '*=': function (iv, rv, f, p) { return iv.includes(rv) },
+                    '/=': function (iv, rv, f, p) { return (new RegExp(rv)).test(iv) },
+                    '==': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv) },
+                    '<=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv) },
+                    '>=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('color')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv) },
+                    '=': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('color'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv) },
+                    '<': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv) },
+                    '>': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv) },
+                    '': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('color')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv }
+                },
+                flags: {
+                    '%': function (n, cp) { return `${n.style.getPropertyValue(cp)}` },
+                    '&': function (n, cp) { return `${window.getComputedStyle(n).getPropertyValue(cp)}` },
+                    '?': function (n, cp) { return n.dataset[cp] },
+                    '$': function (n, cp) { return `${n[cp]}` },
+                    '@': function (n, cp) { return n.getAttribute(cp) },
+                    '': function (n, cp) { return n.getAttribute(cp) },
+                }
             }),
 
             defaultEventTypes: Object.freeze({
