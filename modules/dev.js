@@ -12,7 +12,19 @@ const module = {
                 let funcScope = this
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
-                let func = funcScope
+                const func = funcScope
+                for (let i = 0; i < args.length; i++) {
+                    let newArg = args[i].trim()
+                    if (newArg === 'undefined') {
+                        arg[i] = undefined
+                    } else if ((newArg[0] === '{' && newArg.endsWith('}')) || (newArg[0] === '[' && newArg.endsWith(']'))) {
+                        newArg = this.canonicalizeJsonExpressionToUnmergedValue(args[i])
+                        // this.mergeJsonValueWithVariables(, envelope, value)
+                    } else {
+                        newArg = this.parseToValueOrVariable(newArg)
+                    }
+                }
+
                 return func(...args)
             },
             ['@']: function (prompt) {
