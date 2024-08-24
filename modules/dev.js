@@ -40,6 +40,12 @@ const module = {
                 }
                 if (clear) console.clear()
                 console.table(tableData)
+            },
+            stop: function (label) {
+                if (this.devControllers.console.show[label]) {
+                    this.devControllers.console.show[label].abort()
+                    delete this.devControllers.console.show[label]
+                }
             }
         }
     },
