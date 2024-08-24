@@ -14,10 +14,7 @@ const module = {
     console: {
         enumerable: true, value: {
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
-                if (clear === undefined && typeof filters === 'boolean') [clear, filters] = [filters, {}]
-                if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
                 run ?? true
-                const tableData = {}
                 let signal
                 if (label) {
                     switch (run) {
@@ -34,20 +31,29 @@ const module = {
                             }
                     }
                 }
+                const tableData = this.tabulate(what, filters)
                 switch (what) {
                     case 'cells':
-                        const cellNames = Object.keys(this.app.cells).sort()
-                        for (const cellName of cellNames) {
-                            if (filters[cellName] === false) continue
-                            tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
-                            if (run === true) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, clear), { signal })
-                        }
+                        if (run === true) for (const cellName of Object.keys(this.app.cells).sort())
+                            if (filters[cellName] !== false) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, clear), { signal })
                         break
                 }
                 if (clear) console.clear()
                 console.table(tableData)
             }
+        }
+    },
 
+    tabulate: {
+        value: function (what, filters = {}) {
+            if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
+            const tableData = {}
+            switch (what) {
+                case 'cells':
+                    for (const cellName of Object.keys(this.app.cells).sort()) if (filters[cellName] !== false) tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
+                    break
+            }
+            return tableData
         }
     },
 
