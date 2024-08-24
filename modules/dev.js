@@ -6,7 +6,7 @@ const module = {
                 let [invocation] = input, { raw } = input
                 invocation = invocation.trim()
                 if (!invocation) return console.error(`No command entered`)
-                const [command, ...args] = invocation.split(' ').map(s => s.trim())
+                const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
                 if (!(command in this.commands)) return console.error(`Command ${command} not found`)
                 const { target } = this.commands[command]
                 let funcScope = this
