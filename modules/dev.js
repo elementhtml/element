@@ -1,6 +1,34 @@
 const module = {
+
+    invokers: {
+        enumerable: true, value: {
+            $: function (input) {
+                let [invocation] = input, { raw } = input
+                invocation = invocation.trim()
+                if (!invocation) return console.error(`No command entered`)
+                const [command, ...args] = invocation.split(' ').map(s => s.trim())
+                if (!(command in this.commands)) return console.error(`Command ${command} not found`)
+                const { target } = this.commands[command]
+                let funcScope = this
+                for (const s of target) funcScope = funcScope[s]
+                if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
+                let func = funcScope
+                return func(...args)
+            },
+            ['@']: function (prompt) {
+            },
+            ['@eli']: function (prompt) {
+            },
+        }
+    },
+
+
+
     commands: {
         enumerable: true, value: {
+            show: {
+                target: ['console', 'show']
+            }
 
         }
     },

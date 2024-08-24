@@ -253,10 +253,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (this.app.dev) {
                     for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
-
                     for (const f in this.console) if (typeof this.console[f] === 'function') this.console[f] = this.console[f].bind(this)
                     Object.freeze(this.console)
-
+                    for (const invoker in this.invokers) window[invoker] ??= this.invokers[invoker].bind(this)
+                    Object.freeze(this.invokers)
                 } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
