@@ -16,15 +16,16 @@ const module = {
                 for (let i = 0; i < args.length; i++) {
                     let newArg = args[i].trim()
                     if (newArg === 'undefined') {
-                        arg[i] = undefined
+                        newArg = undefined
                     } else if ((newArg[0] === '{' && newArg.endsWith('}')) || (newArg[0] === '[' && newArg.endsWith(']'))) {
                         newArg = this.canonicalizeJsonExpressionToUnmergedValue(args[i])
+                        // envelope = {labels, env}
                         // this.mergeJsonValueWithVariables(, envelope, value)
                     } else {
-                        newArg = this.parseToValueOrVariable(newArg)
+                        newArg = this.mergeVariables(this.parseToValueOrVariable(newArg), value, label, env)
                     }
+                    args[i] = newArg
                 }
-
                 return func(...args)
             },
             ['@']: function (prompt) {
