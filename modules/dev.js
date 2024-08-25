@@ -24,7 +24,7 @@ const module = {
                     } else if ((newArg[0] === '{' && newArg.endsWith('}')) || (newArg[0] === '[' && newArg.endsWith(']'))) {
                         newArg = this.mergeJsonValueWithVariables(this.canonicalizeJsonExpressionToUnmergedValue(newArg), envelope)
                     } else if (this.sys.regexp.isFormString.test(newArg) || newArg[0] === '?' || newArg.includes('=')) {
-                        const argParamsEntries = (new URLSearchParams(newArg)).entries()
+                        const argParamsEntries = Array.from((new URLSearchParams(newArg)).entries())
                         for (let ii = 0; ii < argParamsEntries.length; ii++) {
                             let [k, v] = argParamsEntries[ii], kFlag = (k.length && !v.length) ? k.slice(-1) : undefined
                             if (v && (v in this.valueShorthands)) {
@@ -45,7 +45,6 @@ const module = {
                     }
                     args[i] = newArg
                 }
-                console.log('line 48', args)
                 return func(...args)
             },
             ['@']: function (prompt) {
