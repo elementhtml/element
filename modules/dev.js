@@ -3,7 +3,7 @@ const module = {
     invokers: {
         enumerable: true, value: {
             $: function (input) {
-                let [invocation] = input, { raw } = input
+                let [invocation] = input
                 invocation = invocation.trim()
                 if (!invocation) return console.error(`No command entered`)
                 const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
@@ -12,20 +12,40 @@ const module = {
                 let funcScope = this
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
-                const func = funcScope
+                const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
                 for (let i = 0; i < args.length; i++) {
                     let newArg = args[i].trim()
-                    if (newArg === 'undefined') {
-                        newArg = undefined
+                    if (newArg in this.valueShorthands) {
+                        newArg = this.valueShorthands[newArg]
+                    } else if ((newArg[0] === '"' && newArg.endsWith('"')) || (newArg[0] === "'" && newArg.endsWith("'"))) {
+                        newArg = newArg.slice(1, -1)
+                    } else if (this.sys.regexp.isNumeric.test(newArg)) {
+                        newArg = parseFloat(newArg)
                     } else if ((newArg[0] === '{' && newArg.endsWith('}')) || (newArg[0] === '[' && newArg.endsWith(']'))) {
-                        newArg = this.canonicalizeJsonExpressionToUnmergedValue(args[i])
-                        // envelope = {labels, env}
-                        // this.mergeJsonValueWithVariables(, envelope, value)
-                    } else {
-                        newArg = this.mergeVariables(this.parseToValueOrVariable(newArg), value, label, env)
+                        newArg = this.mergeJsonValueWithVariables(this.canonicalizeJsonExpressionToUnmergedValue(newArg), envelope)
+                    } else if (this.sys.regexp.isFormString.test(newArg) || newArg[0] === '?' || newArg.includes('=')) {
+                        const argParamsEntries = (new URLSearchParams(newArg)).entries()
+                        for (let ii = 0; ii < argParamsEntries.length; ii++) {
+                            let [k, v] = argParamsEntries[ii], kFlag = (k.length && !v.length) ? k.slice(-1) : undefined
+                            if (v && (v in this.valueShorthands)) {
+                                v = this.valueShorthands[v]
+                            } else if (kFlag && (kFlag in this.valueShorthands)) {
+                                v = this.valueShorthands[kFlag]
+                                k = k.slice(0, -1)
+                            }
+                            if (this.sys.regexp.isNumeric.test(v)) v = parseFloat(v)
+                            if ((k[0] === '"' && k.endsWith('"')) || (k[0] === "'" && k.endsWith("'"))) k = k.slice(1, -1)
+                            if ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'"))) v = v.slice(1, -1)
+                            if (typeof v === 'string') v = this.mergeVariables(v, undefined, labels, env, true)
+                            argParamsEntries[ii] = [k, v]
+                        }
+                        newArg = Object.fromEntries(argParamsEntries)
+                    } else if (newArg[0] === '~' || newArg[0] === '#') {
+                        newArg = this.mergeVariables(newArg, undefined, labels, env, true)
                     }
                     args[i] = newArg
                 }
+                console.log('line 48', args)
                 return func(...args)
             },
             ['@']: function (prompt) {
@@ -35,15 +55,27 @@ const module = {
         }
     },
 
+    valueShorthands: {
+        enumerable: true, value: Object.freeze({
+            'null': null,
+            'undefined': undefined,
+            'false': false,
+            'true': true,
+            '.': null,
+            '?': undefined,
+            '!': false,
+            '$': true
+        })
+    },
 
 
     commands: {
-        enumerable: true, value: {
+        enumerable: true, value: Object.freeze({
             show: {
                 target: ['console', 'show']
             }
 
-        }
+        })
     },
     devControllers: {
         value: Object.freeze({
