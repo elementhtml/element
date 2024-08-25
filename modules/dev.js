@@ -72,6 +72,9 @@ const module = {
         enumerable: true, value: Object.freeze({
             show: {
                 target: ['console', 'show']
+            },
+            stop: {
+                target: ['console', 'stop']
             }
 
         })
