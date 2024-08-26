@@ -45,7 +45,12 @@ const module = {
                     }
                     args[i] = newArg
                 }
-                return func(...args)
+                const retval = func(...args)
+                if (retval instanceof Promise) {
+                    retval.then(r => console.log(r)).catch(e => console.error(e))
+                } else {
+                    return retval
+                }
             },
             ['@']: function (prompt) {
             },
