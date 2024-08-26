@@ -8,15 +8,15 @@ const module = {
                 if (!invocation) return console.error(`No command entered`)
                 const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
                 if (!(command in this.commands)) return console.error(`Command ${command} not found`)
-                const { target } = this.commands[command]
+                const { target } = this.commands[command] ?? { target: [command] }
                 let funcScope = this
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
                 const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
                 for (let i = 0; i < args.length; i++) {
                     let newArg = args[i].trim()
-                    if (newArg in this.valueShorthands) {
-                        newArg = this.valueShorthands[newArg]
+                    if (newArg in this.sys.valueAliases) {
+                        newArg = this.sys.valueAliases[newArg]
                     } else if ((newArg[0] === '"' && newArg.endsWith('"')) || (newArg[0] === "'" && newArg.endsWith("'"))) {
                         newArg = newArg.slice(1, -1)
                     } else if (this.sys.regexp.isNumeric.test(newArg)) {
@@ -27,10 +27,10 @@ const module = {
                         const argParamsEntries = Array.from((new URLSearchParams(newArg)).entries())
                         for (let ii = 0; ii < argParamsEntries.length; ii++) {
                             let [k, v] = argParamsEntries[ii], kFlag = (k.length && !v.length) ? k.slice(-1) : undefined
-                            if (v && (v in this.valueShorthands)) {
-                                v = this.valueShorthands[v]
-                            } else if (kFlag && (kFlag in this.valueShorthands)) {
-                                v = this.valueShorthands[kFlag]
+                            if (v && (v in this.sys.valueAliases)) {
+                                v = this.sys.valueAliases[v]
+                            } else if (kFlag && (kFlag in this.sys.valueAliases)) {
+                                v = this.sys.valueAliases[kFlag]
                                 k = k.slice(0, -1)
                             }
                             if (this.sys.regexp.isNumeric.test(v)) v = parseFloat(v)
@@ -54,22 +54,11 @@ const module = {
         }
     },
 
-    valueShorthands: {
-        enumerable: true, value: Object.freeze({
-            'null': null,
-            'undefined': undefined,
-            'false': false,
-            'true': true,
-            '.': null,
-            '?': undefined,
-            '!': false,
-            '$': true
-        })
-    },
-
-
     commands: {
         enumerable: true, value: Object.freeze({
+            grab: {},
+            save: {},
+            send: {},
             show: {
                 target: ['console', 'show']
             },
@@ -136,7 +125,6 @@ const module = {
 
     tabulate: {
         value: function (what, filters = {}) {
-            console.log('line 130', what, filters)
             if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
             const tableData = {}
             switch (what) {
