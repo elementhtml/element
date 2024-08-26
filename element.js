@@ -1457,7 +1457,7 @@ const ElementHTML = Object.defineProperties({}, {
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
             autoScopes: Object.freeze(new Set(['head', 'body', '^', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window'])),
-            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '.': null, '?': undefined, '!': false, '$': true })
+            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '_': null, '?': undefined, '!': false, '.': true })
         })
     },
 
