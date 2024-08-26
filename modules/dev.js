@@ -8,7 +8,7 @@ const module = {
                 if (!invocation) return console.error(`No command entered`)
                 const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
                 if (!(command in this.commands)) return console.error(`Command ${command} not found`)
-                const { target } = this.commands[command] ?? { target: [command] }
+                const { target = [command] } = this.commands[command]
                 let funcScope = this
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
