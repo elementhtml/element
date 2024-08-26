@@ -36,7 +36,7 @@ const module = {
                             if (this.sys.regexp.isNumeric.test(v)) v = parseFloat(v)
                             if ((k[0] === '"' && k.endsWith('"')) || (k[0] === "'" && k.endsWith("'"))) k = k.slice(1, -1)
                             if ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'"))) v = v.slice(1, -1)
-                            if (typeof v === 'string') v = this.mergeVariables(v, undefined, labels, env, true)
+                            if (typeof v === 'string') v = this.mergeVariables(v, undefined, labels, env, true) ?? v
                             argParamsEntries[ii] = [k, v]
                         }
                         newArg = Object.fromEntries(argParamsEntries)
@@ -112,6 +112,15 @@ const module = {
                         if (run === true) for (const cellName of Object.keys(this.app.cells).sort())
                             if (filters[cellName] !== false) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.console.show('cells', filters, clear), { signal })
                         break
+                    case 'fields':
+                        if (run === true) {
+                            const { container } = filters
+                            const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`) ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
+                            const facetInstance = this.app.facets.instances.get(containerElement)
+                            for (const fieldName of Object.keys(facetInstance.fields).sort())
+                                if (filters[fieldName] !== false) facetInstance.fields[fieldName].eventTarget.addEventListener('change', () => this.console.show('fields', filters, clear), { signal })
+                        }
+                        break
                 }
                 if (clear) console.clear()
                 console.table(tableData)
@@ -127,11 +136,21 @@ const module = {
 
     tabulate: {
         value: function (what, filters = {}) {
+            console.log('line 130', what, filters)
             if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
             const tableData = {}
             switch (what) {
                 case 'cells':
                     for (const cellName of Object.keys(this.app.cells).sort()) if (filters[cellName] !== false) tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
+                    break
+                case 'fields':
+                    const { container } = filters
+                    if (!container) throw new Error('No facet container specified')
+                    const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`) ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
+                    if (!containerElement) throw new Error(`Facet container ${container} not found.`)
+                    const facetInstance = this.app.facets.instances.get(containerElement)
+                    if (!facetInstance) throw new Error(`A facet instance for container ${container} was not found.`)
+                    for (const fieldName of Object.keys(facetInstance.fields).sort()) if (filters[fieldName] !== false) tableData[`@${fieldName}`] = { value: facetInstance.fields[fieldName].get() }
                     break
             }
             return tableData
