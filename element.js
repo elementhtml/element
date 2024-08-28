@@ -966,7 +966,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const entries = expression.split(',')
                             expression = {}
                             for (let i = 0, s = entries[i].trim().split(':', 2), s0 = s[0].trim(), l = entries.length; i < l; i++, s = entries[i].trim().split(':', 2), s0 = s[0].trim())
-                                expression[s0] = (s[1] ?? this.sys.valueAliases[s0[s0.length - 1]] ?? s0)
+                                expression[s[1] === undefined ? ((s0[s0.length - 1] in this.sys.valueAliases) ? s0.slice(0, -1) : s0) : s0] = (s[1] ?? this.sys.valueAliases[s0[s0.length - 1]] ?? s0)
                             flags.inner = true
                             result = this.resolveVariables(expression, flags, lexicon)
                             break
