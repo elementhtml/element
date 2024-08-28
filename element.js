@@ -957,8 +957,8 @@ const ElementHTML = Object.defineProperties({}, {
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
                     for (const key in expression) {
-                        let keyDefault = dftIsObject ? dft[key] : dft
-                        result[this.resolveVariables(key, lexicon, flags)] = this.resolveVariables(expression[key], lexicon, { inner: true, default: keyDefault })
+                        let keyFlags = { inner: true, default: dftIsObject ? dft[key] : dft }
+                        result[this.resolveVariables(key, lexicon, keyFlags)] = this.resolveVariables(expression[key], lexicon, keyFlags)
                     }
             }
             return result ?? dft
