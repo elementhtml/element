@@ -966,6 +966,9 @@ const ElementHTML = Object.defineProperties({}, {
                         case (expression[0] === '~'):
                             result = context ? lexicon.context[expression.slice(1)] : expression
                             break
+                        case (expression[0] === '?'):
+
+                            break
                         case ((expression[0] === '[') && expression.endsWith(']')):
                             expression = []
                             for (let i = 0, s = expression.split(','), l = s.length; i < l; i++) expression.push(s[i].trim())
@@ -988,7 +991,7 @@ const ElementHTML = Object.defineProperties({}, {
                             result = value % 1 === 0 ? parseInt(value, 10) : parseFloat(value)
                             break
                         default:
-
+                            result = expression
                     }
                     break
                 case Array.isArray(expression):
