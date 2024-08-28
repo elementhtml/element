@@ -942,19 +942,29 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveVariables: {
-        enumerable: true, value: function (expression, flags, lexicon) {
+        enumerable: true, value: function (expression, flags, lexicon = {}) {
             let result = expression, { inner, default: dft, spread } = (flags ?? {})
             switch (true) {
                 case typeof value === 'string':
                     expression = expression.trim()
                     inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (inner) expression = expression.slice(2, -1).trim()
+                    const { context, cells, fields, labels, value } = lexicon
                     switch (true) {
                         case (expression in this.sys.valueAliases):
                             result = this.sys.valueAliases[expression]
-                        case (expression[0] === '?'):
-
-
+                            break
+                        case (expression[0] === '$'):
+                            result = (expression.length === 1) ? (value in lexicon ? value : expression) : (labels ? labels[expression.slice(1)] : expression)
+                            break
+                        case (expression[0] === '@'):
+                            result = fields ? lexicon.fields[expression.slice(1)] : expression
+                            break
+                        case (expression[0] === '#'):
+                            result = cells ? lexicon.cells[expression.slice(1)] : expression
+                            break
+                        case (expression[0] === '~'):
+                            result = context ? lexicon.context[expression.slice(1)] : expression
                             break
                         case ((expression[0] === '[') && expression.endsWith(']')):
                             expression = []
@@ -978,7 +988,6 @@ const ElementHTML = Object.defineProperties({}, {
                             result = value % 1 === 0 ? parseInt(value, 10) : parseFloat(value)
                             break
                         default:
-
 
                     }
                     break
