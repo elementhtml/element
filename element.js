@@ -949,45 +949,41 @@ const ElementHTML = Object.defineProperties({}, {
                     expression = expression.trim()
                     inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (inner) expression = expression.slice(2, -1).trim()
-                    const { context, cells, fields, labels, value } = lexicon
-                    let entries
+                    const { context, cells, fields, labels, value } = lexicon, e0 = expression[0], entries = []
                     switch (true) {
                         case (expression in this.sys.valueAliases):
                             result = this.sys.valueAliases[expression]
                             break
-                        case (expression[0] === '$'):
+                        case (e0 === '$'):
                             result = (expression.length === 1) ? (value in lexicon ? value : expression) : (labels ? labels[expression.slice(1)] : expression)
                             break
-                        case (expression[0] === '@'):
+                        case (e0 === '@'):
                             result = fields ? lexicon.fields[expression.slice(1)] : expression
                             break
-                        case (expression[0] === '#'):
+                        case (e0 === '#'):
                             result = cells ? lexicon.cells[expression.slice(1)] : expression
                             break
-                        case (expression[0] === '~'):
+                        case (e0 === '~'):
                             result = context ? lexicon.context[expression.slice(1)] : expression
                             break
-                        case ((expression[0] === '[') && expression.endsWith(']')):
+                        case ((e0 === '[') && expression.endsWith(']')):
                             expression = []
                             for (let i = 0, s = expression.slice(1, -1).split(','), l = s.length; i < l; i++) expression.push(s[i].trim())
                             flags.inner = true
                             result = this.resolveVariables(expression, flags, lexicon)
                             break
-                        case ((expression[0] === '{') && expression.endsWith('}')):
-                            entries = expression.slice(1, -1).split(',')
-                        case (expression[0] === '?'):
-                            if (!entries) {
-                                entries = []
-                                for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry.join(':'))
-                            }
+                        case ((e0 === '{') && expression.endsWith('}')):
+                            entries.push(...expression.slice(1, -1).split(','))
+                        case (e0 === '?'):
+                            if (!entries.length) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry.join(':'))
                             expression = {}
                             for (let i = 0, s = entries[i].trim().split(':', 2), s0 = s[0].trim(), l = entries.length; i < l; i++, s = entries[i].trim().split(':', 2), s0 = s[0].trim())
                                 expression[s[1] === undefined ? ((s0[s0.length - 1] in this.sys.valueAliases) ? s0.slice(0, -1) : s0) : s0] = (s[1] ?? this.sys.valueAliases[s0[s0.length - 1]] ?? s0)
                             flags.inner = true
                             result = this.resolveVariables(expression, flags, lexicon)
                             break
-                        case ((expression[0] === '"') && expression.endsWith('"')):
-                        case ((expression[0] === "'") && expression.endsWith("'")):
+                        case ((e0 === '"') && expression.endsWith('"')):
+                        case ((e0 === "'") && expression.endsWith("'")):
                             result = expression.slice(1, -1)
                             break
                         case (this.sys.regex.isNumeric.test(expression)):
