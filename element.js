@@ -943,18 +943,20 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveVariables: {
         enumerable: true, value: function (expression, lexicon, flags = {}) {
-            let expressionType = (typeof value === 'string' ? 'string' : undefined)
-                ?? (Array.isArray(value) ? 'array' : undefined) ?? (this.isPlainObject(value) ? 'object' : undefined)
-            switch (expressionType) {
-                case 'string':
+            let result = expression
+            switch (true) {
+                case typeof value === 'string':
 
                     break
-                case 'array':
-
+                case Array.isArray(expression):
+                    result = []
+                    for (const v of expression) result.push(this.resolveVariables(v, lexicon, flags))
                     break
-                case 'object':
-                default: return expression
+                case this.isPlainObject(value):
+                    result = {}
+                    for (const key in expression) result[this.resolveVariables(key, lexicon, flags)] = this.resolveVariables(expression[key], lexicon, flags)
             }
+            return result
         }
     },
     resolveUrl: {
