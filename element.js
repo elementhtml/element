@@ -942,23 +942,27 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveVariables: {
-        enumerable: true, value: function (expression, lexicon, flags = {}) {
-            let result = expression, { inner, default: dft, spread } = flags
+        enumerable: true, value: function (expression, flags, lexicon) {
+            let result = expression, { inner, default: dft, spread } = (flags ?? {})
             switch (true) {
                 case typeof value === 'string':
+                    inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
+                    if (inner) expression = expression.slice(2, -1)
+
+
 
                     break
                 case Array.isArray(expression):
                     result = []
                     for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++)
-                        result.push(this.resolveVariables(expression[i], lexicon, { inner: true, default: a ? dft[i] : dft }))
+                        result.push(this.resolveVariables(expression[i], { inner: true, default: a ? dft[i] : dft }, lexicon))
                     break
                 case this.isPlainObject(value):
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
                     for (const key in expression) {
                         let keyFlags = { inner: true, default: dftIsObject ? dft[key] : dft }
-                        result[this.resolveVariables(key, lexicon, keyFlags)] = this.resolveVariables(expression[key], lexicon, keyFlags)
+                        result[this.resolveVariables(key, lexicon, keyFlags)] = this.resolveVariables(expression[key], keyFlags, lexicon)
                     }
             }
             return result ?? dft
