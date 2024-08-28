@@ -941,6 +941,22 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    resolveVariables: {
+        enumerable: true, value: function (expression, lexicon, flags = {}) {
+            let expressionType = (typeof value === 'string' ? 'string' : undefined)
+                ?? (Array.isArray(value) ? 'array' : undefined) ?? (this.isPlainObject(value) ? 'object' : undefined)
+            switch (expressionType) {
+                case 'string':
+
+                    break
+                case 'array':
+
+                    break
+                case 'object':
+                default: return expression
+            }
+        }
+    },
     resolveUrl: {
         enumerable: true, value: function (value, base) {
             if (typeof value !== 'string') return value
