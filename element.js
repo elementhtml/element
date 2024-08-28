@@ -948,6 +948,11 @@ const ElementHTML = Object.defineProperties({}, {
                 case typeof value === 'string':
                     inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (inner) expression = expression.slice(2, -1)
+                    switch (true) {
+                        // case (expression[0] === '[): 
+
+
+                    }
 
 
 
