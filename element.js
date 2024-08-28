@@ -946,9 +946,16 @@ const ElementHTML = Object.defineProperties({}, {
             let result = expression, { inner, default: dft, spread } = (flags ?? {})
             switch (true) {
                 case typeof value === 'string':
+                    expression = expression.trim()
                     inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
-                    if (inner) expression = expression.slice(2, -1)
+                    if (inner) expression = expression.slice(2, -1).trim()
                     switch (true) {
+                        case (expression in this.sys.valueAliases):
+                            result = this.sys.valueAliases[expression]
+                        case (expression[0] === '?'):
+
+
+                            break
                         case ((expression[0] === '[') && expression.endsWith(']')):
                             expression = []
                             for (let i = 0, s = expression.split(','), l = s.length; i < l; i++) expression.push(s[i].trim())
@@ -962,6 +969,13 @@ const ElementHTML = Object.defineProperties({}, {
                                 expression[s0] = (s[1] ?? this.sys.valueAliases[s0[s0.length - 1]] ?? s0)
                             flags.inner = true
                             result = this.resolveVariables(expression, flags, lexicon)
+                            break
+                        case ((expression[0] === '"') && expression.endsWith('"')):
+                        case ((expression[0] === "'") && expression.endsWith("'")):
+                            result = expression.slice(1, -1)
+                            break
+                        case (this.sys.regex.isNumeric.test(expression)):
+                            result = value % 1 === 0 ? parseInt(value, 10) : parseFloat(value)
                             break
                         default:
 
