@@ -975,10 +975,10 @@ const ElementHTML = Object.defineProperties({}, {
                         case ((e0 === '{') && expression.endsWith('}')):
                             entries.push(...expression.slice(1, -1).split(','))
                         case (e0 === '?'):
-                            if (!entries.length) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry.join(':'))
+                            if (!entries.length) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry)
                             expression = {}
-                            for (let i = 0, s = entries[i].trim().split(':', 2), s0 = s[0].trim(), l = entries.length; i < l; i++, s = entries[i].trim().split(':', 2), s0 = s[0].trim())
-                                expression[s[1] === undefined ? ((s0[s0.length - 1] in this.sys.valueAliases) ? s0.slice(0, -1) : s0) : s0] = (s[1] ?? this.sys.valueAliases[s0[s0.length - 1]] ?? s0)
+                            for (let [i, r, n, k, v] = [0, entries[i], (typeof r === 'string' ? r.trim().split(':', 2) : r), n[0].trim(), n[1]], l = entries.length; i < l; i++, [r, n, k, v] = [entries[i], (typeof r === 'string' ? r.trim().split(':', 2) : r), n[0].trim(), n[1]])
+                                expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
                             flags.inner = true
                             result = this.resolveVariables(expression, flags, lexicon)
                             break
