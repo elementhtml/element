@@ -949,13 +949,23 @@ const ElementHTML = Object.defineProperties({}, {
                     inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (inner) expression = expression.slice(2, -1)
                     switch (true) {
-                        // case (expression[0] === '[): 
+                        case ((expression[0] === '[') && expression.endsWith(']')):
+                            expression = []
+                            for (let i = 0, s = expression.split(','), l = s.length; i < l; i++) expression.push(s[i].trim())
+                            flags.inner = true
+                            result = this.resolveVariables(expression, flags, lexicon)
+                            break
+                        case ((expression[0] === '{') && expression.endsWith('}')):
+                            const entries = expression.split(',')
+                            expression = {}
+                            for (let i = 0, s = [], l = entries.length; i < l; i++, s = entries[i].split(':', 2)) entries[s[0].trim()] = s[1]
+
+
+                            break
+                        default:
 
 
                     }
-
-
-
                     break
                 case Array.isArray(expression):
                     result = []
