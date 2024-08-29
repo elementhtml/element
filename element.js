@@ -10,18 +10,13 @@ const ElementHTML = Object.defineProperties({}, {
             helpers: {
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
-                    let valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
+                    const valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
                     return { valid, errors }
                 },
                 'application/x-jsonata': function (text) {
-                    let expression = this.app.libraries['application/x-jsonata'](text)
-
-                    const regex = /\$([a-zA-Z0-9_]+)\(/g
-
+                    const expression = this.app.libraries['application/x-jsonata'](text)
                     let helperName
-                    for (const matches of text.matchAll(regex)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
-
-
+                    for (const matches of text.matchAll(this.sys.regexp.jsonataHelpers)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
                     return expression
                 },
                 'console': function (...args) { return console.log(...args) },
@@ -1473,7 +1468,8 @@ const ElementHTML = Object.defineProperties({}, {
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
-                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/,
+                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g,
+                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/,
                 isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
                 spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
