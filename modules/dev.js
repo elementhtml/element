@@ -13,38 +13,7 @@ const module = {
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
                 const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
-                for (let i = 0; i < args.length; i++) {
-                    let newArg = args[i].trim()
-                    if (newArg in this.sys.valueAliases) {
-                        newArg = this.sys.valueAliases[newArg]
-                    } else if ((newArg[0] === '"' && newArg.endsWith('"')) || (newArg[0] === "'" && newArg.endsWith("'"))) {
-                        newArg = newArg.slice(1, -1)
-                    } else if (this.sys.regexp.isNumeric.test(newArg)) {
-                        newArg = parseFloat(newArg)
-                    } else if ((newArg[0] === '{' && newArg.endsWith('}')) || (newArg[0] === '[' && newArg.endsWith(']'))) {
-                        newArg = this.mergeJsonValueWithVariables(this.canonicalizeJsonExpressionToUnmergedValue(newArg), envelope)
-                    } else if (this.sys.regexp.isFormString.test(newArg) || newArg[0] === '?' || newArg.includes('=')) {
-                        const argParamsEntries = Array.from((new URLSearchParams(newArg)).entries())
-                        for (let ii = 0; ii < argParamsEntries.length; ii++) {
-                            let [k, v] = argParamsEntries[ii], kFlag = (k.length && !v.length) ? k.slice(-1) : undefined
-                            if (v && (v in this.sys.valueAliases)) {
-                                v = this.sys.valueAliases[v]
-                            } else if (kFlag && (kFlag in this.sys.valueAliases)) {
-                                v = this.sys.valueAliases[kFlag]
-                                k = k.slice(0, -1)
-                            }
-                            if (this.sys.regexp.isNumeric.test(v)) v = parseFloat(v)
-                            if ((k[0] === '"' && k.endsWith('"')) || (k[0] === "'" && k.endsWith("'"))) k = k.slice(1, -1)
-                            if ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'"))) v = v.slice(1, -1)
-                            if (typeof v === 'string') v = this.mergeVariables(v, undefined, labels, env, true) ?? v
-                            argParamsEntries[ii] = [k, v]
-                        }
-                        newArg = Object.fromEntries(argParamsEntries)
-                    } else if (newArg[0] === '~' || newArg[0] === '#') {
-                        newArg = this.mergeVariables(newArg, undefined, labels, env, true)
-                    }
-                    args[i] = newArg
-                }
+                for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
                 const result = func(...args)
                 if (result instanceof Promise) {
                     result.then(r => console.log(r)).catch(e => console.error(e))

@@ -250,7 +250,7 @@ const nativeElementsMap = {
     parsers: {
         value: {
             json: function (expression, hasDefault) {
-                const value = this.canonicalizeJsonExpressionToUnmergedValue(expression)
+                const value = this.resolveVariable(expression, { wrapped: false })
                 return { handler: 'json', ctx: { vars: { value } } }
             },
             network: function (expression, hasDefault) {

@@ -363,6 +363,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value === undefined) return null
             if ((value == null) || (typeof value !== 'object')) return value
             if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
+            if (value instanceof this.State) return value.valueOf()
             if (value instanceof HTMLElement) {
                 let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
@@ -505,6 +506,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
             if (value instanceof Object) {
                 let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
+                for (const k in result) if (result[k] instanceof this.State) result[k] = this.flatten(result[k])
                 return key ? result[key] : result
             }
         }
@@ -1208,7 +1210,8 @@ const ElementHTML = Object.defineProperties({}, {
     handlers: {
         value: {
             json: async function (container, position, envelope, value) {
-                return this.mergeJsonValueWithVariables(envelope.vars.value, envelope, value)
+                const { labels, env } = envelope, { cells, context, fields } = env
+                return this.resolveVariable(envelope.vars.value, { wrapped: false }, cells, context, fields, labels, value)
             },
             network: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
@@ -1527,40 +1530,6 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
-    parseToValueOrVariable: {
-        value: function (s, emptyDefault = undefined) {
-            if (typeof s !== 'string') return s
-            if (!s.length) return emptyDefault
-            s = s.trim()
-            switch (s) {
-                case 'true': return true
-                case 'false': return false
-                case 'null': return null
-                default:
-                    if (this.sys.regexp.isNumeric.test(s) || (s[0] === '"' && (s.length > 1) && s.endsWith('"'))) return JSON.parse(s)
-                    if (this.sys.regexp.hasVariable.test(s)) return s
-                    return '${' + s + '}'
-            }
-        }
-    },
-    canonicalizeJsonExpressionToUnmergedValue: {
-        value: function (expression) {
-            let value = null
-            if (expression[0] === '{' && expression.endsWith('}')) {
-                value = {}
-                for (const pair of expression.slice(1, -1).split(',')) {
-                    let [k, v = true] = pair.trim().split(':').map(s => this.parseToValueOrVariable(s, null))
-                    value[k] = v
-                }
-            } else if (expression[0] === '[' && expression.endsWith(']')) {
-                value = []
-                for (let s of expression.slice(1, -1).split(',')) value.push(this.parseToValueOrVariable(s, null))
-            } else {
-                try { value = JSON.parse(expression) } catch (e) { }
-            }
-            return value
-        }
-    },
     generateUUIDWithNoDashes: {
         value: function () {
             return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
@@ -1675,49 +1644,6 @@ const ElementHTML = Object.defineProperties({}, {
             return group
         }
     },
-    getVariable: {
-        value: function (expression, value, labels, env) {
-            if (!expression) return value
-            switch (expression[0]) {
-                case '"': case "'":
-                    return expression.slice(1, -1)
-                case '{':
-                    if (expression.endsWith('}')) try { JSON.parse(expression) } catch (e) { return expression }
-                    return expression
-                case '[':
-                    if (expression.endsWith(']')) try { JSON.parse(expression) } catch (e) { return expression }
-                    return expression
-                case 't': case 'f': case 'n': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
-                    switch (expression) {
-                        case 'null': case 'true': case 'false':
-                            return JSON.parse(expression)
-                        default:
-                            if (expression.match(this.sys.regexp.isNumeric)) return JSON.parse(expression)
-                            return labels[expression]
-                    }
-                case '~':
-                    expression = expression.slice(1)
-                    const system = {
-                        document, window, E: {
-                            app: { compile: this.app.compile, dev: this.app.dev, expose: this.app.expose, namespaces: this.app.namespaces, _globalNamespace: this.app._globalNamespace },
-                            env: { namespaces: this.env.namespaces, options: this.env.options },
-                            version: this.version
-                        }
-                    }
-                    return env.context[expression] ?? system[expression]
-                case '#':
-                    return (env.cells[expression.slice(1)] ?? {})?.get()
-                case '@':
-                    return (env.fields[expression.slice(1)] ?? {})?.get()
-                case '$':
-                    expression = expression.slice(1)
-                    if (!expression) return value
-                    return labels[expression] ?? (env.fields[expression] ?? {})?.get() ?? (env.cells[expression] ?? {})?.get() ?? env.context[expression]
-                default:
-                    return labels[expression]
-            }
-        }
-    },
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
@@ -1731,7 +1657,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (let a of (args ?? [])) {
                 const aSpread = a.startsWith('...')
                 if (aSpread) a = a.slice(3)
-                a = this.parseToValueOrVariable(a)
                 if (aSpread && !Array.isArray(a)) a = [a]
                 if (value !== undefined) {
                     const { cells, context, fields, labels } = envelope
@@ -1748,31 +1673,6 @@ const ElementHTML = Object.defineProperties({}, {
             return newArgs
         }
     },
-    // mergeJsonValueWithVariables: {
-    //     value: function (v, envelope, value) {
-    //         if (v === null) return v
-    //         switch (typeof v) {
-    //             case 'object':
-    //                 const { labels, env } = envelope
-    //                 let rv
-    //                 if (Array.isArray(v)) {
-    //                     rv = []
-    //                     for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
-    //                 } else {
-    //                     rv = {}
-    //                     for (let kk in v) {
-    //                         const vv = v[kk]
-    //                         if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
-    //                         if (typeof kk !== 'string' && typeof kk !== 'number') continue
-    //                         rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
-    //                     }
-    //                 }
-    //                 return rv
-    //             default:
-    //                 return v
-    //         }
-    //     }
-    // },
     mountFacet: {
         value: async function (facetContainer) {
             let { type, textContent } = facetContainer, src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
@@ -2074,9 +1974,9 @@ ${scriptBody.join('{')}`
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 if (this.disabled) return
-                                let passedInValue = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
+                                let value = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
                                     ?? (defaultExpression
-                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value: passedInValue })
+                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
                                         : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
@@ -2085,7 +1985,7 @@ ${scriptBody.join('{')}`
                                 if (this.disabled) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
                                     ?? (defaultExpression
-                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value: passedInValue })
+                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
                                         : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
