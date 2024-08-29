@@ -26,11 +26,11 @@ const ElementHTML = Object.defineProperties({}, {
                     return formRender
                 },
                 'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
-                'ipfs://': function (hostpath) {
+                'ipfs:': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), { gateway } = this.env.options['ipfs://']
                     return `${window.location.protocol}//${cid}.ipfs.${gateway}/${path.join('/')}}`
                 },
-                'ipns://': function (hostpath) {
+                'ipns:': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), { gateway } = this.env.options['ipns://']
                     return `${window.location.protocol}//${cid}.ipns.${gateway}/${path.join('/')}}`
                 },
@@ -60,8 +60,8 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                 },
                 'xdr': async function () { this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default },
-                'ipfs://': async function () { this.discoverProtocolGateway('ipfs://') },
-                'ipns://': async function () { this.discoverProtocolGateway('ipns://') },
+                'ipfs:': async function () { this.discoverProtocolGateway('ipfs:') },
+                'ipns:': async function () { this.discoverProtocolGateway('ipns:') },
                 'text/markdown': async function () {
                     if (this.app.libraries['text/markdown']) return
                     this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
