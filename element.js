@@ -1974,7 +1974,7 @@ ${scriptBody.join('{')}`
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 if (this.disabled) return
-                                let value = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
+                                let value = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, value)
                                     ?? (defaultExpression
                                         ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
                                         : undefined)
@@ -1985,7 +1985,7 @@ ${scriptBody.join('{')}`
                                 if (this.disabled) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
                                     ?? (defaultExpression
-                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
+                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels })
                                         : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
@@ -1996,7 +1996,7 @@ ${scriptBody.join('{')}`
             }
             valueOf() {
                 const fields = {}
-                for (const f in this.fields) fields[f] = fields[f].value
+                for (const f in this.fields) fields[f] = this.fields[f].value
                 return fields
             }
             toJSON() { return this.valueOf() }
@@ -2025,7 +2025,6 @@ ${scriptBody.join('{')}`
             }
 
             constructor(name, initialValue) {
-                super()
                 this.name = name
                 this.value = initialValue
             }
@@ -2035,9 +2034,12 @@ ${scriptBody.join('{')}`
             toJSON() { return this.valueOf() }
 
         }
-    },
+    }
+})
+ElementHTML.Component.E = ElementHTML
+Object.defineProperties(ElementHTML, {
     Cell: {
-        value: class extends this.State {
+        value: class extends ElementHTML.State {
             constructor(name, initialValue) {
                 super()
                 if (this.name) this.app.cells[this.name] ??= this
@@ -2045,7 +2047,7 @@ ${scriptBody.join('{')}`
         }
     },
     Field: {
-        value: class extends this.State {
+        value: class extends ElementHTML.State {
             constructor(name, initialValue, facetContainerOrInstance) {
                 super()
                 if (this.name && facetContainerOrInstance) {
@@ -2055,9 +2057,8 @@ ${scriptBody.join('{')}`
             }
         }
     }
-
 })
-ElementHTML.Component.E = ElementHTML
+
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
