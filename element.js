@@ -84,7 +84,11 @@ const ElementHTML = Object.defineProperties({}, {
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {
                 'ipfs://': { gateway: ['localhost:8080', 'dweb.link'] },
-                'ipns://': { gateway: ['localhost:8080', 'dweb.link'] }
+                'ipns://': { gateway: ['localhost:8080', 'dweb.link'] },
+                'ar://': { gateway: 'arweave.net' },
+                'bzz://': { gateway: ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'] },
+                'sia://': { gateway: 'siasky.net' },
+                'eth://': { gateway: 'eth.link' },
             }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
@@ -1977,8 +1981,8 @@ if (metaOptions.has('packages')) {
     }
     const imports = importmap.imports ?? {}, importPromises = new Map()
     for (const key of packageList) {
-        let importUrl = imports[key], [protocol,] = importUrl.split('://')
-        if ((protocol !== 'https') && (protocol !== importUrl)) if (typeof ElementHTML.env.loaders[(protocol = `${protocol}://`)] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
+        let importUrl = imports[key], { protocol } = new URL(importUrl)
+        if (protocol !== window.location.protocol) if (typeof ElementHTML.env.loaders[protocol] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
