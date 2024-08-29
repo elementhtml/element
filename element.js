@@ -525,7 +525,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     isPlainObject: {
-        enumerable: true, value: async function (obj) {
+        enumerable: true, value: function (obj) {
             if (!obj) return false
             const proto = Object.getPrototypeOf(obj)
             return proto === null || proto === Object.prototype || proto.constructor === Object
@@ -941,15 +941,16 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    resolveVariables: {
+    resolveVariable: {
         enumerable: true, value: function (expression, flags, lexicon = {}) {
-            let result = expression, { inner, default: dft, spread } = (flags ?? {})
+            let result = expression, { wrapped, default: dft, spread } = (flags ?? {})
             switch (true) {
-                case typeof value === 'string':
+                case typeof expression === 'string':
                     expression = expression.trim()
-                    inner ??= !((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
-                    if (inner) expression = expression.slice(2, -1).trim()
+                    wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
+                    if (wrapped) expression = expression.slice(2, -1).trim()
                     const { context, cells, fields, labels, value } = lexicon, e0 = expression[0], entries = []
+                    let expressionIsArray, u
                     switch (true) {
                         case (expression in this.sys.valueAliases):
                             result = this.sys.valueAliases[expression]
@@ -972,26 +973,30 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             break
                         case ((e0 === '[') && expression.endsWith(']')):
+                            entries.push(...expression.slice(1, -1).split(','))
                             expression = []
-                            for (let i = 0, s = expression.slice(1, -1).split(','), l = s.length; i < l; i++) expression.push(s[i].trim())
-                            flags.inner = true
-                            result = this.resolveVariables(expression, flags, lexicon)
-                            break
+                            expressionIsArray = true
+                            for (let i = 0, l = entries.length; i < l; i++) expression.push(entries[i].trim())
                         case ((e0 === '{') && expression.endsWith('}')):
-                            u = !!entries.push(...expression.slice(1, -1).split(','))
+                            u = expressionIsArray || !!entries.push(...expression.slice(1, -1).split(','))
                         case (e0 === '?'):
                             if (!u) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry)
-                            expression = {}
-                            for (let [i, r, n, k, v] = [0, entries[i], (u ? r.trim().split(':', 2) : r), n[0].trim(), n[1]], l = entries.length; i < l; i++, [r, n, k, v] = [entries[i], (u ? r.trim().split(':', 2) : r), n[0].trim(), n[1]])
-                                expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
-                            flags.inner = true
-                            result = this.resolveVariables(expression, flags, lexicon)
+                            if (!expressionIsArray) {
+                                expression = {}
+                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[i++], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
+                                    if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
+                            }
+                            result = expression
+                            if (context || cells || fields || labels || (value in lexicon)) {
+                                flags.wrapped = false
+                                result = this.resolveVariable(expression, flags, lexicon)
+                            }
                             break
                         case ((e0 === '"') && expression.endsWith('"')):
                         case ((e0 === "'") && expression.endsWith("'")):
                             result = expression.slice(1, -1)
                             break
-                        case (this.sys.regex.isNumeric.test(expression)):
+                        case (this.sys.regexp.isNumeric.test(expression)):
                             result = value % 1 === 0 ? parseInt(value, 10) : parseFloat(value)
                             break
                         default:
@@ -1001,14 +1006,14 @@ const ElementHTML = Object.defineProperties({}, {
                 case Array.isArray(expression):
                     result = []
                     for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++)
-                        result.push(this.resolveVariables(expression[i], { inner: true, default: a ? dft[i] : dft }, lexicon))
+                        result.push(this.resolveVariable(expression[i], { inner: true, default: a ? dft[i] : dft }, lexicon))
                     break
-                case this.isPlainObject(value):
+                case this.isPlainObject(expression):
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
                     for (const key in expression) {
-                        let keyFlags = { inner: true, default: dftIsObject ? dft[key] : dft }
-                        result[this.resolveVariables(key, lexicon, keyFlags)] = this.resolveVariables(expression[key], keyFlags, lexicon)
+                        let keyFlags = { wrapped: false, default: dftIsObject ? dft[key] : dft }
+                        result[this.resolveVariable(key, lexicon, keyFlags)] = this.resolveVariable(expression[key], keyFlags, lexicon)
                     }
             }
             return result ?? dft
