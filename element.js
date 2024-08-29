@@ -345,10 +345,13 @@ const ElementHTML = Object.defineProperties({}, {
                     ...Object.fromEntries(complex.filter(p => value[p] !== undefined).map(p => ([p, this.flatten(value[p])])))
                 }
             }
-            if (value === undefined) return null
-            if ((value == null) || (typeof value !== 'object')) return value
-            if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
-            if (value instanceof this.State) return value.valueOf()
+            if (value == undefined) return null
+            switch (typeof value) {
+                case 'string': case 'number': case 'boolean': return value
+                case 'bigint': case 'symbol': return value.toString()
+                case 'function': return undefined
+            }
+            if ((value instanceof this.State) || (value instanceof this.Facet)) return this.flatten(value.valueOf())
             if (value instanceof HTMLElement) {
                 let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
@@ -489,11 +492,13 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
             if (value instanceof FormData) return Object.fromEntries(value.entries())
             if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
-            if (value instanceof Object) {
-                let result = Object.fromEntries(Object.entries(value).filter(ent => typeof ent[1] !== 'function'))
-                for (const k in result) if (result[k] instanceof this.State) result[k] = this.flatten(result[k])
-                return key ? result[key] : result
+            if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
+            if (this.isPlainObject(value)) {
+                const result = {}
+                for (const k in value) result[`${k}`] = this.flatten(value[k])
+                return result
             }
+            if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
         }
     },
     isFacetContainer: {
@@ -1311,9 +1316,9 @@ const ElementHTML = Object.defineProperties({}, {
                 return envelope.vars.expression
             },
             transform: async function (container, position, envelope, value) {
-                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries((this.app.facets.instances.get(container) ?? {}).fields).map(f => [f[0], f[1].get()]))),
+                const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                return this.runTransform(expression, value, container, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
+                return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
             },
             variable: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { cells, context, fields } = env
