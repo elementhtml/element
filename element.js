@@ -15,16 +15,19 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'application/x-jsonata': function (text) {
                     let expression = this.app.libraries['application/x-jsonata'](text)
-                    if (text.includes('$console(')) expression.registerFunction('console', (...m) => console.log(...m))
-                    if (text.includes('$uuid()')) expression.registerFunction('uuid', () => crypto.randomUUID())
-                    if (text.includes('$form(')) expression.registerFunction('form',
-                        v => (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {})
-                    if (text.includes('$queryString(')) expression.registerFunction('queryString',
-                        v => (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "")
-                    for (const [helperAlias, helperName] of Object.entries(this.env.options['application/x-jsonata']?.helpers ?? {})) if (text.includes(`$${helperAlias}(`))
-                        expression.registerFunction(helperAlias, (...args) => this.useHelper(helperName, ...args))
+
+                    const regex = /\$([a-zA-Z0-9_]+)\(/g
+
+                    let helperName
+                    for (const matches of text.matchAll(regex)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
+
+
                     return expression
                 },
+                'console': function (...args) { return console.log(...args) },
+                'uuid': function () { return crypto.randomUUID() },
+                'form': function (v) { return (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {} },
+                'queryString': function (v) { return (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "" },
                 'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
                 'ipfs://': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
@@ -95,8 +98,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            options: { 'application/x-jsonata': { helpers: { is: 'application/schema+json' } } }, regexp: {}, snippets: {}, transforms: {}, types: {}
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
@@ -1927,6 +1929,7 @@ ${scriptBody.join('{')}`
         }
     }
 })
+ElementHTML.env.helpers.is = ElementHTML.env.helpers['application/schema+json']
 ElementHTML.Component.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: {
