@@ -958,13 +958,9 @@ const ElementHTML = Object.defineProperties({}, {
     resolveUrl: {
         enumerable: true, value: function (value, base) {
             if (typeof value !== 'string') return value
-            if (value.startsWith('https://') || value.startsWith('http://')) return value
-            if (this.sys.regexp.protocolSplitter.test(value)) {
-                const [protocol, hostpath] = value.split(this.sys.regexp.protocolSplitter), helperName = `${protocol}://`
-                if (typeof this.app.helpers[helperName] === 'function') return this.useHelper(helperName, hostpath)
-                if (typeof this.env.helpers[helperName] === 'function') return this.env.helpers[helperName](hostpath)
-                return value
-            }
+            const valueUrl = new URL(value, base ?? document.baseURI), { protocol, host, pathname } = valueUrl
+            if (protocol === document.location.protocol) return value
+            if (typeof this.app.helpers[protocol] === 'function') return this.useHelper(protocol, host, pathname)
             return new URL(value, base ?? document.baseURI).href
         }
     },
