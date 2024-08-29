@@ -1537,45 +1537,6 @@ const ElementHTML = Object.defineProperties({}, {
             return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
         }
     },
-    getStateContainer: {
-        value: function (name, facetInstanceOrContainer) {
-            if (!name) return
-            const type = facetInstanceOrContainer ? 'field' : 'cell'
-            let containers
-            switch (type) {
-                case 'field':
-                    if (facetInstanceOrContainer instanceof this.Facet) {
-                        containers = facetInstanceOrContainer.fields
-                    } else if (facetInstanceOrContainer instanceof HTMLElement) {
-                        containers = this.app.facets.instances.get(facetInstanceOrContainer).fields
-                    }
-                    break
-                case 'cell':
-                    containers = this.app.cells
-                    break
-            }
-            if (!containers[name]) {
-                const container = {
-                    type, eventTarget: new EventTarget(),
-                    get: function () { return this.value },
-                    set: function (value, labelMode) {
-                        let isSame = this.value === value
-                        if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
-                        if (isSame) {
-                            if (labelMode === 'force') container.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                            return this
-                        }
-                        this.value = value
-                        if (labelMode !== 'silent') container.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                        return this
-                    },
-                    value: undefined, name
-                }
-                containers[name] = container
-            }
-            return containers[name]
-        }
-    },
     getStateGroup: {
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
