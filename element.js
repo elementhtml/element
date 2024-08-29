@@ -956,9 +956,8 @@ const ElementHTML = Object.defineProperties({}, {
                             result = this.sys.valueAliases[expression]
                             break
                         case (expression === '$'):
-                            result = value in lexicon ? value : expression
+                            result = 'value' in lexicon ? value : expression
                             break
-
                         case (e0 === '$'): case (e0 === '@'): case (e0 === '#'): case (e0 === '~'):
                             const subLexicon = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
                             switch (undefined) {
@@ -987,7 +986,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
                             }
                             result = expression
-                            if (context || cells || fields || labels || (value in lexicon)) {
+                            if (context || cells || fields || labels || ('value' in lexicon)) {
                                 flags.wrapped = false
                                 result = this.resolveVariable(expression, flags, lexicon)
                             }
@@ -1016,7 +1015,7 @@ const ElementHTML = Object.defineProperties({}, {
                         result[this.resolveVariable(key, lexicon, keyFlags)] = this.resolveVariable(expression[key], keyFlags, lexicon)
                     }
             }
-            return result ?? dft
+            return result === undefined ? dft : result
         }
     },
     resolveUrl: {
