@@ -538,44 +538,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof this.env.helpers[name] === 'function') return ((this.app.helpers[name] = this.env.helpers[name]) && name)
         }
     },
-    mergeVariables: {
-        enumerable: true, value: function (expression, value, labels, env, inner) {
-            if (!expression) return inner ? value : undefined
-            if (typeof expression !== 'string') return expression
-            if (expression === (inner ? '$' : '${$}')) return value
-            const isMatch = expression.match(this.sys.regexp.hasVariable)
-            labels ||= {}
-            env ||= {}
-            env.fields ||= {}
-            env.cells ||= { ...this.app.cells }
-            env.context ||= { ...this.env.context }
-            if (!isMatch) return inner ? this.getVariable(expression, value, labels, env) : expression
-            if (expression[0] === '[') return expression.slice(1, -1).split(',').map(s => this.mergeVariables(s.trim(), value, labels, env, true))
-            if (expression[0] === '{') return Object.fromEntries(expression.slice(1, -1).split(',').map(s => {
-                const [k, v] = s.trim().split(':').map(ss => s.trim())
-                return [k, this.mergeVariables(v, value, labels, env, true)]
-            }))
-            const merge = (exp, canBeNotString) => {
-                if (!inner) exp = exp.trim().slice(2, -1).trim()
-                let retval
-                if (exp.includes('.')) {
-                    const fragments = exp.split('.').map(s => s.trim())
-                    retval = this.mergeVariables(fragments.shift(), value, labels, env, true)
-                    for (const frag of fragments) {
-                        retval = (frag.endsWith(')') && frag.includes('(')) ? this.runFragmentAsMethod(frag, retval) : retval?.[frag]
-                        if (retval == undefined) break
-                    }
-                } else {
-                    retval = this.mergeVariables(exp, value, labels, env, true)
-                }
-                if (typeof retval === 'string') return retval
-                if (typeof retval === 'function') retval = undefined
-                if (canBeNotString) return retval
-                try { return retval === undefined ? '' : JSON.stringify(retval) } catch (e) { return undefined }
-            }
-            return ((isMatch.length === 1) && (isMatch[0] === expression)) ? merge(expression, true) : expression.replace(this.sys.regexp.hasVariable, merge)
-        }
-    },
     parse: {
         enumerable: true, value: async function (input, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
@@ -1249,8 +1211,8 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.mergeJsonValueWithVariables(envelope.vars.value, envelope, value)
             },
             network: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = vars
-                let url = this.mergeVariables(expression, value, labels, env)
+                const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
+                let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
                 if (!url) return
                 const options = {}
                 if (!((value == undefined) || (expressionIncludesVariable && typeof value === 'string'))) {
@@ -1368,7 +1330,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             string: async function (container, position, envelope, value) {
-                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
+                return envelope.vars.expression
             },
             transform: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { block, expression } = envelope.vars, fields = Object.freeze(Object.fromEntries(Object.entries((this.app.facets.instances.get(container) ?? {}).fields).map(f => [f[0], f[1].get()]))),
@@ -1376,32 +1338,33 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.runTransform(expression, value, container, { labels, fields, cells, context: Object.freeze({ ...env.context }) })
             },
             variable: async function (container, position, envelope, value) {
-                return this.mergeVariables(envelope.vars.expression, value, envelope.labels, envelope.env)
+                const { labels, env } = envelope, { cells, context, fields } = env
+                return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
             },
             wait: async function (container, position, envelope, value) {
-                const { labels, env, vars } = envelope, { expression } = vars, mergedExpression = this.mergeVariables(expression, value, labels, env),
-                    done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
+                const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression } = vars, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                 let ms = 0, now = Date.now()
-                if (mergedExpression === 'frame') {
+                if (expression === 'frame') {
                     await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
                     done()
-                } else if (mergedExpression.startsWith('idle')) {
-                    let timeout = mergedExpression.split(':')[0]
+                } else if (expression.startsWith('idle')) {
+                    let timeout = expression.split(':')[0]
                     timeout = timeout ? (parseInt(timeout) || 1) : 1
                     await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
                     done()
-                } else if (mergedExpression[0] === '+') {
-                    ms = parseInt(mergedExpression.slice(1)) || 1
-                } else if (this.sys.regexp.isNumeric.test(mergedExpression)) {
-                    ms = (parseInt(mergedExpression) || 1) - now
+                } else if (expression[0] === '+') {
+                    ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped: false }, { cells, context, fields, labels, value })) || 1
+                } else if (this.sys.regexp.isNumeric.test(expression)) {
+                    ms = (parseInt(expression) || 1) - now
                 } else {
-                    let mergedExpressionSplit = mergedExpression.split(':').map(s => s.trim())
-                    if ((mergedExpressionSplit.length === 3) && mergedExpressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
-                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${mergedExpression}Z`)
+                    expression = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
+                    let expressionSplit = expression.split(':').map(s => s.trim())
+                    if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
+                        ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
                         if (ms < 0) ms = (ms + (1000 * 3600 * 24))
                         ms = ms - now
                     } else {
-                        ms = Date.parse(mergedExpression) - now
+                        ms = Date.parse(expression) - now
                     }
                 }
                 ms = Math.max(ms, 0)
@@ -1771,12 +1734,13 @@ const ElementHTML = Object.defineProperties({}, {
                 a = this.parseToValueOrVariable(a)
                 if (aSpread && !Array.isArray(a)) a = [a]
                 if (value !== undefined) {
+                    const { cells, context, fields, labels } = envelope
                     if (aSpread) {
                         const newA = []
-                        for (const aa of a) newA.push(this.mergeVariables(aa, value, envelope))
+                        for (const aa of a) newA.push(this.resolveVariable(aa, { wrapped: false }, { cells, context, fields, labels, value }))
                         a = newA
                     } else {
-                        a = this.mergeVariables(a, value, envelope)
+                        a = this.resolveVariable(a, { wrapped: false }, { cells, context, fields, labels, value })
                     }
                 }
                 aSpread ? newArgs.push(...a) : newArgs.push(a)
@@ -1784,31 +1748,31 @@ const ElementHTML = Object.defineProperties({}, {
             return newArgs
         }
     },
-    mergeJsonValueWithVariables: {
-        value: function (v, envelope, value) {
-            if (v === null) return v
-            switch (typeof v) {
-                case 'object':
-                    const { labels, env } = envelope
-                    let rv
-                    if (Array.isArray(v)) {
-                        rv = []
-                        for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
-                    } else {
-                        rv = {}
-                        for (let kk in v) {
-                            const vv = v[kk]
-                            if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
-                            if (typeof kk !== 'string' && typeof kk !== 'number') continue
-                            rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
-                        }
-                    }
-                    return rv
-                default:
-                    return v
-            }
-        }
-    },
+    // mergeJsonValueWithVariables: {
+    //     value: function (v, envelope, value) {
+    //         if (v === null) return v
+    //         switch (typeof v) {
+    //             case 'object':
+    //                 const { labels, env } = envelope
+    //                 let rv
+    //                 if (Array.isArray(v)) {
+    //                     rv = []
+    //                     for (const vv of v) rv.push((typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv)
+    //                 } else {
+    //                     rv = {}
+    //                     for (let kk in v) {
+    //                         const vv = v[kk]
+    //                         if ((typeof kk === 'string' && (kk[0] === '$') && (kk[1] === '{') && kk.endsWith('}'))) kk = this.mergeVariables(kk, value, labels, env)
+    //                         if (typeof kk !== 'string' && typeof kk !== 'number') continue
+    //                         rv[kk] = (typeof vv === 'string' && (vv[0] === '$') && (vv[1] === '{') && vv.endsWith('}')) ? this.mergeVariables(vv, value, labels, env) : vv
+    //                     }
+    //                 }
+    //                 return rv
+    //             default:
+    //                 return v
+    //         }
+    //     }
+    // },
     mountFacet: {
         value: async function (facetContainer) {
             let { type, textContent } = facetContainer, src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
@@ -1910,8 +1874,10 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
             if (typeof element[funcName] === 'function') {
+                const cells = {}
+                for (const c in this.app.cells) cells[c] = this.app.cells[c].value
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.mergeVariables(a.trim(), a.trim())) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariable(a.trim(), { wrapped: false }, { cells, context: this.env.context, value: a.trim() })) : []
                 return element[funcName](...argsRest, ...([arg]))
             }
         }
@@ -1955,6 +1921,7 @@ const ElementHTML = Object.defineProperties({}, {
             return !(document.createElement(tag) instanceof HTMLUnknownElement)
         }
     },
+
 
     componentFactory: {
         value: async function (manifest, id) {
@@ -2107,16 +2074,19 @@ ${scriptBody.join('{')}`
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 if (this.disabled) return
-                                let passedInValue = labels[`${previousStepIndex}`]
-                                let detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
-                                    ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
+                                let passedInValue = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, passedInValue)
+                                    ?? (defaultExpression
+                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value: passedInValue })
+                                        : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
                         } else {
                             container.addEventListener('run', async event => {
                                 if (this.disabled) return
                                 let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
-                                    ?? (defaultExpression ? this.constructor.E.mergeVariables(this.constructor.E.parseToValueOrVariable(defaultExpression), undefined, labels, env) : undefined)
+                                    ?? (defaultExpression
+                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value: passedInValue })
+                                        : undefined)
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal: this.controller.signal })
                         }
@@ -2124,8 +2094,65 @@ ${scriptBody.join('{')}`
                 }
                 container.dispatchEvent(new CustomEvent('run'))
             }
-            valueOf() { return { ...this.fields } }
+            valueOf() {
+                const fields = {}
+                for (const f in this.fields) fields[f] = fields[f].value
+                return fields
+            }
             toJSON() { return this.valueOf() }
+        }
+    },
+
+    State: {
+        value: class {
+            name
+            type
+            value
+            eventTarget = new EventTarget()
+
+            get() { return this.value }
+
+            set(value, labelMode) {
+                let isSame = this.value === value
+                if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                if (isSame) {
+                    if (labelMode === 'force') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                    return this
+                }
+                this.value = value
+                if (labelMode !== 'silent') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                return this
+            }
+
+            constructor(name, initialValue) {
+                super()
+                this.name = name
+                this.value = initialValue
+            }
+
+            valueOf() { return this.value }
+
+            toJSON() { return this.valueOf() }
+
+        }
+    },
+    Cell: {
+        value: class extends this.State {
+            constructor(name, initialValue) {
+                super()
+                if (this.name) this.app.cells[this.name] ??= this
+            }
+        }
+    },
+    Field: {
+        value: class extends this.State {
+            constructor(name, initialValue, facetContainerOrInstance) {
+                super()
+                if (this.name && facetContainerOrInstance) {
+                    let fields = (facetInstanceOrContainer instanceof this.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? this.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
+                    if (fields) fields[this.name] = this
+                }
+            }
         }
     }
 
