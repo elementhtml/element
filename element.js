@@ -983,8 +983,8 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!u) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry)
                             if (!expressionIsArray) {
                                 expression = {}
-                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[i++], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
-                                    if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
+                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[++i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
+                                    if (console.log(i, r, n, k, v) || k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
                             }
                             result = expression
                             if (context || cells || fields || labels || (value in lexicon)) {
@@ -997,7 +997,7 @@ const ElementHTML = Object.defineProperties({}, {
                             result = expression.slice(1, -1)
                             break
                         case (this.sys.regexp.isNumeric.test(expression)):
-                            result = value % 1 === 0 ? parseInt(value, 10) : parseFloat(value)
+                            result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
                             break
                         default:
                             result = expression
