@@ -27,12 +27,12 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
                 'ipfs://': function (hostpath) {
-                    const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
-                    return `https://${cid}.ipfs.${gateway}/${path.join('/')}}`
+                    const [cid, ...path] = hostpath.split('/'), { gateway } = this.env.options['ipfs://']
+                    return `${window.location.protocol}//${cid}.ipfs.${gateway}/${path.join('/')}}`
                 },
                 'ipns://': function (hostpath) {
-                    const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipns://']?.gateway ?? 'dweb.link'
-                    return `https://${cid}.ipns.${gateway}/${path.join('/')}}`
+                    const [cid, ...path] = hostpath.split('/'), { gateway } = this.env.options['ipns://']
+                    return `${window.location.protocol}//${cid}.ipns.${gateway}/${path.join('/')}}`
                 },
                 'text/markdown': function (text, serialize) {
                     if (!this.app.libraries['text/markdown']) return
@@ -60,21 +60,8 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
                 },
                 'xdr': async function () { this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default },
-                'ipfs://': async function () {
-                    if (this.env.options['ipfs://']?.gateway) return
-                    try {
-                        if ((await fetch('https://ipfs.tech.ipns.localhost:8080/', { method: 'HEAD' })).ok) {
-                            this.env.options['ipfs://'] ||= {}
-                            this.env.options['ipfs://'].gateway ||= 'localhost:8080'
-                            this.env.options['ipns://'] ||= {}
-                            this.env.options['ipns://'].gateway ||= 'localhost:8080'
-                        }
-                    } catch (e) { }
-                },
-                'ipns://': async function () {
-                    if (this.env.options['ipns://']?.gateway) return
-                    if (typeof this.env.loaders['ipfs://'] === 'function') return await this.env.loaders['ipfs://']()
-                },
+                'ipfs://': async function () { this.discoverProtocolGateway('ipfs://') },
+                'ipns://': async function () { this.discoverProtocolGateway('ipns://') },
                 'text/markdown': async function () {
                     if (this.app.libraries['text/markdown']) return
                     this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
@@ -95,7 +82,10 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, regexp: {}, snippets: {}, transforms: {}, types: {}
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {
+                'ipfs://': { gateway: ['localhost:8080', 'dweb.link'] },
+                'ipns://': { gateway: ['localhost:8080', 'dweb.link'] }
+            }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
@@ -1508,6 +1498,25 @@ const ElementHTML = Object.defineProperties({}, {
             const selectorMain = selector.slice(1)
             if (!selectorMain) return selector
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
+        }
+    },
+    discoverProtocolGateway: {
+        value: async function (protocolHelperName) {
+            const { gateway } = this.env.options[protocolHelperName]
+            if (!gateway || (typeof gateway === 'string')) return
+            if (!Array.isArray(gateway)) return
+            for (const g of gateway) {
+                const { head, use } = this.isPlainObject(g) ? g : { head: g, use: g }
+                if (typeof head !== 'string' || typeof use !== 'string') continue
+                try {
+                    if ((await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok) {
+                        this.env.options[protocolHelperName] ||= {}
+                        this.env.options[protocolHelperName].gateway ||= use
+                        return
+                    }
+                } catch (e) { }
+            }
+            delete this.env.options[protocolHelperName].gateway
         }
     },
     generateUUIDWithNoDashes: {
