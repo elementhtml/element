@@ -1902,9 +1902,7 @@ ${scriptBody.join('{')}`
             type
             value
             eventTarget = new EventTarget()
-
             get() { return this.value }
-
             set(value, labelMode) {
                 let isSame = this.value === value
                 if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
@@ -1916,16 +1914,12 @@ ${scriptBody.join('{')}`
                 if (labelMode !== 'silent') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
                 return this
             }
-
             constructor(name, initialValue) {
                 this.name = name
                 this.value = initialValue
             }
-
             valueOf() { return this.value }
-
             toJSON() { return this.valueOf() }
-
         }
     }
 })
