@@ -984,7 +984,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!expressionIsArray) {
                                 expression = {}
                                 for (let i = 0, r = entries[i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[++i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
-                                    if (console.log(i, r, n, k, v) || k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
+                                    if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
                             }
                             result = expression
                             if (context || cells || fields || labels || (value in lexicon)) {
