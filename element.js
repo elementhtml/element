@@ -2041,7 +2041,7 @@ Object.defineProperties(ElementHTML, {
     Cell: {
         value: class extends ElementHTML.State {
             constructor(name, initialValue) {
-                super()
+                super(name, initialValue)
                 if (this.name) this.app.cells[this.name] ??= this
             }
         }
@@ -2049,7 +2049,7 @@ Object.defineProperties(ElementHTML, {
     Field: {
         value: class extends ElementHTML.State {
             constructor(name, initialValue, facetContainerOrInstance) {
-                super()
+                super(name, initialValue)
                 if (this.name && facetContainerOrInstance) {
                     let fields = (facetInstanceOrContainer instanceof this.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? this.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
                     if (fields) fields[this.name] = this
