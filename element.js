@@ -954,17 +954,22 @@ const ElementHTML = Object.defineProperties({}, {
                         case (expression in this.sys.valueAliases):
                             result = this.sys.valueAliases[expression]
                             break
-                        case (e0 === '$'):
-                            result = (expression.length === 1) ? (value in lexicon ? value : expression) : (labels ? labels[expression.slice(1)] : expression)
+                        case (expression === '$'):
+                            result = value in lexicon ? value : expression
                             break
-                        case (e0 === '@'):
-                            result = fields ? lexicon.fields[expression.slice(1)] : expression
-                            break
-                        case (e0 === '#'):
-                            result = cells ? lexicon.cells[expression.slice(1)] : expression
-                            break
-                        case (e0 === '~'):
-                            result = context ? lexicon.context[expression.slice(1)] : expression
+
+                        case (e0 === '$'): case (e0 === '@'): case (e0 === '#'): case (e0 === '~'):
+                            const subLexicon = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
+                            switch (undefined) {
+                                case subLexicon:
+                                    result = expression
+                                    break
+                                default:
+                                    const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
+                                    let i = 0
+                                    result = subLexicon[mainExpression.slice(1)]
+                                    while (result !== undefined && i < l) result = result?.[vectors[i++]]
+                            }
                             break
                         case ((e0 === '[') && expression.endsWith(']')):
                             expression = []
