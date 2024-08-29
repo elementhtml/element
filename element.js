@@ -21,7 +21,12 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 'console': function (...args) { return console.log(...args) },
                 'uuid': function () { return crypto.randomUUID() },
-                'form': function (v) { return (v instanceof Object) ? Object.fromEntries(Object.entries(v).map(ent => ['`' + `[name="${ent[0]}"]` + '`', ent[1]])) : {} },
+                'form': function (obj) {
+                    if (!this.isPlainObject(obj)) return {}
+                    const formRender = {}
+                    for (const k in obj) formRender[`\`[name="${k}"]\``] = obj[k]
+                    return formRender
+                },
                 'queryString': function (v) { return (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "" },
                 'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
                 'ipfs://': function (hostpath) {
