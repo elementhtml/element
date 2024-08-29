@@ -19,15 +19,12 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const matches of text.matchAll(this.sys.regexp.jsonataHelpers)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
                     return expression
                 },
-                'console': function (...args) { return console.log(...args) },
-                'uuid': function () { return crypto.randomUUID() },
                 'form': function (obj) {
                     if (!this.isPlainObject(obj)) return {}
                     const formRender = {}
                     for (const k in obj) formRender[`\`[name="${k}"]\``] = obj[k]
                     return formRender
                 },
-                'queryString': function (v) { return (v instanceof Object) ? (new URLSearchParams(Object.fromEntries(Object.entries(v).filter(ent => ent[1] != undefined)))).toString() : "" },
                 'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
                 'ipfs://': function (hostpath) {
                     const [cid, ...path] = hostpath.split('/'), gateway = this.env.options['ipfs://']?.gateway ?? 'dweb.link'
