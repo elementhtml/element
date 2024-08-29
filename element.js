@@ -511,16 +511,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    getCell: {
-        enumerable: true, value: function (name) {
-            return this.getStateContainer(name)
-        }
-    },
-    getField: {
-        enumerable: true, value: function (facetInstanceOrContainer, fieldName) {
-            return this.getStateContainer(fieldName, facetInstanceOrContainer)
-        }
-    },
     isFacetContainer: {
         enumerable: true, value: function (element) {
             return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'facet/element' || element.type === 'application/element'))
@@ -1175,12 +1165,12 @@ const ElementHTML = Object.defineProperties({}, {
                 let { target } = vars, getReturnValue
                 switch (shape) {
                     case 'single':
-                        target[target.type] = target.type === 'field' ? this.getField(container, target.name) : this.getCell(target.name)
+                        target[target.type] = target.type === 'field' ? (new this.Field(container, target.name)) : (new this.Cell(target.name))
                         getReturnValue = () => target[target.type].get()
                         items.push(target)
                         break
                     case 'array':
-                        for (const t of target) t[t.type] = t.type === 'field' ? this.getField(container, t.name) : this.getCell(t.name)
+                        for (const t of target) t[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                         getReturnValue = () => {
                             const r = target.map(t => t[t.type].get())
                             return r.some(rr => rr == undefined) ? undefined : r
@@ -1189,7 +1179,7 @@ const ElementHTML = Object.defineProperties({}, {
                         break
                     case 'object':
                         if (Array.isArray(target)) target = Object.fromEntries(target)
-                        for (const t of Object.values(target)) t[t.type] = t.type === 'field' ? this.getField(container, t.name) : this.getCell(t.name)
+                        for (const t of Object.values(target)) t[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                         getReturnValue = () => {
                             const r = {}
                             for (const key in target) r[key] = target[key][target[key].type].get()
@@ -1605,9 +1595,9 @@ const ElementHTML = Object.defineProperties({}, {
             }, getStateTarget = parseOnly ? undefined : (name, mode, type) => {
                 switch (type) {
                     case 'cell':
-                        return { cell: this.getCell(name), type, mode }
+                        return { cell: (new this.Cell(name)), type, mode }
                     case 'field':
-                        return { field: this.getField(element, name), type, mode }
+                        return { field: (new this.Field(name, undefined, element)), type, mode }
                 }
             }
             switch (expression[0]) {
@@ -1701,8 +1691,8 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.facets.instances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
                 context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
-            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = this.getField(facetInstance, fieldName)
-            for (const cellName of FacetClass.cellNames) cells[cellName] = this.getCell(cellName)
+            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
+            for (const cellName of FacetClass.cellNames) cells[cellName] = new this.Cell(cellName)
             Object.freeze(fields)
             Object.freeze(cells)
             facetInstance.observer = new MutationObserver(records => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
@@ -1934,7 +1924,7 @@ ${scriptBody.join('{')}`
             disabled
             constructor() {
                 this.controller = new AbortController()
-                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = this.constructor.E.getField(this, fieldName)
+                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = new this.constructor.E.Field(this, fieldName)
                 Object.freeze(this.fields)
             }
             async run(container, env) {
@@ -2041,19 +2031,19 @@ Object.defineProperties(ElementHTML, {
     Cell: {
         value: class extends ElementHTML.State {
             constructor(name, initialValue) {
+                if (name && ElementHTML.app.cells[name]) return ElementHTML.app.cells[name]
                 super(name, initialValue)
-                if (this.name) this.app.cells[this.name] ??= this
+                if (this.name) ElementHTML.app.cells[this.name] ??= this
             }
         }
     },
     Field: {
         value: class extends ElementHTML.State {
-            constructor(name, initialValue, facetContainerOrInstance) {
+            constructor(facetInstanceOrContainer, name, initialValue) {
+                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
+                if (name && fields[name]) return fields[name]
                 super(name, initialValue)
-                if (this.name && facetContainerOrInstance) {
-                    let fields = (facetInstanceOrContainer instanceof this.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? this.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
-                    if (fields) fields[this.name] = this
-                }
+                if (name && fields) fields[name] ??= this
             }
         }
     }
