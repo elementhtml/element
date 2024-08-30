@@ -73,8 +73,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, gateways: {
-                'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080' }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link' }],
-                'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080' }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link' }],
+                'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link', auto: true }],
+                'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link', auto: true }],
                 'ar:': [{
                     gateway: function (useHost = {}, gatewayArgs = {}) {
                         if (typeof useHost !== 'string') return fetch(`${window.location.protocol}//localhost:1984`, { method: 'HEAD' }).then(r => r.ok ? 'localhost:1984' : 'arweave.net')
@@ -82,9 +82,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return (txid.length === 43 && txid.includes('.')) ? `${useHost}/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
                     }, auto: true
                 }],
-                'bzz:': [{ gateway: 'localhost:8500/bzz:/{path}', head: 'localhost:8500' }, { gateway: 'gateway.ethswarm.org/bzz:/{path}', head: 'gateway.ethswarm.org' }],
-                'sia:': [{ gateway: '{path|/|0}.siasky.net/{path|/|1:}', head: 'siasky.net' }],
-                'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link' }]
+                'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
+                'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
