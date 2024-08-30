@@ -83,12 +83,12 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, gateways: {
-                'ipfs:': ['localhost:8080', 'dweb.link'],
-                'ipns:': ['localhost:8080', 'dweb.link'],
-                'ar:': 'arweave.net',
-                'bzz:': ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'],
-                'sia:': 'siasky.net',
-                'eth:': 'eth.link'
+                'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080' }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link' }],
+                'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080' }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link' }],
+                'ar:': [{ gateway: 'localhost:1984/{path}', head: 'localhost:1984' }, { gateway: 'arweave.net/{path}', head: 'arweave.net' }],
+                'bzz:': [{ gateway: 'localhost:8500/bzz:/{path}', head: 'localhost:8500' }, { gateway: 'gateway.ethswarm.org/bzz:/{path}', head: 'gateway.ethswarm.org' }],
+                'sia:': [{ gateway: '{path|/|0}.siasky.net/{path|/|1:}', head: 'siasky.net' }],
+                'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link' }]
             }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
@@ -967,7 +967,7 @@ const ElementHTML = Object.defineProperties({}, {
             base ??= document.baseURI
             const valueUrl = new URL(value, base), { protocol } = valueUrl
             if (protocol === document.location.protocol) return valueUrl.href
-            const gateway = this.app.protocols[protocol]
+            const gateway = this.app.gateways[protocol]
             if (gateway) {
                 const path = valueUrl.pathname.replace(/^\/+/, '')
                 return new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
@@ -1558,16 +1558,17 @@ const ElementHTML = Object.defineProperties({}, {
     },
     loadGateway: {
         value: async function (protocol, gateway) {
-            if (!gateway || !protocol) return
+            if (!protocol) return
             if (protocol.endsWith(':')) protocol = `${protocol}:`
-            if (this.app.protocols[protocol]) return this.app.protocols[protocol]
-            if (typeof gateway === 'string') gateway = [{ head: `${window.location.protocol}//${gateway}`, gateway: `${gateway}/{path}` }]
-            if (this.isPlainObject(gateway)) gateway = [gateway]
+            if (this.app.gateways[protocol]) return this.app.gateways[protocol]
+            gateway ??= this.env.gateways[protocol]
+            if (typeof gateway === 'string') gateway = [{ head: gateway, gateway: `${gateway}/{path}` }]
+            if (this.isPlainObject(gateway) && gateway.gateway) gateway = [gateway]
             if (!Array.isArray(gateway)) return
-            for (let g of gatewaygateway) {
-                if (typeof g === 'string') g = { head: `${window.location.protocol}//${g}`, gateway: `${g}/{path}` }
-                if (!this.isPlainObject(g)) continue
-                if ((await fetch(g.head, { method: 'HEAD' })).ok) return this.app.protocols[protocol] = g.gateway
+            for (let g of gateway) {
+                if (typeof g === 'string') g = { head: g, gateway: `${g}/{path}` }
+                if (!this.isPlainObject(g) || !g.gateway) continue
+                if ((await fetch(g.head ? `${window.location.protocol}//${g.head}` : `${window.location.protocol}//${g.gateway}`, { method: 'HEAD' })).ok) return this.app.gateways[protocol] = g.gateway
             }
         }
     },
