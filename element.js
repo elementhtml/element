@@ -76,12 +76,12 @@ const ElementHTML = Object.defineProperties({}, {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080' }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link' }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080' }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link' }],
                 'ar:': [{
-                    gateway: function (args = {}) {
+                    gateway: function (ok = true, args = {}) {
                         const [txid, ...chunks] = args.path.split('/')
                         return (txid.length === 43 && txid.includes('.')) ? `localhost:1984/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
                     }, head: 'localhost:1984'
                 }, {
-                    gateway: function (args = {}) {
+                    gateway: function (ok = true, args = {}) {
                         const [txid, ...chunks] = args.path.split('/')
                         return (txid.length === 43 && txid.includes('.')) ? `arweave.net/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
                     }, head: 'arweave.net'
