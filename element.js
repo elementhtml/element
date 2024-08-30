@@ -1540,33 +1540,20 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperties(this, module)
         }
     },
-
     loadProtocol: {
         value: async function (protocol, gateway) {
             if (protocol.endsWith(':')) protocol = `${protocol}:`
             if (this.app.protocols[protocol]) return this.app.protocols[protocol]
-            if (typeof protocol === 'string') return this.app.protocols[protocol] = protocol
-            if (this.isPlainObject(protocol)) protocol = [protocol]
-            if (!Array.isArray(protocol)) return
-            for (let p of protocol) {
-                if (typeof p === 'string') p = { head: `${window.location.protocol}//${p}`, gateway: `${window.location.protocol}//${p}/{path}` }
-                if (!this.isPlainObject(p)) continue
-
-
+            if (typeof gateway === 'string') gateway = [{ head: `${window.location.protocol}//${gateway}`, gateway: `${gateway}/{path}` }]
+            if (this.isPlainObject(gateway)) gateway = [gateway]
+            if (!Array.isArray(gateway)) return
+            for (let g of gatewaygateway) {
+                if (typeof g === 'string') g = { head: `${window.location.protocol}//${g}`, gateway: `${g}/{path}` }
+                if (!this.isPlainObject(g)) continue
+                if ((await fetch(g.head, { method: 'HEAD' })).ok) return this.app.protocols[protocol] = g.gateway
             }
-
-
-
-
-            // 'ipfs:': ['localhost:8080', 'dweb.link'],
-            // 'ipns:': ['localhost:8080', 'dweb.link'],
-            // 'ar:': 'arweave.net',
-            // 'bzz:': ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'],
-            // 'sia:': 'siasky.net',
-            // 'eth:': 'eth.link'
         }
     },
-
     mergeArgs: {
         value: function (args, value, envelope = {}) {
             const newArgs = []
