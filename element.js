@@ -82,13 +82,13 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {
-                'ipfs://': { gateway: ['localhost:8080', 'dweb.link'] },
-                'ipns://': { gateway: ['localhost:8080', 'dweb.link'] },
-                'ar://': { gateway: 'arweave.net' },
-                'bzz://': { gateway: ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'] },
-                'sia://': { gateway: 'siasky.net' },
-                'eth://': { gateway: 'eth.link' },
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, protocols: {
+                'ipfs:': ['localhost:8080', 'dweb.link'],
+                'ipns:': ['localhost:8080', 'dweb.link'],
+                'ar:': 'arweave.net',
+                'bzz:': ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'],
+                'sia:': 'siasky.net',
+                'eth:': 'eth.link'
             }, regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
@@ -960,6 +960,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof value !== 'string') return value
             const valueUrl = new URL(value, base ?? document.baseURI), { protocol, host, pathname } = valueUrl
             if (protocol === document.location.protocol) return value
+
+
             if (typeof this.app.helpers[protocol] === 'function') return this.useHelper(protocol, host, pathname)
             return new URL(value, base ?? document.baseURI).href
         }
@@ -1080,7 +1082,7 @@ const ElementHTML = Object.defineProperties({}, {
             components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
             eventTarget: new EventTarget(),
             facets: { classes: {}, instances: new WeakMap() },
-            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, snippets: {}, transforms: {}, types: {},
+            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), protocols: {}, regexp: {}, snippets: {}, transforms: {}, types: {},
         }
     },
     binders: {
@@ -1538,6 +1540,33 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperties(this, module)
         }
     },
+
+    loadProtocol: {
+        value: async function (protocol, gateway) {
+            if (protocol.endsWith(':')) protocol = `${protocol}:`
+            if (this.app.protocols[protocol]) return this.app.protocols[protocol]
+            if (typeof protocol === 'string') return this.app.protocols[protocol] = protocol
+            if (this.isPlainObject(protocol)) protocol = [protocol]
+            if (!Array.isArray(protocol)) return
+            for (let p of protocol) {
+                if (typeof p === 'string') p = { head: `${window.location.protocol}//${p}`, gateway: `${window.location.protocol}//${p}/{path}` }
+                if (!this.isPlainObject(p)) continue
+
+
+            }
+
+
+
+
+            // 'ipfs:': ['localhost:8080', 'dweb.link'],
+            // 'ipns:': ['localhost:8080', 'dweb.link'],
+            // 'ar:': 'arweave.net',
+            // 'bzz:': ['localhost:8500/bzz:', 'gateway.ethswarm.org/bzz:'],
+            // 'sia:': 'siasky.net',
+            // 'eth:': 'eth.link'
+        }
+    },
+
     mergeArgs: {
         value: function (args, value, envelope = {}) {
             const newArgs = []
@@ -1959,7 +1988,7 @@ Object.defineProperties(ElementHTML, {
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
-for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
+// for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
 if (metaOptions.has('packages')) {
     const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
         importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }
