@@ -970,16 +970,23 @@ const ElementHTML = Object.defineProperties({}, {
             const gateway = this.app.gateways[protocol]
             if (gateway) {
                 const path = valueUrl.pathname.replace(/^\/+/, '')
-                return new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
-                    mergeExpression = mergeExpression.trim()
-                    if (!mergeExpression) return path
-                    if (!mergeExpression.includes('|')) {
-                        if (!mergeExpression.includes(':')) return valueUrl[mergeExpression] ?? path
-                        mergeExpression = `path|/|${mergeExpression}`
-                    }
-                    const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
-                    return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
-                }), base).href
+                switch (typeof gateway) {
+                    case 'function':
+                        const gatewayArgs = { path }
+                        for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
+                        return gateway(gatewayArgs)
+                    case 'string':
+                        return new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                            mergeExpression = mergeExpression.trim()
+                            if (!mergeExpression) return path
+                            if (!mergeExpression.includes('|')) {
+                                if (!mergeExpression.includes(':')) return valueUrl[mergeExpression] ?? path
+                                mergeExpression = `path|/|${mergeExpression}`
+                            }
+                            const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
+                            return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
+                        }), base).href
+                }
             }
             return valueUrl.href
         }
