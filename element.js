@@ -85,7 +85,12 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, gateways: {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080' }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link' }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080' }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link' }],
-                'ar:': [{ gateway: 'localhost:1984/{path}', head: 'localhost:1984' }, { gateway: 'arweave.net/{path}', head: 'arweave.net' }],
+                'ar:': [{
+                    gateway: function (args = {}) {
+                        const [txid, ...chunks] = args.path.split('/')
+
+                    }, head: 'arweave.net'
+                }],
                 'bzz:': [{ gateway: 'localhost:8500/bzz:/{path}', head: 'localhost:8500' }, { gateway: 'gateway.ethswarm.org/bzz:/{path}', head: 'gateway.ethswarm.org' }],
                 'sia:': [{ gateway: '{path|/|0}.siasky.net/{path|/|1:}', head: 'siasky.net' }],
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link' }]
@@ -976,7 +981,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
                         return gateway(gatewayArgs)
                     case 'string':
-                        return new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                        return (new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
                             mergeExpression = mergeExpression.trim()
                             if (!mergeExpression) return path
                             if (!mergeExpression.includes('|')) {
@@ -985,7 +990,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
                             return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
-                        }), base).href
+                        }), base).href + value.search + value.hash)
                 }
             }
             return valueUrl.href
