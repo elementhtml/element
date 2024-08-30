@@ -1760,7 +1760,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
     componentFactory: {
         value: async function (manifest, id) {
             let ComponentClass
