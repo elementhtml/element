@@ -1993,8 +1993,8 @@ const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, fl
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
-    const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
-        importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }
+    const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports: {} }, packageList = []
+    for (let s of metaOptions.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
     if (importmapElement) {
         try { Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())) } catch (e) { }
     } else if (metaOptions.get('packages')) {
@@ -2013,7 +2013,11 @@ if (metaOptions.has('packages')) {
         importPromises.set(importUrl, { promise: import(importUrl), key })
     }
     await Promise.all(Array.from(importPromises.values()))
-    for (const [url, imp] of importPromises.entries()) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
+    for (const [url, imp] of importPromises) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
-if (metaOptions.has('load')) await ElementHTML.Load(undefined, (metaOptions.get('load') || '').split(',').map(s => s.trim()).filter(s => !!s))
+if (metaOptions.has('load')) {
+    const preloads = [], loadValue = metaOptions.get('load')
+    if (loadValue) for (let p of loadValue.split(',')) if (p = p.trim()) preloads.push(p)
+    await ElementHTML.Load(undefined, preloads)
+}
 export { ElementHTML }
