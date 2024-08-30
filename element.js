@@ -1688,7 +1688,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     sliceAndStep: {
         value: function (sig, list) {
-            if (!sig.includes(':')) return list[parseInt(sig) || 0]
+            if (!sig.includes(':')) return [list[parseInt(sig) || 0]]
             let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
             if (end === 0) end = list.length
             list = list.slice(start, end)
