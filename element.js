@@ -1557,7 +1557,34 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!head) continue
                 let ok = typeof head === 'function' ? await head(manifest) : (typeof head === 'string' ? (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok : undefined)
                 if (!ok) continue
-                return (this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, ok) : gateway)
+                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, ok) : gateway
+                if (g.auto) {
+                    const urlAttributes = ['href', 'src']
+                    this.app.observers.set(this.app.gateways[protocol], new MutationObserver(records => {
+                        for (const record of records) {
+                            const { type } = record
+                            if (type !== 'attributes' && type !== 'childList') continue
+                            let [targets, processAttributes] = type === 'attributes' ? [[record.target], [record.attributeName]] : [record.addedNodes, urlAttributes]
+                            for (const target of targets) {
+                                if (!(target instanceof HTMLElement)) continue
+                                for (const attributeName of processAttributes) {
+                                    const attributeValue = target.getAttribute(attributeName)
+                                    if (!attributeValue) continue
+                                    let valueUrl
+                                    try { valueUrl = new URL(attributeValue, document.baseURI) } catch (e) { continue }
+                                    if (valueUrl.protocol === protocol) {
+                                        const resolvedUrl = this.resolveUrl(attributeValue)
+                                        let resolveUrlObj
+                                        try { resolveUrlObj = new URL(resolvedUrl) } catch (e) { continue }
+                                        if (resolveUrlObj.protocol !== protocol) target.setAttribute(attributeName, resolvedUrl)
+                                    }
+                                }
+                            }
+                        }
+                    }))
+                    this.app.observers.get(this.app.gateways[protocol]).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
+                }
+                return this.app.gateways[protocol]
             }
         }
     },
