@@ -76,15 +76,11 @@ const ElementHTML = Object.defineProperties({}, {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080' }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link' }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080' }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link' }],
                 'ar:': [{
-                    gateway: function (ok = true, args = {}) {
-                        const [txid, ...chunks] = args.path.split('/')
-                        return (txid.length === 43 && txid.includes('.')) ? `localhost:1984/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
-                    }, head: 'localhost:1984'
-                }, {
-                    gateway: function (ok = true, args = {}) {
-                        const [txid, ...chunks] = args.path.split('/')
-                        return (txid.length === 43 && txid.includes('.')) ? `arweave.net/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
-                    }, head: 'arweave.net'
+                    gateway: function (useHost = {}, gatewayArgs = {}) {
+                        if (typeof useHost !== 'string') return fetch(`${window.location.protocol}//localhost:1984`, { method: 'HEAD' }).then(r => r.ok ? 'localhost:1984' : 'arweave.net')
+                        const [txid, ...chunks] = gatewayArgs.path.split('/')
+                        return (txid.length === 43 && txid.includes('.')) ? `${useHost}/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
+                    }, auto: true
                 }],
                 'bzz:': [{ gateway: 'localhost:8500/bzz:/{path}', head: 'localhost:8500' }, { gateway: 'gateway.ethswarm.org/bzz:/{path}', head: 'gateway.ethswarm.org' }],
                 'sia:': [{ gateway: '{path|/|0}.siasky.net/{path|/|1:}', head: 'siasky.net' }],
