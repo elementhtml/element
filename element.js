@@ -1557,18 +1557,39 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     loadGateway: {
-        value: async function (protocol, gateway) {
+        value: async function (protocol, manifest) {
             if (!protocol) return
             if (protocol.endsWith(':')) protocol = `${protocol}:`
             if (this.app.gateways[protocol]) return this.app.gateways[protocol]
-            gateway ??= this.env.gateways[protocol]
-            if (typeof gateway === 'string') gateway = [{ head: gateway, gateway: `${gateway}/{path}` }]
-            if (this.isPlainObject(gateway) && gateway.gateway) gateway = [gateway]
-            if (!Array.isArray(gateway)) return
-            for (let g of gateway) {
+            manifest ??= this.env.gateways[protocol]
+            if (typeof manifest === 'string') manifest = [{ head: manifest, gateway: `${manifest}/{path}` }]
+            if (typeof manifest === 'function') manifest = [{ head: manifest, gateway: manifest }]
+            if (this.isPlainObject(manifest) && manifest.gateway) manifest = [manifest]
+            if (!Array.isArray(manifest)) return
+            for (let g of manifest) {
                 if (typeof g === 'string') g = { head: g, gateway: `${g}/{path}` }
+                if (typeof g === 'function') g = { head: g, gateway: g }
                 if (!this.isPlainObject(g) || !g.gateway) continue
-                if ((await fetch(g.head ? `${window.location.protocol}//${g.head}` : `${window.location.protocol}//${g.gateway}`, { method: 'HEAD' })).ok) return this.app.gateways[protocol] = g.gateway
+                const { head = g.gateway, gateway } = g
+                if (!head) continue
+                let ok
+                switch (typeof head) {
+                    case 'function':
+                        ok = await head(manifest)
+                        break
+                    case 'string':
+                        ok = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok
+                        break
+                    default:
+                        continue
+                }
+                if (!ok) continue
+                switch (typeof gateway) {
+                    case 'function':
+                        return this.app.gateways[protocol] = gateway.bind(this, ok)
+                    case 'string':
+                        return this.app.gateways[protocol] = gateway
+                }
             }
         }
     },
