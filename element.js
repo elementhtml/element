@@ -82,7 +82,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, protocols: {
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, gateways: {
                 'ipfs:': ['localhost:8080', 'dweb.link'],
                 'ipns:': ['localhost:8080', 'dweb.link'],
                 'ar:': 'arweave.net',
@@ -168,6 +168,12 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const facetCid in pkgScope) {
                             const importItem = await this.resolvePackageItem(pkgScope[facetCid], scope)
                             envScope[facetCid] = await this.facetFactory(importItem)
+                        }
+                        break
+                    case 'gateways':
+                        for (const g in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[g], scope)
+                            envScope[g] = importItem
                         }
                         break
                     case 'helpers': case 'hooks': case 'loaders':
@@ -960,7 +966,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof value !== 'string') return value
             base ??= document.baseURI
             const valueUrl = new URL(value, base), { protocol } = valueUrl
-            if (protocol === document.location.protocol) return value
+            if (protocol === document.location.protocol) return valueUrl.href
             const gateway = this.app.protocols[protocol]
             if (gateway) {
                 const path = valueUrl.pathname.replace(/^\/+/, '')
@@ -1090,11 +1096,9 @@ const ElementHTML = Object.defineProperties({}, {
 
     app: {
         value: {
-            cells: {},
-            components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
-            eventTarget: new EventTarget(),
-            facets: { classes: {}, instances: new WeakMap() },
-            helpers: {}, libraries: {}, namespaces: {}, observers: new WeakMap(), protocols: {}, regexp: {}, snippets: {}, transforms: {}, types: {},
+            cells: {}, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
+            eventTarget: new EventTarget(), facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
+            libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, snippets: {}, transforms: {}, types: {}
         }
     },
     binders: {
@@ -1552,8 +1556,9 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperties(this, module)
         }
     },
-    loadProtocol: {
+    loadGateway: {
         value: async function (protocol, gateway) {
+            if (!gateway || !protocol) return
             if (protocol.endsWith(':')) protocol = `${protocol}:`
             if (this.app.protocols[protocol]) return this.app.protocols[protocol]
             if (typeof gateway === 'string') gateway = [{ head: `${window.location.protocol}//${gateway}`, gateway: `${gateway}/{path}` }]
@@ -1987,7 +1992,6 @@ Object.defineProperties(ElementHTML, {
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
 await Promise.all(flagPromises)
-// for (const scope of ['helpers', 'loaders']) for (const n in ElementHTML.env[scope]) ElementHTML.env[scope][n] = ElementHTML.env[scope][n].bind(ElementHTML)
 if (metaOptions.has('packages')) {
     const packageList = metaOptions.get('packages').split(',').map(s => s.trim()).filter(s => !!s),
         importmapElement = document.head.querySelector('script[type="importmap"]'), protocolLoaders = {}, importmap = { imports: {} }
@@ -2001,8 +2005,9 @@ if (metaOptions.has('packages')) {
     }
     const imports = importmap.imports ?? {}, importPromises = new Map()
     for (const key of packageList) {
-        let importUrl = imports[key], { protocol } = new URL(importUrl)
-        if (protocol !== window.location.protocol) if (typeof ElementHTML.env.loaders[protocol] === 'function') await (protocolLoaders[protocol] ??= ElementHTML.env.loaders[protocol].bind(ElementHTML))()
+        let importUrl = imports[key]
+        const { protocol } = new URL(importUrl, document.baseURI)
+        if (protocol !== window.location.protocol) await Element.loadGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
