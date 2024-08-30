@@ -957,13 +957,14 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveUrl: {
         enumerable: true, value: function (value, base) {
-            base ??= document.baseURI
             if (typeof value !== 'string') return value
+            base ??= document.baseURI
             const valueUrl = new URL(value, base), { protocol } = valueUrl
             if (protocol === document.location.protocol) return value
-            if (this.app.protocols[protocol]) {
+            const gateway = this.app.protocols[protocol]
+            if (gateway) {
                 const path = valueUrl.pathname.replace(/^\/+/, '')
-                return new URL(this.app.protocols[protocol].replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                return new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
                     mergeExpression = mergeExpression.trim()
                     if (!mergeExpression) return path
                     if (!mergeExpression.includes('|')) {
@@ -974,7 +975,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
                 }), base).href
             }
-            return new URL(value, base).href
+            return valueUrl.href
         }
     },
     runTransform: {
