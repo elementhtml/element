@@ -1572,24 +1572,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!this.isPlainObject(g) || !g.gateway) continue
                 const { head = g.gateway, gateway } = g
                 if (!head) continue
-                let ok
-                switch (typeof head) {
-                    case 'function':
-                        ok = await head(manifest)
-                        break
-                    case 'string':
-                        ok = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok
-                        break
-                    default:
-                        continue
-                }
+                let ok = typeof head === 'function' ? await head(manifest) : (typeof head === 'string' ? (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok : undefined)
                 if (!ok) continue
-                switch (typeof gateway) {
-                    case 'function':
-                        return this.app.gateways[protocol] = gateway.bind(this, ok)
-                    case 'string':
-                        return this.app.gateways[protocol] = gateway
-                }
+                return (this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, ok) : gateway)
             }
         }
     },
