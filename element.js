@@ -1481,7 +1481,7 @@ const ElementHTML = Object.defineProperties({}, {
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
             this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
-                let virtualSubspaceName = `${subspaceName}${this.generateUUIDWithNoDashes()}`
+                let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
                 this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
                     .replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`).replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`)
@@ -1517,11 +1517,6 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch (e) { }
             }
             delete this.env.options[protocolHelperName].gateway
-        }
-    },
-    generateUUIDWithNoDashes: {
-        value: function () {
-            return ([...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join(''))
         }
     },
     getCustomTag: {
