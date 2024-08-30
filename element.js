@@ -78,7 +78,12 @@ const ElementHTML = Object.defineProperties({}, {
                 'ar:': [{
                     gateway: function (args = {}) {
                         const [txid, ...chunks] = args.path.split('/')
-
+                        return (txid.length === 43 && txid.includes('.')) ? `localhost:1984/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
+                    }, head: 'localhost:1984'
+                }, {
+                    gateway: function (args = {}) {
+                        const [txid, ...chunks] = args.path.split('/')
+                        return (txid.length === 43 && txid.includes('.')) ? `arweave.net/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
                     }, head: 'arweave.net'
                 }],
                 'bzz:': [{ gateway: 'localhost:8500/bzz:/{path}', head: 'localhost:8500' }, { gateway: 'gateway.ethswarm.org/bzz:/{path}', head: 'gateway.ethswarm.org' }],
