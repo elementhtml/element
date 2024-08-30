@@ -979,7 +979,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'function':
                         const gatewayArgs = { path }
                         for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
-                        return gateway(gatewayArgs)
+                        return (gateway(gatewayArgs) + value.search + value.hash)
                     case 'string':
                         return (new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
                             mergeExpression = mergeExpression.trim()
