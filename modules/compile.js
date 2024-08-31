@@ -39,7 +39,7 @@ const nativeElementsMap = {
             } else {
                 if (extendsId) {
                     extendsId = this.resolveUrl(new URL(extendsId, id))
-                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compileComponent(extendsId))
+                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compile.compileComponent(extendsId))
                     extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
@@ -80,7 +80,7 @@ const nativeElementsMap = {
     },
     compileFacet: {
         enumerable: true, value: async function (directives, cid) {
-            cid ??= await this.cid(directives = (await this.canonicalizeDirectives(directives)))
+            cid ??= await this.compile.cid(directives = (await this.compile?.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -130,24 +130,24 @@ const nativeElementsMap = {
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case '#': case '?': case '/': case ':':
-                            params = this.parsers.router(handlerExpression, hasDefault)
+                            params = this.compile.parsers.router(handlerExpression, hasDefault)
                             break
                         case '$': case '$?':
-                            params = this.parsers.console(handlerExpression, hasDefault)
+                            params = this.compile.parsers.console(handlerExpression, hasDefault)
                             break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
-                                    params = this.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.compile.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '/':
-                                    params = this.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.compile.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case '"': case "'":
-                                    params = this.parsers.string(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.compile.parsers.string(handlerExpression.slice(1, -1), hasDefault)
                                     break
                                 case "#": case "@":
-                                    params = this.parsers.state(handlerExpression, hasDefault)
+                                    params = this.compile.parsers.state(handlerExpression, hasDefault)
                                     const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
                                     switch (shape) {
                                         case 'single':
@@ -163,18 +163,18 @@ const nativeElementsMap = {
                                     break
                                 case "$":
                                     if (handlerExpression[1] === "{") {
-                                        params = this.parsers.variable(handlerExpression, hasDefault)
+                                        params = this.compile.parsers.variable(handlerExpression, hasDefault)
                                     } else if (handlerExpression[1] === "(") {
-                                        params = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
+                                        params = this.compile.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
                                     } else if (handlerExpression[1] === '`') {
-                                        params = this.parsers.command(handlerExpression.slice(2, -1), hasDefault)
+                                        params = this.compile.parsers.command(handlerExpression.slice(2, -1), hasDefault)
                                     }
                                     break
                                 case "(":
-                                    params = this.parsers.transform(handlerExpression, hasDefault)
+                                    params = this.compile.parsers.transform(handlerExpression, hasDefault)
                                     break
                                 case "{": case "[":
-                                    params = this.parsers.json(handlerExpression, hasDefault)
+                                    params = this.compile.parsers.json(handlerExpression, hasDefault)
                                     break
                                 case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
                                     let t
@@ -182,18 +182,18 @@ const nativeElementsMap = {
                                         case 'null': case 'true': case 'false':
                                             t = true
                                         default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) params = this.parsers.json(handlerExpression, hasDefault)
+                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) params = this.compile.parsers.json(handlerExpression, hasDefault)
                                     }
                                     break
                                 case "_":
                                     if (handlerExpression.endsWith('_')) {
-                                        params = this.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
+                                        params = this.compile.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
                                         break
                                     }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
-                                    params = this.parsers.network(handlerExpression, hasDefault)
+                                    params = this.compile.parsers.network(handlerExpression, hasDefault)
                             }
                     }
                     step.params = params
@@ -221,7 +221,7 @@ const nativeElementsMap = {
                 if (!directive || (directive.slice(0, 3) === '|* ')) continue
                 directive = directive.replace(this.sys.regexp.segmenter, ' >> ').trim()
                 if (!directive) continue
-                canonicalizedDirectivesMap[await this.digest(directive)] = directive
+                canonicalizedDirectivesMap[await this.compile.digest(directive)] = directive
             }
             for (const directiveDigest of Object.keys(canonicalizedDirectivesMap).sort()) canonicalizedDirectives.push(canonicalizedDirectivesMap[directiveDigest])
             return canonicalizedDirectives.join('\n').trim()
@@ -230,7 +230,7 @@ const nativeElementsMap = {
     cid: {
         value: async function (data) {
             if (typeof data === 'string') data = (new TextEncoder()).encode(data)
-            return `b${this.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
+            return `b${this.compile.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
         }
     },
     digest: {
@@ -394,7 +394,7 @@ const nativeElementsMap = {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
-                const { group: target, shape } = this.getStateGroup(expression, typeDefault)
+                const { group: target, shape } = this.compile.getStateGroup(expression, typeDefault)
                 return { handler: 'state', ctx: { binder: true, signal: true, vars: { target, shape } } }
             },
             string: function (expression, hasDefault) {

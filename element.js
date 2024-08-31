@@ -240,7 +240,7 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(this.sys.color)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
-                for (const f of ['binders', 'handlers', 'parsers']) {
+                for (const f of ['binders', 'handlers']) {
                     if (!this[f]) continue
                     for (const b in this[f]) this[f][b] = this[f][b].bind(this)
                     Object.freeze(this[f])
@@ -249,8 +249,8 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
                     for (const f in this.console) if (typeof this.console[f] === 'function') this.console[f] = this.console[f].bind(this)
                     Object.freeze(this.console)
-                    for (const invoker in this.invokers) window[invoker] ??= this.invokers[invoker].bind(this)
-                    Object.freeze(this.invokers)
+                    for (const invoker in this.dev.invokers) window[invoker] ??= this.dev.invokers[invoker].bind(this)
+                    Object.freeze(this.dev.invokers)
                 } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
@@ -1507,7 +1507,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components.classes[id] = this.env.components[id] ?? (await this.compileComponent(id))
+            this.app.components.classes[id] = this.env.components[id] ?? (await this.compile?.compileComponent(id))
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
@@ -1540,11 +1540,19 @@ const ElementHTML = Object.defineProperties({}, {
             return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
         }
     },
+
+    bindModuleFunctions: {
+        value: function (module) {
+            for (const key in module) (typeof module[key] === 'function') ? (module[key] = module[key].bind(this)) : (this.isPlainObject(module[key]) ? this.bindModuleFunctions(module[key]) : undefined)
+        }
+    },
+
+
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            for (const k in module) if (typeof module[k].value === 'function') module[k].value = module[k].value.bind(this)
-            Object.defineProperties(this, module)
+            this.bindModuleFunctions(module)
+            Object.defineProperty(this, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
     loadGateway: {
@@ -1625,10 +1633,10 @@ const ElementHTML = Object.defineProperties({}, {
             switch (type) {
                 case 'directives/element':
                     if (!this.app.compile) return
-                    const directives = await this.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    const directives = await this.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
-                    facetCid = await this.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.compileFacet(directives, facetCid)
+                    facetCid = await this.compile.cid(directives)
+                    this.app.facets.classes[facetCid] ??= await this.compile?.compileFacet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
