@@ -166,6 +166,8 @@ const nativeElementsMap = {
                                         params = this.parsers.variable(handlerExpression, hasDefault)
                                     } else if (handlerExpression[1] === "(") {
                                         params = this.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
+                                    } else if (handlerExpression[1] === '`') {
+                                        params = this.parsers.command(handlerExpression.slice(2, -1), hasDefault)
                                     }
                                     break
                                 case "(":
@@ -310,6 +312,9 @@ const nativeElementsMap = {
     },
     parsers: {
         value: {
+            command: function (expression, hasDefault) {
+                return { handler: 'command', ctx: { vars: { invocation: expression.trim() } } }
+            },
             console: function (expression, hasDefault) {
                 return { handler: 'console', ctx: { vars: { verbose: expression === '$?' } } }
             },

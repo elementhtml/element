@@ -1198,8 +1198,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
     handlers: {
         value: {
+            command: async function (container, position, envelope, value) {
+                if (this.app.dev) $([envelope.vars.invocation])
+                return value
+            },
             console: async function (container, position, envelope, value) {
-                return ((envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
+                if (this.app.dev) return ((envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
+                return value
             },
             json: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { cells, context, fields } = env
