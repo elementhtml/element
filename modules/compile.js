@@ -132,6 +132,9 @@ const nativeElementsMap = {
                         case '#': case '?': case '/': case ':':
                             params = this.parsers.router(handlerExpression, hasDefault)
                             break
+                        case '$': case '$?':
+                            params = this.parsers.console(handlerExpression, hasDefault)
+                            break
                         default:
                             switch (handlerExpression[0]) {
                                 case '`':
@@ -307,6 +310,9 @@ const nativeElementsMap = {
     },
     parsers: {
         value: {
+            console: function (expression, hasDefault) {
+                return { handler: 'console', ctx: { vars: { verbose: expression === '$?' } } }
+            },
             json: function (expression, hasDefault) {
                 const value = this.resolveVariable(expression, { wrapped: false })
                 return { handler: 'json', ctx: { vars: { value } } }

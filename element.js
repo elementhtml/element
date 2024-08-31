@@ -1198,6 +1198,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     handlers: {
         value: {
+            console: async function (container, position, envelope, value) {
+                return ((envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
+            },
             json: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { cells, context, fields } = env
                 return this.resolveVariable(envelope.vars.value, { wrapped: false }, cells, context, fields, labels, value)
