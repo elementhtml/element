@@ -18,7 +18,7 @@ const nativeElementsMap = {
 }, regexp = {
     defaultValue: /\s+\?\?\s+(.+)\s*$/, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
 }, module = {
-    compileComponent: {
+    component: {
         enumerable: true, value: async function (id) {
             const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
@@ -39,7 +39,7 @@ const nativeElementsMap = {
             } else {
                 if (extendsId) {
                     extendsId = this.resolveUrl(new URL(extendsId, id))
-                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compile.compileComponent(extendsId))
+                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compile.component(extendsId))
                     extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
@@ -78,7 +78,7 @@ const nativeElementsMap = {
             return this.componentFactory({ extends: extendsId, native, script: sanitizedScript, style, template }, id)
         }
     },
-    compileFacet: {
+    facet: {
         enumerable: true, value: async function (directives, cid) {
             cid ??= await this.compile.cid(directives = (await this.compile?.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []

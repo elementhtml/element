@@ -1507,7 +1507,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components.classes[id] = this.env.components[id] ?? (await this.compile?.compileComponent(id))
+            this.app.components.classes[id] = this.env.components[id] ?? (await this.compile?.component(id))
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
@@ -1636,7 +1636,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const directives = await this.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
                     facetCid = await this.compile.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.compile?.compileFacet(directives, facetCid)
+                    this.app.facets.classes[facetCid] ??= await this.compile?.facet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
