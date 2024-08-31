@@ -1203,7 +1203,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return value
             },
             console: async function (container, position, envelope, value) {
-                if (this.app.dev) return ((envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
+                if (this.app.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                 return value
             },
             json: async function (container, position, envelope, value) {
