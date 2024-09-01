@@ -15,9 +15,9 @@ const branding = Object.freeze({
     info: `${base} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
     response: `${base} color: ${branding.text}; font-weight: normal;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
     suggestion: `${base} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
-    title: `${base} color: ${branding.accent1}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
+    title: `${base} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
 
-    tutorial: `${base} color: ${branding.text}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
+    tutorial: `${base} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
 
     warning: `${base} color: ${branding.accent3}; font-weight: bold;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
     welcome: `${base} background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
