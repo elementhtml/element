@@ -1,31 +1,15 @@
 const module = {
 
-    invokers: {
-        value: {
-            $: function (input) {
-                let [invocation] = input
-                invocation = invocation.trim()
-                if (!invocation) return console.error(`No command entered`)
-                const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
-                if (!(command in this.dev.commands)) return console.error(`Command ${command} not found`)
-                const { target = [command] } = this.dev.commands[command]
-                let funcScope = this
-                for (const s of target) funcScope = funcScope[s]
-                if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
-                const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
-                for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
-                const result = func(...args)
-                if (result instanceof Promise) {
-                    result.then(r => console.log(r)).catch(e => console.error(e))
-                } else {
-                    return result
-                }
-            },
-            ['@']: function (prompt) {
-            },
-            ['@eli']: function (prompt) {
-            },
-        }
+    branding: {
+        value: Object.freeze({
+            background: '#131B2E',
+            text: '#F0F1F3',
+            accent1: '#69B4FF',
+            accent2: '#50E991',
+            accent3: '#FFDF6C',
+            darkerBackground: '#0C1320',
+            icon: 'data:image/webp;base64,UklGRqAAAABXRUJQVlA4TJQAAAAvH8AHEA5WsW2l6h8HJwRBOORw/bYnZtq2zVKMBqJaqo1s0ub/pZA+LNPItp2oP7+FILPKEU3PSIYSsEnBbwHNmwAQTL/jL2iAnvs8z/NnBxfHzvg+RdcMKhlaNbs41gTy8Fq4vuxcuyjiYVq5IDvToYMOgmvLx3WTwzxyRbnm7FKTfNgzeHBRHDSKg6D7oL9Y+b8Y'
+        })
     },
 
     commands: {
@@ -53,17 +37,23 @@ const module = {
 
         })
     },
-    controllers: {
-        value: Object.freeze({
-            console: Object.freeze({
-                show: {}
-            })
-        })
-    },
+
     console: {
         value: {
-            styles: {
-
+            open: function () {
+                console.log(
+                    '%c Welcome to the ElementHTML Developer Experience!',
+                    `
+                      background: url(${this.dev.branding.icon}) no-repeat left;
+                      background-size: contain;
+                      padding: 12px;
+                      margin: 4px 0;
+                      display: inline-block;
+                      line-height: 0;
+                      width: 24px;
+                      height: 24px;
+                    `
+                )
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
@@ -108,6 +98,42 @@ const module = {
                     delete this.dev.controllers.console.show[label]
                 }
             }
+        }
+    },
+
+    controllers: {
+        value: Object.freeze({
+            console: Object.freeze({
+                show: {}
+            })
+        })
+    },
+
+    invokers: {
+        value: {
+            $: function (input) {
+                let [invocation] = input
+                invocation = invocation.trim()
+                if (!invocation) return console.error(`No command entered`)
+                const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
+                if (!(command in this.dev.commands)) return console.error(`Command ${command} not found`)
+                const { target = [command] } = this.dev.commands[command]
+                let funcScope = this
+                for (const s of target) funcScope = funcScope[s]
+                if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
+                const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
+                for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
+                const result = func(...args)
+                if (result instanceof Promise) {
+                    result.then(r => console.log(r)).catch(e => console.error(e))
+                } else {
+                    return result
+                }
+            },
+            ['@']: function (prompt) {
+            },
+            ['@eli']: function (prompt) {
+            },
         }
     },
 
