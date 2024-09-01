@@ -108,7 +108,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.archives = new Map()
             this.app.archives.set('options', JSON.parse(JSON.stringify(this.env.options)))
             await this.installModule('dev')
-            this.dev.console.open()
+            this.dev.console.welcome()
         }
     },
     Expose: {

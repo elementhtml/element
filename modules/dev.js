@@ -4,11 +4,11 @@ const module = {
         value: Object.freeze({
             background: '#131B2E',
             text: '#F0F1F3',
-            accent1: '#69B4FF',
-            accent2: '#50E991',
-            accent3: '#FFDF6C',
+            accent1: '#69B4FF', //blue
+            accent2: '#50E991', // green
+            accent3: '#FFDF6C', //yellow
             darkerBackground: '#0C1320',
-            icon: 'data:image/webp;base64,UklGRqAAAABXRUJQVlA4TJQAAAAvH8AHEA5WsW2l6h8HJwRBOORw/bYnZtq2zVKMBqJaqo1s0ub/pZA+LNPItp2oP7+FILPKEU3PSIYSsEnBbwHNmwAQTL/jL2iAnvs8z/NnBxfHzvg+RdcMKhlaNbs41gTy8Fq4vuxcuyjiYVq5IDvToYMOgmvLx3WTwzxyRbnm7FKTfNgzeHBRHDSKg6D7oL9Y+b8Y'
+            icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
         })
     },
 
@@ -40,18 +40,19 @@ const module = {
 
     console: {
         value: {
-            open: function () {
+            welcome: async function () {
                 console.log(
                     '%c Welcome to the ElementHTML Developer Experience!',
                     `
                       background: url(${this.dev.branding.icon}) no-repeat left;
-                      background-size: contain;
-                      padding: 12px;
-                      margin: 4px 0;
-                      display: inline-block;
-                      line-height: 0;
-                      width: 24px;
-                      height: 24px;
+                      background-size: 17px;
+                      color: ${this.dev.branding.accent1};
+                      font-weight: bold;
+                      font-size: 13px;
+                      padding: 7px 0 7px 17px;
+                      margin-bottom: 13px;
+                      display: block;
+                      border-bottom: 3px dashed ${this.dev.branding.accent1};
                     `
                 )
             },
