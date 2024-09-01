@@ -6,14 +6,8 @@ const branding = Object.freeze({
     accent3: '#FFDF6C', //yellow
     darkerBackground: '#0C1320',
     icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
-
 }), formats = Object.freeze({
-    welcome: `
-    background: url(${branding.icon}) no-repeat left; background-size: 17px; color: ${branding.accent1};
-    font-weight: bold; font-size: 13px;
-    display: block; padding: 7px 0 7px 17px; margin-bottom: 13px;
-    border-bottom: 3px dashed ${branding.accent1};
-  `
+    welcome: ` background: url(${branding.icon}) no-repeat left; background-size: 17px; color: ${branding.accent1}; font-weight: bold; font-size: 13px; display: block; padding: 7px 0 7px 17px; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
 
 })
 
