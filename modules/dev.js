@@ -1,16 +1,26 @@
+const branding = Object.freeze({
+    background: '#131B2E',
+    text: '#F0F1F3',
+    accent1: '#69B4FF', //blue
+    accent2: '#50E991', // green
+    accent3: '#FFDF6C', //yellow
+    darkerBackground: '#0C1320',
+    icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
+
+}), formats = Object.freeze({
+    welcome: `
+    background: url(${branding.icon}) no-repeat left; background-size: 17px; color: ${branding.accent1};
+    font-weight: bold; font-size: 13px;
+    display: block; padding: 7px 0 7px 17px; margin-bottom: 13px;
+    border-bottom: 3px dashed ${branding.accent1};
+  `
+
+})
+
+
 const module = {
 
-    branding: {
-        value: Object.freeze({
-            background: '#131B2E',
-            text: '#F0F1F3',
-            accent1: '#69B4FF', //blue
-            accent2: '#50E991', // green
-            accent3: '#FFDF6C', //yellow
-            darkerBackground: '#0C1320',
-            icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
-        })
-    },
+    branding: { value: branding },
 
     commands: {
         value: Object.freeze({
@@ -40,21 +50,9 @@ const module = {
 
     console: {
         value: {
+            formats,
             welcome: async function () {
-                console.log(
-                    '%c Welcome to the ElementHTML Developer Experience!',
-                    `
-                      background: url(${this.dev.branding.icon}) no-repeat left;
-                      background-size: 17px;
-                      color: ${this.dev.branding.accent1};
-                      font-weight: bold;
-                      font-size: 13px;
-                      padding: 7px 0 7px 17px;
-                      margin-bottom: 13px;
-                      display: block;
-                      border-bottom: 3px dashed ${this.dev.branding.accent1};
-                    `
-                )
+                console.log('%c Welcome to the ElementHTML Developer Experience!', formats.welcome)
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
