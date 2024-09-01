@@ -6,9 +6,16 @@ const branding = Object.freeze({
     accent3: '#FFDF6C', //yellow
     darkerBackground: '#0C1320',
     icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
-}), formats = Object.freeze({
-    welcome: ` background: url(${branding.icon}) no-repeat left; background-size: 17px; color: ${branding.accent1}; font-weight: bold; font-size: 13px; display: block; padding: 7px 0 7px 17px; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
-
+}), background = `background: url(${branding.icon}) no-repeat left; background-size: 17px; padding: 7px 0 7px 17px; margin: 7px 0;`, formats = Object.freeze({
+    answer: `color: ${branding.accent2}; font-weight: bold; font-size: 14px;`, // used to show responses from @ and @eli AI bots
+    error: `color: ${branding.accent3}; font-weight: bold; font-size: 14px;`, // used to show framework-specific errors, for example: alert about an error caused by an invalid directive
+    info: `color: ${branding.text}; font-weight: normal; font-size: 13px; font-style: italic;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
+    response: `color: ${branding.text}; font-weight: normal; font-size: 14px;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
+    suggestion: `font-weight: bold; font-size: 14px; font-style: italic;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
+    title: `color: ${branding.accent1}; font-weight: bold; font-size: 16px; margin: 11px 0;`, // used as the titles for tables
+    tutorial: `color: ${branding.text}; font-weight: normal; font-size: 14px; line-height: 1.5em;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
+    warning: `color: ${branding.accent3}; font-weight: bold; font-size: 14px;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
+    welcome: `${background} color: ${branding.accent1}; font-weight: bold; font-size: 13px; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
 })
 
 
