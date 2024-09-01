@@ -46,7 +46,7 @@ const module = {
         value: {
             formats,
             welcome: async function () {
-                console.log('%c Welcome to the ElementHTML Developer Experience!', formats.welcome)
+                console.log('%c Welcome to the Element Developer Experience!', formats.welcome)
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
