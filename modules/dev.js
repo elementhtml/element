@@ -58,15 +58,12 @@ const module = {
 
             },
             welcome: async function () {
-
                 console.log(`%c Welcome to your Element Developer Experience! 🎉`, formats.welcome);
                 console.log(`%c You're now in the driver's seat of your application 🏎️.`, formats.response);
                 console.log(`%c Pro Tip #1: Accelerate your workflow! 🚀 Use $\`\` to send direct commands and watch the magic happen! 🪄`, formats.tutorial);
                 console.log(`%c Pro Tip #2: Go deep! 🌊 Use $\`help\` to discover available commands, and dive deeper with $\`help [command]\`. For example: $\`help show\` ⚡`, formats.tutorial);
-                console.log(`%c Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or go further with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️`, formats.tutorial);
+                console.log(`%c Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or check-in with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️`, formats.tutorial);
                 console.log(`%c Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨`, formats.suggestion);
-
-
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
