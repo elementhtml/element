@@ -59,19 +59,12 @@ const module = {
             },
             welcome: async function () {
 
-                console.log(`%c Welcome to your Element Developer Experience! 🎉`, formats.welcome)
-                // console.log(`%c You're now in the driver's seat of your application 🚀.`, formats.info)
-                // console.log(`%c Pro Tip #1: Use $\`\` to send direct commands and watch the magic happen! 🪄`, formats.tutorial)
-                // console.log(`%c Pro Tip #2: Use $\`help\` to learn all the available commands`, formats.tutorial)
-                // console.log(`%c Pro Tip #3: Use $\`help command\` to learn about a specific command. e.g. $\`help show\``, formats.tutorial)
-                // console.log(`%c Happy coding! 🎨`, formats.suggestion)
-
-
-
-                for (const f in formats) console.log(`%c This is an ${f} formatted message.`, formats[f])
-
-                console.log('This is a standard message.')
-
+                console.log(`%c Welcome to your Element Developer Experience! 🎉`, formats.welcome);
+                console.log(`%c You're now in the driver's seat of your application 🏎️.`, formats.response);
+                console.log(`%c Pro Tip #1: Accelerate your workflow! 🚀 Use $\`\` to send direct commands and watch the magic happen! 🪄`, formats.tutorial);
+                console.log(`%c Pro Tip #2: Go deep! 🌊 Use $\`help\` to discover available commands, and dive deeper with $\`help [command]\`. For example: $\`help show\` ⚡`, formats.tutorial);
+                console.log(`%c Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or go further with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️`, formats.tutorial);
+                console.log(`%c Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨`, formats.suggestion);
 
 
             },
