@@ -1,0 +1,15 @@
+%title Stop a Live State Feed
+
+%command $`stop label`
+
+The stop command discontinues live updates that have been initiated with `show`.
+...
+**Arguments:**
+• label: the previously used string label for this show process. If there is no currently running `show` process with this label then nothing will happen.
+...
+**Example: Show All Cells with Live Tracking Using the Label "test"**
+$`show cells ? . test .`
+...
+**Now stop the live updates...**
+$`stop test`
+...
