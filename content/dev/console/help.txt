@@ -24,7 +24,7 @@ $`command arg1 "arg two with spaces" {arg3:isAnObject} ?arg4=alsoAnObject [arg5,
 **◦◦▹ Live framework values:**
 ▫▫▫▫▹ #cell will expand to the current value of the named cell: e.g. #myCell will give the current value of the cell named "myCell"
 ▫▫▫▫▹ ~context will expand to the current value of named context variable: e.g. ~test will give the value of the context variable named "test"
-▫▫▫▫▹ Dot based recursion also works as expected for #cells and ~context variables: e.g. #myCell.abc.def or ~test.one.two.three both work fine.
+▫▫▫▫▹ Dot based recursion also works as expected for #cells and ~context variables: e.g. both #myCell.abc.def and ~test.one.two.three work fine.
 ▫▫▫▫▹ @fields, labels and the "passed in value alias" of '$' are NOT supported in the command line environment because they are functionally meaningless in this context.
 ---
 This is a basic overview to get you started. To explore specific commands and their usage, type $\`help [command]\` in the console. For example:
