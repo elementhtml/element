@@ -12,24 +12,54 @@ const branding = Object.freeze({
     formats = Object.freeze({
         answer: `${block} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`, // used to show responses from @ and @eli AI bots
         answerLine: `${line} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`,
+        answerLineBold: `${line} color: ${branding.ai}; font-size: 13px; font-weight: bold; font-style: italic; font-family: cursive;`,
 
         command: `${line} color: ${branding.accent2}; font-size: 13px; font-family: monospace;`, // used to highlight commands within other responses
         error: `${block} color: ${branding.error}; font-weight: bold;`, // used to show framework-specific errors, for example: alert about an error caused by an invalid directive
         info: `${block} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
         response: `${block} color: ${branding.text}; font-weight: normal;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
         responseLine: `${line} color: ${branding.text}; font-weight: normal;`,
+        responseLineBold: `${line} color: ${branding.text}; font-weight: bold;`,
 
         suggestion: `${block} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
         title: `${block} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
-        tutorial: `${block} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
-        tutorialLine: `${line} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`,
+        tutorial: `${block} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px; margin-bottom: 0;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
+        tutorialLine: `${line} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px; margin: 0;`,
+        tutorialLineBold: `${line} color: ${branding.accent1}; font-weight: bold; background-color: ${branding.accent2}17; padding-right: 3px; margin: 0;`,
 
         warning: `${block} color: ${branding.accent3}; font-weight: bold;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
         welcome: `${block} background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
     }), print = (text, format) => {
         format ??= 'response'
-        const blockFormat = formats[format], lineFormat = formats[`${format}Line`]
-        for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length; i < l; line = lines[++i]) console.log(`%c ${line}`, i === 0 ? blockFormat : lineFormat)
+        const blockFormat = formats[format], lineFormat = formats[`${format}Line`], lineBoldFormat = formats[`${format}LineBold`]
+        for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length; i < l; line = lines[i++].trim()) {
+            if (!line) continue
+            if (!i || !lineFormat) { console.log(`%c ${line}`, blockFormat); continue }
+            let useFormat = lineFormat
+            switch (line[0]) {
+                case '.':
+                    if (line === '...') { console.log(''); continue }
+                case '-':
+                    if (line === '---') { console.log('%c-------------------------------------', 'margin: 7px 0 9px 0; font-weight: bold;'); continue }
+                case '_':
+                    if (line === '___') { console.log('%c_____________________________________', 'margin: 7px 0 17px 0; font-weight: bold;'); continue }
+                case '=':
+                    if (line === '===') { console.log('%c=====================================', 'margin: 17px 0 19px 0; font-weight: bold;'); continue }
+                case ('$'):
+                    if (line[1] === '`' && line.endsWith('`')) useFormat = formats.command
+                    break
+                case '*':
+                    if (lineBoldFormat && line.startsWith('**') && line.endsWith('**')) { useFormat = lineBoldFormat; line = line.slice(2, -2) }
+                    break
+                case '%':
+                    const overrideFormat = line.slice(1, line.indexOf(' '))
+                    useFormat = formats[overrideFormat]
+                    if (useFormat) line = line.slice(overrideFormat.length + 1).trim()
+                    useFormat ??= lineFormat
+                    break
+            }
+            console.log(`%c ${line}`, useFormat)
+        }
     }
 
 const module = {
@@ -71,56 +101,50 @@ const module = {
             formats,
             help: async function (command) {
                 print('Command Overview:', 'title')
-                print(`Welcome to the Element Developer Console! Here’s how to interact with the command system:
-                
-                    1. **Syntax**: 
-                       - Commands in the Element framework are typed in the following format:
-                         \`\`\`
-                         $ \`command arg1 arg2 ...\`
-                         \`\`\`
-                    
-                    2. **Arguments**:
-                       - **Separation**: Arguments are separated by spaces. If an argument contains spaces, enclose it in quotes.
-                         \`\`\`
-                         $ \`command "arg with spaces" arg2\`
-                         \`\`\`
-                       - **Standard Element Variable Syntax**: Each argument can use the Element variable syntax for dynamic and context-aware command execution.
-                    
-                    3. **Element Variable Syntax**:
-                       - **Basic Syntax**: Variables are identified by specific prefixes:
-                         - ** $name **: Represents a label from the local context.
-                         - ** @name**: Represents a field, which is typically local to the context or a component.
-                         - ** #name **: Represents a cell, which is a globally accessible state value.
-                         - ** ~name**: Represents a global context value, like a configuration setting or a constant.
-                       - ** Examples **:
-                         - ** Labels **: \`$label\`
-                        - ** Fields **: \`@field\`
-                            - ** Cells **: \`#cell\`
-                                - ** Context **: \`~context\`
-    
-                    4. ** Advanced Variable Parsing **:
-                    - Variables can be structured and complex, including arrays and objects.
-                       - The system intelligently resolves these based on your application’s state and context, ensuring that each variable is interpreted correctly according to its scope and intended use.
-                       - You can combine these with dot notation for nested properties: \`#cell.property\`, \`@field.method()\`.
-                    
-                    This is a basic overview to get you started. To explore specific commands and their usage, type \`$help [command]\` in the console. For example:
-                    \`\`\`
-                    $ help show
-                    \`\`\`
-                    
-                    Happy coding! 🚀
-                    `, 'response')
-
-
-
+                print(`
+**Syntax:** 
+- Commands are given in the following format:
+$\`command arg1 arg2 ...\`
+...
+**Arguments:**
+- Arguments are separated by spaces. If an argument contains spaces, enclose it in quotes.
+$\`command "arg with spaces" arg2\`
+- Each argument can use the standard Element variable syntax to handle any data type.
+...
+**Element Variable Syntax Primer for Commands:**
+- Special values: true false null undefined
+- Special value aliases: . ! - ? are aliases for true false null and undefined respectively.
+- Numbers: Integers and floats are supported just as they are, e.g. 123 and 1.23
+- Strings: Enclose in " or ' if they contain spaces or are a special character, otherwise just as they are, e.g. "My Spaced String" and mystring both work.
+- Arrays: Enclose in [] and separate elements with commas. Each element will be recursively parsed as a potential variable.
+- Objects: Enclose in {} and treat like quasi-JSON, e.g. {abc: 123}. OR prefix with a ? and use query string formatting e.g. ?abc=123
+**-- Object shortcuts (works for both JSON and querystring syntaxes):**
+----- Key without a value: {abc} will be expanded to {abc: "abc"}
+----- Key with a special value alias postfix: {abc.} becomes: {abc: true} or {abc!} is {abc: false}
+----- Both keys and values will be parsed as potential variables, with the result of key parsing needing to be a string.
+----- Recursion with a '.', for example myValue.level1.level2 will give "abc" if myValue = {level1: {level2: "abc"}}
+**-- Live framework values:**
+----- #cell will expand to the current value of the named cell: e.g. #myCell will give the current value of the cell named "myCell"
+----- ~context will expand to the current value of named context variable: e.g. ~test will give the value of the context variable named "test"
+----- Dot based recursion works in #cells and ~context variables: e.g. #myCell.abc.def or ~test.one.two.three both work fine.
+----- @fields, labels and the "passed in value alias" of '$' are NOT supported in the command line environment because they are functionally meaningless in this context.
+---
+This is a basic overview to get you started. To explore specific commands and their usage, type $\`help [command]\` in the console. For example:
+$\`help show\`
+...
+Happy coding! 🚀
+---
+`, 'response')
             },
             welcome: async function () {
-                console.log(`%c Welcome to your Element Developer Experience! 🎉`, formats.welcome);
-                console.log(`%c You're now in the driver's seat of your application 🏎️.`, formats.response);
-                console.log(`%c Pro Tip #1: Accelerate your workflow! 🚀 Use $\`\` to send direct commands and watch the magic happen! 🪄`, formats.tutorial);
-                console.log(`%c Pro Tip #2: Go deep! 🌊 Use $\`help\` to discover available commands, and dive deeper with $\`help [command]\`. For example: $\`help show\` ⚡`, formats.tutorial);
-                console.log(`%c Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or check-in with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️`, formats.tutorial);
-                console.log(`%c Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨`, formats.suggestion);
+                print(`
+                %welcome Welcome to your Element Developer Experience! 🎉
+                %response You're now in the driver's seat of your application 🏎️.
+                %tutorial Pro Tip #1: Accelerate your workflow! 🚀 Use $\`\` to send direct commands and watch the magic happen! 🪄
+                %tutorial Pro Tip #2: Go deep! 🌊 Use $\`help\` to discover available commands, and dive deeper with $\`help [command]\`. For example: $\`help show\` ⚡
+                %tutorial Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or check-in with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️
+                %suggestion Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨`
+                )
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
