@@ -8,18 +8,29 @@ const branding = Object.freeze({
     ai: '#9B5DE5', //purple
     darkerBackground: '#0C1320',
     icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
-}), base = `background: url(${branding.icon}) no-repeat left; background-size: 13px; padding: 7px 0 7px 17px; margin: 7px 0; font-size: 11px; font-family: monospace; line-height: 1.5em;`, formats = Object.freeze({
-    answer: `${base} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`, // used to show responses from @ and @eli AI bots
-    command: `${base} background: none; color: ${branding.accent2}; font-size: 13px; font-family: monospace;`, // used to highlight commands within other responses
-    error: `${base} color: ${branding.error}; font-weight: bold;`, // used to show framework-specific errors, for example: alert about an error caused by an invalid directive
-    info: `${base} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
-    response: `${base} color: ${branding.text}; font-weight: normal;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
-    suggestion: `${base} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
-    title: `${base} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
-    tutorial: `${base} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
-    warning: `${base} color: ${branding.accent3}; font-weight: bold;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
-    welcome: `${base} background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
-})
+}), block = `background: url(${branding.icon}) no-repeat left; background-size: 13px; padding: 7px 0 7px 17px; margin: 7px 0;`, line = `font-size: 11px; font-family: monospace; line-height: 1.5em;`,
+    formats = Object.freeze({
+        answer: `${block} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`, // used to show responses from @ and @eli AI bots
+        answerLine: `${line} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`,
+
+        command: `${line} color: ${branding.accent2}; font-size: 13px; font-family: monospace;`, // used to highlight commands within other responses
+        error: `${block} color: ${branding.error}; font-weight: bold;`, // used to show framework-specific errors, for example: alert about an error caused by an invalid directive
+        info: `${block} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
+        response: `${block} color: ${branding.text}; font-weight: normal;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
+        responseLine: `${line} color: ${branding.text}; font-weight: normal;`,
+
+        suggestion: `${block} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
+        title: `${block} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
+        tutorial: `${block} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
+        tutorialLine: `${line} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px;`,
+
+        warning: `${block} color: ${branding.accent3}; font-weight: bold;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
+        welcome: `${block} background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
+    }), print = (text, format) => {
+        format ??= 'response'
+        const blockFormat = formats[format], lineFormat = formats[`${format}Line`]
+        for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length; i < l; line = lines[++i]) console.log(`%c ${line}`, i === 0 ? blockFormat : lineFormat)
+    }
 
 const module = {
 
@@ -30,6 +41,10 @@ const module = {
             grab: {
                 help: '',
                 target: ['dev', 'grab']
+            },
+            help: {
+                help: '',
+                target: ['dev', 'console', 'help']
             },
             save: {
                 help: '',
@@ -55,6 +70,48 @@ const module = {
         value: {
             formats,
             help: async function (command) {
+                print('Command Overview:', 'title')
+                print(`Welcome to the Element Developer Console! Here’s how to interact with the command system:
+                
+                    1. **Syntax**: 
+                       - Commands in the Element framework are typed in the following format:
+                         \`\`\`
+                         $ \`command arg1 arg2 ...\`
+                         \`\`\`
+                    
+                    2. **Arguments**:
+                       - **Separation**: Arguments are separated by spaces. If an argument contains spaces, enclose it in quotes.
+                         \`\`\`
+                         $ \`command "arg with spaces" arg2\`
+                         \`\`\`
+                       - **Standard Element Variable Syntax**: Each argument can use the Element variable syntax for dynamic and context-aware command execution.
+                    
+                    3. **Element Variable Syntax**:
+                       - **Basic Syntax**: Variables are identified by specific prefixes:
+                         - ** $name **: Represents a label from the local context.
+                         - ** @name**: Represents a field, which is typically local to the context or a component.
+                         - ** #name **: Represents a cell, which is a globally accessible state value.
+                         - ** ~name**: Represents a global context value, like a configuration setting or a constant.
+                       - ** Examples **:
+                         - ** Labels **: \`$label\`
+                        - ** Fields **: \`@field\`
+                            - ** Cells **: \`#cell\`
+                                - ** Context **: \`~context\`
+    
+                    4. ** Advanced Variable Parsing **:
+                    - Variables can be structured and complex, including arrays and objects.
+                       - The system intelligently resolves these based on your application’s state and context, ensuring that each variable is interpreted correctly according to its scope and intended use.
+                       - You can combine these with dot notation for nested properties: \`#cell.property\`, \`@field.method()\`.
+                    
+                    This is a basic overview to get you started. To explore specific commands and their usage, type \`$help [command]\` in the console. For example:
+                    \`\`\`
+                    $ help show
+                    \`\`\`
+                    
+                    Happy coding! 🚀
+                    `, 'response')
+
+
 
             },
             welcome: async function () {
