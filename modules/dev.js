@@ -117,16 +117,16 @@ $\`command "arg with spaces" arg2\`
 - Numbers: Integers and floats are supported just as they are, e.g. 123 and 1.23
 - Strings: Enclose in " or ' if they contain spaces or are a special character, otherwise just as they are, e.g. "My Spaced String" and mystring both work.
 - Arrays: Enclose in [] and separate elements with commas. Each element will be recursively parsed as a potential variable.
-- Objects: Enclose in {} and treat like quasi-JSON, e.g. {abc: 123}. OR prefix with a ? and use query string formatting e.g. ?abc=123
+- Objects: Enclose in {} and treat like pseudo-JSON, e.g. {abc: 123}. OR prefix with a ? and use query string formatting e.g. ?abc=123
 **-- Object shortcuts (works for both JSON and querystring syntaxes):**
 ----- Key without a value: {abc} will be expanded to {abc: "abc"}
------ Key with a special value alias postfix: {abc.} becomes: {abc: true} or {abc!} is {abc: false}
+----- Key without a value, but with a special value alias postfix: {abc.} becomes {abc: true} and {abc!} is {abc: false}
 ----- Both keys and values will be parsed as potential variables, with the result of key parsing needing to be a string.
------ Recursion with a '.', for example myValue.level1.level2 will give "abc" if myValue = {level1: {level2: "abc"}}
+----- Recursion with a '.', for example myValue.level1.level2 will give "abc" if myValue is {level1: {level2: "abc"}}
 **-- Live framework values:**
 ----- #cell will expand to the current value of the named cell: e.g. #myCell will give the current value of the cell named "myCell"
 ----- ~context will expand to the current value of named context variable: e.g. ~test will give the value of the context variable named "test"
------ Dot based recursion works in #cells and ~context variables: e.g. #myCell.abc.def or ~test.one.two.three both work fine.
+----- Dot based recursion also works as expected for #cells and ~context variables: e.g. #myCell.abc.def or ~test.one.two.three both work fine.
 ----- @fields, labels and the "passed in value alias" of '$' are NOT supported in the command line environment because they are functionally meaningless in this context.
 ---
 This is a basic overview to get you started. To explore specific commands and their usage, type $\`help [command]\` in the console. For example:
