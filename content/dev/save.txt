@@ -1,0 +1,20 @@
+%title Save Application Objects to the Local File System 
+
+%command $`save what fileOrDirName identifier`
+
+The `save` command takes a given piece of the application and saves it as a file or files to the local file system. The can be used to quickly copy any part of the application, including the entire application itself.
+...
+**Arguments:**
+• what: (required) either "component", "facet", "package" or "application"
+• fileOrDirName: (required) the file name to use when saving the item, or when what=application the suggested directory path to save it in 
+• identifier: (required unless what=application) the identifier for the component, facet or package to save
+...
+**Example 1: Save the 'Test' Component as 'test.html'**
+$`save component test.html test`
+...
+**Example 2: Save the main package as package.js**
+$`save package package.js main`
+...
+**Example 3: Save the whole application**
+$`save application`
+...

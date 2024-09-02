@@ -1,0 +1,19 @@
+%title Send Application Objects to the Remote Hosting Partners or Decentralized Networks 
+
+%command $`send what identifier`
+
+The `send` command takes a given piece of the application and sends to the given hosting partner or network. It can be used to publish the entire application, or parts of it, ready to share with the world!
+...
+**Arguments:**
+• what: (required) either "component", "facet", "package" or "application"
+• identifier: (required unless what=application) the identifier for the component, facet or package to send and publish
+...
+**Example 1: Send the 'Test' Component**
+$`send component test`
+...
+**Example 2: Send the main package**
+$`save package main`
+...
+**Example 3: Publish the whole application**
+$`send application`
+...

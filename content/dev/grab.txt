@@ -1,4 +1,4 @@
-%title Grab Application Objects to the Console 
+%title Grab and Dump Application Objects to the Console 
 
 %command $`grab what identifier format`
 
@@ -6,7 +6,7 @@ The `grab` command takes a given piece of the application and dumps it to the co
 ...
 **Arguments:**
 • what: (required) either "component", "facet", "package" or "application"
-• identifier: (required unless what=application) the identifier for the component, facet or package to dump
+• identifier: (required unless what=application) the identifier for the component, facet or package to grab
 • format: if set to "string" it will dump the item as a string to the console, otherwise a live object of the relevant type
 ...
 **Example 1: Grab the 'Test' Component as a string**
