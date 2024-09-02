@@ -2,5 +2,5 @@
 %response You're now in the driver's seat of your application 🏎️.
 %tutorial Pro Tip #1: Accelerate your workflow! 🚀 Use $`` to send direct commands and watch the magic happen! 🪄
 %tutorial Pro Tip #2: Go deep! 🌊 Use $`help` to discover available commands, and dive deeper with $`help [command]`. For example: $`help show` ⚡
-%tutorial Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @``, or check-in with @eli`` for friendly, personalized tutorials. 🧙‍♂️
+%tutorial Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @``, or check-in with @eli`` for friendly, personalized tutorials on any aspect of Element. 🧙‍♂️
 %suggestion Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨
