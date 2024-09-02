@@ -2,11 +2,11 @@ Command Overview:
 ...          
 **Syntax:** 
 - Commands are given in the following format:
-$\`command arg1 arg2 ...\`
+$`command arg1 arg2 ...`
 ...
 **Arguments:**
 - Arguments are separated by spaces. If an argument contains spaces, enclose it in quotes.
-$\`command "arg with spaces" arg2\`
+$`command arg1 "arg two with spaces" {arg3:isAnObject} ?arg4=alsoAnObject [arg5,is,an,array]`
 - Each argument can use the standard Element variable syntax to handle any data type.
 ...
 **Element Variable Syntax Primer for Commands:**
@@ -28,7 +28,7 @@ $\`command "arg with spaces" arg2\`
 ----- @fields, labels and the "passed in value alias" of '$' are NOT supported in the command line environment because they are functionally meaningless in this context.
 ---
 This is a basic overview to get you started. To explore specific commands and their usage, type $\`help [command]\` in the console. For example:
-$\`help show\`
+$`help show`
 ...
 Happy coding! 🚀🚀🚀
 ---
