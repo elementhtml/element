@@ -143,8 +143,8 @@ Happy coding! 🚀
                 %tutorial Pro Tip #1: Accelerate your workflow! 🚀 Use $\`\` to send direct commands and watch the magic happen! 🪄
                 %tutorial Pro Tip #2: Go deep! 🌊 Use $\`help\` to discover available commands, and dive deeper with $\`help [command]\`. For example: $\`help show\` ⚡
                 %tutorial Pro Tip #3: Need a hand? 🛟 Summon our AI co-pilot with a quick @\`\`, or check-in with @eli\`\` for friendly, personalized tutorials. 🧙‍♂️
-                %suggestion Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨`
-                )
+                %suggestion Stay connected! 🌐 Visit us at https://elementhtml.dev/ for complete documentation 📜📚 and an awesome community 🌟🌈. Happy coding! ✨
+                `)
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
