@@ -10,21 +10,21 @@ const branding = Object.freeze({
     icon: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4TIYAAAAvEAAEEJ+AoG3buKM09uP2noaBtG3y2b3xq/jUtm3D0P+PfjdFTSRbzc/dr//gAAv4L2mjChSkANy+v3d+kbDWxu/IqQCGBFJvWHtt/EHFj2AzBQraSFL2me8e/Kv9hA1E9H8C+Mfeeq/rNGgXB6VbF4C363EyyxkIZj0BqqxrHKT9us8/Ag=='
 }), block = `background: url(${branding.icon}) no-repeat left; background-size: 13px; padding: 7px 0 7px 17px; margin: 7px 0;`, line = `font-size: 11px; font-family: monospace; line-height: 1.5em;`,
     formats = Object.freeze({
-        answer: `${block} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`, // used to show responses from @ and @eli AI bots
+        answer: `${block} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`, // responses from @ and @eli AI bots
         answerLine: `${line} color: ${branding.ai}; font-size: 13px; font-weight: light; font-style: italic; font-family: cursive;`,
         answerLineBold: `${line} color: ${branding.ai}; font-size: 13px; font-weight: bold; font-style: italic; font-family: cursive;`,
-        command: `${line} color: ${branding.accent2}; font-size: 13px; font-family: monospace;`, // used to highlight commands within other responses
-        error: `${block} color: ${branding.error}; font-weight: bold;`, // used to show framework-specific errors, for example: alert about an error caused by an invalid directive
-        info: `${block} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // used to show framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
-        response: `${block} color: ${branding.text}; font-weight: normal;`, // used to respond to commands when the response is not otherwise better suited to another format (such as a table)
+        command: `${line} color: ${branding.accent2}; font-size: 13px; font-family: monospace;`, // highlight commands within other responses
+        error: `${block} color: ${branding.error}; font-weight: bold;`, // framework-specific errors, for example: alert about an error caused by an invalid directive
+        info: `${block} color: ${branding.accent1}; font-weight: normal; font-style: normal; font-size: 9px; font-family: sans-serif; background-color: ${branding.darkerBackground}37; padding-right: 3px;`, // framework-specific information, for example: informational messages from the framework itself such as an invalid or useless directive but which is not causing an actual error
+        response: `${block} color: ${branding.text}; font-weight: normal;`, // respond to commands when the response is not otherwise better suited to another format (such as a table)
         responseLine: `${line} color: ${branding.text}; font-weight: normal;`,
         responseLineBold: `${line} color: ${branding.text}; font-weight: bold;`,
-        suggestion: `${block} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // used to show suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
-        title: `${block} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // used as the titles for tables
-        tutorial: `${block} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px; margin-bottom: 0;`, // used for extended sections with extended 'help' messages showing the developer how to do tasks or use features
+        suggestion: `${block} color: ${branding.accent2}93; font-weight: normal; font-style: italic; background-color: ${branding.background}; padding-right: 3px;`, // suggestions for improvement or clarification to the developer, for example: a poorly constructed directive
+        title: `${block} color: ${branding.text}; font-size: 13px; font-weight: bold; margin: 11px 0; text-decoration: underline; text-underline-offset: 3px; text-transform: capitalize;`, // titles for tables or responses
+        tutorial: `${block} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px; margin-bottom: 0;`, // extended sections with extended 'help' messages showing the developer how to do tasks or use features
         tutorialLine: `${line} color: ${branding.accent1}; font-weight: normal; background-color: ${branding.accent2}17; padding-right: 3px; margin: 0;`,
         tutorialLineBold: `${line} color: ${branding.accent1}; font-weight: bold; background-color: ${branding.accent2}17; padding-right: 3px; margin: 0;`,
-        warning: `${block} color: ${branding.accent3}; font-weight: bold;`, // used to show framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
+        warning: `${block} color: ${branding.accent3}; font-weight: bold;`, // framework-specific warnings, for example: a directive which may not be doing what the developer expects it to
         welcome: `${block} padding-left: 23px; background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
     }), print = async (text, format) => {
         format ??= 'response'
