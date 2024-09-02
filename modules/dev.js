@@ -32,9 +32,13 @@ const branding = Object.freeze({
     }), print = (text, format) => {
         format ??= 'response'
         const blockFormat = formats[format], lineFormat = formats[`${format}Line`], lineBoldFormat = formats[`${format}LineBold`]
-        for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length; i < l; line = lines[i++].trim()) {
+        for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length, firstLine = true; i < l; line = lines[i++].trim()) {
             if (!line) continue
-            if (!i || !lineFormat) { console.log(`%c ${line}`, blockFormat); continue }
+            if (firstLine) {
+                firstLine = false
+                if (line[0] !== '%') { console.log(`%c${line}`, format === 'response' ? formats.title : blockFormat); continue }
+            }
+            if (!lineFormat) { console.log(`%c${line}`, blockFormat); continue }
             let useFormat = lineFormat
             switch (line[0]) {
                 case '.':
@@ -100,8 +104,9 @@ const module = {
         value: {
             formats,
             help: async function (command) {
-                print('Command Overview:', 'title')
                 print(`
+Command Overview:
+...          
 **Syntax:** 
 - Commands are given in the following format:
 $\`command arg1 arg2 ...\`
@@ -132,7 +137,7 @@ $\`command "arg with spaces" arg2\`
 This is a basic overview to get you started. To explore specific commands and their usage, type $\`help [command]\` in the console. For example:
 $\`help show\`
 ...
-Happy coding! 🚀
+Happy coding! 🚀🚀🚀
 ---
 `, 'response')
             },
