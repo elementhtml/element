@@ -28,7 +28,7 @@ const branding = Object.freeze({
         welcome: `${block} padding-left: 23px; background-size: 17px; color: ${branding.accent1}; font-size: 17px; font-weight: bold; display: block; margin-bottom: 13px; border-bottom: 3px dashed ${branding.accent1};`
     }), print = async (text, format) => {
         format ??= 'response'
-        if (text[0] === '`' && text.endsWith('`')) text = await (await fetch(`${new URL(`../content/dev/${text.slice(1, -1)}.txt`, import.meta.url)}`)).text()
+        if (text[0] === '`' && text.endsWith('`')) text = await (await fetch(`${new URL(`../content/${text.slice(1, -1)}.txt`, import.meta.url)}`)).text()
         const blockFormat = formats[format], lineFormat = formats[`${format}Line`], lineBoldFormat = formats[`${format}LineBold`]
         for (let i = 0, lines = text.split('\n'), line = lines[i], l = lines.length, firstLine = true; i < l; line = lines[++i]?.trim()) {
             if (!line) continue
@@ -73,32 +73,24 @@ const branding = Object.freeze({
 
 const module = {
 
-    branding: { value: branding },
-
     commands: {
         value: Object.freeze({
             grab: {
-                help: '',
                 target: ['dev', 'grab']
             },
             help: {
-                help: '',
                 target: ['dev', 'console', 'help']
             },
             save: {
-                help: '',
                 target: ['dev', 'save']
             },
             send: {
-                help: '',
                 target: ['dev', 'send']
             },
             show: {
-                help: '',
                 target: ['dev', 'console', 'show']
             },
             stop: {
-                help: '',
                 target: ['dev', 'console', 'stop']
             }
 
@@ -109,9 +101,12 @@ const module = {
         value: {
             formats,
             help: async function (command) {
-                if (!command) return await print('`console/help`')
+                if (!command) {
+                    await print('`dev/console/help`')
+                    return await print(`%tutorial Available Commands: ${Object.keys(this.dev.commands).sort().join(', ')}`)
+                }
+                return await print('`' + this.dev.commands[command].target.join('/') + '`')
             },
-            welcome: async function () { return await print('`console/welcome`') },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true
                 let signal
@@ -154,7 +149,8 @@ const module = {
                     this.dev.controllers.console.show[label].abort()
                     delete this.dev.controllers.console.show[label]
                 }
-            }
+            },
+            welcome: async function () { return await print('`dev/console/welcome`') },
         }
     },
 
@@ -178,11 +174,11 @@ const module = {
                 let funcScope = this
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
-                const func = funcScope, labels = {}, env = { cells: this.app.cells, context: this.app.context }, envelope = { labels, env }
+                const func = funcScope, env = { cells: this.app.cells, context: this.app.context }
                 for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
                 const result = func(...args)
                 if (result instanceof Promise) {
-                    result.then(r => console.log(r)).catch(e => console.error(e))
+                    result.then(r => r ? console.log(r) : undefined).catch(e => console.error(e))
                     return fillers[Math.floor(Math.random() * fillers.length)]
                 } else {
                     return result

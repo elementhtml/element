@@ -1,0 +1,1 @@
+%response help file for show command
