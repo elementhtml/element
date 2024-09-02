@@ -1,0 +1,20 @@
+%title Grab Application Objects to the Console 
+
+%command $`grab what`
+
+The `grab` command takes a given piece of the application and dumps it to the console as either a live object or a string. This can be used to quickly introspect specific items or to use them as a base for copying and pasting into files for editing.
+...
+**Arguments:**
+• what: (required) either "component", "facet", "package" or "application"
+• identifier: (required unless what=application) the identifier for the component, facet or package to dump
+• format: if set to "string" it will dump the item as a string to the console, otherwise a live object of the relevant type
+...
+**Example 1: Grab the 'Test' Component as a string**
+$`grab component test string`
+...
+**Example 2: Grab the main package**
+$`grab package main`
+...
+**Example 3: Grab the whole application as an application manifest object**
+$`grab application`
+...

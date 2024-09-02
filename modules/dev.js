@@ -105,7 +105,7 @@ const module = {
                     await print('`dev/console/help`')
                     return await print(`%tutorial Available Commands: ${Object.keys(this.dev.commands).sort().join(', ')}`)
                 }
-                return await print('`' + this.dev.commands[command].target.join('/') + '`')
+                return await print('`' + this.dev.commands[command].target.join('/') + '`', 'tutorial')
             },
             show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
                 run ?? true

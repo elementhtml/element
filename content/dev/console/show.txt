@@ -1,1 +1,22 @@
-%response help file for show command
+%title Introspect the live application state
+
+%command $`show what filters clear label run`
+
+The show command displays tabular data related to specific aspects of the application (e.g. cells, fields or statements). It optionally enables live updates based on changes to the monitored data.
+...
+**Arguments:**
+• what: (required) either "cells", "fields" or "statements" to show the current values of those aspects of application state
+• filters: an object with the keys set to the names and values being `false` to hide the named item from the table
+• clear: `true` to clear the console before printing the table
+• label: a string label for this show process, can be used the the `stop` command to discontinue live updates. Must be present in order to use the `run` argument.
+• run: `true` to create a live updating table in the console which automatically updates whenever a tracked value changes. Best used with `clear` being true and requires a `label` set so that it can be stopped later.
+...
+**Example 1: Show All Cells**
+$`show cells`
+...
+**Example 2: Show All Cells with Live Tracking**
+$`show cells ? . test .`
+...
+**Example 3: Show All Fields from a Facet container named "test"**
+$`show fields ?container=test`
+...
