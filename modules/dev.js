@@ -147,13 +147,16 @@ const module = {
                 } else {
                     console.table(tableData)
                 }
-                if (observe) print(`
-                    %response Created ${what} observer: ${observe} 
+                if (observe) {
+                    const observerDisplay = observe.includes(' ') ? `"${observe}"` : observe
+                    print(`
+                    %response Created ${what} observer: ${observerDisplay} 
                     %tutorial Hint: Stop this observer with: 
-                    %command \$\`stop ${observe}\`
+                    %command \$\`stop ${observerDisplay}\`
                     %tutorialLine or stop all observers with: 
                     %command \$\`stop\`
                 `)
+                }
                 return getFiller()
             },
             stop: function (name) {
@@ -166,9 +169,9 @@ const module = {
                         for (const n of names) if (this.dev.controllers.console.show[n]) {
                             this.dev.controllers.console.show[n].abort()
                             delete this.dev.controllers.console.show[n]
-                            print(`Stopped observer: ${n}`, 'info')
+                            print(`Stopped observer: "${n}"`, 'info')
                         } else {
-                            print(`Observer ${n} was not found`, 'warning')
+                            print(`Observer "${n}" was not found`, 'warning')
                         }
                 }
                 return getFiller()
@@ -191,7 +194,7 @@ const module = {
                 let [invocation] = input
                 invocation = invocation.trim()
                 if (!invocation) return console.error(`No command entered`)
-                const [command, ...args] = invocation.split(/(?<!["'])\s+(?![^"']*["'])/).map(s => s.trim())
+                const [command, ...args] = Array.from(invocation.matchAll(/[^\s"]+|"[^"]*"/g), match => match[0]).map(s => s.trim())
                 if (!(command in this.dev.commands)) return console.error(`Command ${command} not found`)
                 const { target = [command] } = this.dev.commands[command]
                 let funcScope = this
