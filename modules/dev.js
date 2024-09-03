@@ -68,7 +68,7 @@ const branding = Object.freeze({
         }
     }, fillers = [
         '✨', '🌟', '💫', '🎉', '🎈', '🔥', '🎨', '🧩', '🎵', '🎶', '🛸', '🌈', '💎', '🦄', '🍀', '☀️', '🌙', '🌻', '🌸', '🍄', '🎀', '🕹️', '💌', '🎯', '🚀', '🍕', '🥳', '🍭', '🎂', '🐾', '🐣', '🐉', '🏆', '🧠', '🕶️', '⚡', '🦋'
-    ]
+    ], getFiller = () => fillers[Math.floor(Math.random() * fillers.length)]
 
 
 const module = {
@@ -117,31 +117,29 @@ const module = {
                     this.dev.controllers.console.show[observe] = new AbortController()
                     signal = this.dev.controllers.console.show[observe].signal
                 }
-                let whatItems
+                let whatItems, whatSymbol
                 switch (what) {
                     case 'cells':
-                        if (observe) whatItems = this.app.cells
+                        whatItems = this.app.cells
+                        whatSymbol = '#'
                         break
                     case 'fields':
-                        if (observe) {
-                            const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
-                                ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`),
-                                facetInstance = this.app.facets.instances.get(containerElement)
-                            whatItems = facetInstance.fields
-                        }
+                        const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
+                            ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`),
+                            facetInstance = this.app.facets.instances.get(containerElement)
+                        whatItems = facetInstance.fields
+                        whatSymbol = '@'
                         break
                 }
-
                 if (!filters || (typeof filters !== 'object')) filters = undefined
-                const filterIsAllow = Array.isArray(filters), filtered = []
+                const filterIsAllow = Array.isArray(filters), filtered = [], tableData = {}
                 filters = new Set(filterIsAllow ? filters : Object.keys(filters ?? {}))
                 for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name);
-                filtered.sort()
-                if (observe) for (const name of filtered) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
+                if (observe) for (const name of filtered.sort()) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
                 if (clear) console.clear()
-                const tableData = this.dev.tabulate(what, filters)
+                for (const name of filtered) tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
                 console.table(tableData)
-                if (observe) return observe
+                return observe ?? getFiller()
             },
             stop: function (name) {
                 if (this.dev.controllers.console.show[name]) {
@@ -178,7 +176,7 @@ const module = {
                 const result = func(...args)
                 if (result instanceof Promise) {
                     result.then(r => r ? console.log(r) : undefined).catch(e => console.error(e))
-                    return fillers[Math.floor(Math.random() * fillers.length)]
+                    return getFiller()
                 } else {
                     return result
                 }
@@ -187,28 +185,6 @@ const module = {
             },
             ['@eli']: function (prompt) {
             },
-        }
-    },
-
-    tabulate: {
-        value: function (what, filters = {}) {
-            if (!filters || (typeof filters !== 'object')) filters = typeof filters == 'string' ? { [filters]: true } : {}
-            const tableData = {}
-            switch (what) {
-                case 'cells':
-                    for (const cellName of Object.keys(this.app.cells).sort()) if (filters[cellName] !== false) tableData[`#${cellName}`] = { value: this.app.cells[cellName].get() }
-                    break
-                case 'fields':
-                    const { container } = filters
-                    if (!container) throw new Error('No facet container specified')
-                    const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`) ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
-                    if (!containerElement) throw new Error(`Facet container ${container} not found.`)
-                    const facetInstance = this.app.facets.instances.get(containerElement)
-                    if (!facetInstance) throw new Error(`A facet instance for container ${container} was not found.`)
-                    for (const fieldName of Object.keys(facetInstance.fields).sort()) if (filters[fieldName] !== false) tableData[`@${fieldName}`] = { value: facetInstance.fields[fieldName].get() }
-                    break
-            }
-            return tableData
         }
     },
 
