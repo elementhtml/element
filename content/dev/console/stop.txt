@@ -8,7 +8,7 @@ The stop command discontinues live updates that have been initiated with `show`.
 • label: the previously used string label for this show process. If there is no currently running `show` process with this label then nothing will happen. If no label is given, then it will cancel anything currently running, including any pending AI copilot or Eli responses.
 ...
 **Example 1: Show All Cells with Live Tracking Using the Label "test"**
-$`show cells ? . test .`
+$`show cells test`
 **Now stop the live updates...**
 $`stop test`
 ...

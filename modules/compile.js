@@ -85,7 +85,9 @@ const nativeElementsMap = {
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 statementIndex = statementIndex + 1
-                const statement = { labels: new Set(), steps: [] }
+                let handle, handleMatch
+                if (handleMatch = directive.match(/^([A-Z][A-Z0-9]*)::\s(.*)/)) [, handle, directive] = handleMatch
+                const statement = { handle, index: statementIndex, labels: new Set(), steps: [] }
                 let stepIndex = -1
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()

@@ -1899,6 +1899,7 @@ ${scriptBody.join('{')}`
             fields = {}
             observer
             vars = {}
+            labels = []
             disabled
             constructor() {
                 this.controller = new AbortController()
@@ -1907,7 +1908,8 @@ ${scriptBody.join('{')}`
             }
             async run(container, env) {
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
-                    const { steps = [] } = statement, labels = {}, saveToLabel = (stepIndex, label, value, labelMode) => {
+                    this.labels[statementIndex] = {}
+                    const { steps = [] } = statement, labels = this.labels[statementIndex], saveToLabel = (stepIndex, label, value, labelMode) => {
                         labels[`${stepIndex}`] = value
                         if (label && (label != stepIndex)) {
                             switch (label[0]) {
