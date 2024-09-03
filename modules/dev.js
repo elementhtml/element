@@ -112,30 +112,34 @@ const module = {
                 if (what === 'cells') [observe, filters = {}, clear] = args
                 if (observe) {
                     if (observe === true) observe = crypto.randomUUID()
+                    if (typeof observe !== 'string') observe = `${observe}`
                     if (this.dev.controllers.console.show[observe]) this.dev.controllers.console.show[observe].abort()
                     this.dev.controllers.console.show[observe] = new AbortController()
                     signal = this.dev.controllers.console.show[observe].signal
                 }
-                if (!filters || (typeof filters !== 'object')) filters = {}
-                const filterMode = Array.isArray(filters) ? 'allow' : 'deny'
-                filters = new Set(filterMode === 'allow' ? filters : Object.keys(filters))
-
-                const tableData = this.dev.tabulate(what, filters)
+                let whatItems
                 switch (what) {
                     case 'cells':
-                        if (observe) for (const cellName of Object.keys(this.app.cells).sort())
-                            if (filters[cellName] !== false) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.dev.console.show('cells', filters, clear), { signal })
+                        if (observe) whatItems = this.app.cells
                         break
                     case 'fields':
                         if (observe) {
-                            const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`) ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
-                            const facetInstance = this.app.facets.instances.get(containerElement)
-                            for (const fieldName of Object.keys(facetInstance.fields).sort())
-                                if (filters[fieldName] !== false) facetInstance.fields[fieldName].eventTarget.addEventListener('change', () => this.dev.console.show('fields', filters, clear), { signal })
+                            const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
+                                ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`),
+                                facetInstance = this.app.facets.instances.get(containerElement)
+                            whatItems = facetInstance.fields
                         }
                         break
                 }
+
+                if (!filters || (typeof filters !== 'object')) filters = undefined
+                const filterIsAllow = Array.isArray(filters), filtered = []
+                filters = new Set(filterIsAllow ? filters : Object.keys(filters ?? {}))
+                for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name);
+                filtered.sort()
+                if (observe) for (const name of filtered) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
                 if (clear) console.clear()
+                const tableData = this.dev.tabulate(what, filters)
                 console.table(tableData)
                 if (observe) return observe
             },
