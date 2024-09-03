@@ -156,13 +156,19 @@ const module = {
                 return getFiller()
             },
             stop: function (name) {
-                const names = name ? [name] : Object.keys(this.dev.controllers.console.show).sort()
-                for (const n of names) if (this.dev.controllers.console.show[n]) {
-                    this.dev.controllers.console.show[n].abort()
-                    delete this.dev.controllers.console.show[n]
-                    print(`Stopped observer: ${n}`, 'info')
-                } else {
-                    print(`Observer ${n} was not found`, 'warning')
+                switch (name) {
+                    case '@': case '@eli':
+                        print(`${name} is not yet active.`, 'warning')
+                        break
+                    default:
+                        const names = name ? [name] : Object.keys(this.dev.controllers.console.show).sort()
+                        for (const n of names) if (this.dev.controllers.console.show[n]) {
+                            this.dev.controllers.console.show[n].abort()
+                            delete this.dev.controllers.console.show[n]
+                            print(`Stopped observer: ${n}`, 'info')
+                        } else {
+                            print(`Observer ${n} was not found`, 'warning')
+                        }
                 }
                 return getFiller()
             },
