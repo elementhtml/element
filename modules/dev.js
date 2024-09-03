@@ -107,7 +107,6 @@ const module = {
                 }
                 return await print('`' + this.dev.commands[command].target.join('/') + '`', 'tutorial')
             },
-            print: function (text, format) { print(text, format) },
             show: function (what, ...args) {
                 let signal, [container, observe, filters = {}, clear] = args
                 if (what === 'cells') [observe, filters = {}, clear] = args
@@ -689,6 +688,12 @@ const module = {
                     return console.log(`Application published to "${adaptor.name}".`)
             }
         }
+    },
+
+    print: {
+        value: function (text, format) { print(text, format) }
     }
+
+
 }
 export { module }
