@@ -113,7 +113,7 @@ const module = {
                 if (what === 'cells') [observe, filters = {}, clear] = args
                 clear ??= !!observe
                 if (observe) {
-                    if (observe === true) { observe = crypto.randomUUID() }
+                    if (observe === true) { observe = crypto.randomUUID().split('-').join('') }
                     if (typeof observe !== 'string') observe = `${observe}`
                     args[(what === 'cells') ? 0 : 1] = observe
                     if (this.dev.controllers.console.show[observe]) this.dev.controllers.console.show[observe].abort()
@@ -156,10 +156,15 @@ const module = {
                 return getFiller()
             },
             stop: function (name) {
-                if (this.dev.controllers.console.show[name]) {
-                    this.dev.controllers.console.show[name].abort()
-                    delete this.dev.controllers.console.show[name]
+                const names = name ? [name] : Object.keys(this.dev.controllers.console.show).sort()
+                for (const n of names) if (this.dev.controllers.console.show[n]) {
+                    this.dev.controllers.console.show[n].abort()
+                    delete this.dev.controllers.console.show[n]
+                    print(`Stopped observer: ${n}`, 'info')
+                } else {
+                    print(`Observer ${n} was not found`, 'warning')
                 }
+                return getFiller()
             },
             welcome: async function () { return await print('`dev/console/welcome`') },
         }
