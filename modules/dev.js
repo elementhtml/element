@@ -107,33 +107,27 @@ const module = {
                 }
                 return await print('`' + this.dev.commands[command].target.join('/') + '`', 'tutorial')
             },
-            show: function (what, filters = {}, clear = undefined, label = undefined, run = undefined) {
-                run ?? true
-                let signal
-                if (label) {
-                    switch (run) {
-                        case true:
-                            if (this.dev.controllers.console.show[label]) this.dev.controllers.console.show[label].abort()
-                            this.dev.controllers.console.show[label] = new AbortController()
-                            signal = this.dev.controllers.console.show[label].signal
-                            break
-                        case false:
-                            if (this.dev.controllers.console.show[label]) {
-                                this.dev.controllers.console.show[label].abort()
-                                delete this.dev.controllers.console.show[label]
-                                return
-                            }
-                    }
+            show: function (what, ...args) {
+                let signal, [container, observe, filters = {}, clear] = args
+                if (what === 'cells') [observe, filters = {}, clear] = args
+                if (observe) {
+                    if (observe === true) observe = crypto.randomUUID()
+                    if (this.dev.controllers.console.show[observe]) this.dev.controllers.console.show[observe].abort()
+                    this.dev.controllers.console.show[observe] = new AbortController()
+                    signal = this.dev.controllers.console.show[observe].signal
                 }
+                if (!filters || (typeof filters !== 'object')) filters = {}
+                const filterMode = Array.isArray(filters) ? 'allow' : 'deny'
+                filters = new Set(filterMode === 'allow' ? filters : Object.keys(filters))
+
                 const tableData = this.dev.tabulate(what, filters)
                 switch (what) {
                     case 'cells':
-                        if (run === true) for (const cellName of Object.keys(this.app.cells).sort())
+                        if (observe) for (const cellName of Object.keys(this.app.cells).sort())
                             if (filters[cellName] !== false) this.app.cells[cellName].eventTarget.addEventListener('change', () => this.dev.console.show('cells', filters, clear), { signal })
                         break
                     case 'fields':
-                        if (run === true) {
-                            const { container } = filters
+                        if (observe) {
                             const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`) ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
                             const facetInstance = this.app.facets.instances.get(containerElement)
                             for (const fieldName of Object.keys(facetInstance.fields).sort())
@@ -143,11 +137,12 @@ const module = {
                 }
                 if (clear) console.clear()
                 console.table(tableData)
+                if (observe) return observe
             },
-            stop: function (label) {
-                if (this.dev.controllers.console.show[label]) {
-                    this.dev.controllers.console.show[label].abort()
-                    delete this.dev.controllers.console.show[label]
+            stop: function (name) {
+                if (this.dev.controllers.console.show[name]) {
+                    this.dev.controllers.console.show[name].abort()
+                    delete this.dev.controllers.console.show[name]
                 }
             },
             welcome: async function () { return await print('`dev/console/welcome`') },
