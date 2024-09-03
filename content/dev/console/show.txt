@@ -5,18 +5,23 @@
 The show command displays tabular data related to specific aspects of the application (e.g. cells, fields or statements). It optionally enables live updates based on changes to the monitored data.
 ...
 **Arguments:**
-• what: (required) either "cells", "fields" or "statements" to show the current values of those aspects of application state
-• filters: an object with the keys set to the names and values being `false` to hide the named item from the table
-• clear: `true` to clear the console before printing the table
-• label: a string label for this show process, can be used the the `stop` command to discontinue live updates. Must be present in order to use the `run` argument.
-• run: `true` to create a live updating table in the console which automatically updates whenever a tracked value changes. Best used with `clear` being true and requires a `label` set so that it can be stopped later.
+• what: (required) either "cells", "fields" or "statements" to show the current values of those aspects of application state.
+• container: (only if `what` is "fields" or "statement") the name or id of the container to display the fields or statements of. 
+• observe: either `true` or a string label for this show process to activate live updates. It is to be used the the `stop` command to stop observing updates. If `true` a unique label will be auto-generated and returned in the response for later usage.
+• filters: either an array of names to create an allow-list of items whose value to show , or an an object with the keys set to the names and values being `false` to hide the named items from the table. If not filters are defined then everything will be displayed.
+• clear: `true` to clear the console before printing the table. When used in conjunction with `observe` will automatically clear the console on each update, thus creating the appearance of a live table. Defaults to `true` if `observe` is set.
 ...
-**Example 1: Show All Cells**
+**Example 1: Show all cells:**
 $`show cells`
 ...
-**Example 2: Show All Cells with Live Tracking**
-$`show cells ? . test .`
+**Example 2: Show all cells with live updates:**
+$`show cells .`
 ...
-**Example 3: Show All Fields from a Facet container named "test"**
-$`show fields ?container=test`
+**Example 3: Show fields from the Facet container named "test":**
+$`show fields test`
 ...
+**Example 4: Show only the "MyField" fields from the Facet container named "test":**
+$`show fields test ? [MyField]`
+...
+**Example 5: Show all Cells Except "MyCell":**
+$`show cells ? {MyCell!}`

@@ -107,12 +107,15 @@ const module = {
                 }
                 return await print('`' + this.dev.commands[command].target.join('/') + '`', 'tutorial')
             },
+            print: function (text, format) { print(text, format) },
             show: function (what, ...args) {
                 let signal, [container, observe, filters = {}, clear] = args
                 if (what === 'cells') [observe, filters = {}, clear] = args
+                clear ??= !!observe
                 if (observe) {
-                    if (observe === true) observe = crypto.randomUUID()
+                    if (observe === true) { observe = crypto.randomUUID() }
                     if (typeof observe !== 'string') observe = `${observe}`
+                    args[(what === 'cells') ? 0 : 1] = observe
                     if (this.dev.controllers.console.show[observe]) this.dev.controllers.console.show[observe].abort()
                     this.dev.controllers.console.show[observe] = new AbortController()
                     signal = this.dev.controllers.console.show[observe].signal
@@ -138,8 +141,19 @@ const module = {
                 if (observe) for (const name of filtered) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
                 if (clear) console.clear()
                 for (const name of filtered.sort()) tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
-                console.table(tableData)
-                return observe ?? getFiller()
+                if (!filtered.length) {
+                    print(`No ${what} are in scope to display at this time.`, 'info')
+                } else {
+                    console.table(tableData)
+                }
+                if (observe) print(`
+                    %response Created ${what} observer: ${observe} 
+                    %tutorial Hint: Stop this observer with: 
+                    %command \$\`stop ${observe}\`
+                    %tutorialLine or stop all observers with: 
+                    %command \$\`stop\`
+                `)
+                return getFiller()
             },
             stop: function (name) {
                 if (this.dev.controllers.console.show[name]) {
