@@ -81,6 +81,9 @@ const module = {
             help: {
                 target: ['dev', 'console', 'help']
             },
+            print: {
+                target: ['dev', 'print']
+            },
             save: {
                 target: ['dev', 'save']
             },
@@ -93,7 +96,6 @@ const module = {
             stop: {
                 target: ['dev', 'console', 'stop']
             }
-
         })
     },
 
