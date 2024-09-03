@@ -134,10 +134,10 @@ const module = {
                 if (!filters || (typeof filters !== 'object')) filters = undefined
                 const filterIsAllow = Array.isArray(filters), filtered = [], tableData = {}
                 filters = new Set(filterIsAllow ? filters : Object.keys(filters ?? {}))
-                for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name);
-                if (observe) for (const name of filtered.sort()) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
+                for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name)
+                if (observe) for (const name of filtered) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
                 if (clear) console.clear()
-                for (const name of filtered) tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
+                for (const name of filtered.sort()) tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
                 console.table(tableData)
                 return observe ?? getFiller()
             },
