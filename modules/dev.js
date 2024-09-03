@@ -194,7 +194,7 @@ const module = {
                 let [invocation] = input
                 invocation = invocation.trim()
                 if (!invocation) return console.error(`No command entered`)
-                const [command, ...args] = Array.from(invocation.matchAll(/[^\s"]+|"[^"]*"/g), match => match[0]).map(s => s.trim())
+                const [command, ...args] = Array.from(invocation.matchAll(/[^\s"']+|["'][^"']*["']/g), match => match[0]).map(s => s.trim())
                 if (!(command in this.dev.commands)) return console.error(`Command ${command} not found`)
                 const { target = [command] } = this.dev.commands[command]
                 let funcScope = this
