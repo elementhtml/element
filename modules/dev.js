@@ -178,6 +178,13 @@ const module = {
                 if (!filtered.length) {
                     print(`No ${what} are in scope to display at this time.`, 'info')
                 } else {
+                    switch (what) {
+                        case 'cells':
+                            print(`Cell Values [Global]`, 'title')
+                            break
+                        default:
+                            print(`${what} values ["${container}"]`, 'title')
+                    }
                     console.table(tableData)
                 }
                 if (observe) {
