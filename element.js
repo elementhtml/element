@@ -987,6 +987,20 @@ const ElementHTML = Object.defineProperties({}, {
             return valueUrl.href
         }
     },
+
+    checkType: {
+        enumerable: true, value: async function (typeName, value, infoMode) {
+            if (!(typeName = typeName.trim())) return
+            if (this.app.types[typeName] === true) {
+                let waitCount = 0
+                while ((waitCount <= 100) && (this.app.types[typeName] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
+            }
+            if (this.app.types[typeName] === true) delete this.app.types[typeName]
+
+
+        }
+    },
+
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
             if (transform) transform = transform.trim()
@@ -994,9 +1008,7 @@ const ElementHTML = Object.defineProperties({}, {
             let expression, helperAlias
             if (this.app.transforms[transformKey] === true) {
                 let waitCount = 0
-                while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) {
-                    await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
-                }
+                while ((waitCount <= 100) && (this.app.types[typeName] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
             }
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
             if (!this.app.transforms[transformKey]) {
