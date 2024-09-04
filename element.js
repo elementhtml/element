@@ -1194,14 +1194,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }, { signal })
                 }
                 return { getReturnValue, shape, target }
-            },
-            type: async function (container, position, envelope) {
-                const { vars } = envelope, { types, mode } = vars
-                for (const { name: typeName } of types) {
-                    if (this.app.types[typeName]) continue
-                    if (typeof this.env.types[typeName] === 'function') this.app.types[typeName] = this.env.type[typeName].bind(this)
-                }
-            },
+            }
         }
     },
     handlers: {
@@ -1344,6 +1337,24 @@ const ElementHTML = Object.defineProperties({}, {
                 const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
                     cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                 return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
+            },
+            type: async function (container, position, envelope, value) {
+                const { vars } = envelope, { types, mode } = vars
+                let pass
+                switch (mode) {
+                    case 'any':
+                        for (const { if: ifMode, name } of types) if (pass = ifMode === (await this.checkType(name, value))) break
+                        break
+                    case 'all':
+                        for (const { if: ifMode, name } of types) if (!(pass = ifMode === (await this.checkType(name, value)))) break
+                        break
+                    case 'info':
+                        pass = true
+                        const validation = {}
+                        for (const { name } of types) validation[name] = await this.checkType(name, value, true)
+                        return { value, validation }
+                }
+                if (pass) return value
             },
             variable: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { cells, context, fields } = env

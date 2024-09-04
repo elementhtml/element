@@ -426,7 +426,7 @@ const nativeElementsMap = {
                     const ifMode = typeName[0] !== '!'
                     types.push({ if: ifMode, name: ifMode ? typeName : typeName.splice(1) })
                 }
-                return { handler: 'transform', ctx: { binder: true, vars: { types, mode } } }
+                return { handler: 'type', ctx: { vars: { types, mode } } }
             },
             variable: function (expression, hasDefault) {
                 return { handler: 'variable', ctx: { vars: { expression } } }
