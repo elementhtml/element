@@ -121,14 +121,14 @@ const module = {
                     this.dev.controllers.console.show[observe] = new AbortController()
                     signal = this.dev.controllers.console.show[observe].signal
                 }
-                let whatItems, whatSymbol, facetInstance
+                let whatItems, whatSymbol, containerElement, facetInstance
                 switch (what) {
                     case 'cells':
                         whatItems = this.app.cells
                         whatSymbol = '#'
                         break
                     case 'fields': case 'statements':
-                        const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
+                        containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
                             ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
                         facetInstance = this.app.facets.instances.get(containerElement)
                         whatItems = facetInstance[what === 'fields' ? 'fields' : 'labels']
@@ -149,8 +149,9 @@ const module = {
                 if (observe) for (const name of filtered) {
                     switch (what) {
                         case 'statements':
-                            for (let statement = facetInstance.constructor.statements[name], stepIndex = 0, l = statement.length; stepIndex < l; i++) {
-                                facetContainer.addEventListener(`done-${name}-${stepIndex}`, () => this.dev.console.show(what, ...args), { signal })
+                            let statement, stepIndex, l
+                            for (let statement = facetInstance.constructor.statements[name], stepIndex = 0, l = statement.steps.length; stepIndex < l; stepIndex++) {
+                                containerElement.addEventListener(`done-${name}-${stepIndex}`, () => this.dev.console.show(what, ...args), { signal })
                             }
                             break
                         default:
