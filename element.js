@@ -1008,7 +1008,7 @@ const ElementHTML = Object.defineProperties({}, {
             let expression, helperAlias
             if (this.app.transforms[transformKey] === true) {
                 let waitCount = 0
-                while ((waitCount <= 100) && (this.app.types[typeName] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
+                while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
             }
             if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
             if (!this.app.transforms[transformKey]) {
