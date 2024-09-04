@@ -192,6 +192,11 @@ const nativeElementsMap = {
                                         params = this.compile.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
                                         break
                                     }
+                                case '|':
+                                    if (handlerExpression.endsWith('|')) {
+                                        params = this.compile.parsers.type(handlerExpression.slice(1, -1), hasDefault)
+                                        break
+                                    }
                                 case '~':
                                     if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
                                 default:
@@ -405,6 +410,23 @@ const nativeElementsMap = {
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
                 return { handler: 'transform', ctx: { vars: { expression } } }
+            },
+            type: function (expression, hasDefault) {
+                let mode = 'any', types = []
+                switch (expression[0]) {
+                    case '|':
+                        if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
+                        break
+                    case '?':
+                        if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
+                }
+                for (let typeName of expression.split(',')) {
+                    typeName = typeName.trim()
+                    if (!typeName) continue
+                    const ifMode = typeName[0] !== '!'
+                    types.push({ if: ifMode, name: ifMode ? typeName : typeName.splice(1) })
+                }
+                return { handler: 'transform', ctx: { binder: true, vars: { types, mode } } }
             },
             variable: function (expression, hasDefault) {
                 return { handler: 'variable', ctx: { vars: { expression } } }
