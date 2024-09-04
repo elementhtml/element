@@ -1194,7 +1194,14 @@ const ElementHTML = Object.defineProperties({}, {
                     }, { signal })
                 }
                 return { getReturnValue, shape, target }
-            }
+            },
+            type: async function (container, position, envelope) {
+                const { vars } = envelope, { types, mode } = vars
+                for (const { name: typeName } of types) {
+                    if (this.app.types[typeName]) continue
+                    if (typeof this.env.types[typeName] === 'function') this.app.types[typeName] = this.env.type[typeName].bind(this)
+                }
+            },
         }
     },
     handlers: {
@@ -2000,7 +2007,6 @@ ${scriptBody.join('{')}`
         }
     }
 })
-ElementHTML.env.helpers.is = ElementHTML.env.helpers['application/schema+json']
 ElementHTML.Component.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: {
