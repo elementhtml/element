@@ -121,27 +121,59 @@ const module = {
                     this.dev.controllers.console.show[observe] = new AbortController()
                     signal = this.dev.controllers.console.show[observe].signal
                 }
-                let whatItems, whatSymbol
+                let whatItems, whatSymbol, facetInstance
                 switch (what) {
                     case 'cells':
                         whatItems = this.app.cells
                         whatSymbol = '#'
                         break
-                    case 'fields':
+                    case 'fields': case 'statements':
                         const containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
-                            ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`),
-                            facetInstance = this.app.facets.instances.get(containerElement)
-                        whatItems = facetInstance.fields
-                        whatSymbol = '@'
+                            ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
+                        facetInstance = this.app.facets.instances.get(containerElement)
+                        whatItems = facetInstance[what === 'fields' ? 'fields' : 'labels']
+                        whatSymbol = what === 'fields' ? '@' : ''
                         break
                 }
                 if (!filters || (typeof filters !== 'object')) filters = undefined
                 const filterIsAllow = Array.isArray(filters), filtered = [], tableData = {}
                 filters = new Set(filterIsAllow ? filters : Object.keys(filters ?? {}))
-                for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name)
-                if (observe) for (const name of filtered) whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
+                if (what === 'statements') {
+                    for (const statement of facetInstance.constructor.statements)
+                        if ((filterIsAllow && (filters.has(statement.handle) || filters.has(statement.index))) || (!filterIsAllow && !(filters.has(statement.handle) || filters.has(statement.index))))
+                            filtered.push(statement.index)
+                } else {
+                    for (const name in whatItems) if ((filterIsAllow && filters.has(name)) || (!filterIsAllow && !filters.has(name))) filtered.push(name)
+                }
+
+                if (observe) for (const name of filtered) {
+                    switch (what) {
+                        case 'statements':
+                            for (let statement = facetInstance.constructor.statements[name], stepIndex = 0, l = statement.length; stepIndex < l; i++) {
+                                facetContainer.addEventListener(`done-${name}-${stepIndex}`, () => this.dev.console.show(what, ...args), { signal })
+                            }
+                            break
+                        default:
+                            whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
+                    }
+                }
+
                 if (clear) console.clear()
-                for (const name of filtered.sort()) tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
+                for (const name of filtered.sort()) {
+                    switch (what) {
+                        case 'statements':
+                            tableData[name] = {
+                                'HANDLE': facetInstance.constructor.statements[name].handle
+                            }
+                            for (const label in whatItems[name]) {
+                                const labelHeader = label == 0 ? `:: ${label}` : (this.sys.regexp.isNumeric ? ` >> ${label}` : `$${label}`)
+                                tableData[name][labelHeader] = whatItems[name][label]
+                            }
+                            break
+                        default:
+                            tableData[`${whatSymbol}${name}`] = { value: whatItems[name].get() }
+                    }
+                }
                 if (!filtered.length) {
                     print(`No ${what} are in scope to display at this time.`, 'info')
                 } else {
