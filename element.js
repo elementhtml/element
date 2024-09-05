@@ -991,14 +991,6 @@ const ElementHTML = Object.defineProperties({}, {
     checkType: {
         enumerable: true, value: async function (typeName, value, infoMode) {
             if (!(typeName = typeName.trim())) return
-            /* 
-            Ways to load types:
-                ** from this.env.types
-                ** a string URL to the JS module, JSON-schema or XDR type - startsWith / or ./ or ../ or valid URL
-                ** a plain Object to load into a JSON-Schema or XDR type
-                ** a string to be evaluated as an XDR type specification
-
-            */
             if (!this.app.types[typeName]) {
                 let typeDefinition = this.env.types[typeName] ?? typeName
                 if (!typeDefinition) return
@@ -1011,31 +1003,25 @@ const ElementHTML = Object.defineProperties({}, {
                             isUrl = true
                             break
                         default:
-                            if (typeDefinition.includes('://')) {
-                                try {
-                                    isUrl = !!new URL(typeDefinition)
-                                } catch (e) { }
-                            }
+                            typeDefinition = typeDefinition.trim()
+                            if (typeDefinition.includes('://')) try { isUrl = !!new URL(typeDefinition) } catch (e) { }
                             isUrl ??= !((typeDefinition[0] === '{') || typeDefinition.includes(';'))
                             if (isUrl) typeDefinition = `types/${typeDefinition}`
                     }
                     if (isUrl) {
                         const typeSuffixes = ['js', 'wasm', 'schema.json', 'json', 'x']
-                        let isType = {}, t
-                        for (t of typeSuffixes) isType[t] = typeDefinition.endsWith(`.${t}`)
-                        if (!isType.js && !isType.wasm && !isType['schema.json'] && !isType.x) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
-                        if (!t) return
-                        typeDefinition = this.resolveUrl(`${typeDefinition}.${t}`)
+                        let isType = {}, t, hasSuffix
+                        for (t of typeSuffixes) if (hasSuffix ||= isType[t] = typeDefinition.endsWith(`.${t}`)) break
+                        if (!hasSuffix) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
                         switch (t) {
                             case 'js': case 'wasm':
-                                typeDefinition = (await this.getExports(typeDefinition)).default
+                                typeDefinition = (await this.getExports(this.resolveUrl(`${typeDefinition}.${t}`))).default
                                 break
                             case 'schema.json': case 'json':
-                                typeDefinition = await (await fetch(typeDefinition)).json()
+                                typeDefinition = await (await fetch(this.resolveUrl(`${typeDefinition}.${t}`))).json()
                                 break
-                            case 'x':
-                                typeDefinition = await (await fetch(typeDefinition)).text()
-                                break
+                            default:
+                                typeDefinition = await (await fetch(this.resolveUrl(t ? `${typeDefinition}.${t}` : typeDefinition))).text()
                         }
                     }
                 }
