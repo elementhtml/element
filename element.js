@@ -1041,14 +1041,10 @@ const ElementHTML = Object.defineProperties({}, {
                             typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
                             await typeDefinition.deref()
                             isJSONSchema = true
-
-
-
                         }
                         break
                     case 'string':
                         if (typeDefinition[0] === '{') {
-                            //JSON-schema
                             try { typeDefinition = JSON.parse(typeDefinition) } catch (e) { return }
                             await this.loadHelper('application/schema+json')
                             typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
