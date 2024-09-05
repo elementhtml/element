@@ -424,7 +424,7 @@ const nativeElementsMap = {
                     typeName = typeName.trim()
                     if (!typeName) continue
                     const ifMode = typeName[0] !== '!'
-                    types.push({ if: ifMode, name: ifMode ? typeName : typeName.splice(1) })
+                    types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
                 }
                 return { handler: 'type', ctx: { vars: { types, mode } } }
             },

@@ -239,6 +239,7 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.freeze(this.sys.selector)
                 for (const c in this.sys.color) if (typeof this.sys.color[c] === 'function') this.sys.color[c] = this.sys.color[c].bind(this)
                 Object.freeze(this.sys.color)
+                for (const s of ['helpers', 'loaders']) for (const b in this.env[s]) this.env[s][b] = this.env[s][b].bind(this)
                 for (const a in this.env) Object.freeze(this.env[a])
                 Object.freeze(this.env)
                 for (const f of ['binders', 'handlers']) {
