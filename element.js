@@ -989,7 +989,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     checkType: {
-        enumerable: true, value: async function (typeName, value, infoMode) {
+        enumerable: true, value: async function (typeName, value, validate) {
             if (!(typeName = typeName.trim())) return
             if (!this.app.types[typeName]) {
                 let typeDefinition = this.env.types[typeName] ?? typeName
@@ -1075,10 +1075,9 @@ const ElementHTML = Object.defineProperties({}, {
                             return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
                         }).bind(this)
                 }
-                if (!this.app.types[typeName]) return
             }
-
-
+            if (!this.app.types[typeName]) return
+            return this.app.types[typeName](value, validate)
         }
     },
 
