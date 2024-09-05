@@ -1020,7 +1020,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (isUrl) typeDefinition = `types/${typeDefinition}`
                     }
                     if (isUrl) {
-                        const typeSuffixes = ['js', 'wasm', 'schema.json', 'x']
+                        const typeSuffixes = ['js', 'wasm', 'schema.json', 'json', 'x']
                         let isType = {}, t
                         for (t of typeSuffixes) isType[t] = typeDefinition.endsWith(`.${t}`)
                         if (!isType.js && !isType.wasm && !isType['schema.json'] && !isType.x) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
@@ -1030,7 +1030,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case 'js': case 'wasm':
                                 typeDefinition = (await this.getExports(typeDefinition)).default
                                 break
-                            case 'schema.json':
+                            case 'schema.json': case 'json':
                                 typeDefinition = await (await fetch(typeDefinition)).json()
                                 break
                             case 'x':
