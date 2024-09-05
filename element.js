@@ -41,12 +41,12 @@ const ElementHTML = Object.defineProperties({}, {
             loaders: {
                 'application/schema+json': async function () {
                     this.app.libraries['application/schema+json'] = (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
-                    await Promise.all(Object.entries(this.env.types).map(async entry => {
-                        let [typeName, typeSchema] = entry
-                        if (typeof typeSchema === 'string') typeSchema = await fetch(typeSchema).then(r => r.json())
-                        this.app.types[typeName] = new this.app.libraries['application/schema+json'](typeSchema)
-                        await this.app.types[typeName].deref()
-                    }))
+                    // await Promise.all(Object.entries(this.env.types).map(async entry => {
+                    //     let [typeName, typeSchema] = entry
+                    //     if (typeof typeSchema === 'string') typeSchema = await fetch(typeSchema).then(r => r.json())
+                    //     this.app.types[typeName] = new this.app.libraries['application/schema+json'](typeSchema)
+                    //     await this.app.types[typeName].deref()
+                    // }))
                 },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
@@ -1033,11 +1033,15 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'object':
                         if (!this.isPlainObject(typeDefinition)) return
                         if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                            this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
-                            typeDefinition = await this.app.libraries.xdr.import(typeDefinition, undefined, {}, 'json')
+                            await this.loadHelper('xdr')
+                            typeDefinition = await this.useHelper('xdr', 'import', typeDefinition, undefined, {}, 'json')
                             isXDR = true
                         } else {
-                            //JSON-Schema
+                            await this.loadHelper('application/schema+json')
+                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
+                            await typeDefinition.deref()
+                            isJSONSchema = true
+
 
 
                         }
@@ -1045,9 +1049,14 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'string':
                         if (typeDefinition[0] === '{') {
                             //JSON-schema
+                            try { typeDefinition = JSON.parse(typeDefinition) } catch (e) { return }
+                            await this.loadHelper('application/schema+json')
+                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
+                            await typeDefinition.deref()
+                            isJSONSchema = true
                         } else {
-                            this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
-                            typeDefinition = await this.app.libraries.xdr.factory(typeDefinition)
+                            await this.loadHelper('xdr')
+                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition)
                             isXDR = true
                         }
                         break
@@ -1057,15 +1066,20 @@ const ElementHTML = Object.defineProperties({}, {
                         this.app.types[typeName] = (function (value, validate) {
                             try {
                                 let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
-                                return validate ? { value, typeName, valid, errors: null } : valid
+                                return validate ? { value, typeName, valid, errors: undefined } : valid
                             } catch (e) {
                                 valid = false
                                 return validate ? { value, typeName, valid, errors: e } : valid
                             }
                         }).bind(this)
                         break
+                    case isJSONSchema:
+                        this.app.types[typeName] = (function (value, validate) {
+                            const valid = typeDefinition.validate(value)
+                            return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
+                        }).bind(this)
                 }
-
+                if (!this.app.types[typeName]) return
             }
 
 
