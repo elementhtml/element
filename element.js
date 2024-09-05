@@ -920,6 +920,9 @@ const ElementHTML = Object.defineProperties({}, {
                     wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (wrapped) expression = expression.slice(2, -1).trim()
                     const { context, cells, fields, labels, value } = lexicon, e0 = expression[0], entries = []
+                    /* thoroughly test JSON variable parsing! (Perhaps there is simply a better way???) */
+                    const commaSplitter = /(?:(?<=})|(?<=\])|(?<=')|(?<=")),\s*(?=[^{}[\]'""]*(?:$|[{}[\]'""]))/
+                    const colonSplitter = /(?<![{'"}]):(?![^{}]*[}'"'])/
                     let expressionIsArray, u
                     switch (true) {
                         case (expression in this.sys.valueAliases):
@@ -942,17 +945,17 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             break
                         case ((e0 === '[') && expression.endsWith(']')):
-                            entries.push(...expression.slice(1, -1).split(','))
+                            entries.push(...expression.slice(1, -1).split(commaSplitter))
                             expression = []
                             expressionIsArray = true
                             for (let i = 0, l = entries.length; i < l; i++) expression.push(entries[i].trim())
                         case ((e0 === '{') && expression.endsWith('}')):
-                            u = expressionIsArray || !!entries.push(...expression.slice(1, -1).split(','))
+                            u = expressionIsArray || !!entries.push(...expression.slice(1, -1).split(commaSplitter))
                         case (e0 === '?'):
                             if (!u) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry)
                             if (!expressionIsArray) {
                                 expression = {}
-                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[++i], n = (u ? r?.trim().split(':', 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
+                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(colonSplitter, 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[++i], n = (u ? r?.trim().split(colonSplitter, 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
                                     if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
                             }
                             result = expression
@@ -1053,7 +1056,7 @@ const ElementHTML = Object.defineProperties({}, {
                             isJSONSchema = true
                         } else {
                             await this.loadHelper('xdr')
-                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition)
+                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition, typeName)
                             isXDR = true
                         }
                         break
@@ -1065,7 +1068,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
                                 return validate ? { value, typeName, valid, errors: undefined } : valid
                             } catch (e) {
-                                valid = false
+                                let valid = false
                                 return validate ? { value, typeName, valid, errors: e } : valid
                             }
                         }).bind(this)
