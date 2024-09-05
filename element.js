@@ -1025,6 +1025,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     }
                 }
+                let isXDR, isJSONSchema
                 switch (typeof typeDefinition) {
                     case 'function':
                         this.app.types[typeName] = typeDefinition.bind(this)
@@ -1032,10 +1033,12 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'object':
                         if (!this.isPlainObject(typeDefinition)) return
                         if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                            //XDR
-
+                            this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
+                            typeDefinition = await this.app.libraries.xdr.import(typeDefinition, undefined, {}, 'json')
+                            isXDR = true
                         } else {
                             //JSON-Schema
+
 
                         }
                         break
@@ -1043,9 +1046,23 @@ const ElementHTML = Object.defineProperties({}, {
                         if (typeDefinition[0] === '{') {
                             //JSON-schema
                         } else {
-                            //XDR
-
+                            this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
+                            typeDefinition = await this.app.libraries.xdr.factory(typeDefinition)
+                            isXDR = true
                         }
+                        break
+                }
+                switch (true) {
+                    case isXDR:
+                        this.app.types[typeName] = (function (value, validate) {
+                            try {
+                                let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
+                                return validate ? { value, typeName, valid, errors: null } : valid
+                            } catch (e) {
+                                valid = false
+                                return validate ? { value, typeName, valid, errors: e } : valid
+                            }
+                        }).bind(this)
                         break
                 }
 
