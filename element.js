@@ -880,6 +880,36 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    resolveUrl: {
+        enumerable: true, value: function (value, base) {
+            if (typeof value !== 'string') return value
+            base ??= document.baseURI
+            const valueUrl = new URL(value, base), { protocol } = valueUrl
+            if (protocol === document.location.protocol) return valueUrl.href
+            const gateway = this.app.gateways[protocol]
+            if (gateway) {
+                const path = valueUrl.pathname.replace(/^\/+/, '')
+                switch (typeof gateway) {
+                    case 'function':
+                        const gatewayArgs = { path }
+                        for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
+                        return (gateway(gatewayArgs) + value.search + value.hash)
+                    case 'string':
+                        return (new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                            mergeExpression = mergeExpression.trim()
+                            if (!mergeExpression) return path
+                            if (!mergeExpression.includes('|')) {
+                                if (!mergeExpression.includes(':')) return valueUrl[mergeExpression] ?? path
+                                mergeExpression = `path|/|${mergeExpression}`
+                            }
+                            const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
+                            return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
+                        }), base).href + value.search + value.hash)
+                }
+            }
+            return valueUrl.href
+        }
+    },
     resolveVariable: {
         enumerable: true, value: function (expression, flags, lexicon = {}) {
             let result = expression, { wrapped, default: dft, spread } = (flags ?? {})
@@ -957,45 +987,69 @@ const ElementHTML = Object.defineProperties({}, {
             return result === undefined ? dft : result
         }
     },
-    resolveUrl: {
-        enumerable: true, value: function (value, base) {
-            if (typeof value !== 'string') return value
-            base ??= document.baseURI
-            const valueUrl = new URL(value, base), { protocol } = valueUrl
-            if (protocol === document.location.protocol) return valueUrl.href
-            const gateway = this.app.gateways[protocol]
-            if (gateway) {
-                const path = valueUrl.pathname.replace(/^\/+/, '')
-                switch (typeof gateway) {
-                    case 'function':
-                        const gatewayArgs = { path }
-                        for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
-                        return (gateway(gatewayArgs) + value.search + value.hash)
-                    case 'string':
-                        return (new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
-                            mergeExpression = mergeExpression.trim()
-                            if (!mergeExpression) return path
-                            if (!mergeExpression.includes('|')) {
-                                if (!mergeExpression.includes(':')) return valueUrl[mergeExpression] ?? path
-                                mergeExpression = `path|/|${mergeExpression}`
-                            }
-                            const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
-                            return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
-                        }), base).href + value.search + value.hash)
-                }
-            }
-            return valueUrl.href
-        }
-    },
 
     checkType: {
         enumerable: true, value: async function (typeName, value, infoMode) {
             if (!(typeName = typeName.trim())) return
-            if (this.app.types[typeName] === true) {
-                let waitCount = 0
-                while ((waitCount <= 100) && (this.app.types[typeName] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
+            /* 
+            Ways to load types:
+                ** from this.env.types
+                ** a string URL to the JS module, JSON-schema or XDR type - startsWith / or ./ or ../ or valid URL
+                ** a plain Object to load into a JSON-Schema or XDR type
+                ** a string to be evaluated as an XDR type specification
+
+            */
+            if (!this.app.types[typeName]) {
+                let typeDefinition = this.env.types[typeName] ?? typeName
+                if (!typeDefinition) return
+                if (typeof typeDefinition === 'string') {
+                    let isUrl
+                    switch (typeDefinition[0]) {
+                        case '`':
+                            typeDefinition = typeDefinition.slice(1, -1).trim()
+                        case '.': case '/':
+                            isUrl = true
+                            break
+                        default:
+                            if (typeDefinition.includes('://')) {
+                                try {
+                                    isUrl = !!new URL(typeDefinition)
+                                } catch (e) { }
+                            }
+                            isUrl ??= !((typeDefinition[0] === '{') || typeDefinition.includes(';'))
+                            if (isUrl) typeDefinition = `types/${typeDefinition}`
+                    }
+                    if (isUrl) {
+
+
+                        typeDefinition = await (await fetch(this.resolveUrl(typeDefinition))).text()
+                    }
+                }
+                switch (typeof typeDefinition) {
+                    case 'function':
+                        this.app.types[typeName] = typeDefinition.bind(this)
+                        break
+                    case 'object':
+                        if (!this.isPlainObject(typeDefinition)) return
+                        if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
+                            //XDR
+
+                        } else {
+                            //JSON-Schema
+
+                        }
+                        break
+                    case 'string':
+                        if (typeDefinition[0] === '{') {
+                            //JSON-schema
+                        } else {
+                            //XDR
+
+                        }
+                        break
+                }
+
             }
-            if (this.app.types[typeName] === true) delete this.app.types[typeName]
 
 
         }
