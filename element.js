@@ -999,11 +999,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveUrl: {
-        enumerable: true, value: function (value, base) {
+        enumerable: true, value: function (value, base, raw) {
             if (typeof value !== 'string') return value
             base ??= document.baseURI
             const valueUrl = new URL(value, base), { protocol } = valueUrl
-            if (protocol === document.location.protocol) return valueUrl.href
+            if (protocol === document.location.protocol) return raw ? valueUrl : valueUrl.href
             const gateway = this.app.gateways[protocol]
             if (gateway) {
                 const path = valueUrl.pathname.replace(/^\/+/, '')
@@ -1011,9 +1011,9 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'function':
                         const gatewayArgs = { path }
                         for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
-                        return (gateway(gatewayArgs) + value.search + value.hash)
+                        return raw ? new URL((gateway(gatewayArgs)), base) : (gateway(gatewayArgs))
                     case 'string':
-                        return (new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                        const mergedUrl = new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
                             mergeExpression = mergeExpression.trim()
                             if (!mergeExpression) return path
                             if (!mergeExpression.includes('|')) {
@@ -1022,10 +1022,11 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             const [part = 'path', delimiter = ((part === 'host' || part === 'hostname') ? '.' : '/'), sliceAndStepSignature = '0', joinChar = delimiter] = mergeExpression.split('|')
                             return this.sliceAndStep(sliceAndStepSignature, (valueUrl[part] ?? path).split(delimiter)).join(joinChar)
-                        }), base).href + value.search + value.hash)
+                        }), base)
+                        return raw ? mergedUrl : mergedUrl.href
                 }
             }
-            return valueUrl.href
+            return raw ? valueUrl : valueUrl.href
         }
     },
 
@@ -1767,7 +1768,11 @@ const ElementHTML = Object.defineProperties({}, {
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
             autoScopes: Object.freeze(new Set(['head', 'body', '^', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window'])),
-            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true })
+            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
+            autoResolverSuffixes: Object.freeze({
+                component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
+                transform: ['js', 'wasm', 'jsonata'], type: ['js', 'x', 'schema.json', 'json']
+            })
         })
     },
 
@@ -2009,7 +2014,48 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     resolveUnit: {
-        value: function (unitExpression) {
+        value: async function (unitExpression, unitType) {
+            unitExpression = unitExpression.trim()
+            if (!unitExpression) return
+            if (this.app[unitType][unitExpression]) return this.app[unitType][unitExpression]
+            if (this.env[unitType][unitExpression]) return this.app[unitType][unitExpression] = this.env[unitType][unitExpression]
+            let unitUrl
+            switch (unitExpression[0]) {
+                case '.': case '/':
+                    unitUrl = this.resolveUrl(unitExpression, undefined, true)
+                    break
+                default:
+                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitExpression).href, undefined, true) } catch (e) { }
+            }
+            let unit
+            if (!unitUrl) {
+                if (typeof this.app.resolver[unitType] === 'function') return await this.app.resolver[unitType](unitExpression)
+                for (const s of this.sys.autoResolverSuffixes[unitType]) if (unitExpression.endsWith(`.${s}`) && (unitUrl = this.resolveUrl(`${unitType}/${unitExpression}`, undefined, true))) break
+            }
+            if (!unitUrl) {
+                for (const s of this.sys.autoResolverSuffixes[unitType]) {
+                    const testUrl = `${unitType}/${unitExpression}.${s}`
+                    if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
+                        unitUrl = this.resolveUrl(testUrl, undefined, true)
+                        break
+                    }
+                }
+            }
+            if (unitUrl) {
+                const { hash, pathname } = unitUrl
+                let unitContainer
+                if (pathname.endsWith('.js') || pathname.endsWith('.wasm')) {
+                    const unitModule = await import(unitUrl.href)
+                    unit = hash ? unitModule[hash] : unitModule.default
+                } else if (pathname.endsWith('.json')) {
+                    const unitModule = await (await fetch(unitUrl.href)).json()
+                    unit = hash ? unitModule[hash] : unitModule
+                } else {
+                    const unitModule = await fetch(unitUrl.href)
+                    unit = await this.parse(unitModule) ?? (await unitModule.text())
+                }
+                return this.app[unitType][unitExpression] = unit
+            }
         }
     },
 
