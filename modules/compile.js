@@ -210,8 +210,11 @@ const nativeElementsMap = {
                             }
                     }
                     if (params === undefined) {
-                        console.log('line 206', handlerExpression)
-                        //put custom segment types support code here
+                        for (const [syntaxPattern, syntaxName] of this.app.syntax.matchers) if (syntaxPattern.test(handlerExpression) && (typeof this.app.syntax.parsers[syntaxName] === 'function')) {
+                            params = this.app.syntax.parsers[syntaxName](handlerExpression, hasDefault)
+                            break
+                        }
+                        params ??= this.compile.parsers.x(handlerExpression, hasDefault)
                     }
                     step.params = params
                     if (defaultExpression) step.defaultExpression = defaultExpression
@@ -444,6 +447,9 @@ const nativeElementsMap = {
             },
             wait: function (expression, hasDefault) {
                 return { handler: 'wait', ctx: { vars: { expression } } }
+            },
+            x: function (expression, hasDefault) {
+                return { handler: 'x', ctx: { vars: { expression, hasDefault } } }
             }
         }
     }

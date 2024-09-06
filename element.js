@@ -84,7 +84,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
-            }, regexp: {}, snippets: {}, transforms: {}, types: {}
+            }, regexp: {}, resolver: {}, snippets: {}, syntax: {}, transforms: {}, types: {}
         }
     },
 
@@ -215,6 +215,17 @@ const ElementHTML = Object.defineProperties({}, {
                                     envScope[s] = snippetInstance
                                 }
                             }
+                        }
+                        break
+                    case 'syntax':
+                        for (const t in pkgScope) {
+                            const importItem = await this.resolvePackageItem(pkgScope[t], scope)
+                            if (importItem === undefined) continue
+                            envScope[t] = importItem
+                            this.app.syntax.matchers.set(new RegExp(envScope[t].matcher), t)
+                            this.app.syntax.parsers[t] = envScope[t].parser.bind(this)
+                            this.app.syntax.binders[t] = envScope[t].binder.bind(this)
+                            this.app.syntax.handlers[t] = envScope[t].handler.bind(this)
                         }
                         break
                     case 'types':
@@ -1321,7 +1332,8 @@ const ElementHTML = Object.defineProperties({}, {
         value: {
             cells: {}, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
             eventTarget: new EventTarget(), facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
-            libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, snippets: {}, transforms: {}, types: {}
+            libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, resolver: {}, snippets: {},
+            syntax: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, transforms: {}, types: {}
         }
     },
     binders: {
@@ -1609,6 +1621,10 @@ const ElementHTML = Object.defineProperties({}, {
                 ms = Math.max(ms, 0)
                 await new Promise(resolve => setTimeout(resolve, ms))
                 done()
+            },
+            x: async function (container, position, envelope, value) {
+                if (this.app.dev) this.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
+                return value
             }
         }
     },
@@ -2173,8 +2189,13 @@ ${scriptBody.join('{')}`
                                 this.controllers[position] = new AbortController()
                                 envelope.signal = this.controllers[position].signal
                             }
-                            Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
+                            if (handler in this.constructor.E.binders) {
+                                Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
+                            } else if (handler in this.app.syntax.binders) {
+                                Object.assign(this.vars[position], await this.app.syntax.binders[handler](container, position, envelope))
+                            }
                         }
+                        const handlerFunc = this.constructor.E.handlers[handler] ?? this.app.syntax.handlers[handler] ?? this.constructor.E.handlers.x
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
@@ -2182,7 +2203,7 @@ ${scriptBody.join('{')}`
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 if (this.disabled) return
-                                let value = labels[`${previousStepIndex}`], detail = await this.constructor.E.handlers[handler](container, position, envelope, value)
+                                let value = labels[`${previousStepIndex}`], detail = await handlerFunc(container, position, envelope, value)
                                     ?? (defaultExpression
                                         ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
                                         : undefined)
@@ -2191,7 +2212,7 @@ ${scriptBody.join('{')}`
                         } else {
                             container.addEventListener('run', async event => {
                                 if (this.disabled) return
-                                let detail = await this.constructor.E.handlers[handler](container, position, envelope, undefined)
+                                let detail = await handlerFunc(container, position, envelope, undefined)
                                     ?? (defaultExpression
                                         ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels })
                                         : undefined)
