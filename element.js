@@ -41,12 +41,6 @@ const ElementHTML = Object.defineProperties({}, {
             loaders: {
                 'application/schema+json': async function () {
                     this.app.libraries['application/schema+json'] = (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
-                    // await Promise.all(Object.entries(this.env.types).map(async entry => {
-                    //     let [typeName, typeSchema] = entry
-                    //     if (typeof typeSchema === 'string') typeSchema = await fetch(typeSchema).then(r => r.json())
-                    //     this.app.types[typeName] = new this.app.libraries['application/schema+json'](typeSchema)
-                    //     await this.app.types[typeName].deref()
-                    // }))
                 },
                 'application/x-jsonata': async function () {
                     this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
@@ -345,9 +339,17 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    generateUuid: {
+        enumerable: true, value: function (noDashes) {
+            let uuid = (typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+            })
+            return noDashes ? uuid.split('-').join('') : uuid
+        }
+    },
     addToQueue: {
-        enumerable: true, value: async function (job, name) {
-            name ??= crypto.randomUUID()
+        enumerable: true, value: function (job, name = this.generateUuid()) {
             this.queue.set(name, job)
             return name
         }
@@ -444,7 +446,6 @@ const ElementHTML = Object.defineProperties({}, {
             return this.app.types[typeName](value, validate)
         }
     },
-
     flatten: {
         enumerable: true, value: function (value, key, event) {
             const compile = (plain, complex = []) => {
