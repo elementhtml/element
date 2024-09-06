@@ -911,6 +911,144 @@ const ElementHTML = Object.defineProperties({}, {
             return valueUrl.href
         }
     },
+
+    resolveShape: {
+        enumerable: true, value: function (input) {
+            const parseInput = (input) => {
+                if (typeof input !== 'string') return input
+                if (input.startsWith('[')) {
+                    return parseArray(input);
+                } else if (input.startsWith('?')) {
+                    return parseQuerystring(input);
+                } else if (input.startsWith('{')) {
+                    return parseObject(input);
+                }
+                return input
+            }, parseArray = (input) => {
+                input = input.slice(1, -1); // Strip the []
+                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}']);
+                return entries.map(entry => parseInput(entry.trim()));
+            }, parseQuerystring = (input) => {
+                input = input.slice(1); // Strip the ?
+                const result = {};
+                const entries = splitIgnoringNesting(input, '&', ['"', "'"]);
+                for (const entry of entries) {
+                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, '=', ['"', "'"]);
+                    let key = rawKey.trim();
+                    let value = rawValue !== undefined ? rawValue.trim() : undefined;
+
+                    if (value === undefined) {
+                        [key, value] = handleImplicitValue(key);
+                    }
+
+                    result[key] = value;
+                }
+                return result;
+            }, parseObject = (input) => {
+                input = input.slice(1, -1); // Strip the {}
+                const result = {};
+                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}']);
+                for (const entry of entries) {
+                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, ':', ['"', "'", '[', ']', '{', '}']);
+                    let key = rawKey.trim();
+                    let value = rawValue !== undefined ? rawValue.trim() : undefined;
+
+                    if (value === undefined) {
+                        [key, value] = handleImplicitValue(key);
+                    } else {
+                        value = parseInput(value);
+                    }
+
+                    result[key] = value;
+                }
+                return result;
+            }, splitIgnoringNesting = (input, delimiter, nesters) => {
+                const result = [];
+                let current = '';
+                let depth = 0;
+                let inQuote = null;
+
+                for (let i = 0; i < input.length; i++) {
+                    const char = input[i];
+
+                    if (inQuote) {
+                        current += char;
+                        if (char === inQuote) inQuote = null; // Close quote
+                    } else {
+                        if (char === '"' || char === "'") {
+                            inQuote = char; // Open quote
+                            current += char;
+                        } else if (nesters.includes(char)) {
+                            depth += 1;
+                            current += char;
+                        } else if (nesters.includes(getMatchingCloser(char))) {
+                            depth -= 1;
+                            current += char;
+                        } else if (char === delimiter && depth === 0) {
+                            result.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                }
+
+                if (current) result.push(current.trim());
+
+                return result;
+            }, splitByFirstIgnoringNesting = (input, delimiter, nesters) => {
+                let current = '';
+                let depth = 0;
+                let inQuote = null;
+
+                for (let i = 0; i < input.length; i++) {
+                    const char = input[i];
+
+                    if (inQuote) {
+                        current += char;
+                        if (char === inQuote) inQuote = null; // Close quote
+                    } else {
+                        if (char === '"' || char === "'") {
+                            inQuote = char; // Open quote
+                            current += char;
+                        } else if (nesters.includes(char)) {
+                            depth += 1;
+                            current += char;
+                        } else if (nesters.includes(getMatchingCloser(char))) {
+                            depth -= 1;
+                            current += char;
+                        } else if (char === delimiter && depth === 0) {
+                            const rest = input.slice(i + 1);
+                            return [current.trim(), rest.trim()];
+                        } else {
+                            current += char;
+                        }
+                    }
+                }
+
+                return [current.trim()];
+            }, handleImplicitValue = (key) => {
+                if (key.endsWith('.')) return [key.slice(0, -1), true];
+                if (key.endsWith('!')) return [key.slice(0, -1), false];
+                if (key.endsWith('-')) return [key.slice(0, -1), null];
+                if (key.endsWith('?')) return [key.slice(0, -1), undefined];
+                return [key, key]; // Implicitly set value to the key itself
+            }, getMatchingCloser = (char) => {
+                if (char === '[') return ']';
+                if (char === '{') return '}';
+                return null;
+            }, skipWhitespace = (input, i) => {
+                while (i < input.length && /\s/.test(input[i])) i++;
+                return i;
+            }
+
+            return parseInput(input)
+
+        }
+    },
+
+
+
     resolveVariable: {
         enumerable: true, value: function (expression, flags, lexicon = {}) {
             let result = expression, { wrapped, default: dft, spread } = (flags ?? {})
@@ -920,9 +1058,6 @@ const ElementHTML = Object.defineProperties({}, {
                     wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (wrapped) expression = expression.slice(2, -1).trim()
                     const { context, cells, fields, labels, value } = lexicon, e0 = expression[0], entries = []
-                    /* thoroughly test JSON variable parsing! (Perhaps there is simply a better way???) */
-                    const commaSplitter = /(?:(?<=})|(?<=\])|(?<=')|(?<=")),\s*(?=[^{}[\]'""]*(?:$|[{}[\]'""]))/
-                    const colonSplitter = /(?<![{'"}]):(?![^{}]*[}'"'])/
                     let expressionIsArray, u
                     switch (true) {
                         case (expression in this.sys.valueAliases):
@@ -944,21 +1079,10 @@ const ElementHTML = Object.defineProperties({}, {
                                     while (result !== undefined && i < l) result = result?.[vectors[i++]]
                             }
                             break
-                        case ((e0 === '[') && expression.endsWith(']')):
-                            entries.push(...expression.slice(1, -1).split(commaSplitter))
-                            expression = []
-                            expressionIsArray = true
-                            for (let i = 0, l = entries.length; i < l; i++) expression.push(entries[i].trim())
-                        case ((e0 === '{') && expression.endsWith('}')):
-                            u = expressionIsArray || !!entries.push(...expression.slice(1, -1).split(commaSplitter))
                         case (e0 === '?'):
-                            if (!u) for (const entry of (new URLSearchParams(expression)).entries()) entries.push(entry)
-                            if (!expressionIsArray) {
-                                expression = {}
-                                for (let i = 0, r = entries[i], n = (u ? r?.trim().split(colonSplitter, 2) : r), k = n?.[0]?.trim(), v = n?.[1]?.trim(), l = entries.length; i < l; r = entries[++i], n = (u ? r?.trim().split(colonSplitter, 2) : r), k = n?.[0].trim(), v = n?.[1]?.trim())
-                                    if (k) expression[v === undefined ? ((k[k.length - 1] in this.sys.valueAliases) ? k.slice(0, -1) : k) : k] = (v ?? this.sys.valueAliases[k[k.length - 1]] ?? k)
-                            }
-                            result = expression
+                        case ((e0 === '{') && expression.endsWith('}')):
+                        case ((e0 === '{') && expression.endsWith('}')):
+                            result = this.resolveShape(expression)
                             if (context || cells || fields || labels || ('value' in lexicon)) {
                                 flags.wrapped = false
                                 result = this.resolveVariable(expression, flags, lexicon)
@@ -1303,10 +1427,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.app.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                 return value
             },
-            json: async function (container, position, envelope, value) {
-                const { labels, env } = envelope, { cells, context, fields } = env
-                return this.resolveVariable(envelope.vars.value, { wrapped: false }, cells, context, fields, labels, value)
-            },
             network: async function (container, position, envelope, value) {
                 const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
                 let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
@@ -1410,6 +1530,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return value
             },
+            shape: async function (container, position, envelope, value) {
+                const { labels, env } = envelope, { cells, context, fields } = env
+                return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
+            },
             state: async function (container, position, envelope, value) {
                 const { vars } = envelope, { getReturnValue, shape, target } = vars
                 if (value == undefined) return getReturnValue()
@@ -1425,9 +1549,6 @@ const ElementHTML = Object.defineProperties({}, {
                             target[k][target[k].type].set(v, target[k].mode)
                         }
                 }
-            },
-            string: async function (container, position, envelope, value) {
-                return envelope.vars.expression
             },
             transform: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
@@ -1451,6 +1572,9 @@ const ElementHTML = Object.defineProperties({}, {
                         return { value, validation }
                 }
                 if (pass) return value
+            },
+            value: async function (container, position, envelope, value) {
+                return envelope.vars.value
             },
             variable: async function (container, position, envelope, value) {
                 const { labels, env } = envelope, { cells, context, fields } = env

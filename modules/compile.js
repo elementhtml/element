@@ -131,6 +131,9 @@ const nativeElementsMap = {
                     let params
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
+                        case 'true': case 'false': case 'null': case '.': case '!': case '-':
+                            params = this.compile.parsers.value(handlerExpression, hasDefault)
+                            break
                         case '#': case '?': case '/': case ':':
                             params = this.compile.parsers.router(handlerExpression, hasDefault)
                             break
@@ -138,15 +141,48 @@ const nativeElementsMap = {
                             params = this.compile.parsers.console(handlerExpression, hasDefault)
                             break
                         default:
-                            switch (handlerExpression[0]) {
+                            const handlerFlag = handlerExpression[0],
+                                pairedFlags = { '{': '}', '(': ')', '[': ']' },
+                                symmetricalFlags = new Set(['(', '|', '~', '`', '/', '_', "'", '"', '{', '['])
+                            let handlerExpressionInner
+                            if (pairedFlags[handlerFlag] || symmetricalFlags.has(handlerFlag)) {
+                                if ((pairedFlags[handlerFlag] ?? handlerFlag) !== handlerExpression.slice(-1)) break
+                                handlerExpressionInner = handlerExpression.slice(1, -1)
+                            } else {
+                                handlerExpressionInner = handlerExpression.slice(1)
+                            }
+                            switch (handlerFlag) {
+                                case "(":
+                                    params = this.compile.parsers.transform(handlerExpressionInner, hasDefault)
+                                    break
+                                case '|':
+                                    params = this.compile.parsers.type(handlerExpressionInner, hasDefault)
+                                    break
+                                case '~':
+                                    params = this.compile.parsers.network(handlerExpressionInner, hasDefault)
+                                    break
                                 case '`':
-                                    params = this.compile.parsers.proxy(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.compile.parsers.proxy(handlerExpressionInner, hasDefault)
                                     break
                                 case '/':
-                                    params = this.compile.parsers.pattern(handlerExpression.slice(1, -1), hasDefault)
+                                    params = this.compile.parsers.pattern(handlerExpressionInner, hasDefault)
                                     break
-                                case '"': case "'":
-                                    params = this.compile.parsers.string(handlerExpression.slice(1, -1), hasDefault)
+                                case "_":
+                                    params = this.compile.parsers.wait(handlerExpressionInner, hasDefault)
+                                    break
+                                case "$":
+                                    const handlerInnerFlag = handlerExpressionInner[0], handlerExpressionInnerSub = handlerExpression.slice(1)
+                                    switch (handlerInnerFlag) {
+                                        case '{':
+                                            params = this.compile.parsers.variable(handlerExpression, hasDefault)
+                                            break
+                                        case '(':
+                                            params = this.compile.parsers.selector(handlerExpressionInnerSub, hasDefault)
+                                            break
+                                        case '`':
+                                            params = this.compile.parsers.command(handlerExpressionInnerSub, hasDefault)
+                                            break
+                                    }
                                     break
                                 case "#": case "@":
                                     params = this.compile.parsers.state(handlerExpression, hasDefault)
@@ -163,45 +199,19 @@ const nativeElementsMap = {
                                             break
                                     }
                                     break
-                                case "$":
-                                    if (handlerExpression[1] === "{") {
-                                        params = this.compile.parsers.variable(handlerExpression, hasDefault)
-                                    } else if (handlerExpression[1] === "(") {
-                                        params = this.compile.parsers.selector(handlerExpression.slice(2, -1), hasDefault)
-                                    } else if (handlerExpression[1] === '`') {
-                                        params = this.compile.parsers.command(handlerExpression.slice(2, -1), hasDefault)
-                                    }
+                                case "'":
+                                    handlerExpression = `"${handlerExpression.slice(1, -1)}"`
+                                case '"': case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
+                                    params = this.compile.parsers.value(handlerExpression, hasDefault)
                                     break
-                                case "(":
-                                    params = this.compile.parsers.transform(handlerExpression, hasDefault)
+                                case "{": case "[": case "?":
+                                    params = this.compile.parsers.shape(handlerExpression, hasDefault)
                                     break
-                                case "{": case "[":
-                                    params = this.compile.parsers.json(handlerExpression, hasDefault)
-                                    break
-                                case "n": case "t": case "f": case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
-                                    let t
-                                    switch (handlerExpression) {
-                                        case 'null': case 'true': case 'false':
-                                            t = true
-                                        default:
-                                            if (t || handlerExpression.match(this.sys.regexp.isNumeric)) params = this.compile.parsers.json(handlerExpression, hasDefault)
-                                    }
-                                    break
-                                case "_":
-                                    if (handlerExpression.endsWith('_')) {
-                                        params = this.compile.parsers.wait(handlerExpression.slice(1, -1), hasDefault)
-                                        break
-                                    }
-                                case '|':
-                                    if (handlerExpression.endsWith('|')) {
-                                        params = this.compile.parsers.type(handlerExpression.slice(1, -1), hasDefault)
-                                        break
-                                    }
-                                case '~':
-                                    if (handlerExpression.endsWith('~')) handlerExpression = handlerExpression.slice(1, -1)
-                                default:
-                                    params = this.compile.parsers.network(handlerExpression, hasDefault)
                             }
+                    }
+                    if (params === undefined) {
+                        console.log('line 206', handlerExpression)
+                        //put custom segment types support code here
                     }
                     step.params = params
                     if (defaultExpression) step.defaultExpression = defaultExpression
@@ -325,10 +335,6 @@ const nativeElementsMap = {
             console: function (expression, hasDefault) {
                 return { handler: 'console', ctx: { vars: { verbose: expression === '$?' } } }
             },
-            json: function (expression, hasDefault) {
-                const value = this.resolveVariable(expression, { wrapped: false })
-                return { handler: 'json', ctx: { vars: { value } } }
-            },
             network: function (expression, hasDefault) {
                 const expressionIncludesVariable = (expression.includes('${}') || expression.includes('${$}'))
                 let returnFullRequest = false
@@ -397,15 +403,16 @@ const nativeElementsMap = {
                 const [scope, selector] = expression.split('|').map(s => s.trim())
                 return { handler: 'selector', ctx: { binder: true, signal: true, vars: { scope, selector } } }
             },
+            shape: function (expression, hasDefault) {
+                const shape = this.resolveShape(expression)
+                return { handler: 'shape', ctx: { vars: { shape } } }
+            },
             state: function (expression, hasDefault) {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
                 const { group: target, shape } = this.compile.getStateGroup(expression, typeDefault)
                 return { handler: 'state', ctx: { binder: true, signal: true, vars: { target, shape } } }
-            },
-            string: function (expression, hasDefault) {
-                return { handler: 'string', ctx: { vars: { expression } } }
             },
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
@@ -427,6 +434,10 @@ const nativeElementsMap = {
                     types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
                 }
                 return { handler: 'type', ctx: { vars: { types, mode } } }
+            },
+            value: function (expression, hasDefault) {
+                const value = expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression)
+                return { handler: 'value', ctx: { vars: { value } } }
             },
             variable: function (expression, hasDefault) {
                 return { handler: 'variable', ctx: { vars: { expression } } }
