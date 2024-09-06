@@ -2010,9 +2010,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
-
     resolveUnit: {
         value: async function (unitExpression, unitType) {
             unitExpression = unitExpression.trim()
@@ -2058,8 +2055,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
 
     runElementMethod: {
         value: function (statement, arg, element) {
