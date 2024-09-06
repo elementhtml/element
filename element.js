@@ -269,6 +269,7 @@ const ElementHTML = Object.defineProperties({}, {
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
                 }
                 Object.freeze(this)
+                this.processQueue()
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
@@ -341,6 +342,99 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 for (const n in eventMap) addEventListener(n, event => this.app.eventTarget.dispatchEvent(new CustomEvent(eventMap[n], { detail: this })))
             }
+        }
+    },
+
+    checkType: {
+        enumerable: true, value: async function (typeName, value, validate) {
+            if (!(typeName = typeName.trim())) return
+            if (!this.app.types[typeName]) {
+                let typeDefinition = this.env.types[typeName] ?? typeName
+                if (!typeDefinition) return
+                if (typeof typeDefinition === 'string') {
+                    let isUrl
+                    switch (typeDefinition[0]) {
+                        case '`':
+                            typeDefinition = typeDefinition.slice(1, -1).trim()
+                        case '.': case '/':
+                            isUrl = true
+                            break
+                        default:
+                            typeDefinition = typeDefinition.trim()
+                            if (typeDefinition.includes('://')) try { isUrl = !!new URL(typeDefinition) } catch (e) { }
+                            isUrl ??= !((typeDefinition[0] === '{') || typeDefinition.includes(';'))
+                            if (isUrl) typeDefinition = `types/${typeDefinition}`
+                    }
+                    if (isUrl) {
+                        const typeSuffixes = ['js', 'wasm', 'schema.json', 'json', 'x']
+                        let isType = {}, t, hasSuffix
+                        for (t of typeSuffixes) if (hasSuffix ||= isType[t] = typeDefinition.endsWith(`.${t}`)) break
+                        if (!hasSuffix) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
+                        switch (t) {
+                            case 'js': case 'wasm':
+                                typeDefinition = (await this.getExports(this.resolveUrl(`${typeDefinition}.${t}`))).default
+                                break
+                            case 'schema.json': case 'json':
+                                typeDefinition = await (await fetch(this.resolveUrl(`${typeDefinition}.${t}`))).json()
+                                break
+                            default:
+                                typeDefinition = await (await fetch(this.resolveUrl(t ? `${typeDefinition}.${t}` : typeDefinition))).text()
+                        }
+                    }
+                }
+                let isXDR, isJSONSchema
+                switch (typeof typeDefinition) {
+                    case 'function':
+                        this.app.types[typeName] = typeDefinition.bind(this)
+                        break
+                    case 'object':
+                        if (!this.isPlainObject(typeDefinition)) return
+                        if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
+                            await this.loadHelper('xdr')
+                            typeDefinition = await this.useHelper('xdr', 'import', typeDefinition, undefined, {}, 'json')
+                            isXDR = true
+                        } else {
+                            await this.loadHelper('application/schema+json')
+                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
+                            await typeDefinition.deref()
+                            isJSONSchema = true
+                        }
+                        break
+                    case 'string':
+                        if (typeDefinition[0] === '{') {
+                            try { typeDefinition = JSON.parse(typeDefinition) } catch (e) { return }
+                            await this.loadHelper('application/schema+json')
+                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
+                            await typeDefinition.deref()
+                            isJSONSchema = true
+                        } else {
+                            await this.loadHelper('xdr')
+                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition, typeName)
+                            isXDR = true
+                        }
+                        break
+                }
+                switch (true) {
+                    case isXDR:
+                        this.app.types[typeName] = (function (value, validate) {
+                            try {
+                                let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
+                                return validate ? { value, typeName, valid, errors: undefined } : valid
+                            } catch (e) {
+                                let valid = false
+                                return validate ? { value, typeName, valid, errors: e } : valid
+                            }
+                        }).bind(this)
+                        break
+                    case isJSONSchema:
+                        this.app.types[typeName] = (function (value, validate) {
+                            const valid = typeDefinition.validate(value)
+                            return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
+                        }).bind(this)
+                }
+            }
+            if (!this.app.types[typeName]) return
+            return this.app.types[typeName](value, validate)
         }
     },
 
@@ -1127,98 +1221,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    checkType: {
-        enumerable: true, value: async function (typeName, value, validate) {
-            if (!(typeName = typeName.trim())) return
-            if (!this.app.types[typeName]) {
-                let typeDefinition = this.env.types[typeName] ?? typeName
-                if (!typeDefinition) return
-                if (typeof typeDefinition === 'string') {
-                    let isUrl
-                    switch (typeDefinition[0]) {
-                        case '`':
-                            typeDefinition = typeDefinition.slice(1, -1).trim()
-                        case '.': case '/':
-                            isUrl = true
-                            break
-                        default:
-                            typeDefinition = typeDefinition.trim()
-                            if (typeDefinition.includes('://')) try { isUrl = !!new URL(typeDefinition) } catch (e) { }
-                            isUrl ??= !((typeDefinition[0] === '{') || typeDefinition.includes(';'))
-                            if (isUrl) typeDefinition = `types/${typeDefinition}`
-                    }
-                    if (isUrl) {
-                        const typeSuffixes = ['js', 'wasm', 'schema.json', 'json', 'x']
-                        let isType = {}, t, hasSuffix
-                        for (t of typeSuffixes) if (hasSuffix ||= isType[t] = typeDefinition.endsWith(`.${t}`)) break
-                        if (!hasSuffix) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
-                        switch (t) {
-                            case 'js': case 'wasm':
-                                typeDefinition = (await this.getExports(this.resolveUrl(`${typeDefinition}.${t}`))).default
-                                break
-                            case 'schema.json': case 'json':
-                                typeDefinition = await (await fetch(this.resolveUrl(`${typeDefinition}.${t}`))).json()
-                                break
-                            default:
-                                typeDefinition = await (await fetch(this.resolveUrl(t ? `${typeDefinition}.${t}` : typeDefinition))).text()
-                        }
-                    }
-                }
-                let isXDR, isJSONSchema
-                switch (typeof typeDefinition) {
-                    case 'function':
-                        this.app.types[typeName] = typeDefinition.bind(this)
-                        break
-                    case 'object':
-                        if (!this.isPlainObject(typeDefinition)) return
-                        if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                            await this.loadHelper('xdr')
-                            typeDefinition = await this.useHelper('xdr', 'import', typeDefinition, undefined, {}, 'json')
-                            isXDR = true
-                        } else {
-                            await this.loadHelper('application/schema+json')
-                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
-                            await typeDefinition.deref()
-                            isJSONSchema = true
-                        }
-                        break
-                    case 'string':
-                        if (typeDefinition[0] === '{') {
-                            try { typeDefinition = JSON.parse(typeDefinition) } catch (e) { return }
-                            await this.loadHelper('application/schema+json')
-                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
-                            await typeDefinition.deref()
-                            isJSONSchema = true
-                        } else {
-                            await this.loadHelper('xdr')
-                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition, typeName)
-                            isXDR = true
-                        }
-                        break
-                }
-                switch (true) {
-                    case isXDR:
-                        this.app.types[typeName] = (function (value, validate) {
-                            try {
-                                let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
-                                return validate ? { value, typeName, valid, errors: undefined } : valid
-                            } catch (e) {
-                                let valid = false
-                                return validate ? { value, typeName, valid, errors: e } : valid
-                            }
-                        }).bind(this)
-                        break
-                    case isJSONSchema:
-                        this.app.types[typeName] = (function (value, validate) {
-                            const valid = typeDefinition.validate(value)
-                            return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
-                        }).bind(this)
-                }
-            }
-            if (!this.app.types[typeName]) return
-            return this.app.types[typeName](value, validate)
-        }
-    },
 
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
@@ -1978,6 +1980,20 @@ const ElementHTML = Object.defineProperties({}, {
             return snippetKey
         }
     },
+    resolveUnit: {
+        value: function (unitExpression) {
+        }
+    },
+
+    processQueue: {
+        value: async function () {
+            const job = this.queue.shift()
+            if (typeof job === 'function') await job()
+            await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
+            this.processQueue()
+        }
+    },
+
     runElementMethod: {
         value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
@@ -2257,7 +2273,8 @@ ${scriptBody.join('{')}`
             valueOf() { return this.value }
             toJSON() { return this.valueOf() }
         }
-    }
+    },
+    queue: { value: [] }
 })
 ElementHTML.Component.E = ElementHTML
 Object.defineProperties(ElementHTML, {
