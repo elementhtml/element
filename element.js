@@ -339,16 +339,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    generateUuid: {
-        enumerable: true, value: function (noDashes) {
-            let uuid = (typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-                const r = Math.random() * 16 | 0
-                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-            })
-            return noDashes ? uuid.split('-').join('') : uuid
-        }
-    },
-    addToQueue: {
+    addToQueue: {//optimized
         enumerable: true, value: function (job, name = this.generateUuid()) {
             this.queue.set(name, job)
             return name
@@ -608,6 +599,12 @@ const ElementHTML = Object.defineProperties({}, {
                 return result
             }
             if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
+        }
+    },
+    generateUuid: {//optimized
+        enumerable: true, value: function (noDashes) {
+            if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
+            return (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
         }
     },
     isFacetContainer: {
@@ -1760,7 +1757,7 @@ const ElementHTML = Object.defineProperties({}, {
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g,
-                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/,
+                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/, dash: /-/g, xy: /[xy]/g,
                 isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
                 spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
