@@ -345,6 +345,13 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    addToQueue: {
+        enumerable: true, value: async function (job, name) {
+            name ??= crypto.randomUUID()
+            this.queue.set(name, job)
+            return name
+        }
+    },
     checkType: {
         enumerable: true, value: async function (typeName, value, validate) {
             if (!(typeName = typeName.trim())) return
@@ -663,6 +670,11 @@ const ElementHTML = Object.defineProperties({}, {
                 hasHelper = await this.loadHelper(inputUrlExtension)
                 if (hasHelper) return this.useHelper(inputUrlExtension, text) ?? text
             }
+        }
+    },
+    removeFromQueue: {
+        enumerable: true, value: async function (name) {
+            return this.queue.delete(name, job)
         }
     },
     render: {
@@ -1921,6 +1933,18 @@ const ElementHTML = Object.defineProperties({}, {
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
+    processQueue: {
+        value: async function () {
+            const firstKey = this.queue.keys().next().value
+            if (firstKey !== undefined) {
+                const job = this.queue.get(firstKey)
+                this.queue.delete(firstKey)
+                if (typeof job === 'function') await job()
+            }
+            await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
+            this.processQueue()
+        }
+    },
     renderWithSnippet: {
         value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
             if (insertSelector) element = element.querySelector(insertSelector)
@@ -1980,19 +2004,16 @@ const ElementHTML = Object.defineProperties({}, {
             return snippetKey
         }
     },
+
+
+
+
     resolveUnit: {
         value: function (unitExpression) {
         }
     },
 
-    processQueue: {
-        value: async function () {
-            const job = this.queue.shift()
-            if (typeof job === 'function') await job()
-            await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
-            this.processQueue()
-        }
-    },
+
 
     runElementMethod: {
         value: function (statement, arg, element) {
@@ -2274,7 +2295,7 @@ ${scriptBody.join('{')}`
             toJSON() { return this.valueOf() }
         }
     },
-    queue: { value: [] }
+    queue: { value: new Map() }
 })
 ElementHTML.Component.E = ElementHTML
 Object.defineProperties(ElementHTML, {
