@@ -84,15 +84,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Compile: { enumerable: true, value: function () { return this.installModule('compile') } }, //optimized
-    Dev: { //optimized
+    Compile: { enumerable: true, value: function () { return this.installModule('compile') } }, //optimal
+    Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
             Object.assign(this.app, { packages: new Map(), archives: new Map([['options', JSON.parse(JSON.stringify(this.env.options))]]) })
             return this.installModule('dev').then(() => this.app.dev.console.welcome())
         }
     },
-    Expose: { //optimized
+    Expose: { //optimal
         enumerable: true, value: function (name = 'E') {
             this.app.expose = true
             window[name] ??= this
@@ -326,7 +326,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    addToQueue: {//optimized
+    addToQueue: {//optimal
         enumerable: true, value: function (job, jobName = this.generateUuid()) {
             this.queue.set(jobName, job)
             return jobName
@@ -588,7 +588,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
         }
     },
-    generateUuid: {//optimized
+    generateUuid: {//optimal
         enumerable: true, value: function (noDashes) {
             if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
             return (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
