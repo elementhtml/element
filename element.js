@@ -88,12 +88,12 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            Object.assign(this.app, { packages: new Map(), archives: new Map([['options', JSON.parse(JSON.stringify(this.env.options))]]) })
+            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['options', JSON.parse(JSON.stringify(this.env.options))], ['packages', new Map()]]) })
             return this.installModule('dev').then(() => this.app.dev.console.welcome())
         }
     },
     Expose: { //optimal
-        enumerable: true, value: function (name = 'E') {
+        enumerable: true, value: function (name) {
             this.app.expose = true
             window[name || 'E'] ??= this
         }
@@ -1330,12 +1330,18 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     app: {
-        value: {
-            archives: undefined, cells: {}, compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
-            eventTarget: new EventTarget(), expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
-            interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, libraries: {}, namespaces: {},
-            options: {}, observers: new WeakMap(), packages: undefined, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
-        }
+        value: Object.defineProperties({
+            compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
+            expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
+            interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, namespaces: {},
+            options: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
+        }, {
+            archives: { configurable: true, enumerable: false, value: undefined },
+            cells: { value: {} },
+            eventTarget: { value: new EventTarget() },
+            libraries: { value: {} },
+            observers: { value: new WeakMap() }
+        })
     },
     binders: {
         value: {
