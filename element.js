@@ -95,16 +95,16 @@ const ElementHTML = Object.defineProperties({}, {
     Expose: { //optimal
         enumerable: true, value: function (name = 'E') {
             this.app.expose = true
-            window[name] ??= this
+            window[name || 'E'] ??= this
         }
     },
 
     ImportPackage: {
-        enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
-            let pkg = packageObject?.default ?? {}
+        enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            for (const scope in pkg) if (typeof pkg[scope] === 'string') pkg[scope] = await this.getExports(this.resolveUrl(pkg[scope], packageUrl))
-            if (pkg?.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
+            for (const unitType in pkg) if (typeof pkg[unitType] === 'string') pkg[unitType] = await this.resolveImport(this.resolveUrl(pkg[unitType], packageUrl), true)
+            if (typeof pkg.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
+
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
                 if (this.app.dev) {
@@ -1795,11 +1795,11 @@ const ElementHTML = Object.defineProperties({}, {
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
     },
-    getExports: {
-        value: async function (url) {
-            return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-        }
-    },
+    // getExports: {
+    //     value: async function (url) {
+    //         return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
+    //     }
+    // },
 
     bindModuleFunctions: {
         value: function (module) {
@@ -1968,11 +1968,11 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveImport: { //optimal
-        enumerable: true, value: async function (importHref, isWasm) {
+        enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
             const { hash = '#default', origin, pathname } = this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
             isWasm ??= pathname.endsWith('.wasm')
             const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
-            return module[hash.slice(1)]
+            return returnWholeModule ? module : module[hash.slice(1)]
         }
     },
     resolvePackageItem: {
