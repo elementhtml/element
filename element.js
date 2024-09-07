@@ -121,12 +121,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'context':
-                        for (const contextKey in pkg.context ?? {}) {
-                            let contextValue
-                            try {
-                                this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
-                            } catch (e) { }
-                        }
+                        for (const contextKey in pkg.context ?? {}) this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
                         break
                 }
             }
