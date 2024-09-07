@@ -135,6 +135,18 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'context':
                         for (const contextKey in pkg.context ?? {}) this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
                         break
+                    case 'interpreters':
+                        for (const interpreterKey of unitTypeCollection) {
+                            let interpreter = unitTypeCollection[interpreterKey]
+                            if (typeof interpreter === 'string') interpreter = await this.resolveImport(this.resolveUrl(interpreter, packageUrl))
+                            if (!(this.isPlainObject(interpreter) && (typeof interpreter.matcher === 'string' || (interpreter.matcher instanceof RegExp)) &&
+                                (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function'))) continue
+                            this.app.interpreters.matchers.set(new RegExp(interpreter.matcher), interpreterKey)
+                            this.app.interpreters.parsers[interpreterKey] = interpreter.parser.bind(this)
+                            if (typeof interpreter.binder === 'function') this.app.interpreters.binders[interpreterKey] = interpreter.binder.bind(this)
+                            this.app.interpreters.handlers[interpreterKey] = interpreter.handler.bind(this)
+                        }
+                        break
                 }
             }
 
