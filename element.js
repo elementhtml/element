@@ -84,32 +84,18 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Compile: {
-        enumerable: true, value: async function (protocols) {
-            await this.installModule('compile')
-            protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
-            for (let p of protocols) {
-                this.env.loaders[p] &&= this.env.loaders[p].bind(this)
-                this.env.helpers[p] &&= this.env.helpers[p].bind(this)
-                await this.loadHelper(p)
-            }
-        }
-    },
-    Dev: {
-        enumerable: true, value: async function () {
-            this.app.dev = true
+    Compile: { enumerable: true, value: function () { return this.installModule('compile') } }, //optimized
+    Dev: { //optimized
+        enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            this.app.packages = new Map()
-            this.app.archives = new Map()
-            this.app.archives.set('options', JSON.parse(JSON.stringify(this.env.options)))
-            await this.installModule('dev')
-            this.app.dev.console.welcome()
+            Object.assign(this.app, { packages: new Map(), archives: new Map([['options', JSON.parse(JSON.stringify(this.env.options))]]) })
+            return this.installModule('dev').then(() => this.app.dev.console.welcome())
         }
     },
-    Expose: {
-        enumerable: true, value: async function (name = 'E') {
+    Expose: { //optimized
+        enumerable: true, value: function (name = 'E') {
             this.app.expose = true
-            globalThis[name && typeof name === 'string' ? name : 'E'] ||= this
+            window[name] ??= this
         }
     },
     ImportPackage: {
