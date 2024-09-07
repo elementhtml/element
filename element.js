@@ -328,8 +328,8 @@ const ElementHTML = Object.defineProperties({}, {
 
     addToQueue: {//optimized
         enumerable: true, value: function (job, jobName = this.generateUuid()) {
-            this.queue.set(name, job)
-            return name
+            this.queue.set(jobName, job)
+            return jobName
         }
     },
     checkType: {
