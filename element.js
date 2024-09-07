@@ -80,7 +80,7 @@ const ElementHTML = Object.defineProperties({}, {
                 'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             },
-            patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
+            hooks: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
@@ -102,8 +102,16 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
+            if (this.app.dev) this.app.archives.packages.set(packageKey, packageUrl)
             for (const unitType in pkg) if (typeof pkg[unitType] === 'string') pkg[unitType] = await this.resolveImport(this.resolveUrl(pkg[unitType], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = await pkg.hooks.preInstall.bind(this)(pkg)
+
+            for (const unitType in pkg) if (unitType in this.env) {
+
+
+
+            }
+
 
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
