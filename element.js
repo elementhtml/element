@@ -108,13 +108,26 @@ const ElementHTML = Object.defineProperties({}, {
 
             for (const unitType in pkg) if (unitType in this.env) {
                 const unitCollection = pkg[unitType]
+                if (!this.isPlainObject(unitCollection)) continue
                 switch (unitType) {
                     case 'components':
                         const packageComponentNamespace = (new URL('../components', packageUrl)).href
                         this.env.namespaces[packageKey] ??= packageComponentNamespace
                         for (const componentKey in unitCollection) {
-                            const component = typeof unitCollection[componentKey] === 'function' ? unitCollection[componentKey](this) : undefined
+                            let component = unitCollection[componentKey]
+                            if (typeof component === 'string') component = await this.resolveImport(this.resolveUrl(component, packageUrl))
+                            component = typeof component === 'function' ? component(this) : undefined
                             if (component?.prototype instanceof this.Component) this.env.components[`${packageKey}-${componentKey}`] = component
+                        }
+                        break
+                    case 'context':
+                        for (const contextKey in pkg.context ?? {}) {
+                            let contextValue
+                            try {
+                                contextValue = JSON.parse(JSON.stringify(pkg.context[contextKey]))
+                                if (this.isPlainObject(contextValue)) Object.freeze(contextValue)
+                                this.env.context[contextKey] = contextValue
+                            } catch (e) { }
                         }
                         break
                 }
