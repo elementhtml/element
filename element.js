@@ -103,7 +103,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             for (const unitType in pkg) if (typeof pkg[unitType] === 'string') pkg[unitType] = await this.resolveImport(this.resolveUrl(pkg[unitType], packageUrl), true)
-            if (typeof pkg.hooks?.preInstall === 'function') pkg = await (pkg.hooks.preInstall.bind(pkg))(this)
+            if (typeof pkg.hooks?.preInstall === 'function') pkg = await pkg.hooks.preInstall.bind(this)(pkg)
 
             for (const scope in pkg) if (scope in this.env) {
                 const pkgScope = pkg[scope], envScope = this.env[scope]
@@ -219,7 +219,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             this.env.namespaces[packageKey] ||= `${this.resolveUrl('../', packageUrl)}components`
-            if (pkg?.hooks?.postInstall === 'function') await (pkg.hooks.postInstall.bind(pkg))(this)
+            if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this)(pkg)
         }
     },
     Load: {
