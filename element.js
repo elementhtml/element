@@ -106,32 +106,34 @@ const ElementHTML = Object.defineProperties({}, {
             for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
 
+            const unitTypeCollectionUnitClasses = {
+                components: this.Component,
+                facets: this.Facet
+            }, unitTypeCollectionUnitsAreWrapped = new Set(['components', 'facets']), unitTypeCollectionUnitsAreBound = new Set(['helpers'])
+
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
                 if (!this.isPlainObject(unitTypeCollection)) continue
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets':
+                    case 'facets': case 'helpers':
                         for (const unitKey in unitTypeCollection) {
-                            let unit = unitTypeCollection[unitKey]
+                            let unit = unitTypeCollection[unitKey], effectiveUnitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            unit = typeof unit === 'function' ? unit(this) : undefined
-                            const unitPrototype = unit?.prototype
-                            if (!unitPrototype) continue
-                            if (unitPrototype instanceof this.Component) { this.env[unitTypeCollectionName][`${packageKey}-${unitKey}`] = unit; continue }
-                            if (unitPrototype instanceof this.Facet) { this.env[unitTypeCollectionName][unitKey] = unit; continue }
+                            switch (true) {
+                                case (unitTypeCollectionUnitsAreWrapped.has(unitTypeCollectionName)): { unit = typeof unit === 'function' ? unit(this) : undefined; break }
+                                case (unitTypeCollectionUnitsAreBound.has(unitTypeCollectionName)): { unit = typeof unit === 'function' ? unit.bind(this) : undefined; break }
+                            }
+                            if (unitTypeCollectionUnitClasses[unitTypeCollectionName]) if (!(unit?.prototype instanceof unitTypeCollectionUnitClasses[unitTypeCollectionName])) continue
+                            switch (unitTypeCollectionName) {
+                                case 'components': effectiveUnitKey = `${packageKey}-${unitKey}`
+                            }
+                            this.env[unitTypeCollectionName][effectiveUnitKey] = unit
                         }
                         break
                     case 'context':
                         for (const contextKey in pkg.context ?? {}) this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
-                        break
-                    case 'helpers':
-                        for (const unitKey in unitTypeCollection) {
-                            let unit = unitTypeCollection[unitKey]
-                            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if (typeof unit === 'function') this.env[unitTypeCollectionName][unitKey] = unit.bind(this)
-                        }
                         break
                 }
             }
