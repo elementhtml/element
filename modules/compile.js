@@ -39,7 +39,7 @@ const nativeElementsMap = {
             } else {
                 if (extendsId) {
                     extendsId = this.resolveUrl(new URL(extendsId, id))
-                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.compile.component(extendsId))
+                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.app.compile.component(extendsId))
                     extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
@@ -80,7 +80,7 @@ const nativeElementsMap = {
     },
     facet: {
         enumerable: true, value: async function (directives, cid) {
-            cid ??= await this.compile.cid(directives = (await this.compile?.canonicalizeDirectives(directives)))
+            cid ??= await this.app.compile.cid(directives = (await this.app.compile?.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let index = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -132,13 +132,13 @@ const nativeElementsMap = {
                     stepIndex = stepIndex + 1
                     switch (handlerExpression) {
                         case 'true': case 'false': case 'null': case '.': case '!': case '-':
-                            params = this.compile.parsers.value(handlerExpression, hasDefault)
+                            params = this.app.compile.parsers.value(handlerExpression, hasDefault)
                             break
                         case '#': case '?': case '/': case ':':
-                            params = this.compile.parsers.router(handlerExpression, hasDefault)
+                            params = this.app.compile.parsers.router(handlerExpression, hasDefault)
                             break
                         case '$': case '$?':
-                            params = this.compile.parsers.console(handlerExpression, hasDefault)
+                            params = this.app.compile.parsers.console(handlerExpression, hasDefault)
                             break
                         default:
                             const handlerFlag = handlerExpression[0],
@@ -153,39 +153,39 @@ const nativeElementsMap = {
                             }
                             switch (handlerFlag) {
                                 case "(":
-                                    params = this.compile.parsers.transform(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.transform(handlerExpressionInner, hasDefault)
                                     break
                                 case '|':
-                                    params = this.compile.parsers.type(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.type(handlerExpressionInner, hasDefault)
                                     break
                                 case '~':
-                                    params = this.compile.parsers.network(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.network(handlerExpressionInner, hasDefault)
                                     break
                                 case '`':
-                                    params = this.compile.parsers.proxy(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.proxy(handlerExpressionInner, hasDefault)
                                     break
                                 case '/':
-                                    params = this.compile.parsers.pattern(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.pattern(handlerExpressionInner, hasDefault)
                                     break
                                 case "_":
-                                    params = this.compile.parsers.wait(handlerExpressionInner, hasDefault)
+                                    params = this.app.compile.parsers.wait(handlerExpressionInner, hasDefault)
                                     break
                                 case "$":
                                     const handlerInnerFlag = handlerExpressionInner[0], handlerExpressionInnerSub = handlerExpression.slice(1)
                                     switch (handlerInnerFlag) {
                                         case '{':
-                                            params = this.compile.parsers.variable(handlerExpression, hasDefault)
+                                            params = this.app.compile.parsers.variable(handlerExpression, hasDefault)
                                             break
                                         case '(':
-                                            params = this.compile.parsers.selector(handlerExpressionInnerSub, hasDefault)
+                                            params = this.app.compile.parsers.selector(handlerExpressionInnerSub, hasDefault)
                                             break
                                         case '`':
-                                            params = this.compile.parsers.command(handlerExpressionInnerSub, hasDefault)
+                                            params = this.app.compile.parsers.command(handlerExpressionInnerSub, hasDefault)
                                             break
                                     }
                                     break
                                 case "#": case "@":
-                                    params = this.compile.parsers.state(handlerExpression, hasDefault)
+                                    params = this.app.compile.parsers.state(handlerExpression, hasDefault)
                                     const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
                                     switch (shape) {
                                         case 'single':
@@ -202,10 +202,10 @@ const nativeElementsMap = {
                                 case "'":
                                     handlerExpression = `"${handlerExpression.slice(1, -1)}"`
                                 case '"': case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
-                                    params = this.compile.parsers.value(handlerExpression, hasDefault)
+                                    params = this.app.compile.parsers.value(handlerExpression, hasDefault)
                                     break
                                 case "{": case "[": case "?":
-                                    params = this.compile.parsers.shape(handlerExpression, hasDefault)
+                                    params = this.app.compile.parsers.shape(handlerExpression, hasDefault)
                                     break
                             }
                     }
@@ -214,7 +214,7 @@ const nativeElementsMap = {
                             params = this.app.syntax.parsers[syntaxName](handlerExpression, hasDefault)
                             break
                         }
-                        params ??= this.compile.parsers.x(handlerExpression, hasDefault)
+                        params ??= this.app.compile.parsers.x(handlerExpression, hasDefault)
                     }
                     step.params = params
                     if (defaultExpression) step.defaultExpression = defaultExpression
@@ -241,7 +241,7 @@ const nativeElementsMap = {
                 if (!directive || (directive.slice(0, 3) === '|* ')) continue
                 directive = directive.replace(this.sys.regexp.segmenter, ' >> ').trim()
                 if (!directive) continue
-                canonicalizedDirectivesMap[await this.compile.digest(directive)] = directive
+                canonicalizedDirectivesMap[await this.app.compile.digest(directive)] = directive
             }
             for (const directiveDigest of Object.keys(canonicalizedDirectivesMap).sort()) canonicalizedDirectives.push(canonicalizedDirectivesMap[directiveDigest])
             return canonicalizedDirectives.join('\n').trim()
@@ -250,7 +250,7 @@ const nativeElementsMap = {
     cid: {
         value: async function (data) {
             if (typeof data === 'string') data = (new TextEncoder()).encode(data)
-            return `b${this.compile.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
+            return `b${this.app.compile.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
         }
     },
     digest: {
@@ -414,7 +414,7 @@ const nativeElementsMap = {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
-                const { group: target, shape } = this.compile.getStateGroup(expression, typeDefault)
+                const { group: target, shape } = this.app.compile.getStateGroup(expression, typeDefault)
                 return { handler: 'state', ctx: { binder: true, signal: true, vars: { target, shape } } }
             },
             transform: function (expression, hasDefault) {

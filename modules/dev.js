@@ -76,25 +76,28 @@ const module = {
     commands: {
         value: Object.freeze({
             grab: {
-                target: ['dev', 'grab']
+                target: ['app', 'dev', 'grab']
             },
             help: {
-                target: ['dev', 'console', 'help']
+                target: ['app', 'dev', 'console', 'help']
             },
             print: {
-                target: ['dev', 'print']
+                target: ['app', 'dev', 'print']
             },
             save: {
-                target: ['dev', 'save']
+                target: ['app', 'dev', 'save']
             },
             send: {
-                target: ['dev', 'send']
+                target: ['app', 'dev', 'send']
             },
             show: {
-                target: ['dev', 'console', 'show']
+                target: ['app', 'dev', 'console', 'show']
             },
             stop: {
-                target: ['dev', 'console', 'stop']
+                target: ['app', 'dev', 'console', 'stop']
+            },
+            version: {
+                target: ['version']
             }
         })
     },
@@ -105,9 +108,9 @@ const module = {
             help: async function (command) {
                 if (!command) {
                     await print('`dev/console/help`')
-                    return await print(`%tutorial Available Commands: ${Object.keys(this.dev.commands).sort().join(', ')}`)
+                    return await print(`%tutorial Available Commands: ${Object.keys(this.app.dev.commands).sort().join(', ')}`)
                 }
-                return await print('`' + this.dev.commands[command].target.join('/') + '`', 'tutorial')
+                return await print('`' + this.app.dev.commands[command].target.join('/') + '`', 'tutorial')
             },
             show: function (what, ...args) {
                 let signal, [container, observe, filters = {}, clear] = args
@@ -117,9 +120,9 @@ const module = {
                     if (observe === true) { observe = crypto.randomUUID().split('-').join('') }
                     if (typeof observe !== 'string') observe = `${observe}`
                     args[(what === 'cells') ? 0 : 1] = observe
-                    if (this.dev.controllers.console.show[observe]) this.dev.controllers.console.show[observe].abort()
-                    this.dev.controllers.console.show[observe] = new AbortController()
-                    signal = this.dev.controllers.console.show[observe].signal
+                    if (this.app.dev.controllers.console.show[observe]) this.app.dev.controllers.console.show[observe].abort()
+                    this.app.dev.controllers.console.show[observe] = new AbortController()
+                    signal = this.app.dev.controllers.console.show[observe].signal
                 }
                 let whatItems, whatSymbol, containerElement, facetInstance
                 switch (what) {
@@ -151,11 +154,11 @@ const module = {
                         case 'statements':
                             let statement, stepIndex, l
                             for (let statement = facetInstance.constructor.statements[name], stepIndex = 0, l = statement.steps.length; stepIndex < l; stepIndex++) {
-                                containerElement.addEventListener(`done-${name}-${stepIndex}`, () => this.dev.console.show(what, ...args), { signal })
+                                containerElement.addEventListener(`done-${name}-${stepIndex}`, () => this.app.dev.console.show(what, ...args), { signal })
                             }
                             break
                         default:
-                            whatItems[name].eventTarget.addEventListener('change', () => this.dev.console.show(what, ...args), { signal })
+                            whatItems[name].eventTarget.addEventListener('change', () => this.app.dev.console.show(what, ...args), { signal })
                     }
                 }
 
@@ -205,10 +208,10 @@ const module = {
                         print(`${name} is not yet active.`, 'warning')
                         break
                     default:
-                        const names = name ? [name] : Object.keys(this.dev.controllers.console.show).sort()
-                        for (const n of names) if (this.dev.controllers.console.show[n]) {
-                            this.dev.controllers.console.show[n].abort()
-                            delete this.dev.controllers.console.show[n]
+                        const names = name ? [name] : Object.keys(this.app.dev.controllers.console.show).sort()
+                        for (const n of names) if (this.app.dev.controllers.console.show[n]) {
+                            this.app.dev.controllers.console.show[n].abort()
+                            delete this.app.dev.controllers.console.show[n]
                             print(`Stopped observer: "${n}"`, 'info')
                         } else {
                             print(`Observer "${n}" was not found`, 'warning')
@@ -235,17 +238,21 @@ const module = {
                 invocation = invocation.trim()
                 if (!invocation) return console.error(`No command entered`)
                 const [command, ...args] = Array.from(invocation.matchAll(/[^\s"']+|["'][^"']*["']/g), match => match[0]).map(s => s.trim())
-                if (!(command in this.dev.commands)) return console.error(`Command ${command} not found`)
-                const { target = [command] } = this.dev.commands[command]
-                let funcScope = this
+                if (!(command in this.app.dev.commands)) return console.error(`Command ${command} not found`)
+                const { target = [command] } = this.app.dev.commands[command]
+                let funcScope = this, result
                 for (const s of target) funcScope = funcScope[s]
-                if (typeof funcScope !== 'function') return console.error(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`)
-                const func = funcScope, env = { cells: this.app.cells, context: this.app.context }
-                for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
-                const result = func(...args)
+                if (typeof funcScope === 'function') {
+                    const func = funcScope, env = { cells: this.app.cells, context: this.app.context }
+                    for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
+                    result = func(...args)
+                } else if (funcScope === undefined) {
+                    return print(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`, 'error') && getFiller()
+                } else {
+                    return print(funcScope, 'info') && getFiller()
+                }
                 if (result instanceof Promise) {
-                    result.then(r => r ? console.log(r) : undefined).catch(e => console.error(e))
-                    return getFiller()
+                    return result.then(r => r ? console.log(r) : undefined).catch(e => console.error(e)) && getFiller()
                 } else {
                     return result
                 }
@@ -288,12 +295,12 @@ const module = {
             },
             component: {
                 enumerable: true, value: function (id, format) {
-                    return this.dev.export.unit('component', id, format)
+                    return this.app.dev.export.unit('component', id, format)
                 }
             },
             facet: {
                 enumerable: true, value: function (cid, format) {
-                    return this.dev.export.unit('facet', cid, format)
+                    return this.app.dev.export.unit('facet', cid, format)
                 }
             },
             package: {
@@ -341,7 +348,7 @@ const module = {
                                             renderId = renderId.replace(new RegExp(r.pattern, r.flags), r.replaceWith)
                                         }
                                     }
-                                    packageSource += `\nPackage.${scope}['${renderId}'] = E => (${this.dev.export.component((overrides[scope] ?? {})[id] ?? id, 'string')})`
+                                    packageSource += `\nPackage.${scope}['${renderId}'] = E => (${this.app.dev.export.component((overrides[scope] ?? {})[id] ?? id, 'string')})`
                                 }
                                 break
                             case 'context':
@@ -350,7 +357,7 @@ const module = {
                                 }
                                 break
                             case 'facets':
-                                for (const cid of scopeItems) packageSource += `\nPackage.${scope}['${cid}'] = E => (${this.dev.export.facet((overrides[scope] ?? {})[cid] ?? cid, 'string')})`
+                                for (const cid of scopeItems) packageSource += `\nPackage.${scope}['${cid}'] = E => (${this.app.dev.export.facet((overrides[scope] ?? {})[cid] ?? cid, 'string')})`
                                 break
                             case 'helpers': case 'hooks': case 'loaders':
                                 const isHooks = scope === 'hooks', hookPackages = isHooks ? scopeOptions.packages : new Set(), hookPackagesIsSet = hookPackages instanceof Set
@@ -501,9 +508,9 @@ const module = {
                         if (importMapElement) importMapElement.remove()
                         if (this.app.compile) for (const facetContainer of template.querySelectorAll(`script[type="directives/element"],script[type="facet/element"]:not([src])`)) {
                             const src = facetContainer.getAttribute('src'), textContent = facetContainer.textContent
-                            const directives = await this.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                            const directives = await this.app.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                             if (!directives) break
-                            const facetCid = await this.compile?.cid(directives), newFacetContainer = document.createElement('script')
+                            const facetCid = await this.app.compile?.cid(directives), newFacetContainer = document.createElement('script')
                             newFacetContainer.setAttribute('src', facetCid)
                             newFacetContainer.setAttribute('type', 'application/element')
                             facetContainer.replaceWith(newFacetContainer)
@@ -589,7 +596,7 @@ const module = {
                         let file = new File([new Blob([template.outerHTML], { type: 'text/html' })], filepath.split('/').pop(), { type: 'text/html' })
                         yield { filepath, file: await renderFile(filepath, file) }
                     }
-                    assets['packages/main.js'] ??= new File([new Blob([await this.dev.export.package()], { type: 'application/javascript' })], 'main.js', { type: 'application/javascript' })
+                    assets['packages/main.js'] ??= new File([new Blob([await this.app.dev.export.package()], { type: 'application/javascript' })], 'main.js', { type: 'application/javascript' })
                     if (pwa) {
                         const pwaDefaults = {
                             name: vars.title ?? vars.name,
@@ -664,10 +671,10 @@ const module = {
                         }
                     }
                 case 'package':
-                    return await this.dev.export[what](...args)
+                    return await this.app.dev.export[what](...args)
                 case 'application':
                     const application = {}
-                    for await (const fileEntry of this.dev.export.application(...args)) {
+                    for await (const fileEntry of this.app.dev.export.application(...args)) {
                         let { filepath, file } = fileEntry
                         application[filepath] ??= file
                     }
@@ -697,7 +704,7 @@ const module = {
                         useDir = await window.showDirectoryPicker({ mode: 'readwrite' })
                     }
                     console.log(`Creating application within the "${useDir.name}" directory...`)
-                    for await (const { filepath, file } of this.dev.export.application(...args)) {
+                    for await (const { filepath, file } of this.app.dev.export.application(...args)) {
                         const pathParts = filepath.split('/'), fileName = pathParts.pop()
                         for (const part of pathParts) useDir = await useDir.getDirectoryHandle(part, { create: true })
                         const fileHandle = await useDir.getFileHandle(fileName, { create: true }), writableStream = await fileHandle.createWritable()
@@ -714,7 +721,7 @@ const module = {
             if (typeof adaptor === 'string') try { adaptor = (await import(adaptor)).default } catch (e) {
                 throw new Error(`Could not import adaptor "${adaptor}"`)
             }
-            if (!(adaptor instanceof Function)) return await this.dev.save(what, adaptor, ...args)
+            if (!(adaptor instanceof Function)) return await this.app.dev.save(what, adaptor, ...args)
             switch (what) {
                 case 'component': case 'facet': case 'package':
                     const fileName = `${(typeof args[0] === 'string' ? (args[0] ?? what) : what)}.js`.replace('.js.js', '.js'), sourceCode = await E.dev.grab(what, ...args),
@@ -725,7 +732,7 @@ const module = {
                     return
                 case 'application':
                     console.log(`Publishing application to "${adaptor.name}"...`)
-                    for await (const { filepath, file } of this.dev.export.application(...args)) {
+                    for await (const { filepath, file } of this.app.dev.export.application(...args)) {
                         console.log(`${filepath} starting...`)
                         for await (const progress of adaptor(what, filepath, file)) console.log(`${filepath} ${progress}...`)
                         console.log(`${filepath} completed.`)

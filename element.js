@@ -4,9 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
-            components: {},
-            context: {},
-            facets: {},
+            components: {}, context: {}, facets: {},
             helpers: {
                 'application/schema+json': function (value, typeName) {
                     if (!this.app.types[typeName]) return
@@ -38,6 +36,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return text
                 }
             },
+            interpreters: {},
             loaders: {
                 'application/schema+json': async function () {
                     this.app.libraries['application/schema+json'] = (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
@@ -66,7 +65,9 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.libraries['text/markdown'].set({ html: true })
                 }
             },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href }, options: {}, gateways: {
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
+            options: {},
+            gateways: {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link', auto: true }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link', auto: true }],
                 'ar:': [{
@@ -78,13 +79,13 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
-            }, regexp: {}, resolver: {}, snippets: {}, syntax: {}, transforms: {}, types: {}
+            },
+            patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }
     },
 
     Compile: {
         enumerable: true, value: async function (protocols) {
-            this.app.compile = true
             await this.installModule('compile')
             protocols = (protocols || '').split(',').map(s => s.trim()).filter(s => !!s).map(p => `${p}://`)
             for (let p of protocols) {
@@ -102,7 +103,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.app.archives = new Map()
             this.app.archives.set('options', JSON.parse(JSON.stringify(this.env.options)))
             await this.installModule('dev')
-            this.dev.console.welcome()
+            this.app.dev.console.welcome()
         }
     },
     Expose: {
@@ -256,8 +257,8 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
                     for (const f in this.console) if (typeof this.console[f] === 'function') this.console[f] = this.console[f].bind(this)
                     Object.freeze(this.console)
-                    for (const invoker in this.dev.invokers) window[invoker] ??= this.dev.invokers[invoker].bind(this)
-                    Object.freeze(this.dev.invokers)
+                    for (const invoker in this.app.dev.invokers) window[invoker] ??= this.app.dev.invokers[invoker].bind(this)
+                    Object.freeze(this.app.dev.invokers)
                 } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
@@ -340,7 +341,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     addToQueue: {//optimized
-        enumerable: true, value: function (job, name = this.generateUuid()) {
+        enumerable: true, value: function (job, jobName = this.generateUuid()) {
             this.queue.set(name, job)
             return name
         }
@@ -1343,10 +1344,10 @@ const ElementHTML = Object.defineProperties({}, {
 
     app: {
         value: {
-            cells: {}, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() },
-            eventTarget: new EventTarget(), facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
-            libraries: {}, namespaces: {}, observers: new WeakMap(), regexp: {}, resolver: {}, snippets: {},
-            syntax: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, transforms: {}, types: {}
+            archives: undefined, cells: {}, compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
+            eventTarget: new EventTarget(), expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
+            interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, libraries: {}, namespaces: {},
+            options: {}, observers: new WeakMap(), packages: undefined, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }
     },
     binders: {
@@ -1636,7 +1637,7 @@ const ElementHTML = Object.defineProperties({}, {
                 done()
             },
             x: async function (container, position, envelope, value) {
-                if (this.app.dev) this.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
+                if (this.app.dev) this.app.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
                 return value
             }
         }
@@ -1779,7 +1780,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components.classes[id] = this.env.components[id] ?? (await this.compile?.component(id))
+            this.app.components.classes[id] = this.env.components[id] ?? (await this.app.compile?.component(id))
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
@@ -1824,7 +1825,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
             this.bindModuleFunctions(module)
-            Object.defineProperty(this, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
+            Object.defineProperty(this.app, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
     loadGateway: {
@@ -1905,10 +1906,10 @@ const ElementHTML = Object.defineProperties({}, {
             switch (type) {
                 case 'directives/element':
                     if (!this.app.compile) return
-                    const directives = await this.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    const directives = await this.app.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
-                    facetCid = await this.compile.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.compile?.facet(directives, facetCid)
+                    facetCid = await this.app.compile.cid(directives)
+                    this.app.facets.classes[facetCid] ??= await this.app.compile?.facet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
