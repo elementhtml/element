@@ -125,8 +125,7 @@ const ElementHTML = Object.defineProperties({}, {
                             let contextValue
                             try {
                                 contextValue = JSON.parse(JSON.stringify(pkg.context[contextKey]))
-                                if (this.isPlainObject(contextValue)) Object.freeze(contextValue)
-                                this.env.context[contextKey] = contextValue
+                                this.env.context[contextKey] = this.deepFreeze(contextValue)
                             } catch (e) { }
                         }
                         break
@@ -1821,6 +1820,15 @@ const ElementHTML = Object.defineProperties({}, {
             const selectorMain = selector.slice(1)
             if (!selectorMain) return selector
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
+        }
+    },
+    deepFreeze: { //optimal
+        value: function (obj, copy) {
+            if (!Array.isArray(obj) && !this.isPlainObject(obj)) return obj
+            if (copy) obj = JSON.parse(JSON.stringify(obj))
+            const isArray = Array.isArray(obj), keys = isArray ? obj : Object.keys(obj)
+            for (const item of keys) this.deepFreeze(isArray ? item : obj[item])
+            return Object.freeze(obj)
         }
     },
     getCustomTag: {
