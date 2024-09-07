@@ -98,6 +98,17 @@ const ElementHTML = Object.defineProperties({}, {
             window[name] ??= this
         }
     },
+
+    resolveImport: {
+        enumerable: true, value: async function (importHref, isWasm) {
+            const { hash = '#default', origin, pathname } = this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
+            isWasm ??= pathname.endsWith('.wasm')
+            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
+            return module[hash.slice(1)]
+        }
+    },
+
+
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let pkg = packageObject?.default ?? {}
