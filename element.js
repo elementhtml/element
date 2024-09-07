@@ -111,8 +111,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!this.isPlainObject(unitCollection)) continue
                 switch (unitType) {
                     case 'components':
-                        const packageComponentNamespace = (new URL('../components', packageUrl)).href
-                        this.env.namespaces[packageKey] ??= packageComponentNamespace
+                        this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     case 'facets':
                         for (const unitKey in unitCollection) {
                             let unit = unitCollection[unitKey]
