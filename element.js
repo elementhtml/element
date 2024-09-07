@@ -113,11 +113,15 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'components':
                         const packageComponentNamespace = (new URL('../components', packageUrl)).href
                         this.env.namespaces[packageKey] ??= packageComponentNamespace
-                        for (const componentKey in unitCollection) {
-                            let component = unitCollection[componentKey]
-                            if (typeof component === 'string') component = await this.resolveImport(this.resolveUrl(component, packageUrl))
-                            component = typeof component === 'function' ? component(this) : undefined
-                            if (component?.prototype instanceof this.Component) this.env.components[`${packageKey}-${componentKey}`] = component
+                    case 'facets':
+                        for (const unitKey in unitCollection) {
+                            let unit = unitCollection[unitKey]
+                            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
+                            unit = typeof unit === 'function' ? unit(this) : undefined
+                            const unitPrototype = unit?.prototype
+                            if (!unitPrototype) continue
+                            if (unitPrototype instanceof this.Component) { this.env.components[`${packageKey}-${unitKey}`] = unit; continue }
+                            if (unitPrototype instanceof this.Facet) { this.env.facets[unitKey] = unit; continue }
                         }
                         break
                     case 'context':
