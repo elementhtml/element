@@ -124,8 +124,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const contextKey in pkg.context ?? {}) {
                             let contextValue
                             try {
-                                contextValue = JSON.parse(JSON.stringify(pkg.context[contextKey]))
-                                this.env.context[contextKey] = this.deepFreeze(contextValue)
+                                this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
                             } catch (e) { }
                         }
                         break
