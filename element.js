@@ -99,16 +99,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    resolveImport: {
-        enumerable: true, value: async function (importHref, isWasm) {
-            const { hash = '#default', origin, pathname } = this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
-            isWasm ??= pathname.endsWith('.wasm')
-            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
-            return module[hash.slice(1)]
-        }
-    },
-
-
     ImportPackage: {
         enumerable: true, value: async function (packageObject, packageUrl, packageKey) {
             let pkg = packageObject?.default ?? {}
@@ -1977,13 +1967,19 @@ const ElementHTML = Object.defineProperties({}, {
             element[insertPosition](...nodesToApply.map(n => n[0] instanceof DocumentFragment ? Array.from(n[0].cloneNode(true).children) : n[0]).flat())
         }
     },
+    resolveImport: { //optimal
+        enumerable: true, value: async function (importHref, isWasm) {
+            const { hash = '#default', origin, pathname } = this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
+            isWasm ??= pathname.endsWith('.wasm')
+            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
+            return module[hash.slice(1)]
+        }
+    },
     resolvePackageItem: {
         value: async function (item, scope) {
             switch (scope) {
-                case 'components': case 'facets':
-                    return await item(this)
-                default:
-                    return typeof item === 'function' ? (await item(this)) : item
+                case 'components': case 'facets': return await item(this)
+                default: return typeof item === 'function' ? (await item(this)) : item
             }
         }
     },
