@@ -104,12 +104,20 @@ const ElementHTML = Object.defineProperties({}, {
             if (!this.isPlainObject(pkg)) return
             if (this.app.dev) this.app.archives.packages.set(packageKey, packageUrl)
             for (const unitType in pkg) if (typeof pkg[unitType] === 'string') pkg[unitType] = await this.resolveImport(this.resolveUrl(pkg[unitType], packageUrl), true)
-            if (typeof pkg.hooks?.preInstall === 'function') pkg = await pkg.hooks.preInstall.bind(this)(pkg)
+            if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
 
             for (const unitType in pkg) if (unitType in this.env) {
-
-
-
+                const unitCollection = pkg[unitType]
+                switch (unitType) {
+                    case 'components':
+                        const packageComponentNamespace = (new URL('../components', packageUrl)).href
+                        this.env.namespaces[packageKey] ??= packageComponentNamespace
+                        for (const componentKey in unitCollection) {
+                            const component = typeof unitCollection[componentKey] === 'function' ? unitCollection[componentKey](this) : undefined
+                            if (component?.prototype instanceof this.Component) this.env.components[`${packageKey}-${componentKey}`] = component
+                        }
+                        break
+                }
             }
 
 
