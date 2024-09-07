@@ -103,28 +103,35 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (this.app.dev) this.app.archives.packages.set(packageKey, packageUrl)
-            for (const unitType in pkg) if (typeof pkg[unitType] === 'string') pkg[unitType] = await this.resolveImport(this.resolveUrl(pkg[unitType], packageUrl), true)
+            for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
 
-            for (const unitType in pkg) if (unitType in this.env) {
-                const unitCollection = pkg[unitType]
-                if (!this.isPlainObject(unitCollection)) continue
-                switch (unitType) {
+            for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
+                const unitTypeCollection = pkg[unitTypeCollectionName]
+                if (!this.isPlainObject(unitTypeCollection)) continue
+                switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     case 'facets':
-                        for (const unitKey in unitCollection) {
-                            let unit = unitCollection[unitKey]
+                        for (const unitKey in unitTypeCollection) {
+                            let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
                             unit = typeof unit === 'function' ? unit(this) : undefined
                             const unitPrototype = unit?.prototype
                             if (!unitPrototype) continue
-                            if (unitPrototype instanceof this.Component) { this.env.components[`${packageKey}-${unitKey}`] = unit; continue }
-                            if (unitPrototype instanceof this.Facet) { this.env.facets[unitKey] = unit; continue }
+                            if (unitPrototype instanceof this.Component) { this.env[unitTypeCollectionName][`${packageKey}-${unitKey}`] = unit; continue }
+                            if (unitPrototype instanceof this.Facet) { this.env[unitTypeCollectionName][unitKey] = unit; continue }
                         }
                         break
                     case 'context':
                         for (const contextKey in pkg.context ?? {}) this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
+                        break
+                    case 'helpers':
+                        for (const unitKey in unitTypeCollection) {
+                            let unit = unitTypeCollection[unitKey]
+                            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
+                            if (typeof unit === 'function') this.env[unitTypeCollectionName][unitKey] = unit.bind(this)
+                        }
                         break
                 }
             }
