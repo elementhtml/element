@@ -189,8 +189,17 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'types':
                         for (const typeName in unitTypeCollection) {
                             let typeClass = unitTypeCollection[typeName]
-                            if (typeof typeClass === 'function') typeClass = await typeClass(this, pkg)
-                            // may be a JS class, a JSON object for JSON-schema, a string X definition for XDR, 
+                            if (typeof typeClass === 'function' && !(typeClass.prototype instanceof this.Validator)) typeClass = await typeClass(this, pkg)
+                            if (typeClass.prototype instanceof this.Validator) {
+                                // JS class
+
+                            } else if (typeof typeClass === 'string') {
+                                // XDR type definition
+
+                            } else if (this.isPlainObject(typeClass)) {
+                                // JSON-Schema definition
+
+                            }
 
                         }
                         break
