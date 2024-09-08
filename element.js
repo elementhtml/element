@@ -110,7 +110,7 @@ const ElementHTML = Object.defineProperties({}, {
             }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
                 unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways']),
                 unitTypeCollectionUnitsMustBeFunction = new Set(['hooks']),
-                unitTypeCollectionUnitsMustBeObject = new Set(['gateways', 'interpreters'])
+                unitTypeCollectionUnitsMustBeObject = new Set(['interpreters'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
@@ -131,10 +131,18 @@ const ElementHTML = Object.defineProperties({}, {
                                 case 'components':
                                     effectiveUnitKey = `${packageKey}-${unitKey}`
                                     break
+                                case 'gateways':
+                                    if (!Array.isArray(unit)) unit = [unit]
+                                    const newUnit = []
+                                    for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
+                                    unit = newUnit
+                                    break
                                 case 'hooks':
                                     (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit)
                                     continue
                                 case 'interpreters':
+                                    if (!unit.matcher || ((typeof unit.matcher !== 'string') && !(unit.matcher instanceof RegExp))) continue
+                                    if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
                                     unit.matcher = new RegExp(unit.matcher)
                                     break
                             }
