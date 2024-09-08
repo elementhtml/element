@@ -109,7 +109,7 @@ const ElementHTML = Object.defineProperties({}, {
                 facets: this.Facet
             }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
                 unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways']),
-                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks']),
+                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks', 'resolvers']),
                 unitTypeCollectionUnitsMustBeObject = new Set(['interpreters'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
@@ -136,6 +136,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     const newUnit = []
                                     for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
                                     unit = newUnit
+                                    if (!unit.length) continue
                                     break
                                 case 'hooks':
                                     (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit)
