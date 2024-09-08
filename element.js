@@ -190,7 +190,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const typeName in unitTypeCollection) {
                             let typeClass = unitTypeCollection[typeName]
                             if (typeof typeClass === 'function') typeClass = await typeClass(this, pkg)
-                            // may be a JS class, a JSON-schema, a JSON object for JSON-schema, a JSON object for XDR, 
+                            // may be a JS class, a JSON object for JSON-schema, a string X definition for XDR, 
 
                         }
                         break
@@ -2324,9 +2324,25 @@ ${scriptBody.join('{')}`
             toJSON() { return this.valueOf() }
         }
     },
+
+    Validator: {
+        value: class {
+
+            constructor(obj) {
+                if (!obj || (typeof obj !== 'object')) return
+                for (const p in obj) if (typeof this[p] === 'function') Object.defineProperty(this, p, { enumerable: true, writable: false, value: this[p](obj[p]) })
+            }
+
+            valueOf() { return Object.values(this).every(v => v === true) }
+        }
+    },
+
+
     queue: { value: new Map() }
 })
+ElementHTML.Validator.E = ElementHTML
 ElementHTML.Component.E = ElementHTML
+ElementHTML.Facet.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: {
         value: class extends ElementHTML.State {
@@ -2380,4 +2396,7 @@ if (metaOptions.has('load')) {
     if (loadValue) for (let p of loadValue.split(',')) if (p = p.trim()) preloads.push(p)
     await ElementHTML.Load(undefined, preloads)
 }
+
+
+
 export { ElementHTML }
