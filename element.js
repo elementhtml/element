@@ -2,6 +2,8 @@ const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '2.0.0' },
 
+    expose: { enumerable: true, writable: true, value: false },
+
     env: {
         enumerable: true, value: {
             components: {}, context: {}, facets: {},
@@ -90,7 +92,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: { //optimal
         enumerable: true, value: function (name) {
-            this.app.expose = true
+            this.expose = true
             window[name || 'E'] ??= this
         }
     },
@@ -102,10 +104,13 @@ const ElementHTML = Object.defineProperties({}, {
             for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
 
-            const unitTypeCollectionUnitClasses = {
+            const unitTypeCollectionUnitMustBeClass = {
                 components: this.Component,
                 facets: this.Facet
-            }, unitTypeCollectionUnitsAreWrapped = new Set(['components', 'facets']), unitTypeCollectionUnitsAreBound = new Set(['transforms'])
+            }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
+                unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways']),
+                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks']),
+                unitTypeCollectionUnitsMustBeObject = new Set(['gateways'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
@@ -113,17 +118,22 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets':
+                    case 'facets': case 'gateways': case 'hooks':
                         for (const unitKey in unitTypeCollection) {
-                            let unit = unitTypeCollection[unitKey], effectiveUnitKey
+                            let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            switch (true) {
-                                case (unitTypeCollectionUnitsAreWrapped.has(unitTypeCollectionName)): { unit = typeof unit === 'function' ? unit(this) : undefined; break }
-                                case (unitTypeCollectionUnitsAreBound.has(unitTypeCollectionName)): { unit = typeof unit === 'function' ? unit.bind(this) : undefined; break }
-                            }
-                            if (unitTypeCollectionUnitClasses[unitTypeCollectionName]) if (!(unit?.prototype instanceof unitTypeCollectionUnitClasses[unitTypeCollectionName])) continue
+                            if (unitTypeCollectionUnitsMustBeWrapped.has(unitTypeCollectionName) && (unitTypeCollectionUnitsMayBeWrapped.has(unitTypeCollectionName) && (typeof unit === 'function'))) unit = unit(this)
+                            if (unitTypeCollectionUnitMustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof unitTypeCollectionUnitMustBeClass[unitTypeCollectionName])) continue
+                            if (unitTypeCollectionUnitsMustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
+                            if (unitTypeCollectionUnitsMustBeObject.has(unitTypeCollectionName) && !this.isPlainObject(unit)) continue
+                            unit = this.deepBindFunctions(unit)
                             switch (unitTypeCollectionName) {
-                                case 'components': effectiveUnitKey = `${packageKey}-${unitKey}`
+                                case 'components':
+                                    effectiveUnitKey = `${packageKey}-${unitKey}`
+                                    break
+                                case 'hooks':
+                                    (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit[hookName])
+                                    continue
                             }
                             this.env[unitTypeCollectionName][effectiveUnitKey] = unit
                         }
@@ -1857,15 +1867,22 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    bindModuleFunctions: {
-        value: function (module) {
-            for (const key in module) (typeof module[key] === 'function') ? (module[key] = module[key].bind(this)) : (this.isPlainObject(module[key]) ? this.bindModuleFunctions(module[key]) : undefined)
+    deepBindFunctions: {
+        value: function (obj) {
+            if (typeof obj === 'function') return obj.bind(this)
+            if (Array.isArray(obj)) {
+                for (let i = 0, l = obj.length; i < l; i++) { this.deepBindFunctions(obj[i]) }
+                return obj
+            }
+            if (!this.isPlainObject(obj)) return obj
+            for (const key in obj) obj[key] = this.deepBindFunctions(obj[key])
+            return obj
         }
     },
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            this.bindModuleFunctions(module)
+            this.deepBindFunctions(module)
             Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
