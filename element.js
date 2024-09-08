@@ -84,8 +84,8 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['packages', new Map()]]) })
-            return this.installModule('dev').then(() => this.app.dev.console.welcome())
+            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['packages', new Map()]]) }) // check if archives are really needed when revising dev module
+            return this.installModule('dev').then(() => this.modules.dev.console.welcome())
         }
     },
     Expose: { //optimal
@@ -98,14 +98,14 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            if (this.app.dev) this.app.archives.packages.set(packageKey, packageUrl)
+            if (this.modules.dev) this.app.archives.packages.set(packageKey, packageUrl)
             for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
 
             const unitTypeCollectionUnitClasses = {
                 components: this.Component,
                 facets: this.Facet
-            }, unitTypeCollectionUnitsAreWrapped = new Set(['components', 'facets']), unitTypeCollectionUnitsAreBound = new Set(['helpers', 'loaders'])
+            }, unitTypeCollectionUnitsAreWrapped = new Set(['components', 'facets']), unitTypeCollectionUnitsAreBound = new Set(['transforms'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
@@ -113,7 +113,7 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets': case 'helpers': case 'loaders':
+                    case 'facets':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey], effectiveUnitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
@@ -152,7 +152,7 @@ const ElementHTML = Object.defineProperties({}, {
 
             // for (const scope in pkg) if (scope in this.env) {
             //     const pkgScope = pkg[scope], envScope = this.env[scope]
-            //     if (this.app.dev) {
+            //     if (this.modules.dev) {
             //         if (!this.app.archives.has(scope)) this.app.archives.set(scope, new Map())
             //         if (!this.app.packages.has(scope)) this.app.packages.set(scope, new Map())
             //         for (const i in pkgScope) {
@@ -169,7 +169,7 @@ const ElementHTML = Object.defineProperties({}, {
             //             for (const componentKey in pkgScope) {
             //                 const importItem = await this.resolvePackageItem(pkgScope[componentKey], scope), componentId = `${componentNamespaceBase}/${componentKey}.html`
             //                 envScope[componentId] = await this.componentFactory(importItem, componentId)
-            //                 if (this.app.dev) {
+            //                 if (this.modules.dev) {
             //                     this.app.archives.get(scope).set(componentId, pkgScope[componentKey])
             //                     this.app.packages.get(scope).set(componentId, packageKey)
             //                     if (!this.app.archives.has('namespaces')) this.app.archives.set('namespaces', new Map())
@@ -204,7 +204,7 @@ const ElementHTML = Object.defineProperties({}, {
             //                 if (scope === 'hooks') {
             //                     envScope[f] ??= []
             //                     let newHookIndex = envScope[f].push(pkgScope[f].bind(this)) - 1
-            //                     if (this.app.dev) {
+            //                     if (this.modules.dev) {
             //                         if (!this.app.archives.get(scope).has(f)) this.app.archives.get(scope).set(f, [])
             //                         if (!this.app.packages.get(scope).has(f)) this.app.packages.get(scope).set(f, [])
             //                         this.app.archives.get(scope).get(f)[newHookIndex] = pkgScope[f]
@@ -285,12 +285,12 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const b in this[f]) this[f][b] = this[f][b].bind(this)
                     Object.freeze(this[f])
                 }
-                if (this.app.dev) {
+                if (this.modules.dev) {
                     for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
                     for (const f in this.console) if (typeof this.console[f] === 'function') this.console[f] = this.console[f].bind(this)
                     Object.freeze(this.console)
-                    for (const invoker in this.app.dev.invokers) window[invoker] ??= this.app.dev.invokers[invoker].bind(this)
-                    Object.freeze(this.app.dev.invokers)
+                    for (const invoker in this.modules.dev.invokers) window[invoker] ??= this.modules.dev.invokers[invoker].bind(this)
+                    Object.freeze(this.modules.dev.invokers)
                 } else {
                     console.log = () => { }
                     globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
@@ -1484,11 +1484,11 @@ const ElementHTML = Object.defineProperties({}, {
     handlers: {
         value: {
             command: async function (container, position, envelope, value) {
-                if (this.app.dev) $([envelope.vars.invocation])
+                if (this.modules.dev) $([envelope.vars.invocation])
                 return value
             },
             console: async function (container, position, envelope, value) {
-                if (this.app.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
+                if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                 return value
             },
             network: async function (container, position, envelope, value) {
@@ -1675,11 +1675,12 @@ const ElementHTML = Object.defineProperties({}, {
                 done()
             },
             x: async function (container, position, envelope, value) {
-                if (this.app.dev) this.app.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
+                if (this.modules.dev) this.modules.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
                 return value
             }
         }
     },
+    modules: { enumerable: true, value: {} },
     sys: {
         value: Object.freeze({
 
@@ -1818,7 +1819,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components.classes[id] = this.env.components[id] ?? (await this.app.compile?.component(id))
+            this.app.components.classes[id] = this.env.components[id] ?? (await this.modules.compile?.component(id))
             for (const subspaceName of (this.app.components.classes[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
                 this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
@@ -1855,26 +1856,20 @@ const ElementHTML = Object.defineProperties({}, {
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
     },
-    // getExports: {
-    //     value: async function (url) {
-    //         return url.endsWith('.wasm') ? (await WebAssembly.instantiateStreaming(fetch(url)))?.instance?.exports : (await import(url))
-    //     }
-    // },
 
     bindModuleFunctions: {
         value: function (module) {
             for (const key in module) (typeof module[key] === 'function') ? (module[key] = module[key].bind(this)) : (this.isPlainObject(module[key]) ? this.bindModuleFunctions(module[key]) : undefined)
         }
     },
-
-
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
             this.bindModuleFunctions(module)
-            Object.defineProperty(this.app, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
+            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
+
     loadGateway: {
         value: async function (protocol, manifest) {
             if (!protocol) return
@@ -1952,11 +1947,11 @@ const ElementHTML = Object.defineProperties({}, {
             if (type === 'facet/element') type = src ? 'application/element' : 'directives/element'
             switch (type) {
                 case 'directives/element':
-                    if (!this.app.compile) return
-                    const directives = await this.app.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    if (!this.modules.compile) return
+                    const directives = await this.modules.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
-                    facetCid = await this.app.compile.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.app.compile?.facet(directives, facetCid)
+                    facetCid = await this.modules.compile.cid(directives)
+                    this.app.facets.classes[facetCid] ??= await this.modules.compile?.facet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
@@ -1967,9 +1962,9 @@ const ElementHTML = Object.defineProperties({}, {
                     break
             }
             FacetClass = this.app.facets.classes[facetCid]
-            if (this.app.dev && !this.app.facets.exports.has(FacetClass)) this.app.facets.exports.set(FacetClass, { statements: JSON.parse(JSON.stringify(FacetClass.statements)) })
+            if (this.modules.dev && !this.app.facets.exports.has(FacetClass)) this.app.facets.exports.set(FacetClass, { statements: JSON.parse(JSON.stringify(FacetClass.statements)) })
             if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
-            if (this.app.dev) facetContainer.dataset.facetCid = facetCid
+            if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
             facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
