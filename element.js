@@ -110,7 +110,7 @@ const ElementHTML = Object.defineProperties({}, {
             }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
                 unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways']),
                 unitTypeCollectionUnitsMustBeFunction = new Set(['hooks']),
-                unitTypeCollectionUnitsMustBeObject = new Set(['gateways'])
+                unitTypeCollectionUnitsMustBeObject = new Set(['gateways', 'interpreters'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
@@ -118,11 +118,11 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets': case 'gateways': case 'hooks':
+                    case 'facets': case 'gateways': case 'hooks': case 'interpreters':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if (unitTypeCollectionUnitsMustBeWrapped.has(unitTypeCollectionName) && (unitTypeCollectionUnitsMayBeWrapped.has(unitTypeCollectionName) && (typeof unit === 'function'))) unit = unit(this)
+                            if (unitTypeCollectionUnitsMustBeWrapped.has(unitTypeCollectionName) && (unitTypeCollectionUnitsMayBeWrapped.has(unitTypeCollectionName) && (typeof unit === 'function'))) unit = await unit(this, pkg)
                             if (unitTypeCollectionUnitMustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof unitTypeCollectionUnitMustBeClass[unitTypeCollectionName])) continue
                             if (unitTypeCollectionUnitsMustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
                             if (unitTypeCollectionUnitsMustBeObject.has(unitTypeCollectionName) && !this.isPlainObject(unit)) continue
@@ -132,29 +132,31 @@ const ElementHTML = Object.defineProperties({}, {
                                     effectiveUnitKey = `${packageKey}-${unitKey}`
                                     break
                                 case 'hooks':
-                                    (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit[hookName])
+                                    (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit)
                                     continue
+                                case 'interpreters':
+                                    unit.matcher = new RegExp(unit.matcher)
+                                    break
                             }
                             this.env[unitTypeCollectionName][effectiveUnitKey] = unit
                         }
                         break
-                    case 'context':
-                        for (const contextKey in pkg.context ?? {}) this.env.context[contextKey] = this.deepFreeze(pkg.context[contextKey], true)
-                        break
-                    case 'interpreters':
-                        for (const interpreterKey of unitTypeCollection) {
-                            let interpreter = unitTypeCollection[interpreterKey]
-                            if (typeof interpreter === 'string') interpreter = await this.resolveImport(this.resolveUrl(interpreter, packageUrl))
-                            if (!(this.isPlainObject(interpreter) && (typeof interpreter.matcher === 'string' || (interpreter.matcher instanceof RegExp)) &&
-                                (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function'))) continue
-                            this.app.interpreters.matchers.set(new RegExp(interpreter.matcher), interpreterKey)
-                            this.app.interpreters.parsers[interpreterKey] = interpreter.parser.bind(this)
-                            if (typeof interpreter.binder === 'function') this.app.interpreters.binders[interpreterKey] = interpreter.binder.bind(this)
-                            this.app.interpreters.handlers[interpreterKey] = interpreter.handler.bind(this)
+                    case 'context': case 'namespaces':
+                        for (const key in unitTypeCollection) {
+                            let value = unitTypeCollection[key]
+                            if (typeof value === 'function') value = await value(this, pkg)
+                            switch (unitTypeCollectionName) {
+                                case 'context':
+                                    this.env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
+                                    break
+                                case 'namespaces':
+                                    if (typeof value === 'string') this.env[unitTypeCollectionName][key] = value
+                                    break
+                                case 'patterns':
+                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][key] = new RegExp(value)
+                                    break
+                            }
                         }
-                        break
-                    case 'namespaces':
-
                         break
                 }
             }
