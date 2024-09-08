@@ -109,7 +109,7 @@ const ElementHTML = Object.defineProperties({}, {
                 facets: this.Facet
             }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
                 unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways', 'interpreters']),
-                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks', 'resolvers']),
+                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks', 'resolvers', 'transforms']),
                 unitTypeCollectionUnitsMustBeObject = new Set(['interpreters'])
 
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
@@ -118,7 +118,7 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets': case 'gateways': case 'hooks': case 'interpreters': case 'resolvers':
+                    case 'facets': case 'gateways': case 'hooks': case 'interpreters': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
@@ -154,7 +154,7 @@ const ElementHTML = Object.defineProperties({}, {
                             this.env[unitTypeCollectionName][effectiveUnitKey] = unit
                         }
                         break
-                    case 'context': case 'namespaces': case 'patterns':
+                    case 'context': case 'namespaces': case 'patterns': case 'snippets':
                         for (const key in unitTypeCollection) {
                             let value = unitTypeCollection[key]
                             if (typeof value === 'function') value = await value(this, pkg)
