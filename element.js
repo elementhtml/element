@@ -155,18 +155,25 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'context': case 'namespaces': case 'patterns': case 'snippets':
-                        for (const unitKey in unitTypeCollection) {
-                            let value = unitTypeCollection[unitKey]
-                            if (typeof value === 'function') value = await value(this, pkg)
+                        for (const key in unitTypeCollection) {
+                            let value = unitTypeCollection[key]
+                            switch (typeof value) {
+                                case 'function':
+                                    value = await value(this, pkg)
+                                    break
+                                case 'string':
+                                    if (value[0] === '`' && value.endsWith('`')) value = await this.resolveImport(this.resolveUrl(value.slice(1, -1).trim(), packageUrl))
+                                    break
+                            }
                             switch (unitTypeCollectionName) {
                                 case 'context':
-                                    this.env[unitTypeCollectionName][unitKey] = this.deepFreeze(value, true)
+                                    this.env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
                                     break
                                 case 'namespaces':
-                                    if (typeof value === 'string') this.env[unitTypeCollectionName][unitKey] = value
+                                    if (typeof value === 'string') this.env[unitTypeCollectionName][key] = value
                                     break
                                 case 'patterns':
-                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][unitKey] = new RegExp(value)
+                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][key] = new RegExp(value)
                                     break
                                 case 'snippets':
                                     if (typeof unit === 'string') {
@@ -174,14 +181,18 @@ const ElementHTML = Object.defineProperties({}, {
                                         template.innerHTML = unit
                                         unit = template
                                     }
-                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][unitKey] = unit
+                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = unit
                                     break
                             }
                         }
                         break
                     case 'types':
+                        for (const typeName in unitTypeCollection) {
+                            let typeClass = unitTypeCollection[typeName]
+                            if (typeof typeClass === 'function') typeClass = await typeClass(this, pkg)
+                            // may be a JS class, a JSON-schema, a JSON object for JSON-schema, a JSON object for XDR, 
 
-
+                        }
                         break
                 }
             }
