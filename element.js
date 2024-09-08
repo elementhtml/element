@@ -108,7 +108,7 @@ const ElementHTML = Object.defineProperties({}, {
                 components: this.Component,
                 facets: this.Facet
             }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
-                unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways']),
+                unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways', 'interpreters']),
                 unitTypeCollectionUnitsMustBeFunction = new Set(['hooks', 'resolvers']),
                 unitTypeCollectionUnitsMustBeObject = new Set(['interpreters'])
 
@@ -118,7 +118,7 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets': case 'gateways': case 'hooks': case 'interpreters':
+                    case 'facets': case 'gateways': case 'hooks': case 'interpreters': case 'resolvers':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
@@ -146,11 +146,14 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
                                     unit.matcher = new RegExp(unit.matcher)
                                     break
+                                case 'resolvers':
+                                    if (!(effectiveUnitKey in this.env)) continue
+                                    break
                             }
                             this.env[unitTypeCollectionName][effectiveUnitKey] = unit
                         }
                         break
-                    case 'context': case 'namespaces':
+                    case 'context': case 'namespaces': case 'patterns':
                         for (const key in unitTypeCollection) {
                             let value = unitTypeCollection[key]
                             if (typeof value === 'function') value = await value(this, pkg)
