@@ -5,68 +5,6 @@ const ElementHTML = Object.defineProperties({}, {
     env: {
         enumerable: true, value: {
             components: {}, context: {}, facets: {},
-            helpers: {
-                'application/schema+json': function (value, typeName) {
-                    if (!this.app.types[typeName]) return
-                    const valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
-                    return { valid, errors }
-                },
-                'application/x-jsonata': function (text) {
-                    const expression = this.app.libraries['application/x-jsonata'](text)
-                    let helperName
-                    for (const matches of text.matchAll(this.sys.regexp.jsonataHelpers)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
-                    return expression
-                },
-                'form': function (obj) {
-                    if (!this.isPlainObject(obj)) return {}
-                    const formRender = {}
-                    for (const k in obj) formRender[`\`[name="${k}"]\``] = obj[k]
-                    return formRender
-                },
-                'xdr': function (operation, ...args) { return this.app.libraries.xdr[operation](...args) },
-                'text/markdown': function (text, serialize) {
-                    if (!this.app.libraries['text/markdown']) return
-                    const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
-                        htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
-                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                    for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                    text = this.app.libraries['text/markdown'].render(text)
-                    for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                    return text
-                }
-            },
-            interpreters: {},
-            loaders: {
-                'application/schema+json': async function () {
-                    this.app.libraries['application/schema+json'] = (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
-                },
-                'application/x-jsonata': async function () {
-                    this.app.libraries['application/x-jsonata'] = (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                },
-                'xdr': async function () { this.app.libraries.xdr = (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default },
-                'text/markdown': async function () {
-                    if (this.app.libraries['text/markdown']) return
-                    this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
-                    const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
-                        parser = md => {
-                            return (state) => {
-                                let tokens = state.tokens, i = -1
-                                while (++i < tokens.length) {
-                                    const token = tokens[i]
-                                    for (const child of (token.children ?? [])) {
-                                        if (child.type !== 'text') return
-                                        if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
-                                    }
-                                }
-                            }
-                        }
-                    this.app.libraries['text/markdown'].use(plugin)
-                    this.app.libraries['text/markdown'].set({ html: true })
-                }
-            },
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            options: {},
             gateways: {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link', auto: true }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link', auto: true }],
@@ -80,7 +18,65 @@ const ElementHTML = Object.defineProperties({}, {
                 'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             },
-            hooks: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
+            hooks: {},
+            interpreters: {},
+            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
+            patterns: {}, resolvers: {}, snippets: {},
+            transforms: {
+                'application/schema+json': async function (value, typeName) {
+                    this.app.libraries['application/schema+json'] ??= (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
+                    if (!this.app.types[typeName]) return
+                    const valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
+                    return { valid, errors }
+                },
+                'application/x-jsonata': async function (text) {
+                    this.app.libraries['application/x-jsonata'] ??= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
+                    const expression = this.app.libraries['application/x-jsonata'](text)
+                    let helperName
+                    for (const matches of text.matchAll(this.sys.regexp.jsonataHelpers)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
+                    return expression
+                },
+                'form': function (obj) {
+                    if (!this.isPlainObject(obj)) return {}
+                    const formRender = {}
+                    for (const k in obj) formRender[`\`[name="${k}"]\``] = obj[k]
+                    return formRender
+                },
+                'xdr': async function (operation, ...args) {
+                    this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
+                    return this.app.libraries.xdr[operation](...args)
+                },
+                'text/markdown': async function (text, serialize) {
+                    if (!this.app.libraries['text/markdown']) {
+                        if (this.app.libraries['text/markdown']) return
+                        this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
+                        const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
+                            parser = md => {
+                                return (state) => {
+                                    let tokens = state.tokens, i = -1
+                                    while (++i < tokens.length) {
+                                        const token = tokens[i]
+                                        for (const child of (token.children ?? [])) {
+                                            if (child.type !== 'text') return
+                                            if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
+                                        }
+                                    }
+                                }
+                            }
+                        this.app.libraries['text/markdown'].use(plugin)
+                        this.app.libraries['text/markdown'].set({ html: true })
+                    }
+                    const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
+                        htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
+                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
+                    for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
+                    text = this.app.libraries['text/markdown'].render(text)
+                    for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
+                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
+                    return text
+                }
+
+            }, types: {}
         }
     },
 
@@ -88,7 +84,7 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['options', JSON.parse(JSON.stringify(this.env.options))], ['packages', new Map()]]) })
+            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['packages', new Map()]]) })
             return this.installModule('dev').then(() => this.app.dev.console.welcome())
         }
     },
@@ -1351,8 +1347,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
             for (const [k, v] of Object.entries(variableMap)) if (isFunc || transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
             if (isFunc) return await expression(data, bindings)
-            const helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
-            for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
+            // const helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
+            // for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
             return await expression.evaluate(data, bindings)
         }
     },
