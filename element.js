@@ -145,6 +145,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (!unit.matcher || ((typeof unit.matcher !== 'string') && !(unit.matcher instanceof RegExp))) continue
                                     if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
                                     unit.matcher = new RegExp(unit.matcher)
+                                    // consider making the core interpreters unable to be overwritten
                                     break
                                 case 'resolvers':
                                     if (!(effectiveUnitKey in this.env)) continue
@@ -166,6 +167,14 @@ const ElementHTML = Object.defineProperties({}, {
                                     break
                                 case 'patterns':
                                     if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][key] = new RegExp(value)
+                                    break
+                                case 'snippets':
+                                    if (typeof unit === 'string') {
+                                        const template = document.createElement('template')
+                                        template.innerHTML = unit
+                                        unit = template
+                                    }
+                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = unit
                                     break
                             }
                         }
