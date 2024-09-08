@@ -155,18 +155,18 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'context': case 'namespaces': case 'patterns': case 'snippets':
-                        for (const key in unitTypeCollection) {
-                            let value = unitTypeCollection[key]
+                        for (const unitKey in unitTypeCollection) {
+                            let value = unitTypeCollection[unitKey]
                             if (typeof value === 'function') value = await value(this, pkg)
                             switch (unitTypeCollectionName) {
                                 case 'context':
-                                    this.env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
+                                    this.env[unitTypeCollectionName][unitKey] = this.deepFreeze(value, true)
                                     break
                                 case 'namespaces':
-                                    if (typeof value === 'string') this.env[unitTypeCollectionName][key] = value
+                                    if (typeof value === 'string') this.env[unitTypeCollectionName][unitKey] = value
                                     break
                                 case 'patterns':
-                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][key] = new RegExp(value)
+                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][unitKey] = new RegExp(value)
                                     break
                                 case 'snippets':
                                     if (typeof unit === 'string') {
@@ -174,10 +174,14 @@ const ElementHTML = Object.defineProperties({}, {
                                         template.innerHTML = unit
                                         unit = template
                                     }
-                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = unit
+                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][unitKey] = unit
                                     break
                             }
                         }
+                        break
+                    case 'types':
+
+
                         break
                 }
             }
