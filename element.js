@@ -190,23 +190,17 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const typeName in unitTypeCollection) {
                             let typeClass = unitTypeCollection[typeName]
                             if (typeof typeClass === 'function' && !(typeClass.prototype instanceof this.Validator)) typeClass = await typeClass(this, pkg)
-                            if (typeClass.prototype instanceof this.Validator) {
-                                // JS class
-
-                            } else if (typeof typeClass === 'string') {
-                                // XDR type definition
-
-                            } else if (this.isPlainObject(typeClass)) {
-                                // JSON-Schema definition
-
+                            switch (true) {
+                                case (typeClass.prototype instanceof this.Validator):
+                                    typeClass.E = this
+                                case (this.isPlainObject(typeClass)):
+                                    Object.freeze(typeClass)
                             }
-
+                            this.env[unitTypeCollectionName][typeName] = typeClass
                         }
                         break
                 }
             }
-
-
             if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this)(pkg)
         }
     },
