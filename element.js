@@ -103,15 +103,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.modules.dev) this.app.archives.packages.set(packageKey, packageUrl)
             for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
-
-            const unitTypeCollectionUnitMustBeClass = {
-                components: this.Component,
-                facets: this.Facet
-            }, unitTypeCollectionUnitsMustBeWrapped = new Set(['components', 'facets']),
-                unitTypeCollectionUnitsMayBeWrapped = new Set(['gateways', 'interpreters']),
-                unitTypeCollectionUnitsMustBeFunction = new Set(['hooks', 'resolvers', 'transforms']),
-                unitTypeCollectionUnitsMustBeObject = new Set(['interpreters'])
-
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 const unitTypeCollection = pkg[unitTypeCollectionName]
                 if (!this.isPlainObject(unitTypeCollection)) continue
@@ -122,10 +113,10 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if (unitTypeCollectionUnitsMustBeWrapped.has(unitTypeCollectionName) && (unitTypeCollectionUnitsMayBeWrapped.has(unitTypeCollectionName) && (typeof unit === 'function'))) unit = await unit(this, pkg)
-                            if (unitTypeCollectionUnitMustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof unitTypeCollectionUnitMustBeClass[unitTypeCollectionName])) continue
-                            if (unitTypeCollectionUnitsMustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
-                            if (unitTypeCollectionUnitsMustBeObject.has(unitTypeCollectionName) && !this.isPlainObject(unit)) continue
+                            if ((typeof unit === 'function') && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) && (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName))) unit = await unit(this, pkg)
+                            if (this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName])) continue
+                            if (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
+                            if ((unitTypeCollectionName === 'interpreters') && !this.isPlainObject(unit)) continue
                             unit = this.deepBindFunctions(unit)
                             switch (unitTypeCollectionName) {
                                 case 'components':
@@ -1747,6 +1738,12 @@ const ElementHTML = Object.defineProperties({}, {
             autoResolverSuffixes: Object.freeze({
                 component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
                 transform: ['js', 'wasm', 'jsonata'], type: ['js', 'x', 'schema.json', 'json']
+            }),
+            unitTypeCollectionChecks: Object.freeze({
+                mustBeClass: Object.freeze({ components: this.Component, facets: this.Facet }),
+                mustBeWrapped: Object.freeze(new Set(['components', 'facets'])),
+                mayBeWrapped: Object.freeze(new Set(['gateways', 'interpreters'])),
+                mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
             })
         })
     },
