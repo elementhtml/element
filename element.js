@@ -445,7 +445,7 @@ const ElementHTML = Object.defineProperties({}, {
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     case 'facets': case 'gateways': case 'hooks': case 'interpreters': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
-                            let unit = unitTypeCollection[unitKey], effectiveUnitKey = unitKey
+                            let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
                             if ((typeof unit === 'function') && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) && (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName))) unit = await unit(this, pkg)
                             if (this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) continue
@@ -453,30 +453,27 @@ const ElementHTML = Object.defineProperties({}, {
                             if ((unitTypeCollectionName === 'interpreters') && !this.isPlainObject(unit)) continue
                             unit = this.deepBindFunctions(unit)
                             switch (unitTypeCollectionName) {
-                                case 'components':
-                                    effectiveUnitKey = `${packageKey}-${unitKey}`
-                                    break
                                 case 'gateways':
                                     if (!Array.isArray(unit)) unit = [unit]
                                     const newUnit = []
                                     for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
+                                    if (!newUnit.length) continue
                                     unit = newUnit
-                                    if (!unit.length) continue
                                     break
                                 case 'hooks':
-                                    (this.env[unitTypeCollectionName][effectiveUnitKey] ??= []).push(unit)
+                                    (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
                                     continue
                                 case 'interpreters':
                                     if (!unit.matcher || ((typeof unit.matcher !== 'string') && !(unit.matcher instanceof RegExp))) continue
                                     if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
                                     unit.matcher = new RegExp(unit.matcher)
-                                    // consider making the core interpreters unable to be overwritten
-                                    break
+                                    this.env[unitTypeCollectionName][unitKey] ??= unit
+                                    continue
                                 case 'resolvers':
-                                    if (!(effectiveUnitKey in this.env)) continue
+                                    if (!(unitKey in this.env)) continue
                                     break
                             }
-                            this.env[unitTypeCollectionName][effectiveUnitKey] = unit
+                            this.env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
                         break
                     case 'context': case 'namespaces': case 'patterns': case 'snippets':
@@ -506,7 +503,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         template.innerHTML = unit
                                         unit = template
                                     }
-                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = unit
+                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = Object.freeze(unit)
                                     break
                             }
                         }
