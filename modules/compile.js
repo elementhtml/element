@@ -152,7 +152,16 @@ const nativeElementsMap = {
                             break
                         }
                     }
-                    ctx ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
+
+                    // unknown: {
+                    //     name: 'unknown',
+                    //         handler: async function (container, position, envelope, value) {
+                    //             if (this.modules.dev) this.modules.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
+                    //             return value
+                    //         }
+                    // }
+                    // ctx ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
+
                     step.ctx = ctx
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)

@@ -20,25 +20,22 @@ const ElementHTML = Object.defineProperties({}, {
             },
             hooks: {},
             interpreters: {
-                [`${this.sys.interpreterMatchers.command}`]: {
-                    name: 'command',
-                    matcher: this.sys.interpreterMatchers.command,
+                command: {
+                    matcher: /^\$`.*`$/,
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) $([envelope.vars.invocation])
                         return value
                     }
                 },
-                [`${this.sys.interpreterMatchers.console}`]: {
-                    name: 'console',
-                    matcher: this.sys.interpreterMatchers.console,
+                console: {
+                    matcher: /^\$\??$/,
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
                     }
                 },
-                [`${this.sys.interpreterMatchers.network}`]: {
-                    name: 'network',
-                    matcher: this.sys.interpreterMatchers.network,
+                network: {
+                    matcher: /^~.*~$/,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
                         let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
@@ -77,9 +74,8 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     }
                 },
-                [`${this.sys.interpreterMatchers.pattern}`]: {
-                    name: 'pattern',
-                    matcher: this.sys.interpreterMatchers.pattern,
+                pattern: {
+                    matcher: /^\/.*\/$/,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { expression } = vars
                         if (typeof value !== 'string') value = `${value}`
@@ -94,9 +90,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return { regexp }
                     }
                 },
-                [`${this.sys.interpreterMatchers.proxy}`]: {
-                    name: 'proxy',
-                    matcher: this.sys.interpreterMatchers.proxy,
+                proxy: {
+                    matcher: /^`.*`$/,
                     handler: async function (container, position, envelope, value) {
                         const { vars, labels, env } = envelope, { isSpread, useHelper, parentObjectName, childMethodName } = vars, umMergedArgs = {}
                         const { parentArgs, childArgs } = umMergedArgs
@@ -114,9 +109,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
                     }
                 },
-                [`${this.sys.interpreterMatchers.router}`]: {
-                    name: 'router',
-                    matcher: this.sys.interpreterMatchers.router,
+                router: {
+                    matcher: /^[#?/:]$/,
                     handler: async function (container, position, envelope, value) {
                         switch (typeof value) {
                             case 'string':
@@ -158,9 +152,8 @@ const ElementHTML = Object.defineProperties({}, {
                         globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
                 },
-                [`${this.sys.interpreterMatchers.selector}`]: {
-                    name: 'selector',
-                    matcher: this.sys.interpreterMatchers.selector,
+                selector: {
+                    matcher: /^\$\(.*\)$/,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { selector, scope } = vars
                         if (value != undefined) {
@@ -213,17 +206,15 @@ const ElementHTML = Object.defineProperties({}, {
                         return { selector, scope }
                     }
                 },
-                [`${this.sys.interpreterMatchers.shape}`]: {
-                    name: 'shape',
-                    matcher: this.sys.interpreterMatchers.shape,
+                shape: {
+                    matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
                     }
                 },
-                [`${this.sys.interpreterMatchers.state}`]: {
-                    name: 'state',
-                    matcher: this.sys.interpreterMatchers.state,
+                state: {
+                    matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { getReturnValue, shape, target } = vars
                         if (value == undefined) return getReturnValue()
@@ -276,18 +267,16 @@ const ElementHTML = Object.defineProperties({}, {
                         return { getReturnValue, shape, target }
                     }
                 },
-                [`${this.sys.interpreterMatchers.transform}`]: {
-                    name: 'transform',
-                    matcher: this.sys.interpreterMatchers.transform,
+                transform: {
+                    matcher: /^\(.*\)$/,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
                             cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                         return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
                     }
                 },
-                [`${this.sys.interpreterMatchers.type}`]: {
-                    name: 'type',
-                    matcher: this.sys.interpreterMatchers.type,
+                type: {
+                    matcher: /^\|.*\|$/,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { types, mode } = vars
                         let pass
@@ -307,24 +296,21 @@ const ElementHTML = Object.defineProperties({}, {
                         if (pass) return value
                     }
                 },
-                [`${this.sys.interpreterMatchers.value}`]: {
-                    name: 'value',
-                    matcher: this.sys.interpreterMatchers.value,
+                value: {
+                    matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
                     handler: async function (container, position, envelope, value) {
                         return envelope.vars.value
                     }
                 },
-                [`${this.sys.interpreterMatchers.variable}`]: {
-                    name: 'variable',
-                    matcher: this.sys.interpreterMatchers.variable,
+                variable: {
+                    matcher: /^\$\{.*\}$/,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
                     }
                 },
-                [`${this.sys.interpreterMatchers.wait}`]: {
-                    name: 'wait',
-                    matcher: this.sys.interpreterMatchers.wait,
+                wait: {
+                    matcher: /^_.*_$/,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression } = vars, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                         let ms = 0, now = Date.now()
@@ -354,13 +340,6 @@ const ElementHTML = Object.defineProperties({}, {
                         ms = Math.max(ms, 0)
                         await new Promise(resolve => setTimeout(resolve, ms))
                         done()
-                    }
-                },
-                unknown: {
-                    name: 'unknown',
-                    handler: async function (container, position, envelope, value) {
-                        if (this.modules.dev) this.modules.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
-                        return value
                     }
                 }
             },
@@ -429,7 +408,10 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
-                for (const interpreterName in this.env.interpreters) this.env.interpreters[interpreterName].parser = this.modules.compile?.parsers[interpreterName]?.parser
+                for (const interpreterId in this.env.interpreters) {
+                    const interpreter = this.env.interpreters[interpreterId]
+                    interpreter.parser = this.modules.compile.parsers[interpreter.name]
+                }
             })
         }
     },
@@ -1770,22 +1752,6 @@ const ElementHTML = Object.defineProperties({}, {
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
                 spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
             }),
-            interpreterMatchers: Object.freeze({
-                command: /^\$`.*`$/,
-                console: /^\$\??$/,
-                network: /^~.*~$/,
-                pattern: /^\/.*\/$/,
-                proxy: /^`.*`$/,
-                router: /^[#?/:]$/,
-                selector: /^\$\(.*\)$/,
-                shape: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
-                state: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
-                transform: /^\(.*\)$/,
-                type: /^\|.*\|$/,
-                value: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
-                variable: /^\$\{.*\}$/,
-                wait: /^_.*_$/
-            }),
             voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
@@ -2346,6 +2312,12 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
+for (const interpreterName in ElementHTML.env.interpreters) {
+    const interpreter = ElementHTML.env.interpreters[interpreterName], interpreterId = interpreter.matcher.toString()
+    interpreter.name = interpreterName
+    ElementHTML.env.interpreters[interpreterId] = interpreter
+    delete ElementHTML.env.interpreters[interpreterName]
+}
 
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
