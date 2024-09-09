@@ -422,7 +422,6 @@ const ElementHTML = Object.defineProperties({}, {
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            Object.defineProperty(this.app, 'archives', { enumerable: false, value: new Map([['packages', new Map()]]) }) // check if archives are really needed when revising dev module
             return this.installModule('dev').then(() => this.modules.dev.console.welcome())
         }
     },
@@ -436,7 +435,6 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            if (this.modules.dev) this.app.archives.packages.set(packageKey, packageUrl)
             for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
@@ -1628,7 +1626,6 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, namespaces: {},
             options: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }, {
-            archives: { configurable: true, enumerable: false, value: undefined },
             cells: { value: {} },
             eventTarget: { value: new EventTarget() },
             libraries: { value: {} },
@@ -1816,17 +1813,12 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag) return
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
-    },
-
-    deepBindFunctions: {
+    }, 
+    deepBindFunctions: { // optimal
         value: function (obj) {
             if (typeof obj === 'function') return obj.bind(this)
-            if (Array.isArray(obj)) {
-                for (let i = 0, l = obj.length; i < l; i++) { this.deepBindFunctions(obj[i]) }
-                return obj
-            }
-            if (!this.isPlainObject(obj)) return obj
-            for (const key in obj) obj[key] = this.deepBindFunctions(obj[key])
+            const iterators = Array.isArray(obj) ? obj.keys() : (this.isPlainObject(obj) ? Object.keys(obj) : undefined)
+            if (iterators) for (const key of iterators) obj[key] = this.deepBindFunctions(obj[key])
             return obj
         }
     },
