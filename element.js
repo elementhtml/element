@@ -24,91 +24,91 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: {
                 command: {
                     matcher: /^\$`.*`$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.command.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 console: {
                     matcher: /^\$\??$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.console.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 network: {
                     matcher: /^~.*~$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.network.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 pattern: {
                     matcher: /^\/.*\/$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.pattern.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 proxy: {
                     matcher: /^`.*`$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.proxy.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 router: {
                     matcher: /^[#?/:]$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.router.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 selector: {
                     matcher: /^\$\(.*\)$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.selector.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 shape: {
                     matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.shape.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 state: {
                     matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.state.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 transform: {
                     matcher: /^\(.*\)$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.transform.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 type: {
                     matcher: /^\|.*\|$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.type.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 value: {
                     matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.value.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 variable: {
                     matcher: /^\$\{.*\}$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.variable.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 wait: {
                     matcher: /^_.*_$/,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.wait.bind(this),
                     handler: function () { },
                     binder: function () { }
                 },
                 x: {
                     matcher: /./,
-                    parser: function () { },
+                    parser: this.modules.compile?.parsers.x.bind(this),
                     handler: function () { },
                     binder: function () { }
                 }
