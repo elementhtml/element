@@ -128,36 +128,40 @@ const nativeElementsMap = {
                             const ln = label.trim()
                             if (ln) statement.labels.add(ln)
                     }
-                    let params
+                    let ctx
                     stepIndex = stepIndex + 1
-                    for (const [matcher, interpreter] of this.app.interpreters) if (matcher.test(handlerExpression) && (typeof interpreter.parser === 'function')) {
-                        params = interpreter.parser(handlerExpression, hasDefault)
-                        if (interpreter.name === 'state') {
-                            const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
-                            switch (shape) {
-                                case 'single':
-                                    targetNames[target.type].add(target.name)
-                                    break
-                                case 'array':
-                                    for (const t of target) targetNames[t.type].add(t.name)
-                                    break
-                                case 'object':
-                                    for (const key in target) targetNames[target[key].type].add(target[key].name)
-                                    break
+                    for (const interpreterId in this.env.interpreters) {
+                        const interpreter = this.env.interpreters[interpreterId], { matcher, parser, name } = interpreter
+                        if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
+                            ctx = parser(handlerExpression, hasDefault) ?? {}
+                            ctx.interpreter = interpreterId
+                            if (name === 'state') {
+                                const { target, shape } = ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
+                                switch (shape) {
+                                    case 'single':
+                                        targetNames[target.type].add(target.name)
+                                        break
+                                    case 'array':
+                                        for (const t of target) targetNames[t.type].add(t.name)
+                                        break
+                                    case 'object':
+                                        for (const key in target) targetNames[target[key].type].add(target[key].name)
+                                        break
+                                }
                             }
+                            break
                         }
-                        break
                     }
-                    params ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
-                    step.params = params
+                    ctx ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
+                    step.ctx = ctx
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
                     statement.labels.add(`${index}`)
-                    statement.steps.push(Object.freeze(step))
+                    statement.steps.push(step)
                 }
                 statement.labels = Array.from(statement.labels)
                 Object.seal(statement.labels)
-                Object.freeze(statement.steps)
+                this.deepFreeze(statement.steps)
                 Object.freeze(statement)
                 statements.push(statement)
             }
@@ -337,10 +341,10 @@ ${scriptBody.join('{')}`
     parsers: {
         value: {
             command: function (expression, hasDefault) {
-                return { handler: 'command', ctx: { vars: { invocation: expression.trim() } } }
+                return { vars: { invocation: expression.trim() } }
             },
             console: function (expression, hasDefault) {
-                return { handler: 'console', ctx: { vars: { verbose: expression === '$?' } } }
+                return { vars: { verbose: expression === '$?' } }
             },
             network: function (expression, hasDefault) {
                 const expressionIncludesVariable = (expression.includes('${}') || expression.includes('${$}'))
@@ -349,12 +353,12 @@ ${scriptBody.join('{')}`
                     returnFullRequest = true
                     expression = expression.slice(1, -1)
                 }
-                return { handler: 'network', ctx: { vars: { expression, expressionIncludesVariable, hasDefault, returnFullRequest } } }
+                return { vars: { expression, expressionIncludesVariable, hasDefault, returnFullRequest } }
             },
             pattern: function (expression, hasDefault) {
                 expression = expression.trim()
                 if (!expression) return
-                return { handler: 'pattern', ctx: { binder: true, vars: { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) } } }
+                return { binder: true, vars: { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) } }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
@@ -368,24 +372,10 @@ ${scriptBody.join('{')}`
                     [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                     childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 }
-                return { handler: 'proxy', ctx: { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper } } }
+                return { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper } }
             },
             router: function (expression, hasDefault) {
-                let handler
-                switch (expression) {
-                    case '#':
-                        return { handler: 'routerhash', ctx: { binder: true, signal: true } }
-                        break
-                    case '?':
-                        handler = 'routersearch'
-                        break
-                    case '/':
-                        handler = 'routerpathname'
-                        break
-                    case ':':
-                        handler = 'router'
-                }
-                return { handler }
+                return { vars: { expression, signal: expression === '#' } }
             },
             selector: function (expression, hasDefault) {
                 if (!expression.includes('|')) {
@@ -408,22 +398,22 @@ ${scriptBody.join('{')}`
                     }
                 }
                 const [scope, selector] = expression.split('|').map(s => s.trim())
-                return { handler: 'selector', ctx: { binder: true, signal: true, vars: { scope, selector } } }
+                return { binder: true, signal: true, vars: { scope, selector } }
             },
             shape: function (expression, hasDefault) {
                 const shape = this.resolveShape(expression)
-                return { handler: 'shape', ctx: { vars: { shape } } }
+                return { vars: { shape } }
             },
             state: function (expression, hasDefault) {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
-                return { handler: 'state', ctx: { binder: true, signal: true, vars: { target, shape } } }
+                return { binder: true, signal: true, vars: { target, shape } }
             },
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-                return { handler: 'transform', ctx: { vars: { expression } } }
+                return { vars: { expression } }
             },
             type: function (expression, hasDefault) {
                 let mode = 'any', types = []
@@ -440,20 +430,20 @@ ${scriptBody.join('{')}`
                     const ifMode = typeName[0] !== '!'
                     types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
                 }
-                return { handler: 'type', ctx: { vars: { types, mode } } }
+                return { vars: { types, mode } }
             },
             value: function (expression, hasDefault) {
                 const value = expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression)
-                return { handler: 'value', ctx: { vars: { value } } }
+                return { vars: { value } }
             },
             variable: function (expression, hasDefault) {
-                return { handler: 'variable', ctx: { vars: { expression } } }
+                return { vars: { expression } }
             },
             wait: function (expression, hasDefault) {
-                return { handler: 'wait', ctx: { vars: { expression } } }
+                return { vars: { expression } }
             },
             x: function (expression, hasDefault) {
-                return { handler: 'x', ctx: { vars: { expression, hasDefault } } }
+                return { vars: { expression, hasDefault } }
             }
         }
     }
