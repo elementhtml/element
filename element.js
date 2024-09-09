@@ -24,7 +24,6 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: {
                 command: {
                     matcher: /^\$`.*`$/,
-                    parser: this.modules.compile?.parsers.command,
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) $([envelope.vars.invocation])
                         return value
@@ -32,7 +31,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 console: {
                     matcher: /^\$\??$/,
-                    parser: this.modules.compile?.parsers.console,
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
@@ -40,7 +38,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 network: {
                     matcher: /^~.*~$/,
-                    parser: this.modules.compile?.parsers.network,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
                         let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
@@ -81,7 +78,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 pattern: {
                     matcher: /^\/.*\/$/,
-                    parser: this.modules.compile?.parsers.pattern,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { expression } = vars
                         if (typeof value !== 'string') value = `${value}`
@@ -98,7 +94,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 proxy: {
                     matcher: /^`.*`$/,
-                    parser: this.modules.compile?.parsers.proxy,
                     handler: async function (container, position, envelope, value) {
                         const { vars, labels, env } = envelope, { isSpread, useHelper, parentObjectName, childMethodName } = vars, umMergedArgs = {}
                         const { parentArgs, childArgs } = umMergedArgs
@@ -118,7 +113,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 router: {
                     matcher: /^[#?/:]$/,
-                    parser: this.modules.compile?.parsers.router,
                     handler: async function (container, position, envelope, value) {
                         switch (typeof value) {
                             case 'string':
@@ -162,7 +156,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 selector: {
                     matcher: /^\$\(.*\)$/,
-                    parser: this.modules.compile?.parsers.selector,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { selector, scope } = vars
                         if (value != undefined) {
@@ -217,7 +210,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 shape: {
                     matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
-                    parser: this.modules.compile?.parsers.shape,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
@@ -225,7 +217,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 state: {
                     matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
-                    parser: this.modules.compile?.parsers.state,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { getReturnValue, shape, target } = vars
                         if (value == undefined) return getReturnValue()
@@ -280,7 +271,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 transform: {
                     matcher: /^\(.*\)$/,
-                    parser: this.modules.compile?.parsers.transform,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
                             cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
@@ -289,7 +279,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 type: {
                     matcher: /^\|.*\|$/,
-                    parser: this.modules.compile?.parsers.type,
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { types, mode } = vars
                         let pass
@@ -311,14 +300,12 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 value: {
                     matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
-                    parser: this.modules.compile?.parsers.value,
                     handler: async function (container, position, envelope, value) {
                         return envelope.vars.value
                     }
                 },
                 variable: {
                     matcher: /^\$\{.*\}$/,
-                    parser: this.modules.compile?.parsers.variable,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
@@ -326,7 +313,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 wait: {
                     matcher: /^_.*_$/,
-                    parser: this.modules.compile?.parsers.wait,
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression } = vars, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                         let ms = 0, now = Date.now()
@@ -360,7 +346,6 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 x: {
                     matcher: /./,
-                    parser: this.modules.compile?.parsers.x,
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) this.modules.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
                         return value
@@ -427,7 +412,13 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Compile: { enumerable: true, value: function () { return this.installModule('compile') } }, //optimal
+    Compile: { //optimal
+        enumerable: true, value: function () {
+            return this.installModule('compile').then(() => {
+                for (const interpreterName in this.env.interpreters) this.env.interpreters[interpreterName].parser = this.modules.compile?.parsers[interpreterName]?.parser
+            })
+        }
+    },
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
@@ -543,30 +534,13 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                for (const s in this.sys.selector) {
-                    for (const ss in this.sys.selector[s]) if (typeof this.sys.selector[s][ss] === 'function') this.sys.selector[s][ss] = this.sys.selector[s][ss].bind(this)
-                    Object.freeze(this.sys.selector[s])
-                }
-                Object.freeze(this.sys.selector)
-                for (const c in this.sys.color) if (typeof this.sys.color[c] === 'function') this.sys.color[c] = this.sys.color[c].bind(this)
-                Object.freeze(this.sys.color)
-                for (const s of ['helpers', 'loaders']) for (const b in this.env[s]) this.env[s][b] = this.env[s][b].bind(this)
-                for (const a in this.env) Object.freeze(this.env[a])
-                Object.freeze(this.env)
-                for (const f of ['binders', 'handlers']) {
-                    if (!this[f]) continue
-                    for (const b in this[f]) this[f][b] = this[f][b].bind(this)
-                    Object.freeze(this[f])
-                }
+                this.deepBindFunctions(this.sys)
+                this.deepFreeze(this.sys)
+                this.deepBindFunctions(this.env)
+                this.deepFreeze(this.env)
                 if (this.modules.dev) {
-                    for (const f in Object.freeze(this.app.archives)) Object.freeze(this.app.archives[f])
-                    for (const f in this.console) if (typeof this.console[f] === 'function') this.console[f] = this.console[f].bind(this)
-                    Object.freeze(this.console)
-                    for (const invoker in this.modules.dev.invokers) window[invoker] ??= this.modules.dev.invokers[invoker].bind(this)
-                    Object.freeze(this.modules.dev.invokers)
-                } else {
-                    console.log = () => { }
-                    globalThis.addEventListener('unhandledrejection', event => event.preventDefault())
+                    this.deepBindFunctions(this.modules.dev)
+                    this.deepFreeze(this.modules.dev)
                 }
                 Object.freeze(this)
                 this.processQueue()
