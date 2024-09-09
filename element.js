@@ -890,7 +890,7 @@ const ElementHTML = Object.defineProperties({}, {
             return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'facet/element' || element.type === 'application/element'))
         }
     },
-    isPlainObject: {
+    isPlainObject: { // optimal
         enumerable: true, value: function (obj) {
             if (!obj) return false
             const proto = Object.getPrototypeOf(obj)
@@ -1813,7 +1813,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag) return
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
-    }, 
+    },
     deepBindFunctions: { // optimal
         value: function (obj) {
             if (typeof obj === 'function') return obj.bind(this)
