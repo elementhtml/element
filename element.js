@@ -2,8 +2,6 @@ const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '2.0.0' },
 
-    expose: { enumerable: true, writable: true, value: false },
-
     env: {
         enumerable: true, value: {
             components: {}, context: {}, facets: {},
@@ -411,6 +409,8 @@ const ElementHTML = Object.defineProperties({}, {
             }, types: {}
         }
     },
+
+    expose: { enumerable: true, writable: true, value: false },
 
     Compile: { //optimal
         enumerable: true, value: function () {
@@ -2298,9 +2298,9 @@ const ElementHTML = Object.defineProperties({}, {
 
     queue: { value: new Map() }
 })
-ElementHTML.Validator.E = ElementHTML
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
+ElementHTML.Validator.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: {
         value: class extends ElementHTML.State {
