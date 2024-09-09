@@ -130,92 +130,25 @@ const nativeElementsMap = {
                     }
                     let params
                     stepIndex = stepIndex + 1
-                    switch (handlerExpression) {
-                        case 'true': case 'false': case 'null': case '.': case '!': case '-':
-                            params = this.modules.compile.parsers.value(handlerExpression, hasDefault)
-                            break
-                        case '#': case '?': case '/': case ':':
-                            params = this.modules.compile.parsers.router(handlerExpression, hasDefault)
-                            break
-                        case '$': case '$?':
-                            params = this.modules.compile.parsers.console(handlerExpression, hasDefault)
-                            break
-                        default:
-                            const handlerFlag = handlerExpression[0],
-                                pairedFlags = { '{': '}', '(': ')', '[': ']' },
-                                symmetricalFlags = new Set(['(', '|', '~', '`', '/', '_', "'", '"', '{', '['])
-                            let handlerExpressionInner
-                            if (pairedFlags[handlerFlag] || symmetricalFlags.has(handlerFlag)) {
-                                if ((pairedFlags[handlerFlag] ?? handlerFlag) !== handlerExpression.slice(-1)) break
-                                handlerExpressionInner = handlerExpression.slice(1, -1)
-                            } else {
-                                handlerExpressionInner = handlerExpression.slice(1)
-                            }
-                            switch (handlerFlag) {
-                                case "(":
-                                    params = this.modules.compile.parsers.transform(handlerExpressionInner, hasDefault)
+                    for (const [matcher, interpreter] of this.app.interpreters) if (matcher.test(handlerExpression) && (typeof interpreter.parser === 'function')) {
+                        params = interpreter.parser(handlerExpression, hasDefault)
+                        if (interpreter.name === 'state') {
+                            const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
+                            switch (shape) {
+                                case 'single':
+                                    targetNames[target.type].add(target.name)
                                     break
-                                case '|':
-                                    params = this.modules.compile.parsers.type(handlerExpressionInner, hasDefault)
+                                case 'array':
+                                    for (const t of target) targetNames[t.type].add(t.name)
                                     break
-                                case '~':
-                                    params = this.modules.compile.parsers.network(handlerExpressionInner, hasDefault)
-                                    break
-                                case '`':
-                                    params = this.modules.compile.parsers.proxy(handlerExpressionInner, hasDefault)
-                                    break
-                                case '/':
-                                    params = this.modules.compile.parsers.pattern(handlerExpressionInner, hasDefault)
-                                    break
-                                case "_":
-                                    params = this.modules.compile.parsers.wait(handlerExpressionInner, hasDefault)
-                                    break
-                                case "$":
-                                    const handlerInnerFlag = handlerExpressionInner[0], handlerExpressionInnerSub = handlerExpression.slice(1)
-                                    switch (handlerInnerFlag) {
-                                        case '{':
-                                            params = this.modules.compile.parsers.variable(handlerExpression, hasDefault)
-                                            break
-                                        case '(':
-                                            params = this.modules.compile.parsers.selector(handlerExpressionInnerSub, hasDefault)
-                                            break
-                                        case '`':
-                                            params = this.modules.compile.parsers.command(handlerExpressionInnerSub, hasDefault)
-                                            break
-                                    }
-                                    break
-                                case "#": case "@":
-                                    params = this.modules.compile.parsers.state(handlerExpression, hasDefault)
-                                    const { target, shape } = params.ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
-                                    switch (shape) {
-                                        case 'single':
-                                            targetNames[target.type].add(target.name)
-                                            break
-                                        case 'array':
-                                            for (const t of target) targetNames[t.type].add(t.name)
-                                            break
-                                        case 'object':
-                                            for (const key in target) targetNames[target[key].type].add(target[key].name)
-                                            break
-                                    }
-                                    break
-                                case "'":
-                                    handlerExpression = `"${handlerExpression.slice(1, -1)}"`
-                                case '"': case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "7": case "9": case "-":
-                                    params = this.modules.compile.parsers.value(handlerExpression, hasDefault)
-                                    break
-                                case "{": case "[": case "?":
-                                    params = this.modules.compile.parsers.shape(handlerExpression, hasDefault)
+                                case 'object':
+                                    for (const key in target) targetNames[target[key].type].add(target[key].name)
                                     break
                             }
-                    }
-                    if (params === undefined) {
-                        for (const [syntaxPattern, syntaxName] of this.app.syntax.matchers) if (syntaxPattern.test(handlerExpression) && (typeof this.app.syntax.parsers[syntaxName] === 'function')) {
-                            params = this.app.syntax.parsers[syntaxName](handlerExpression, hasDefault)
-                            break
                         }
-                        params ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
+                        break
                     }
+                    params ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
                     step.params = params
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
