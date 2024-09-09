@@ -1274,7 +1274,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    resolveUrl: {
+    resolveUrl: { // optimal
         enumerable: true, value: function (value, base, raw) {
             if (typeof value !== 'string') return value
             base ??= document.baseURI
@@ -1282,14 +1282,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (protocol === document.location.protocol) return raw ? valueUrl : valueUrl.href
             const gateway = this.app.gateways[protocol]
             if (gateway) {
-                const path = valueUrl.pathname.replace(/^\/+/, '')
+                const path = valueUrl.pathname.replace(this.sys.regexp.leadingSlash, '')
                 switch (typeof gateway) {
                     case 'function':
                         const gatewayArgs = { path }
                         for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
                         return raw ? new URL((gateway(gatewayArgs)), base) : (gateway(gatewayArgs))
                     case 'string':
-                        const mergedUrl = new URL(gateway.replace(/{([^}]+)}/g, (match, mergeExpression) => {
+                        const mergedUrl = new URL(gateway.replace(this.sys.regexp.gatewayUrlTemplateMergeField, (match, mergeExpression) => {
                             mergeExpression = mergeExpression.trim()
                             if (!mergeExpression) return path
                             if (!mergeExpression.includes('|')) {
@@ -1746,9 +1746,10 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
+                gatewayUrlTemplateMergeField: /%([^%]+)%/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
-                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g,
+                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, protocolSplitter: /\:\/\/(.+)/, dash: /-/g, xy: /[xy]/g,
                 isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
