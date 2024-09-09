@@ -58,24 +58,6 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: function () { },
                     binder: function () { }
                 },
-                routerHash: {
-                    matcher: /./,
-                    parser: function () { },
-                    handler: function () { },
-                    binder: function () { }
-                },
-                routerPathname: {
-                    matcher: /./,
-                    parser: function () { },
-                    handler: function () { },
-                    binder: function () { }
-                },
-                routerSearch: {
-                    matcher: /./,
-                    parser: function () { },
-                    handler: function () { },
-                    binder: function () { }
-                },
                 selector: {
                     matcher: /^\$\(.*\)$/,
                     parser: function () { },
@@ -83,13 +65,13 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: function () { }
                 },
                 shape: {
-                    matcher: /^[{\[]?.*[}\]]?$/,
+                    matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
                     parser: function () { },
                     handler: function () { },
                     binder: function () { }
                 },
                 state: {
-                    matcher: /^[#@].*$/,
+                    matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
                     parser: function () { },
                     handler: function () { },
                     binder: function () { }
@@ -107,7 +89,7 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: function () { }
                 },
                 value: {
-                    matcher: /^(true|false|null|[.!-])$/,
+                    matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
                     parser: function () { },
                     handler: function () { },
                     binder: function () { }
