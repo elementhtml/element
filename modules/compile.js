@@ -75,7 +75,7 @@ const nativeElementsMap = {
                 }
             }
             const sanitizedScript = scriptCode.replace(regexp.extends, extendsStatement)
-            return this.componentFactory({ extends: extendsId, native, script: sanitizedScript, style, template }, id)
+            return this.modules.compile.componentFactory({ extends: extendsId, native, script: sanitizedScript, style, template }, id)
         }
     },
     facet: {
@@ -164,6 +164,49 @@ const nativeElementsMap = {
             return this.facetFactory({ fieldNames, cellNames, statements, cid })
         }
     },
+    componentFactory: {
+        value: async function (manifest, id) {
+            let ComponentClass
+            if (manifest.prototype instanceof this.Component) {
+                ComponentClass = manifest
+            } else {
+                if (!this.isPlainObject(manifest)) return
+                const { extends: mExtends, native: mNative, script: mScript, style: mStyle, template: mTemplate } = manifest
+                let cExtends = mExtends ? ((mNative && mExtends === mNative) ? mExtends : this.resolveUrl(mExtends)) : undefined,
+                    native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.isValidTag(mNative) ? mNative : undefined,
+                    style = mStyle && (typeof mStyle === 'string') ? mStyle : (mStyle instanceof HTMLElement ? mStyle.textContent : ''),
+                    template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : (mTemplate instanceof HTMLElement ? mTemplate.innerHTML : ''),
+                    script = mScript && (typeof mScript === 'string') ? mScript.replace('export default ', '').trim() : 'class extends E.Component {}',
+                    [scriptHead, ...scriptBody] = script.split('{')
+                script = `  ${scriptHead} {
+
+        static {
+            this.extends = ${cExtends ? ("'" + cExtends + "'") : "undefined"}
+            this.native = ${native ? ("'" + native + "'") : "undefined"}
+            const styleCss = \`${style}\`, templateHtml = \`${template}\`
+            if (styleCss) {
+                this.style = document.createElement('style')
+                this.style.textContent = styleCss
+            }
+            if (templateHtml) {
+                this.template = document.createElement('template')
+                this.template.innerHTML = templateHtml
+            }
+        }
+
+${scriptBody.join('{')}`
+
+                this.setGlobalNamespace()
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${script}`], { type: 'text/javascript' }))
+                ComponentClass = (await import(classAsModuleUrl)).default
+                URL.revokeObjectURL(classAsModuleUrl)
+            }
+            Object.defineProperty(ComponentClass, 'id', { enumerable: true, value: id })
+            Object.defineProperty(ComponentClass, 'E', { value: this })
+            Object.defineProperty(ComponentClass.prototype, 'E', { value: this })
+            return ComponentClass
+        }
+    },
     canonicalizeDirectives: {
         value: async function (directives) {
             directives = directives.trim()
@@ -190,6 +233,34 @@ const nativeElementsMap = {
         value: async function (str) {
             if (typeof str !== 'string') str = `${str}`
             return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
+        }
+    },
+    facetFactory: {
+        value: async function (manifest) {
+            let FacetClass
+            if (manifest.prototype instanceof this.Facet) {
+                FacetClass = manifest
+            } else {
+                if (!this.isPlainObject(manifest)) return
+                const { fieldNames = [], cellNames = [], statements = [], cid } = manifest
+                if (!cid || (typeof cid !== 'string')) return
+                const source = `  class ${cid} extends E.Facet {
+
+        static cid = '${cid}'
+        static fieldNames = ${JSON.stringify(Array.from(fieldNames))}
+        static cellNames = ${JSON.stringify(Array.from(cellNames))}
+        static statements = ${JSON.stringify(statements)}
+
+    }`
+
+                this.setGlobalNamespace()
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${source}`], { type: 'text/javascript' }))
+                FacetClass = (await import(classAsModuleUrl)).default
+                URL.revokeObjectURL(classAsModuleUrl)
+            }
+            Object.defineProperty(FacetClass, 'E', { value: this })
+            Object.defineProperty(FacetClass.prototype, 'E', { value: this })
+            return FacetClass
         }
     },
     getStateGroup: {
