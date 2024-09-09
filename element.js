@@ -24,91 +24,97 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: {
                 command: {
                     matcher: /^\$`.*`$/,
-                    parser: this.modules.compile?.parsers.command.bind(this),
+                    parser: this.modules.compile?.parsers.command,
                     handler: function () { },
                     binder: function () { }
                 },
                 console: {
                     matcher: /^\$\??$/,
-                    parser: this.modules.compile?.parsers.console.bind(this),
+                    parser: this.modules.compile?.parsers.console,
                     handler: function () { },
                     binder: function () { }
                 },
                 network: {
                     matcher: /^~.*~$/,
-                    parser: this.modules.compile?.parsers.network.bind(this),
+                    parser: this.modules.compile?.parsers.network,
                     handler: function () { },
                     binder: function () { }
                 },
                 pattern: {
                     matcher: /^\/.*\/$/,
-                    parser: this.modules.compile?.parsers.pattern.bind(this),
+                    parser: this.modules.compile?.parsers.pattern,
                     handler: function () { },
-                    binder: function () { }
+                    binder: async function (container, position, envelope) {
+                        const { vars } = envelope, { expression } = vars
+                        let { regexp } = vars
+                        regexp ??= new RegExp(expression)
+                        this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
+                        return { regexp }
+                    }
                 },
                 proxy: {
                     matcher: /^`.*`$/,
-                    parser: this.modules.compile?.parsers.proxy.bind(this),
+                    parser: this.modules.compile?.parsers.proxy,
                     handler: function () { },
                     binder: function () { }
                 },
                 router: {
                     matcher: /^[#?/:]$/,
-                    parser: this.modules.compile?.parsers.router.bind(this),
+                    parser: this.modules.compile?.parsers.router,
                     handler: function () { },
                     binder: function () { }
                 },
                 selector: {
                     matcher: /^\$\(.*\)$/,
-                    parser: this.modules.compile?.parsers.selector.bind(this),
+                    parser: this.modules.compile?.parsers.selector,
                     handler: function () { },
                     binder: function () { }
                 },
                 shape: {
                     matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
-                    parser: this.modules.compile?.parsers.shape.bind(this),
+                    parser: this.modules.compile?.parsers.shape,
                     handler: function () { },
                     binder: function () { }
                 },
                 state: {
                     matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
-                    parser: this.modules.compile?.parsers.state.bind(this),
+                    parser: this.modules.compile?.parsers.state,
                     handler: function () { },
                     binder: function () { }
                 },
                 transform: {
                     matcher: /^\(.*\)$/,
-                    parser: this.modules.compile?.parsers.transform.bind(this),
+                    parser: this.modules.compile?.parsers.transform,
                     handler: function () { },
                     binder: function () { }
                 },
                 type: {
                     matcher: /^\|.*\|$/,
-                    parser: this.modules.compile?.parsers.type.bind(this),
+                    parser: this.modules.compile?.parsers.type,
                     handler: function () { },
                     binder: function () { }
                 },
                 value: {
                     matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
-                    parser: this.modules.compile?.parsers.value.bind(this),
+                    parser: this.modules.compile?.parsers.value,
                     handler: function () { },
                     binder: function () { }
                 },
                 variable: {
                     matcher: /^\$\{.*\}$/,
-                    parser: this.modules.compile?.parsers.variable.bind(this),
+                    parser: this.modules.compile?.parsers.variable,
                     handler: function () { },
                     binder: function () { }
                 },
                 wait: {
                     matcher: /^_.*_$/,
-                    parser: this.modules.compile?.parsers.wait.bind(this),
+                    parser: this.modules.compile?.parsers.wait,
                     handler: function () { },
                     binder: function () { }
                 },
                 x: {
                     matcher: /./,
-                    parser: this.modules.compile?.parsers.x.bind(this),
+                    parser: this.modules.compile?.parsers.x,
                     handler: function () { },
                     binder: function () { }
                 }
@@ -1409,13 +1415,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
     binders: {
         value: {
-            pattern: async function (container, position, envelope) {
-                const { vars } = envelope, { expression } = vars
-                let { regexp } = vars
-                regexp ??= new RegExp(expression)
-                this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
-                return { regexp }
-            },
+            // pattern: async function (container, position, envelope) {
+            //     const { vars } = envelope, { expression } = vars
+            //     let { regexp } = vars
+            //     regexp ??= new RegExp(expression)
+            //     this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
+            //     return { regexp }
+            // },
             proxy: async function (container, position, envelope) {
                 const { vars } = envelope, { parentObjectName, useHelper, isSpread } = vars
                 if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
