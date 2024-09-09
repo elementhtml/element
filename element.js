@@ -21,7 +21,116 @@ const ElementHTML = Object.defineProperties({}, {
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             },
             hooks: {},
-            interpreters: {},
+            interpreters: {
+                command: {
+                    matcher: /^\$`.*`$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                console: {
+                    matcher: /^\$\??$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                network: {
+                    matcher: /^~.*~$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                pattern: {
+                    matcher: /^\/.*\/$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                proxy: {
+                    matcher: /^`.*`$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                router: {
+                    matcher: /^[#?/:]$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                routerHash: {
+                    matcher: /./,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                routerPathname: {
+                    matcher: /./,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                routerSearch: {
+                    matcher: /./,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                selector: {
+                    matcher: /^\$\(.*\)$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                shape: {
+                    matcher: /^[{\[]?.*[}\]]?$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                state: {
+                    matcher: /^[#@].*$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                transform: {
+                    matcher: /^\(.*\)$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                type: {
+                    matcher: /^\|.*\|$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                value: {
+                    matcher: /^(true|false|null|[.!-])$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                variable: {
+                    matcher: /^\$\{.*\}$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                wait: {
+                    matcher: /^_.*_$/,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                },
+                x: {
+                    matcher: /./,
+                    parser: function () { },
+                    handler: function () { },
+                    binder: function () { }
+                }
+            },
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
