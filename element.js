@@ -20,91 +20,22 @@ const ElementHTML = Object.defineProperties({}, {
             },
             hooks: {},
 
-            //     "router": "/^[#?/:]$/",
-            //     "network": "/^`.*`$/",
-            //     "wait": "/^_.*_$/"
-            //     "transform": "/^\\(.*\\)$/",
-            //     "type": "/^\\|.*\\|$/",
-            //     "pattern": "/^\\/.*\\/$/",
-            //     "variable": "/^\\$\\{.*\\}$/",
-            //     "value": "/^(true|false|null|[.!-]|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|-?\\d+(\\.\\d+)?)$/",
-            //     "shape": "/^[{](.*?)[}]$|^[\\[](.*?)[\\]]$|^\\?[^ ]+$/",
-            //     "state": "/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\\[][a-zA-Z0-9#@?!, ]*[\\]])$/",
-            //     "selector": "/^\\$\\(.*\\)$/",
-            //     "command": "/^\\$`.*`$/",
-            //     "console": "/^\\$\\??$/",
+            // "router": "/^[#?/:]$/",
+            // "selector": "/^\\$\\(.*\\)$/",
+            // "variable": "/^\\$\\{.*\\}$/",
+            // "transform": "/^\\(.*\\)$/",
+            // "state": "/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\\[][a-zA-Z0-9#@?!, ]*[\\]])$/",
+            // "value": "/^(true|false|null|[.!-]|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|-?\\d+(\\.\\d+)?)$/",
+            // "shape": "/^[{](.*?)[}]$|^[\\[](.*?)[\\]]$|^\\?[^ ]+$/",
+            // "type": "/^\\|.*\\|$/",
+            // "pattern": "/^\\/.*\\/$/",
+            // "network": "/^~.*~$/",
+            // "wait": "/^_.*_$/",
+            // "command": "/^\\$`.*`$/",
+            // "console": "/^\\$\\??$/"
+
 
             interpreters: new Map([
-                [/^\$`.*`$/, {
-                    name: 'command',
-                    handler: async function (container, position, envelope, value) {
-                        if (this.modules.dev) $([envelope.vars.invocation])
-                        return value
-                    }
-                }],
-                [/^\$\??$/, {
-                    name: 'console',
-                    handler: async function (container, position, envelope, value) {
-                        if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
-                        return value
-                    }
-                }],
-                [/^`.*`$/, {
-                    name: 'network',
-                    handler: async function (container, position, envelope, value) {
-                        const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
-                        let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
-                        if (!url) return
-                        const options = {}
-                        if (!((value == undefined) || (expressionIncludesVariable && typeof value === 'string'))) {
-                            Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
-                            if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
-                                options.headers ||= {}
-                                options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
-                                delete options['content-type']
-                                delete options.contentType
-                                if (!options.headers['Content-Type']) {
-                                    if (typeof options.body === 'string') {
-                                        if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
-                                            options.headers['Content-Type'] = 'application/json'
-                                        } else if (this.sys.regexp.isFormString.test(options.body)) {
-                                            options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-                                        } else if (this.sys.regexp.isDataUrl.test(options.body)) {
-                                            options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
-                                        }
-                                    } else {
-                                        options.headers['Content-Type'] = 'application/json'
-                                    }
-                                }
-                            }
-                            if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
-                        }
-                        return fetch(url, options).then(r => {
-                            if (returnFullRequest) {
-                                return r
-                            } else {
-                                if (hasDefault && !r.ok) return
-                                return r.ok ? this.parse(r) : undefined
-                            }
-                        })
-                    }
-                }],
-                [/^\/.*\/$/, {
-                    name: 'pattern',
-                    handler: async function (container, position, envelope, value) {
-                        const { vars } = envelope, { expression } = vars
-                        if (typeof value !== 'string') value = `${value}`
-                        const match = value.match(this.app.regexp[expression])
-                        return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
-                    },
-                    binder: async function (container, position, envelope) {
-                        const { vars } = envelope, { expression } = vars
-                        let { regexp } = vars
-                        regexp ??= new RegExp(expression)
-                        this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
-                        return { regexp }
-                    }
-                }],
                 [/^[#?/:]$/, {
                     name: 'router',
                     handler: async function (container, position, envelope, value) {
@@ -202,11 +133,19 @@ const ElementHTML = Object.defineProperties({}, {
                         return { selector, scope }
                     }
                 }],
-                [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
-                    name: 'shape',
+                [/^\$\{.*\}$/, {
+                    name: 'variable',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
+                        return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
+                    }
+                }],
+                [/^\(.*\)$/, {
+                    name: 'transform',
+                    handler: async function (container, position, envelope, value) {
+                        const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
+                            cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                        return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
                     }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
@@ -263,12 +202,17 @@ const ElementHTML = Object.defineProperties({}, {
                         return { getReturnValue, shape, target }
                     }
                 }],
-                [/^\(.*\)$/, {
-                    name: 'transform',
+                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
+                    name: 'value',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
-                            cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                        return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
+                        return envelope.vars.value
+                    }
+                }],
+                [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
+                    name: 'shape',
+                    handler: async function (container, position, envelope, value) {
+                        const { labels, env } = envelope, { cells, context, fields } = env
+                        return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
                     }
                 }],
                 [/^\|.*\|$/, {
@@ -292,17 +236,60 @@ const ElementHTML = Object.defineProperties({}, {
                         if (pass) return value
                     }
                 }],
-                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
-                    name: 'value',
+                [/^\/.*\/$/, {
+                    name: 'pattern',
                     handler: async function (container, position, envelope, value) {
-                        return envelope.vars.value
+                        const { vars } = envelope, { expression } = vars
+                        if (typeof value !== 'string') value = `${value}`
+                        const match = value.match(this.app.regexp[expression])
+                        return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { vars } = envelope, { expression } = vars
+                        let { regexp } = vars
+                        regexp ??= new RegExp(expression)
+                        this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
+                        return { regexp }
                     }
                 }],
-                [/^\$\{.*\}$/, {
-                    name: 'variable',
+                [/^`.*`$/, {
+                    name: 'network',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
+                        const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
+                        let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
+                        if (!url) return
+                        const options = {}
+                        if (!((value == undefined) || (expressionIncludesVariable && typeof value === 'string'))) {
+                            Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
+                            if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
+                                options.headers ||= {}
+                                options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
+                                delete options['content-type']
+                                delete options.contentType
+                                if (!options.headers['Content-Type']) {
+                                    if (typeof options.body === 'string') {
+                                        if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
+                                            options.headers['Content-Type'] = 'application/json'
+                                        } else if (this.sys.regexp.isFormString.test(options.body)) {
+                                            options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                                        } else if (this.sys.regexp.isDataUrl.test(options.body)) {
+                                            options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
+                                        }
+                                    } else {
+                                        options.headers['Content-Type'] = 'application/json'
+                                    }
+                                }
+                            }
+                            if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
+                        }
+                        return fetch(url, options).then(r => {
+                            if (returnFullRequest) {
+                                return r
+                            } else {
+                                if (hasDefault && !r.ok) return
+                                return r.ok ? this.parse(r) : undefined
+                            }
+                        })
                     }
                 }],
                 [/^_.*_$/, {
@@ -336,6 +323,20 @@ const ElementHTML = Object.defineProperties({}, {
                         ms = Math.max(ms, 0)
                         await new Promise(resolve => setTimeout(resolve, ms))
                         done()
+                    }
+                }],
+                [/^\$`.*`$/, {
+                    name: 'command',
+                    handler: async function (container, position, envelope, value) {
+                        if (this.modules.dev) $([envelope.vars.invocation])
+                        return value
+                    }
+                }],
+                [/^\$\??$/, {
+                    name: 'console',
+                    handler: async function (container, position, envelope, value) {
+                        if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
+                        return value
                     }
                 }]
             ]),
