@@ -422,14 +422,13 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (unitTypeCollectionName) {
                     case 'components':
                         this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    case 'facets': case 'gateways': case 'hooks': case 'interpreters': case 'resolvers': case 'transforms':
+                    case 'facets': case 'gateways': case 'hooks': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
                             if ((typeof unit === 'function') && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) && (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName))) unit = await unit(this, pkg)
                             if (this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) continue
                             if (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
-                            if ((unitTypeCollectionName === 'interpreters') && !this.isPlainObject(unit)) continue
                             switch (unitTypeCollectionName) {
                                 case 'gateways':
                                     if (!Array.isArray(unit)) unit = [unit]
@@ -440,16 +439,6 @@ const ElementHTML = Object.defineProperties({}, {
                                     break
                                 case 'hooks':
                                     (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-                                    continue
-                                case 'interpreters':
-                                    if (!unit.matcher || ((typeof unit.matcher !== 'string') && !(unit.matcher instanceof RegExp))) continue
-                                    if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
-                                    const matcher = new RegExp(unit.matcher)
-                                    delete unit.matcher
-                                    if (!this.env.interpreters.has(matcher)) {
-                                        unit.name = unitKey
-                                        this.env.interpreters.set(matcher, unit)
-                                    }
                                     continue
                                 case 'resolvers':
                                     if (!(unitKey in this.env)) continue
@@ -502,6 +491,19 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                             this.env[unitTypeCollectionName][typeName] = typeClass
                         }
+                        break
+                    case 'interpreters':
+                        if (!(unitTypeCollection instanceof Map)) continue
+                        let allValid = true
+                        for (const [matcher, interpreter] of unitTypeCollection) {
+                            allValid = (matcher instanceof RegExp) && this.isPlainObject(interpreter)
+                                && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
+                                && (!interpreter.binder || (typeof interpreter.binder === 'function'))
+                            if (!allValid) break
+                            interpreter.name = `${packageKey}-${interpreter.name}`
+                        }
+                        if (!allValid) continue
+                        this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
                         break
                 }
             }
