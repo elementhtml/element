@@ -2100,7 +2100,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     Component: {
-        value: class extends globalThis.HTMLElement {
+        enumerable: true, value: class extends globalThis.HTMLElement {
             static attributes = { observed: [] }
             static shadow = { mode: 'open' }
             static events = { default: undefined }
@@ -2141,9 +2141,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     Facet: {
-        value: class {
+        enumerable: true, value: class {
             static E
             controller
             controllers = {}
@@ -2225,7 +2224,6 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
-
     State: {
         value: class {
             name
@@ -2252,9 +2250,8 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
-
     Validator: {
-        value: class {
+        enumerable: true, value: class {
 
             constructor(obj) {
                 if (!obj || (typeof obj !== 'object')) return
@@ -2264,8 +2261,6 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return Object.values(this).every(v => v === true) }
         }
     },
-
-
     queue: { value: new Map() }
 })
 ElementHTML.Component.E = ElementHTML
@@ -2292,12 +2287,6 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
-for (const interpreterName in ElementHTML.env.interpreters) {
-    const interpreter = ElementHTML.env.interpreters[interpreterName], interpreterId = interpreter.matcher.toString()
-    interpreter.name = interpreterName
-    ElementHTML.env.interpreters[interpreterId] = interpreter
-    delete ElementHTML.env.interpreters[interpreterName]
-}
 
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
 for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
@@ -2330,7 +2319,5 @@ if (metaOptions.has('load')) {
     if (loadValue) for (let p of loadValue.split(',')) if (p = p.trim()) preloads.push(p)
     await ElementHTML.Load(undefined, preloads)
 }
-
-
 
 export { ElementHTML }
