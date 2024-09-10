@@ -2165,22 +2165,20 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, params } = step,
-                            { handler, ctx = {} } = params, { binder, signal, vars = {} } = ctx, envelope = { labels, env }
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, ctx } = step,
+                            { interpreterId, signal, vars = {} } = ctx, envelope = { labels, env }
+                        let interpreter, matcher
+                        for (matcher of this.env.interpreters.keys()) if (matcher.toString() === interpreterId) break
+                        if (matcher) interpreter = this.env.interpreters.get(matcher)
+                        if (!interpreter) continue
+                        const { binder, handler, name } = interpreter
+
                         this.vars[position] = vars
                         envelope.vars = this.vars[position]
                         if (binder) {
-                            if (signal) {
-                                this.controllers[position] = new AbortController()
-                                envelope.signal = this.controllers[position].signal
-                            }
-                            if (handler in this.constructor.E.binders) {
-                                Object.assign(this.vars[position], await this.constructor.E.binders[handler](container, position, envelope))
-                            } else if (handler in this.app.syntax.binders) {
-                                Object.assign(this.vars[position], await this.app.syntax.binders[handler](container, position, envelope))
-                            }
+                            if (signal) envelope.signal = (this.controllers[position] = new AbortController()).signal
+                            Object.assign(this.vars[position], await binder(container, position, envelope))
                         }
-                        const handlerFunc = this.constructor.E.handlers[handler] ?? this.app.syntax.handlers[handler] ?? this.constructor.E.handlers.x
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
@@ -2188,7 +2186,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const previousStepIndex = stepIndex - 1
                             container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
                                 if (this.disabled) return
-                                let value = labels[`${previousStepIndex}`], detail = await handlerFunc(container, position, envelope, value)
+                                let value = labels[`${previousStepIndex}`], detail = await handler(container, position, envelope, value)
                                     ?? (defaultExpression
                                         ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
                                         : undefined)
@@ -2197,7 +2195,7 @@ const ElementHTML = Object.defineProperties({}, {
                         } else {
                             container.addEventListener('run', async event => {
                                 if (this.disabled) return
-                                let detail = await handlerFunc(container, position, envelope, undefined)
+                                let detail = await handler(container, position, envelope, undefined)
                                     ?? (defaultExpression
                                         ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels })
                                         : undefined)
