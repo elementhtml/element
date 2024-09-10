@@ -447,7 +447,6 @@ const ElementHTML = Object.defineProperties({}, {
                             if (this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) continue
                             if (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
                             if ((unitTypeCollectionName === 'interpreters') && !this.isPlainObject(unit)) continue
-                            unit = this.deepBindFunctions(unit)
                             switch (unitTypeCollectionName) {
                                 case 'gateways':
                                     if (!Array.isArray(unit)) unit = [unit]
@@ -529,12 +528,9 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                this.deepBindFunctions(this.sys)
                 this.deepFreeze(this.sys)
-                this.deepBindFunctions(this.env)
                 this.deepFreeze(this.env)
                 if (this.modules.dev) {
-                    this.deepBindFunctions(this.modules.dev)
                     this.deepFreeze(this.modules.dev)
                 }
                 Object.freeze(this)
@@ -1812,19 +1808,10 @@ const ElementHTML = Object.defineProperties({}, {
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
     },
-    deepBindFunctions: { // optimal
-        value: function (obj) {
-            if (typeof obj === 'function') return obj.bind(this)
-            const iterators = Array.isArray(obj) ? obj.keys() : (this.isPlainObject(obj) ? Object.keys(obj) : undefined)
-            if (iterators) for (const key of iterators) obj[key] = this.deepBindFunctions(obj[key])
-            return obj
-        }
-    },
     installModule: {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            this.deepBindFunctions(module)
-            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
+            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.defineProperties({}, module) })
         }
     },
 
