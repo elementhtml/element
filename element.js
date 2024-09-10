@@ -513,6 +513,16 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
+                for (const [matcher, interpreter] of this.env.interpreters) {
+                    for (const k in interpreter) if (typeof interpreter[k] === 'function') interpreter[k] = interpreter[k].bind(this)
+                    Object.freeze(interpreter)
+                }
+                this.env.interpreters = new Proxy(this.env.interpreters, {
+                    set: () => { throw new Error('Interpreters are read-only at runtime.') },
+                    delete: () => { throw new Error('Interpreters are read-only at runtime.') },
+                    clear: () => { throw new Error('Interpreters are read-only at runtime.') },
+                    get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
+                })
                 // this.deepFreeze(this.sys)
                 // this.deepFreeze(this.env)
                 // if (this.modules.dev) {
