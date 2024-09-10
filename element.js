@@ -444,11 +444,11 @@ const ElementHTML = Object.defineProperties({}, {
                                 case 'interpreters':
                                     if (!unit.matcher || ((typeof unit.matcher !== 'string') && !(unit.matcher instanceof RegExp))) continue
                                     if (!((typeof unit.parser === 'function') && (typeof unit.handler === 'function') && (!unit.binder || (typeof unit.binder === 'function')))) continue
-                                    unit.matcher = new RegExp(unit.matcher)
-                                    const interpreterId = unit.matcher.toString()
-                                    if (!this.env[unitTypeCollectionName][interpreterId]) {
+                                    const matcher = new RegExp(unit.matcher)
+                                    delete unit.matcher
+                                    if (!this.env.interpreters.has(matcher)) {
                                         unit.name = unitKey
-                                        this.env[unitTypeCollectionName][interpreterId] = unit
+                                        this.env.interpreters.set(matcher, unit)
                                     }
                                     continue
                                 case 'resolvers':
