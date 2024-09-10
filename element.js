@@ -19,22 +19,6 @@ const ElementHTML = Object.defineProperties({}, {
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             },
             hooks: {},
-
-            // "router": "/^[#?/:]$/",
-            // "selector": "/^\\$\\(.*\\)$/",
-            // "variable": "/^\\$\\{.*\\}$/",
-            // "transform": "/^\\(.*\\)$/",
-            // "state": "/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\\[][a-zA-Z0-9#@?!, ]*[\\]])$/",
-            // "value": "/^(true|false|null|[.!-]|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|-?\\d+(\\.\\d+)?)$/",
-            // "shape": "/^[{](.*?)[}]$|^[\\[](.*?)[\\]]$|^\\?[^ ]+$/",
-            // "type": "/^\\|.*\\|$/",
-            // "pattern": "/^\\/.*\\/$/",
-            // "network": "/^~.*~$/",
-            // "wait": "/^_.*_$/",
-            // "command": "/^\\$`.*`$/",
-            // "console": "/^\\$\\??$/"
-
-
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',

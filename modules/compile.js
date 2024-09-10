@@ -130,11 +130,11 @@ const nativeElementsMap = {
                     }
                     let ctx
                     stepIndex = stepIndex + 1
-                    for (const interpreterId in this.env.interpreters) {
-                        const interpreter = this.env.interpreters[interpreterId], { matcher, parser, name } = interpreter
+                    for (const [matcher, interpreter] of this.env.interpreters) {
+                        const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
                             ctx = parser(handlerExpression, hasDefault) ?? {}
-                            ctx.interpreter = interpreterId
+                            ctx.interpreterId = matcher.toString()
                             if (name === 'state') {
                                 const { target, shape } = ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
                                 switch (shape) {
@@ -152,16 +152,17 @@ const nativeElementsMap = {
                             break
                         }
                     }
-
-                    // unknown: {
-                    //     name: 'unknown',
-                    //         handler: async function (container, position, envelope, value) {
-                    //             if (this.modules.dev) this.modules.dev.print(`No handler matching the syntax is available for this expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${envelope.vars.expression}`, 'warning')
-                    //             return value
-                    //         }
-                    // }
-                    // ctx ??= this.modules.compile.parsers.x(handlerExpression, hasDefault)
-
+                    if (ctx === undefined) {
+                        if (this.modules.dev) this.modules.dev.print(`No matching interpreter is available for the expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
+                        for (const [matcher, interpreter] of this.env.interpreters) {
+                            const { parser, name } = interpreter
+                            if (matcher.test('$?') && (typeof parser === 'function')) {
+                                ctx = parser(handlerExpression, hasDefault) ?? {}
+                                ctx.interpreterId = matcher.toString()
+                                break
+                            }
+                        }
+                    }
                     step.ctx = ctx
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
