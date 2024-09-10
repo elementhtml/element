@@ -2288,6 +2288,7 @@ Object.defineProperties(ElementHTML, {
     }
 })
 
+// optimal
 const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = [], flagMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const flag in flagMap) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flagMap[flag]](metaOptions.get(flag)))
 await Promise.all(flagPromises)
