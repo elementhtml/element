@@ -158,7 +158,7 @@ const nativeElementsMap = {
                             const { parser, name } = interpreter
                             if (matcher.test('$?') && (typeof parser === 'function')) {
                                 ctx = parser(handlerExpression, hasDefault) ?? {}
-                                ctx.interpreterId = matcher.toString()
+                                ctx.key = matcher.toString()
                                 break
                             }
                         }

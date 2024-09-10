@@ -2168,13 +2168,12 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, ctx } = step,
-                            { interpreterId, signal, vars = {} } = ctx, envelope = { labels, env }
+                            { key, signal, vars = {} } = ctx, envelope = { labels, env }
                         let interpreter, matcher
-                        for (matcher of this.env.interpreters.keys()) if (matcher.toString() === interpreterId) break
+                        for (matcher of this.env.interpreters.keys()) if (matcher.toString() === key) break
                         if (matcher) interpreter = this.env.interpreters.get(matcher)
                         if (!interpreter) continue
                         const { binder, handler, name } = interpreter
-
                         this.vars[position] = vars
                         envelope.vars = this.vars[position]
                         if (binder) {
