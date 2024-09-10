@@ -19,23 +19,38 @@ const ElementHTML = Object.defineProperties({}, {
                 'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
             },
             hooks: {},
-            interpreters: {
-                command: {
-                    matcher: /^\$`.*`$/,
+
+            //     "router": "/^[#?/:]$/",
+            //     "network": "/^`.*`$/",
+            //     "wait": "/^_.*_$/"
+            //     "transform": "/^\\(.*\\)$/",
+            //     "type": "/^\\|.*\\|$/",
+            //     "pattern": "/^\\/.*\\/$/",
+            //     "variable": "/^\\$\\{.*\\}$/",
+            //     "value": "/^(true|false|null|[.!-]|\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|-?\\d+(\\.\\d+)?)$/",
+            //     "shape": "/^[{](.*?)[}]$|^[\\[](.*?)[\\]]$|^\\?[^ ]+$/",
+            //     "state": "/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\\[][a-zA-Z0-9#@?!, ]*[\\]])$/",
+            //     "selector": "/^\\$\\(.*\\)$/",
+            //     "command": "/^\\$`.*`$/",
+            //     "console": "/^\\$\\??$/",
+
+            interpreters: new Map([
+                [/^\$`.*`$/, {
+                    name: 'command',
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) $([envelope.vars.invocation])
                         return value
                     }
-                },
-                console: {
-                    matcher: /^\$\??$/,
+                }],
+                [/^\$\??$/, {
+                    name: 'console',
                     handler: async function (container, position, envelope, value) {
                         if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
                     }
-                },
-                network: {
-                    matcher: /^~.*~$/,
+                }],
+                [/^`.*`$/, {
+                    name: 'network',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
                         let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
@@ -73,9 +88,9 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         })
                     }
-                },
-                pattern: {
-                    matcher: /^\/.*\/$/,
+                }],
+                [/^\/.*\/$/, {
+                    name: 'pattern',
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { expression } = vars
                         if (typeof value !== 'string') value = `${value}`
@@ -89,28 +104,9 @@ const ElementHTML = Object.defineProperties({}, {
                         this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
                         return { regexp }
                     }
-                },
-                proxy: {
-                    matcher: /^`.*`$/,
-                    handler: async function (container, position, envelope, value) {
-                        const { vars, labels, env } = envelope, { isSpread, useHelper, parentObjectName, childMethodName } = vars, umMergedArgs = {}
-                        const { parentArgs, childArgs } = umMergedArgs
-                        if (useHelper) return Promise.resolve(this.useHelper(parentObjectName, ...this.mergeArgs(parentArgs, value, envelope)))
-                        if (childMethodName) {
-                            const { childArgs } = vars
-                            if (!(globalThis[parentObjectName] instanceof Object)) return
-                            if (typeof globalThis[parentObjectName][childMethodName] !== 'function') return
-                            return globalThis[parentObjectName][childMethodName](...this.mergeArgs(childArgs, value, envelope))
-                        }
-                        return globalThis[parentObjectName](...this.mergeArgs(childArgs, value, envelope))
-                    },
-                    binder: async function (container, position, envelope) {
-                        const { vars } = envelope, { parentObjectName, useHelper, isSpread } = vars
-                        if (useHelper && parentObjectName) await this.loadHelper(parentObjectName)
-                    }
-                },
-                router: {
-                    matcher: /^[#?/:]$/,
+                }],
+                [/^[#?/:]$/, {
+                    name: 'router',
                     handler: async function (container, position, envelope, value) {
                         switch (typeof value) {
                             case 'string':
@@ -151,9 +147,9 @@ const ElementHTML = Object.defineProperties({}, {
                         const { signal } = envelope
                         globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
-                },
-                selector: {
-                    matcher: /^\$\(.*\)$/,
+                }],
+                [/^\$\(.*\)$/, {
+                    name: 'selector',
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { selector, scope } = vars
                         if (value != undefined) {
@@ -205,16 +201,16 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return { selector, scope }
                     }
-                },
-                shape: {
-                    matcher: /^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/,
+                }],
+                [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
+                    name: 'shape',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
                     }
-                },
-                state: {
-                    matcher: /^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/,
+                }],
+                [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
+                    name: 'state',
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { getReturnValue, shape, target } = vars
                         if (value == undefined) return getReturnValue()
@@ -266,17 +262,17 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return { getReturnValue, shape, target }
                     }
-                },
-                transform: {
-                    matcher: /^\(.*\)$/,
+                }],
+                [/^\(.*\)$/, {
+                    name: 'transform',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
                             cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                         return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
                     }
-                },
-                type: {
-                    matcher: /^\|.*\|$/,
+                }],
+                [/^\|.*\|$/, {
+                    name: 'type',
                     handler: async function (container, position, envelope, value) {
                         const { vars } = envelope, { types, mode } = vars
                         let pass
@@ -295,22 +291,22 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         if (pass) return value
                     }
-                },
-                value: {
-                    matcher: /^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/,
+                }],
+                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
+                    name: 'value',
                     handler: async function (container, position, envelope, value) {
                         return envelope.vars.value
                     }
-                },
-                variable: {
-                    matcher: /^\$\{.*\}$/,
+                }],
+                [/^\$\{.*\}$/, {
+                    name: 'variable',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
                         return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
                     }
-                },
-                wait: {
-                    matcher: /^_.*_$/,
+                }],
+                [/^_.*_$/, {
+                    name: 'wait',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression } = vars, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                         let ms = 0, now = Date.now()
@@ -341,8 +337,8 @@ const ElementHTML = Object.defineProperties({}, {
                         await new Promise(resolve => setTimeout(resolve, ms))
                         done()
                     }
-                }
-            },
+                }]
+            ]),
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
@@ -408,17 +404,19 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
-                for (const interpreterId in this.env.interpreters) {
-                    const interpreter = this.env.interpreters[interpreterId]
-                    interpreter.parser = this.modules.compile.parsers[interpreter.name]
-                }
+                for (const [matcher, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name]
             })
         }
     },
     Dev: { //optimal
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
-            return this.installModule('dev').then(() => this.modules.dev.console.welcome())
+            return this.installModule('dev').then(() => {
+                for (const p of Object.getOwnPropertyNames(this.modules.dev)) {
+                    const v = this.modules.dev[p]
+                    if (this.isPlainObject(v)) for (const pp in v) if (typeof v[pp] === 'function') v[pp] = v[pp].bind(this)
+                }
+            }).then(() => this.modules.dev.console.welcome())
         }
     },
     Expose: { //optimal
@@ -528,12 +526,12 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                this.deepFreeze(this.sys)
-                this.deepFreeze(this.env)
-                if (this.modules.dev) {
-                    this.deepFreeze(this.modules.dev)
-                }
-                Object.freeze(this)
+                // this.deepFreeze(this.sys)
+                // this.deepFreeze(this.env)
+                // if (this.modules.dev) {
+                //     this.deepFreeze(this.modules.dev)
+                // }
+                // Object.freeze(this)
                 this.processQueue()
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
@@ -1808,10 +1806,11 @@ const ElementHTML = Object.defineProperties({}, {
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
         }
     },
-    installModule: {
+    installModule: { // optimal
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.defineProperties({}, module) })
+            for (const p in module) if (typeof module[p].value === 'function') (module[p].value = module[p].value.bind(this))
+            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
 
