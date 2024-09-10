@@ -2288,21 +2288,21 @@ Object.defineProperties(ElementHTML, {
     }
 })
 
-const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = []
-for (const flag of ['compile', 'dev', 'expose']) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flag[0].toUpperCase() + flag.slice(1)](metaOptions.get(flag)))
+const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = [], flagMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
+for (const flag in flagMap) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flagMap[flag]](metaOptions.get(flag)))
 await Promise.all(flagPromises)
 if (metaOptions.has('packages')) {
-    const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports: {} }, packageList = []
+    let imports = {}
+    const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports }, importPromises = new Map(), packageList = []
     for (let s of metaOptions.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
     if (importmapElement) {
-        try { Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())) } catch (e) { }
+        try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
     } else if (metaOptions.get('packages')) {
-        for (const p of packageList) importmap.imports[p] = `./packages/${p}.js`
+        for (const p of packageList) imports[p] = `./packages/${p}.js`
     } else {
-        importmap.imports.main = './packages/main.js'
+        imports.main = './packages/main.js'
         packageList.push('main')
     }
-    const imports = importmap.imports ?? {}, importPromises = new Map()
     for (const key of packageList) {
         let importUrl = imports[key]
         const { protocol } = new URL(importUrl, document.baseURI)
