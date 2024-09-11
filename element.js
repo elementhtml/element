@@ -414,10 +414,9 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            for (const unitTypeCollectionName in pkg) if (typeof pkg[unitTypeCollectionName] === 'string') pkg[unitTypeCollectionName] = await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
-                const unitTypeCollection = pkg[unitTypeCollectionName]
+                const unitTypeCollection = typeof pkg[unitTypeCollectionName] === 'string' ? await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : pkg[unitTypeCollectionName]
                 if (!this.isPlainObject(unitTypeCollection)) continue
                 switch (unitTypeCollectionName) {
                     case 'components':
@@ -426,9 +425,13 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if ((typeof unit === 'function') && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) && (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName))) unit = await unit(this, pkg)
-                            if (this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) continue
-                            if (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function')) continue
+                            if ((typeof unit === 'function') && (this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) {
+                                unit = await unit(this, pkg)
+                            } else if (typeof unit !== 'function' && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) {
+                                continue
+                            }
+                            if ((this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
+                                (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) continue
                             switch (unitTypeCollectionName) {
                                 case 'gateways':
                                     if (!Array.isArray(unit)) unit = [unit]
@@ -442,7 +445,6 @@ const ElementHTML = Object.defineProperties({}, {
                                     continue
                                 case 'resolvers':
                                     if (!(unitKey in this.env)) continue
-                                    break
                             }
                             this.env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
