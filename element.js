@@ -2172,8 +2172,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, ctx } = step,
                             { key, signal, vars = {} } = ctx, envelope = { labels, env }
                         let interpreter, matcher
-                        for (matcher of this.env.interpreters.keys()) if (matcher.toString() === key) break
-                        if (matcher) interpreter = this.env.interpreters.get(matcher)
+                        for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === key) break
+                        if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
                         if (!interpreter) continue
                         const { binder, handler, name } = interpreter
                         this.vars[position] = vars
