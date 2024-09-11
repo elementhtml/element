@@ -397,10 +397,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function () {
             this.app.facets.exports = new WeakMap()
             return this.installModule('dev').then(() => {
-                for (const p of Object.getOwnPropertyNames(this.modules.dev)) {
-                    const v = this.modules.dev[p]
-                    if (this.isPlainObject(v)) for (const pp in v) if (typeof v[pp] === 'function') v[pp] = v[pp].bind(this)
-                }
+                for (const [p, v = this.modules.dev[p]] of Object.getOwnPropertyNames(this.modules.dev)) if (this.isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
             }).then(() => this.modules.dev.console.welcome())
         }
     },
@@ -411,7 +408,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    ImportPackage: {
+    ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
