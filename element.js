@@ -1811,26 +1811,28 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    loadGateway: {
-        value: async function (protocol, manifest) {
+    installGateway: {
+        value: async function (protocol) {
             if (!protocol) return
-            if (protocol.endsWith(':')) protocol = `${protocol}:`
+            if (!protocol.endsWith(':')) protocol = `${protocol}:`
             if (this.app.gateways[protocol]) return this.app.gateways[protocol]
-            manifest ??= this.env.gateways[protocol]
-            if (typeof manifest === 'string') manifest = [{ head: manifest, gateway: `${manifest}/{path}` }]
-            if (typeof manifest === 'function') manifest = [{ head: manifest, gateway: manifest }]
-            if (this.isPlainObject(manifest) && manifest.gateway) manifest = [manifest]
-            if (!Array.isArray(manifest)) return
-            for (let g of manifest) {
-                if (typeof g === 'string') g = { head: g, gateway: `${g}/{path}` }
-                if (typeof g === 'function') g = { head: g, gateway: g }
-                if (!this.isPlainObject(g) || !g.gateway) continue
-                const { head = g.gateway, gateway } = g
-                if (!head) continue
-                let ok = typeof head === 'function' ? await head(manifest) : (typeof head === 'string' ? (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok : undefined)
-                if (!ok) continue
-                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, ok) : gateway
-                if (g.auto) {
+            const gatewayManifests = this.env.gateways[protocol]
+            if (!(Array.isArray(gatewayManifests) && gatewayManifests.length)) return
+            for (let manifest of gatewayManifests) {
+                const { gateway, head = gateway, auto } = manifest
+                let gatewayContext
+                switch (typeof head) {
+                    case 'string':
+                        const gatewayContextResonse = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' }))
+                        if (gatewayContextResonse.ok) gatewayContext = await this.parse(gatewayContextResonse)
+                        break
+                    case 'function':
+                        gatewayContext = await head.bind(this, { as: 'head', manifest, protocol })()
+                        break
+                }
+                if (!gatewayContext) continue
+                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', ctx: gatewayContext, manifest, protocol }) : gateway
+                if (auto) {
                     const urlAttributes = ['href', 'src']
                     this.app.observers.set(this.app.gateways[protocol], new MutationObserver(records => {
                         for (const record of records) {
@@ -2307,7 +2309,7 @@ if (initializationParameters.has('packages')) {
     for (const key of packageList) {
         let importUrl = imports[key]
         const { protocol } = new URL(importUrl, document.baseURI)
-        if (protocol !== window.location.protocol) await Element.loadGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
+        if (protocol !== window.location.protocol) await Element.installGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
