@@ -1811,7 +1811,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    installGateway: {
+    installGateway: { // optimal
         value: async function (protocol) {
             if (!protocol) return
             if (!protocol.endsWith(':')) protocol = `${protocol}:`
@@ -2308,7 +2308,7 @@ if (initializationParameters.has('packages')) {
     for (const key of packageList) {
         let importUrl = imports[key]
         const { protocol } = new URL(importUrl, document.baseURI)
-        if (protocol !== window.location.protocol) await Element.installGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
+        if (protocol !== window.location.protocol) await ElementHTML.installGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
         importUrl = ElementHTML.resolveUrl(importUrl)
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
