@@ -1838,7 +1838,7 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.observers.set(this.app.gateways[protocol], new MutationObserver(records => {
                         for (const { type, target, attributeName, addedNodes } of records) {
                             if (type !== 'attributes' && type !== 'childList') continue
-                            let [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
+                            const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
                             for (const target of targets) {
                                 if (!(target instanceof HTMLElement)) continue
                                 for (const attributeName of processAttributes) {
