@@ -2289,16 +2289,16 @@ Object.defineProperties(ElementHTML, {
 })
 
 // optimal
-const metaUrl = new URL(import.meta.url), metaOptions = metaUrl.searchParams, flagPromises = [], flagMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
-for (const flag in flagMap) if (metaOptions.has(flag)) flagPromises.push(ElementHTML[flagMap[flag]](metaOptions.get(flag)))
-await Promise.all(flagPromises)
-if (metaOptions.has('packages')) {
+const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
+for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
+await Promise.all(promises)
+if (initializationParameters.has('packages')) {
     let imports = {}
     const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports }, importPromises = new Map(), packageList = []
-    for (let s of metaOptions.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
+    for (let s of initializationParameters.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
     if (importmapElement) {
         try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
-    } else if (metaOptions.get('packages')) {
+    } else if (initializationParameters.get('packages')) {
         for (const p of packageList) imports[p] = `./packages/${p}.js`
     } else {
         imports.main = './packages/main.js'
@@ -2315,8 +2315,8 @@ if (metaOptions.has('packages')) {
     await Promise.all(Array.from(importPromises.values()))
     for (const [url, imp] of importPromises) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
-if (metaOptions.has('load')) {
-    const preloads = [], loadValue = metaOptions.get('load')
+if (initializationParameters.has('load')) {
+    const preloads = [], loadValue = initializationParameters.get('load')
     if (loadValue) for (let p of loadValue.split(',')) if (p = p.trim()) preloads.push(p)
     await ElementHTML.Load(undefined, preloads)
 }
