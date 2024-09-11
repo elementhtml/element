@@ -175,7 +175,7 @@ const nativeElementsMap = {
                 Object.freeze(statement)
                 statements.push(statement)
             }
-            return this.facetFactory({ fieldNames, cellNames, statements, cid })
+            return this.modules.compile.facetFactory({ fieldNames, cellNames, statements, cid })
         }
     },
     componentFactory: {
