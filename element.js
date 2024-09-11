@@ -415,23 +415,24 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
-            for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
+            const { env, sys, isPlainObject } = this, { unitTypeCollectionChecks } = sys
+            for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in env) {
                 const unitTypeCollection = typeof pkg[unitTypeCollectionName] === 'string' ? await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : pkg[unitTypeCollectionName]
-                if (!this.isPlainObject(unitTypeCollection)) continue
+                if (!isPlainObject(unitTypeCollection)) continue
                 switch (unitTypeCollectionName) {
                     case 'components':
-                        this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
+                        env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     case 'facets': case 'gateways': case 'hooks': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if ((typeof unit === 'function') && (this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (this.sys.unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) {
+                            if ((typeof unit === 'function') && (unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) {
                                 unit = await unit(this, pkg)
-                            } else if (typeof unit !== 'function' && this.sys.unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) {
+                            } else if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) {
                                 continue
                             }
-                            if ((this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[this.sys.unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
-                                (this.sys.unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) continue
+                            if ((unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
+                                (unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) continue
                             switch (unitTypeCollectionName) {
                                 case 'gateways':
                                     if (!Array.isArray(unit)) unit = [unit]
@@ -441,12 +442,12 @@ const ElementHTML = Object.defineProperties({}, {
                                     unit = newUnit
                                     break
                                 case 'hooks':
-                                    (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
+                                    (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
                                     continue
                                 case 'resolvers':
-                                    if (!(unitKey in this.env)) continue
+                                    if (!(unitKey in env)) continue
                             }
-                            this.env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
+                            env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
                         break
                     case 'context': case 'namespaces': case 'patterns': case 'snippets':
@@ -460,23 +461,24 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (value[0] === '`' && value.endsWith('`')) value = await this.resolveImport(this.resolveUrl(value.slice(1, -1).trim(), packageUrl))
                                     break
                             }
+                            const valueIsString = typeof value === 'string'
                             switch (unitTypeCollectionName) {
                                 case 'context':
-                                    this.env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
+                                    env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
                                     break
                                 case 'namespaces':
-                                    if (typeof value === 'string') this.env[unitTypeCollectionName][key] = value
+                                    if (valueIsString) env[unitTypeCollectionName][key] = value
                                     break
                                 case 'patterns':
-                                    if ((typeof value === 'string') || (value instanceof RegExp)) this.env[unitTypeCollectionName][key] = new RegExp(value)
+                                    if (valueIsString || (value instanceof RegExp)) env[unitTypeCollectionName][key] = new RegExp(value)
                                     break
                                 case 'snippets':
-                                    if (typeof unit === 'string') {
+                                    if (valueIsString) {
                                         const template = document.createElement('template')
                                         template.innerHTML = unit
                                         unit = template
                                     }
-                                    if (unit instanceof HTMLElement) this.env[unitTypeCollectionName][key] = Object.freeze(unit)
+                                    if (unit instanceof HTMLElement) env[unitTypeCollectionName][key] = Object.freeze(unit)
                                     break
                             }
                         }
@@ -488,24 +490,24 @@ const ElementHTML = Object.defineProperties({}, {
                             switch (true) {
                                 case (typeClass.prototype instanceof this.Validator):
                                     typeClass.E = this
-                                case (this.isPlainObject(typeClass)):
+                                case (isPlainObject(typeClass)):
                                     Object.freeze(typeClass)
                             }
-                            this.env[unitTypeCollectionName][typeName] = typeClass
+                            env[unitTypeCollectionName][typeName] = typeClass
                         }
                         break
                     case 'interpreters':
                         if (!(unitTypeCollection instanceof Map)) continue
                         let allValid = true
                         for (const [matcher, interpreter] of unitTypeCollection) {
-                            allValid = (matcher instanceof RegExp) && this.isPlainObject(interpreter)
+                            allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
                                 && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
                                 && (!interpreter.binder || (typeof interpreter.binder === 'function'))
                             if (!allValid) break
                             interpreter.name = `${packageKey}-${interpreter.name}`
                         }
                         if (!allValid) continue
-                        this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
+                        env.interpreters = new Map([...env.interpreters, ...unitTypeCollection])
                         break
                 }
             }
