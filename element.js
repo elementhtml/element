@@ -1819,13 +1819,12 @@ const ElementHTML = Object.defineProperties({}, {
             const gatewayManifests = this.env.gateways[protocol]
             if (!(Array.isArray(gatewayManifests) && gatewayManifests.length)) return
             for (let manifest of gatewayManifests) {
-                const { gateway, head = gateway, auto } = manifest, ctx = { ...manifest }
-                for (const p of ['gateway', 'head', 'auto']) delete ctx[g]
+                const { gateway, head = gateway, auto, ...ctx } = manifest
                 let connection
                 switch (typeof head) {
                     case 'string':
-                        const connectionResonse = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' }))
-                        if (connectionResonse.ok) connection = await this.parse(connectionResonse)
+                        const connectionResponse = await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })
+                        if (connectionResponse.ok) connection = await this.parse(connectionResponse)
                         break
                     case 'function':
                         connection = await head.bind(this, { as: 'head', ctx, protocol })()
