@@ -1819,26 +1819,26 @@ const ElementHTML = Object.defineProperties({}, {
             const gatewayManifests = this.env.gateways[protocol]
             if (!(Array.isArray(gatewayManifests) && gatewayManifests.length)) return
             for (let manifest of gatewayManifests) {
-                const { gateway, head = gateway, auto } = manifest
-                let gatewayContext
+                const { gateway, head = gateway, auto } = manifest, ctx = { ...manifest }
+                for (const p of ['gateway', 'head', 'auto']) delete ctx[g]
+                let connection
                 switch (typeof head) {
                     case 'string':
-                        const gatewayContextResonse = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' }))
-                        if (gatewayContextResonse.ok) gatewayContext = await this.parse(gatewayContextResonse)
+                        const connectionResonse = (await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' }))
+                        if (connectionResonse.ok) connection = await this.parse(connectionResonse)
                         break
                     case 'function':
-                        gatewayContext = await head.bind(this, { as: 'head', manifest, protocol })()
+                        connection = await head.bind(this, { as: 'head', ctx, protocol })()
                         break
                 }
-                if (!gatewayContext) continue
-                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', ctx: gatewayContext, manifest, protocol }) : gateway
+                if (!connection) continue
+                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
                 if (auto) {
                     const urlAttributes = ['href', 'src']
                     this.app.observers.set(this.app.gateways[protocol], new MutationObserver(records => {
-                        for (const record of records) {
-                            const { type } = record
+                        for (const { type, target, attributeName, addedNodes } of records) {
                             if (type !== 'attributes' && type !== 'childList') continue
-                            let [targets, processAttributes] = type === 'attributes' ? [[record.target], [record.attributeName]] : [record.addedNodes, urlAttributes]
+                            let [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
                             for (const target of targets) {
                                 if (!(target instanceof HTMLElement)) continue
                                 for (const attributeName of processAttributes) {
