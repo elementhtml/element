@@ -441,11 +441,8 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (!newUnit.length) continue
                                     unit = newUnit
                                     break
-                                case 'hooks':
-                                    (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-                                    continue
-                                case 'resolvers':
-                                    if (!(unitKey in env)) continue
+                                case 'hooks': (env[unitTypeCollectionName][unitKey] ??= []).push(unit); continue
+                                case 'resolvers': if (!(unitKey in env)) continue
                             }
                             env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
@@ -454,18 +451,14 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const key in unitTypeCollection) {
                             let value = unitTypeCollection[key]
                             switch (typeof value) {
-                                case 'function':
-                                    value = await value(this, pkg)
-                                    break
+                                case 'function': value = await value(this, pkg); break
                                 case 'string':
                                     if (value[0] === '`' && value.endsWith('`')) value = await this.resolveImport(this.resolveUrl(value.slice(1, -1).trim(), packageUrl))
                                     break
                             }
                             const valueIsString = typeof value === 'string'
                             switch (unitTypeCollectionName) {
-                                case 'context':
-                                    env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
-                                    break
+                                case 'context': env[unitTypeCollectionName][key] = this.deepFreeze(value, true); break
                                 case 'namespaces':
                                     if (valueIsString) env[unitTypeCollectionName][key] = value
                                     break
@@ -488,10 +481,8 @@ const ElementHTML = Object.defineProperties({}, {
                             let typeClass = unitTypeCollection[typeName]
                             if (typeof typeClass === 'function' && !(typeClass.prototype instanceof this.Validator)) typeClass = await typeClass(this, pkg)
                             switch (true) {
-                                case (typeClass.prototype instanceof this.Validator):
-                                    typeClass.E = this
-                                case (isPlainObject(typeClass)):
-                                    Object.freeze(typeClass)
+                                case (typeClass.prototype instanceof this.Validator): typeClass.E = this; break
+                                case (isPlainObject(typeClass)): Object.freeze(typeClass)
                             }
                             env[unitTypeCollectionName][typeName] = typeClass
                         }
