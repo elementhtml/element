@@ -1,6 +1,6 @@
 const ElementHTML = Object.defineProperties({}, {
 
-    version: { enumerable: true, value: '2.0.0' },
+    version: { enumerable: true, value: '2.0.0' }, // optimal
 
     env: {
         enumerable: true, value: {
@@ -384,7 +384,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    expose: { enumerable: true, writable: true, value: false },
+    expose: { enumerable: true, writable: true, value: false }, // optimal
 
     Compile: { //optimal
         enumerable: true, value: function () {
