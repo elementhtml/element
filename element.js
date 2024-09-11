@@ -457,7 +457,7 @@ const ElementHTML = Object.defineProperties({}, {
                             switch (unitTypeCollectionName) {
                                 case 'context': env[unitTypeCollectionName][key] = this.deepFreeze(value, true); break
                                 case 'namespaces':
-                                    if (valueIsString) env[unitTypeCollectionName][key] = value
+                                    if (valueIsString && (value !== 'e')) env[unitTypeCollectionName][key] = value
                                     break
                                 case 'patterns':
                                     if (valueIsString || (value instanceof RegExp)) env[unitTypeCollectionName][key] = new RegExp(value)
