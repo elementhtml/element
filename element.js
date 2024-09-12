@@ -24,40 +24,52 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'router',
                     handler: async function (container, position, envelope, value) {
                         console.log('line 26', container, position, envelope, value)
-                        switch (typeof value) {
-                            case 'string':
-                                document.location = value
-                                break
-                            case 'object':
-                                if (!value) break
-                                for (const [k, v] of Object.entries(value)) {
-                                    if (k.endsWith(')') && k.includes('(')) {
-                                        let funcName = k.trim().slice(0, -2).trim()
-                                        switch (funcName) {
-                                            case 'assign': case 'replace':
-                                                document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
-                                                break
-                                            case 'back': case 'forward':
-                                                history[funcName]()
-                                                break
-                                            case 'go':
-                                                history[funcName](parseInt(v) || 0)
-                                                break
-                                            case 'pushState': case 'replaceState':
-                                                history[funcName](...(Array.isArray(v) ? v : [v]))
-                                        }
-                                    } else if (typeof v === 'string') {
-                                        document.location[k] = v
+                        const { descriptor } = envelope, { expression } = descriptor
+                        switch (expression) {
+                            case '#':
+                                if (value != undefined && (typeof value === 'string')) document.location.hash = value
+                                return document.location.hash.slice(1)
+                            case '/':
+                                if (value != undefined && (typeof value === 'string')) document.location.pathname = value
+                                return document.location.pathname.slice(1)
+                            case '?':
+                                if (value != undefined && (typeof value === 'string')) document.location.search = value
+                                return document.location.search.slice(1)
+                            case ':':
+                                switch (typeof value) {
+                                    case 'string':
+                                        document.location = value
                                         break
-                                    }
+                                    case 'object':
+                                        if (!value) break
+                                        for (const [k, v] of Object.entries(value)) {
+                                            if (k.endsWith(')') && k.includes('(')) {
+                                                let funcName = k.trim().slice(0, -2).trim()
+                                                switch (funcName) {
+                                                    case 'assign': case 'replace':
+                                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
+                                                        break
+                                                    case 'back': case 'forward':
+                                                        history[funcName]()
+                                                        break
+                                                    case 'go':
+                                                        history[funcName](parseInt(v) || 0)
+                                                        break
+                                                    case 'pushState': case 'replaceState':
+                                                        history[funcName](...(Array.isArray(v) ? v : [v]))
+                                                }
+                                            } else if (typeof v === 'string') {
+                                                document.location[k] = v
+                                                break
+                                            }
+                                        }
                                 }
+                                const result = {}
+                                for (const k in document.location) if (typeof document.location[k] !== 'function') result[k] = document.location[k]
+                                result.ancestorOrigins = Array.from(result.ancestorOrigins)
+                                result.path = result.pathname.replace(this.sys.regexp.leadingSlash, '')
+                                return result
                         }
-                        return Object.fromEntries(Object.entries(document.location).filter(ent => typeof ent[1] !== 'function'))
-                        // ...Object.fromEntries(
-                        //     ['hash', 'pathname', 'search'].map(k => ([`router${k}`, async function (container, position, envelope, value) {
-                        //         if (value != undefined && (typeof value === 'string')) document.location[k] = value
-                        //         return document.location[k].slice(1) || undefined
-                        //     }])))
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
