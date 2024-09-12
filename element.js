@@ -2197,7 +2197,6 @@ const ElementHTML = Object.defineProperties({}, {
                             }, { signal: this.controller.signal })
                         } else {
                             container.addEventListener('run', async event => {
-                                console.log('line 2201', container, position, envelope)
                                 if (this.disabled) return
                                 let detail = await handler(container, position, envelope, undefined)
                                     ?? (defaultExpression
