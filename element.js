@@ -34,6 +34,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 key ??= 'search'
                                 if (typeof value === 'string') document.location[key] = value
                                 result = document.location[key].slice(1)
+                                console.log('line 37', result)
                                 return result || undefined
                             case ':':
                                 switch (typeof value) {
@@ -64,7 +65,7 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
-                        if (signal) globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+                        if (signal) globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     }
                 }],
                 [/^\$\(.*\)$/, {
