@@ -23,48 +23,39 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^[#?/:]$/, {
                     name: 'router',
                     handler: async function (container, position, envelope, value) {
-                        console.log('line 26', container, position, envelope, value)
                         const { descriptor } = envelope, { expression } = descriptor
+                        let result, key
                         switch (expression) {
                             case '#':
-                                if (value != undefined && (typeof value === 'string')) document.location.hash = value
-                                return document.location.hash.slice(1)
+                                key = 'hash'
                             case '/':
-                                if (value != undefined && (typeof value === 'string')) document.location.pathname = value
-                                return document.location.pathname.slice(1)
+                                key ??= 'pathname'
                             case '?':
-                                if (value != undefined && (typeof value === 'string')) document.location.search = value
-                                return document.location.search.slice(1)
+                                key ??= 'search'
+                                if (typeof value === 'string') document.location[key] = value
+                                result = document.location[key].slice(1)
+                                return result || undefined
                             case ':':
                                 switch (typeof value) {
-                                    case 'string':
-                                        document.location = value
-                                        break
+                                    case 'string': document.location = value; break
                                     case 'object':
                                         if (!value) break
-                                        for (const [k, v] of Object.entries(value)) {
-                                            if (k.endsWith(')') && k.includes('(')) {
+                                        for (const k in value) {
+                                            const v = value[k]
+                                            if (k.endsWith('()')) {
                                                 let funcName = k.trim().slice(0, -2).trim()
                                                 switch (funcName) {
-                                                    case 'assign': case 'replace':
-                                                        document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined)
-                                                        break
-                                                    case 'back': case 'forward':
-                                                        history[funcName]()
-                                                        break
-                                                    case 'go':
-                                                        history[funcName](parseInt(v) || 0)
-                                                        break
-                                                    case 'pushState': case 'replaceState':
-                                                        history[funcName](...(Array.isArray(v) ? v : [v]))
+                                                    case 'assign': case 'replace': document.location[funcName]((funcName === 'assign' || funcName === 'replace') ? v : undefined); break
+                                                    case 'back': case 'forward': history[funcName](); break
+                                                    case 'go': history[funcName](parseInt(v) || 0); break
+                                                    case 'pushState': case 'replaceState': history[funcName](...(Array.isArray(v) ? v : [v]))
                                                 }
-                                            } else if (typeof v === 'string') {
-                                                document.location[k] = v
-                                                break
+                                                continue
                                             }
+                                            if (typeof v === 'string') document.location[k] = v
                                         }
                                 }
-                                const result = {}
+                                result = {}
                                 for (const k in document.location) if (typeof document.location[k] !== 'function') result[k] = document.location[k]
                                 result.ancestorOrigins = Array.from(result.ancestorOrigins)
                                 result.path = result.pathname.replace(this.sys.regexp.leadingSlash, '')
