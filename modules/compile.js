@@ -93,7 +93,7 @@ const nativeElementsMap = {
                     segment = segment.trim()
                     if (!segment) continue
                     let handlerExpression = segment, label, defaultExpression, hasDefault = false
-                    const step = {}, labelMatch = handlerExpression.match(regexp.label)
+                    const labelMatch = handlerExpression.match(regexp.label)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
                         handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
@@ -112,9 +112,9 @@ const nativeElementsMap = {
                     const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
                     if (labelMode) {
                         label = label.slice(0, -1).trim()
-                        step.labelMode = labelMode
+                        labelMode = labelMode
                     }
-                    step.label = label
+                    label = label
                     switch (label[0]) {
                         case '@':
                             let fn = label.slice(1).trim()
@@ -128,15 +128,14 @@ const nativeElementsMap = {
                             const ln = label.trim()
                             if (ln) statement.labels.add(ln)
                     }
-                    let ctx
+                    let signature
                     stepIndex = stepIndex + 1
                     for (const [matcher, interpreter] of this.env.interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                            ctx = parser(handlerExpression, hasDefault) ?? {}
-                            ctx.interpreterId = matcher.toString()
+                            signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression, hasDefault) ?? {} }
                             if (name === 'state') {
-                                const { target, shape } = ctx.vars, targetNames = { cell: cellNames, field: fieldNames }
+                                const { target, shape } = signature.descriptor, targetNames = { cell: cellNames, field: fieldNames }
                                 switch (shape) {
                                     case 'single':
                                         targetNames[target.type].add(target.name)
@@ -152,18 +151,15 @@ const nativeElementsMap = {
                             break
                         }
                     }
-                    if (ctx === undefined) {
+                    if (signature === undefined) {
                         if (this.modules.dev) this.modules.dev.print(`No matching interpreter is available for the expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
                         for (const [matcher, interpreter] of this.env.interpreters) {
                             const { parser, name } = interpreter
-                            if (matcher.test('$?') && (typeof parser === 'function')) {
-                                ctx = parser(handlerExpression, hasDefault) ?? {}
-                                ctx.key = matcher.toString()
-                                break
-                            }
+                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression, hasDefault) ?? {} }
+                            if (signature) break
                         }
                     }
-                    step.ctx = ctx
+                    const step = { label, labelMode, signature }
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
                     statement.labels.add(`${index}`)
@@ -351,10 +347,10 @@ ${scriptBody.join('{')}`
     parsers: {
         value: {
             command: function (expression, hasDefault) {
-                return { vars: { invocation: expression.trim() } }
+                return { invocation: expression.trim() }
             },
             console: function (expression, hasDefault) {
-                return { vars: { verbose: expression === '$?' } }
+                return { verbose: expression === '$?' }
             },
             network: function (expression, hasDefault) {
                 const expressionIncludesVariable = (expression.includes('${}') || expression.includes('${$}'))
@@ -363,12 +359,12 @@ ${scriptBody.join('{')}`
                     returnFullRequest = true
                     expression = expression.slice(1, -1)
                 }
-                return { vars: { expression, expressionIncludesVariable, hasDefault, returnFullRequest } }
+                return { expression, expressionIncludesVariable, hasDefault, returnFullRequest }
             },
             pattern: function (expression, hasDefault) {
                 expression = expression.trim()
                 if (!expression) return
-                return { binder: true, vars: { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) } }
+                return { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
@@ -382,10 +378,10 @@ ${scriptBody.join('{')}`
                     [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
                     childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
                 }
-                return { binder: true, vars: { childArgs, childMethodName, parentArgs, parentObjectName, useHelper } }
+                return { childArgs, childMethodName, parentArgs, parentObjectName, useHelper }
             },
             router: function (expression, hasDefault) {
-                return { vars: { expression, signal: expression === '#' } }
+                return { expression, signal: expression === '#' }
             },
             selector: function (expression, hasDefault) {
                 if (!expression.includes('|')) {
@@ -408,22 +404,22 @@ ${scriptBody.join('{')}`
                     }
                 }
                 const [scope, selector] = expression.split('|').map(s => s.trim())
-                return { binder: true, signal: true, vars: { scope, selector } }
+                return { signal: true, scope, selector }
             },
             shape: function (expression, hasDefault) {
                 const shape = this.resolveShape(expression)
-                return { vars: { shape } }
+                return { shape }
             },
             state: function (expression, hasDefault) {
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
-                return { binder: true, signal: true, vars: { target, shape } }
+                return { signal: true, target, shape }
             },
             transform: function (expression, hasDefault) {
                 if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-                return { vars: { expression } }
+                return { expression }
             },
             type: function (expression, hasDefault) {
                 let mode = 'any', types = []
@@ -440,20 +436,17 @@ ${scriptBody.join('{')}`
                     const ifMode = typeName[0] !== '!'
                     types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
                 }
-                return { vars: { types, mode } }
+                return { types, mode }
             },
             value: function (expression, hasDefault) {
                 const value = expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression)
-                return { vars: { value } }
+                return { value }
             },
             variable: function (expression, hasDefault) {
-                return { vars: { expression } }
+                return { expression }
             },
             wait: function (expression, hasDefault) {
-                return { vars: { expression } }
-            },
-            x: function (expression, hasDefault) {
-                return { vars: { expression, hasDefault } }
+                return { expression }
             }
         }
     }

@@ -23,6 +23,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^[#?/:]$/, {
                     name: 'router',
                     handler: async function (container, position, envelope, value) {
+                        console.log('line 26', container, position, envelope, value)
                         switch (typeof value) {
                             case 'string':
                                 document.location = value
@@ -59,6 +60,7 @@ const ElementHTML = Object.defineProperties({}, {
                         //     }])))
                     },
                     binder: async function (container, position, envelope) {
+                        console.log('line 63', container, position, envelope)
                         const { signal } = envelope
                         globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
@@ -66,7 +68,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\(.*\)$/, {
                     name: 'selector',
                     handler: async function (container, position, envelope, value) {
-                        const { vars } = envelope, { selector, scope } = vars
+                        const { descriptor } = envelope, { selector, scope } = descriptor
                         if (value != undefined) {
                             const target = this.resolveSelector(selector, scope)
                             if (Array.isArray(target)) {
@@ -78,7 +80,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return value
                     },
                     binder: async function (container, position, envelope) {
-                        const { vars, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = vars, scope = this.resolveScope(scopeStatement, container)
+                        const { descriptor, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = descriptor, scope = this.resolveScope(scopeStatement, container)
                         if (!scope) return {}
                         let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                         if (eventList) {
@@ -121,13 +123,13 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'variable',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.vars.expression, { wrapped: true }, { cells, context, fields, labels, value })
+                        return this.resolveVariable(envelope.descriptor.expression, { wrapped: true }, { cells, context, fields, labels, value })
                     }
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { block, expression } = envelope.vars, fields = this.app.facets.instances.get(container).valueOf(),
+                        const { labels, env } = envelope, { block, expression } = envelope.descriptor, fields = this.app.facets.instances.get(container).valueOf(),
                             cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                         return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
                     }
@@ -135,7 +137,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
                     handler: async function (container, position, envelope, value) {
-                        const { vars } = envelope, { getReturnValue, shape, target } = vars
+                        const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
                         if (value == undefined) return getReturnValue()
                         switch (shape) {
                             case 'single':
@@ -151,8 +153,8 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     },
                     binder: async function (container, position, envelope) {
-                        const { signal, vars } = envelope, { shape } = vars, items = []
-                        let { target } = vars, getReturnValue
+                        const { signal, descriptor } = envelope, { shape } = descriptor, items = []
+                        let { target } = descriptor, getReturnValue
                         switch (shape) {
                             case 'single':
                                 target[target.type] = target.type === 'field' ? (new this.Field(container, target.name)) : (new this.Cell(target.name))
@@ -189,20 +191,20 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
                     handler: async function (container, position, envelope, value) {
-                        return envelope.vars.value
+                        return envelope.descriptor.value
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
                     handler: async function (container, position, envelope, value) {
                         const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.vars.shape, { wrapped: false }, cells, context, fields, labels, value)
+                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, cells, context, fields, labels, value)
                     }
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) {
-                        const { vars } = envelope, { types, mode } = vars
+                        const { descriptor } = envelope, { types, mode } = descriptor
                         let pass
                         switch (mode) {
                             case 'any':
@@ -223,14 +225,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) {
-                        const { vars } = envelope, { expression } = vars
+                        const { descriptor } = envelope, { expression } = descriptor
                         if (typeof value !== 'string') value = `${value}`
                         const match = value.match(this.app.regexp[expression])
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
-                        const { vars } = envelope, { expression } = vars
-                        let { regexp } = vars
+                        const { descriptor } = envelope, { expression } = descriptor
+                        let { regexp } = descriptor
                         regexp ??= new RegExp(expression)
                         this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
                         return { regexp }
@@ -239,7 +241,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^`.*`$/, {
                     name: 'network',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = vars
+                        const { labels, env, descriptor } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = descriptor
                         let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
                         if (!url) return
                         const options = {}
@@ -279,7 +281,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^_.*_$/, {
                     name: 'wait',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env, vars } = envelope, { cells, context, fields } = env, { expression } = vars, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
+                        const { labels, env, descriptor } = envelope, { cells, context, fields } = env, { expression } = descriptor, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
                         let ms = 0, now = Date.now()
                         if (expression === 'frame') {
                             await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
@@ -312,14 +314,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$`.*`$/, {
                     name: 'command',
                     handler: async function (container, position, envelope, value) {
-                        if (this.modules.dev) $([envelope.vars.invocation])
+                        if (this.modules.dev) $([envelope.descriptor.invocation])
                         return value
                     }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) {
-                        if (this.modules.dev) (envelope.vars.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
+                        if (this.modules.dev) (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
                     }
                 }]
@@ -2141,7 +2143,7 @@ const ElementHTML = Object.defineProperties({}, {
             controllers = {}
             fields = {}
             observer
-            vars = {}
+            descriptors = {}
             labels = []
             disabled
             constructor() {
@@ -2149,7 +2151,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = new this.constructor.E.Field(this, fieldName)
                 Object.freeze(this.fields)
             }
-            async run(container, env) {
+            async run(container, { fields, cells, context }) {
                 for (const [statementIndex, statement] of this.constructor.statements.entries()) {
                     this.labels[statementIndex] = {}
                     const { steps = [] } = statement, labels = this.labels[statementIndex], saveToLabel = (stepIndex, label, value, labelMode) => {
@@ -2157,10 +2159,10 @@ const ElementHTML = Object.defineProperties({}, {
                         if (label && (label != stepIndex)) {
                             switch (label[0]) {
                                 case '@':
-                                    env.fields[label.slice(1)].set(value, labelMode)
+                                    fields[label.slice(1)].set(value, labelMode)
                                     break
                                 case '#':
-                                    env.cells[label.slice(1)].set(value, labelMode)
+                                    cells[label.slice(1)].set(value, labelMode)
                                     break
                                 default:
                                     labels[label] = value
@@ -2169,19 +2171,17 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, ctx } = step,
-                            { key, signal, vars = {} } = ctx, envelope = { labels, env }
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step,
+                            { interpreter: interpreterKey, descriptor = {} } = signature, { signal } = descriptor,
+                            envelope = { descriptor, labels, fields, cells, context }
                         let interpreter, matcher
-                        for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === key) break
+                        for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
                         if (!interpreter) continue
                         const { binder, handler, name } = interpreter
-                        this.vars[position] = vars
-                        envelope.vars = this.vars[position]
-                        if (binder) {
-                            if (signal) envelope.signal = (this.controllers[position] = new AbortController()).signal
-                            Object.assign(this.vars[position], await binder(container, position, envelope))
-                        }
+                        this.descriptors[position] = descriptor
+                        if (signal) envelope.signal = (this.controllers[position] = new AbortController()).signal
+                        if (binder) Object.assign(this.descriptors[position], (await binder(container, position, envelope) ?? {}))
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
@@ -2197,6 +2197,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }, { signal: this.controller.signal })
                         } else {
                             container.addEventListener('run', async event => {
+                                console.log('line 2201', container, position, envelope)
                                 if (this.disabled) return
                                 let detail = await handler(container, position, envelope, undefined)
                                     ?? (defaultExpression
