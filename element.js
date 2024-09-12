@@ -25,9 +25,10 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope, { expression } = descriptor
                         let result, keyMap = { '#': 'hash', '/': 'pathname', '?': 'search' }
-                        if (expression in keyMap) {
-                            if (typeof value === 'string') document.location[keyMap[expression]] = value
-                            return document.location[keyMap[expression]].slice(1) || undefined
+                        if (expression in this.sys.locationKeyMap) {
+                            const locationKey = this.sys.locationKeyMap[expression]
+                            if (typeof value === 'string') document.location[locationKey] = value
+                            return document.location[locationKey].slice(1) || undefined
                         }
                         if (expression !== ':') return
                         switch (typeof value) {
@@ -1746,7 +1747,8 @@ const ElementHTML = Object.defineProperties({}, {
                 mustBeWrapped: Object.freeze(new Set(['components', 'facets'])),
                 mayBeWrapped: Object.freeze(new Set(['gateways', 'interpreters'])),
                 mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
-            })
+            }),
+            locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' }
         })
     },
 
