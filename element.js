@@ -57,7 +57,7 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
-                        if (signal) globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
+                        if (signal) globalThis.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     }
                 }],
                 [/^\$\(.*\)$/, {
