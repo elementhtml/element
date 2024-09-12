@@ -384,9 +384,7 @@ ${scriptBody.join('{')}`
                 return { expression, signal: expression === '#' }
             },
             selector: function (expression, hasDefault) {
-                expression = expression.slice(2, -1)
-                const { scope, selector } = this.resolveScopedSelector(expression)
-                return { signal: true, scope, selector }
+                return { signal: true, ...this.resolveScopedSelector(expression.slice(2, -1)) }
             },
             shape: function (expression, hasDefault) {
                 const shape = this.resolveShape(expression)
