@@ -76,7 +76,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return value
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, signal } = envelope, { scope: scopeStatement, selector: selectorStatement } = descriptor, scope = this.resolveScope(scopeStatement, container)
+                        const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor, scope = this.resolveScope(scopeStatement, container)
+                        console.log('line 80', descriptor, signal, scopeStatement, selectorStatement, scope)
                         if (!scope) return {}
                         let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
                         if (eventList) {
@@ -1152,16 +1153,17 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: {
         enumerable: true, value: function (scopedSelector, element) {
-            element = this.app.components.natives.get(element) ?? element
-            if (this.sys.impliedScopes[scopedSelector]) return this.resolveScope(this.sys.impliedScopes[scopedSelector], element)
+            if (element) element = this.app.components.natives.get(element) ?? element
+            if (this.sys.impliedScopes[scopedSelector]) return element ? this.resolveScope(this.sys.impliedScopes[scopedSelector], element) : { scope: this.sys.impliedScopes[scopedSelector] }
             if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
             if (this.sys.regexp.pipeSplitter.test(scopedSelector)) {
                 const [scopeStatement, selectorStatement] = scopedSelector.split(this.sys.regexp.pipeSplitter, 2).map(s => s.trim())
+                if (!element) return { scope: scopeStatement, selector: selectorStatement }
                 scope = this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
             }
-            return this.resolveSelector(scopedSelector, scope)
+            return element ? this.resolveSelector(scopedSelector, scope) : { selector: scopedSelector }
         }
     },
     resolveSelector: {

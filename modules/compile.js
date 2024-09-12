@@ -384,26 +384,8 @@ ${scriptBody.join('{')}`
                 return { expression, signal: expression === '#' }
             },
             selector: function (expression, hasDefault) {
-                if (!expression.includes('|')) {
-                    switch (expression[0]) {
-                        case '#':
-                            expression = `html|${expression}`
-                            break
-                        case '@':
-                            expression = `*|[name="${expression.slice(1)}"]`
-                            break
-                        case '%':
-                            expression = `*|[style~="${expression.slice(1)}"]`
-                            break
-                        case '~':
-                            expression = `*|[itemscope] [itemprop="${expression.slice(1)}"]`
-                            break
-                        case '.':
-                        default:
-                            expression = `*|${expression}`
-                    }
-                }
-                const [scope, selector] = expression.split('|').map(s => s.trim())
+                expression = expression.slice(2, -1)
+                const { scope, selector } = this.resolveScopedSelector(expression)
                 return { signal: true, scope, selector }
             },
             shape: function (expression, hasDefault) {
