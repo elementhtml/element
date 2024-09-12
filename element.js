@@ -60,9 +60,8 @@ const ElementHTML = Object.defineProperties({}, {
                         //     }])))
                     },
                     binder: async function (container, position, envelope) {
-                        console.log('line 63', container, position, envelope)
-                        const { signal } = envelope
-                        globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
+                        const { descriptor } = envelope, { signal } = descriptor
+                        if (signal) globalThis.addEventListener('hashchange', event => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash })), { signal })
                     }
                 }],
                 [/^\$\(.*\)$/, {
@@ -2180,7 +2179,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!interpreter) continue
                         const { binder, handler, name } = interpreter
                         this.descriptors[position] = descriptor
-                        if (signal) envelope.signal = (this.controllers[position] = new AbortController()).signal
+                        if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
                         if (binder) Object.assign(this.descriptors[position], (await binder(container, position, envelope) ?? {}))
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
