@@ -197,7 +197,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { types, mode } = descriptor
                         let pass
                         switch (mode) {
@@ -214,21 +214,26 @@ const ElementHTML = Object.defineProperties({}, {
                                 return { value, validation }
                         }
                         if (pass) return value
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { descriptor } = envelope, { types, mode } = descriptor
+                        for (typeExpression of types) {
+                            // do something to pre-load this type class 
+                        }
                     }
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { expression } = descriptor
+                        const { descriptor } = envelope, { regexp } = descriptor
                         if (typeof value !== 'string') value = `${value}`
-                        const match = value.match(this.app.regexp[expression])
+                        if (regexp.lastIndex) regexp.lastIndex = 0
+                        const match = value.match(regexp)
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
-                    binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { expression } = descriptor
-                        let { regexp } = descriptor
-                        regexp ??= new RegExp(expression)
-                        this.app.regexp[expression] ??= this.env.regexp[expression] ?? regexp
+                    binder: async function (container, position, envelope) { // optimal
+                        const { descriptor } = envelope, { expression } = descriptor,
+                            regexp = expression[0] === '*' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
                         return { regexp }
                     }
                 }],

@@ -362,9 +362,9 @@ ${scriptBody.join('{')}`
                 return { expression, expressionIncludesVariable, hasDefault, returnFullRequest }
             },
             pattern: function (expression, hasDefault) {
-                expression = expression.trim()
+                expression = expression.slice(1, -1).trim()
                 if (!expression) return
-                return { expression, regexp: new RegExp(this.env.regexp[expression] ?? expression) }
+                return { expression }
             },
             proxy: function (expression, hasDefault) {
                 const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
