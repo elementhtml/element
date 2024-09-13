@@ -142,18 +142,13 @@ const ElementHTML = Object.defineProperties({}, {
                         const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
                         if (value == undefined) return getReturnValue()
                         switch (shape) {
-                            case 'single':
-                                target[target.type].set(value, target.mode)
-                                break
-                            case 'array':
-                                if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) != undefined) (t = target[i])[t.type].set(v, t.mode)
-                                break
-                            case 'object':
-                                if (value instanceof Object) for (const k in value) if (value[k] != undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
+                            case 'single': target[target.type].set(value, target.mode); break
+                            case 'array': if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) != undefined) (t = target[i])[t.type].set(v, t.mode); break
+                            case 'object': if (value instanceof Object) for (const k in value) if (value[k] != undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
                         }
                     },
                     binder: async function (container, position, envelope) {
-                        const { signal, descriptor } = envelope, { shape } = descriptor, items = []
+                        const { descriptor } = envelope, { signal, shape } = descriptor, items = []
                         let { target } = descriptor, getReturnValue
                         switch (shape) {
                             case 'single':
@@ -162,25 +157,24 @@ const ElementHTML = Object.defineProperties({}, {
                                 items.push(target)
                                 break
                             case 'array':
-                                for (const t of target) t[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
+                                for (const t of target) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                                 getReturnValue = () => {
-                                    const r = target.map(t => t[t.type].get())
-                                    return r.some(rr => rr == undefined) ? undefined : r
+                                    const r = []
+                                    for (const t of target) if ((r[r.length] = t[t.type].get()) == undefined) return
+                                    return r
                                 }
-                                items.push(...target)
                                 break
                             case 'object':
                                 if (Array.isArray(target)) target = Object.fromEntries(target)
-                                for (const t of Object.values(target)) t[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
+                                for (const t of Object.values(target)) (items[items.length = t])[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                                 getReturnValue = () => {
                                     const r = {}
-                                    for (const key in target) r[key] = target[key][target[key].type].get()
-                                    return Object.values(r).every(rr => rr == undefined) ? undefined : r
+                                    for (const k in target) if ((r[k] = target[k][target[k].type].get()) == undefined) return
+                                    return r
                                 }
-                                items.push(...Object.values(target))
                         }
                         for (const item of items) {
-                            item[item.type].eventTarget.addEventListener('change', event => {
+                            item[item.type].eventTarget.addEventListener('change', () => {
                                 const detail = getReturnValue()
                                 if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal })
