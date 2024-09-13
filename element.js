@@ -238,10 +238,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^`.*`$/, {
                     name: 'network',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { labels, cells, context, fields, descriptor } = envelope
                         let { url } = descriptor
-                        url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
+                        url = this.resolveUrl(this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value }))
                         if (!url) return
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
