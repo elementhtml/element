@@ -118,9 +118,12 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.descriptor.expression, { wrapped: true }, { cells, context, fields, labels, value })
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { descriptor, labels, cells, context, fields } = envelope
+                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
+                    },
+                    binder: async function (container, position, envelope) { // optimal
+                        return { expression: envelope.descriptor.expression.slice(2, -1).trim() }
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -464,10 +467,10 @@ const ElementHTML = Object.defineProperties({}, {
                                 case 'snippets':
                                     if (valueIsString) {
                                         const template = document.createElement('template')
-                                        template.innerHTML = unit
-                                        unit = template
+                                        template.innerHTML = value
+                                        value = template
                                     }
-                                    if (unit instanceof HTMLElement) env[unitTypeCollectionName][key] = Object.freeze(unit)
+                                    if (value instanceof HTMLElement) env[unitTypeCollectionName][key] = Object.freeze(value)
                                     break
                             }
                         }
