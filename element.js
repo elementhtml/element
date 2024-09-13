@@ -184,15 +184,15 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         return envelope.descriptor.value
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
-                    handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { cells, context, fields } = env
-                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, cells, context, fields, labels, value)
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { labels, cells, context, fields } = envelope
+                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
                     }
                 }],
                 [/^\|.*\|$/, {
