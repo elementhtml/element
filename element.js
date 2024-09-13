@@ -2184,21 +2184,21 @@ const ElementHTML = Object.defineProperties({}, {
                         for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
                         if (!interpreter) continue
-                        const { binder, handler, name } = interpreter, execStep = async (event, previousStepIndex) => {
+                        const { binder, handler, name } = interpreter, execStep = async previousStepIndex => {
                             if (this.disabled) return
-                            const E = this.constructor.E, handlerEnvelope = { ...envelope, fields: E.deepFreeze(E.flatten(fields)), cells: E.deepFreeze(E.flatten(cells)), labels: E.deepFreeze({ ...labels }) }
+                            const E = this.constructor.E, handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) }
                             const value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
                                 ?? (defaultExpression ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                         }
-                        this.descriptors[position] = descriptor
                         if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
-                        if (binder) Object.assign(this.descriptors[position], (await binder(container, position, envelope) ?? {}))
+                        if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
+                        this.descriptors[position] = Object.freeze(descriptor)
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
                         const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async event => execStep(event, previousStepIndex), { signal: this.controller.signal })
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async event => execStep(previousStepIndex), { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
