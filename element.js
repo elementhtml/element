@@ -146,12 +146,10 @@ const ElementHTML = Object.defineProperties({}, {
                                 target[target.type].set(value, target.mode)
                                 break
                             case 'array':
-                                if (Array.isArray(value)) for (const [i, v] of value.entries()) if (v != undefined) target[i][target[i].type].set(v, target[i].mode)
+                                if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) != undefined) (t = target[i])[t.type].set(v, t.mode)
                                 break
                             case 'object':
-                                if (value instanceof Object) for (const [k, v] of Object.entries(value)) if (v != undefined) if (k in target) {
-                                    target[k][target[k].type].set(v, target[k].mode)
-                                }
+                                if (value instanceof Object) for (const k in value) if (value[k] != undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
                         }
                     },
                     binder: async function (container, position, envelope) {
