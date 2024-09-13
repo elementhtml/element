@@ -239,41 +239,36 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^`.*`$/, {
                     name: 'network',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, cells, context, fields, descriptor } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = descriptor
-                        let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
+                        const { labels, cells, context, fields, descriptor } = envelope
+                        let { url } = descriptor
+                        url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
                         if (!url) return
-                        const options = {}
-                        if (!((value == undefined) || (expressionIncludesVariable && typeof value === 'string'))) {
-                            Object.assign(options, (value instanceof Object && (value.method || value.body)) ? value : { method: 'POST', body: value })
-                            if (options.body && (!(options?.headers ?? {})['Content-Type'] && !(options?.headers ?? {})['content-type'])) {
-                                options.headers ||= {}
-                                options.headers['Content-Type'] ||= options.contentType ?? options['content-type']
-                                delete options['content-type']
-                                delete options.contentType
-                                if (!options.headers['Content-Type']) {
-                                    if (typeof options.body === 'string') {
-                                        if (['null', 'true', 'false'].includes(options.body) || this.sys.regexp.isNumeric.test(options.body) || this.sys.regexp.isJSONObject.test(options.body)) {
-                                            options.headers['Content-Type'] = 'application/json'
-                                        } else if (this.sys.regexp.isFormString.test(options.body)) {
-                                            options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-                                        } else if (this.sys.regexp.isDataUrl.test(options.body)) {
-                                            options.headers['Content-Type'] = this.sys.regexp.isDataUrl.exec(options.body)[1]
-                                        }
-                                    } else {
-                                        options.headers['Content-Type'] = 'application/json'
-                                    }
+                        if (value === null) value = { method: 'HEAD' }
+                        switch (typeof value) {
+                            case 'boolean':
+                                value = { method: value ? 'GET' : 'DELETE' }
+                                break
+                            case 'number':
+                                value = { method: 'POST', headers: new Headers(), body: JSON.stringify(value) }
+                                value.headers.append('Content-Type', 'application/json')
+                                break
+                            case 'string':
+                                value = { method: 'POST', headers: new Headers(), body: value }
+                                if (this.sys.valueAliases[value.body] !== undefined) {
+                                    value.body = JSON.stringify(this.sys.valueAliases[value.body])
+                                    value.headers.append('Content-Type', 'application/json')
+                                } else if (this.sys.regexp.isJSONObject.test(value.body)) {
+                                    value.headers.append('Content-Type', 'application/json')
+                                } else if (this.sys.regexp.isFormString.test(value.body)) {
+                                    value.headers.append('Content-Type', 'application/x-www-form-urlencoded')
                                 }
-                            }
-                            if (options.body && typeof options.body !== 'string') options.body = await this.serialize(options.body, options.headers['Content-Type'])
+                                break
+                            case 'object':
+                                if (value.body && (typeof value.body !== 'string')) value.body = await this.serialize(value.body, value.headers?.['Content-Type'])
+                                break
                         }
-                        return fetch(url, options).then(r => {
-                            if (returnFullRequest) {
-                                return r
-                            } else {
-                                if (hasDefault && !r.ok) return
-                                return r.ok ? this.parse(r) : undefined
-                            }
-                        })
+                        if (value == null) return
+                        return await fetch(url, value)
                     }
                 }],
                 [/^_.*_$/, {

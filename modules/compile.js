@@ -352,14 +352,8 @@ ${scriptBody.join('{')}`
             console: function (expression, hasDefault) { // optimal
                 return { verbose: expression === '$?' }
             },
-            network: function (expression, hasDefault) {
-                const expressionIncludesVariable = (expression.includes('${}') || expression.includes('${$}'))
-                let returnFullRequest = false
-                if (expression[0] === '~' && expression.endsWith('~')) {
-                    returnFullRequest = true
-                    expression = expression.slice(1, -1)
-                }
-                return { expression, expressionIncludesVariable, hasDefault, returnFullRequest }
+            network: function (expression, hasDefault) { // optimal
+                return { url: expression.slice(1, -1).trim(), hasDefault }
             },
             pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()
