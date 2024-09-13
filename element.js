@@ -245,6 +245,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!url) return
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
+                            case 'undefined':
+                                value = { method: 'GET' }
                             case 'boolean':
                                 value = { method: value ? 'GET' : 'DELETE' }
                                 break
