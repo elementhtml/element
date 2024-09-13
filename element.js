@@ -129,9 +129,13 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env } = envelope, { block, expression } = envelope.descriptor, fields = this.app.facets.instances.get(container).valueOf(),
-                            cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
-                        return this.runTransform(expression, value, container, { cells, fields, labels, context: env.context, value })
+                        const { descriptor, labels, fields, cells, context } = envelope, { expression } = descriptor
+                        //  fields = this.app.facets.instances.get(container).valueOf(),
+                        // cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
+                        return this.runTransform(expression, value, container, { cells, fields, labels, context, value })
+                    },
+                    binder: async function (container, position, envelope) { // optimal
+                        return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
                     }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
@@ -2180,33 +2184,21 @@ const ElementHTML = Object.defineProperties({}, {
                         for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
                         if (!interpreter) continue
-                        const { binder, handler, name } = interpreter
+                        const { binder, handler, name } = interpreter, execStep = async (event, previousStepIndex) => {
+                            if (this.disabled) return
+                            const E = this.constructor.E, handlerEnvelope = { ...envelope, fields: E.deepFreeze(E.flatten(fields)), cells: E.deepFreeze(E.flatten(cells)), labels: E.deepFreeze({ ...labels }) }
+                            const value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
+                                ?? (defaultExpression ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
+                            if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                        }
                         this.descriptors[position] = descriptor
                         if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
                         if (binder) Object.assign(this.descriptors[position], (await binder(container, position, envelope) ?? {}))
                         container.addEventListener(`done-${position}`, async event => {
                             saveToLabel(stepIndex, label, event.detail, labelMode)
                         }, { signal: this.controller.signal })
-                        if (stepIndex) {
-                            const previousStepIndex = stepIndex - 1
-                            container.addEventListener(`done-${statementIndex}-${previousStepIndex}`, async event => {
-                                if (this.disabled) return
-                                let value = labels[`${previousStepIndex}`], detail = await handler(container, position, envelope, value)
-                                    ?? (defaultExpression
-                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels, value })
-                                        : undefined)
-                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                            }, { signal: this.controller.signal })
-                        } else {
-                            container.addEventListener('run', async event => {
-                                if (this.disabled) return
-                                let detail = await handler(container, position, envelope, undefined)
-                                    ?? (defaultExpression
-                                        ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { cells: this.constructor.E.flatten(this.constructor.E.app.cells), context: this.constructor.E.env, fields: this.valueOf(), labels })
-                                        : undefined)
-                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                            }, { signal: this.controller.signal })
-                        }
+                        const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async event => execStep(event, previousStepIndex), { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
