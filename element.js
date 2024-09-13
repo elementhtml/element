@@ -22,9 +22,9 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { expression } = descriptor
-                        let result, keyMap = { '#': 'hash', '/': 'pathname', '?': 'search' }
+                        let result
                         if (expression in this.sys.locationKeyMap) {
                             const locationKey = this.sys.locationKeyMap[expression]
                             if (typeof value === 'string') document.location[locationKey] = value
@@ -56,14 +56,14 @@ const ElementHTML = Object.defineProperties({}, {
                         result.path = result.pathname.replace(this.sys.regexp.leadingSlash, '')
                         return result
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (container, position, envelope) { // optimal
                         const { descriptor } = envelope, { signal } = descriptor
-                        if (signal) globalThis.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
+                        if (signal) window.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     }
                 }],
                 [/^\$\(.*\)$/, {
                     name: 'selector',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { selector, scope } = descriptor
                         if (value != undefined) {
                             const target = this.resolveSelector(selector, scope)
@@ -75,22 +75,22 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return value
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (container, position, envelope) { // optimal
                         const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor, scope = this.resolveScope(scopeStatement, container)
-                        console.log('line 80', descriptor, signal, scopeStatement, selectorStatement, scope)
                         if (!scope) return {}
-                        let [selector, eventList] = selectorStatement.split('!').map(s => s.trim())
+                        const lastIndexOfBang = selectorStatement.lastIndexOf('!')
+                        let selector = selectorStatement.trim(), eventList
+                        if (lastIndexOfBang > selector.lastIndexOf(']') && lastIndexOfBang > selector.lastIndexOf(')') && lastIndexOfBang > selector.lastIndexOf('"') && lastIndexOfBang > selector.lastIndexOf("'"))
+                            [selector, eventList] = [selector.slice(0, lastIndexOfBang).trim(), selector.slice(lastIndexOfBang + 1).trim()]
                         if (eventList) {
-                            eventList = eventList.split(',').map(s => s.trim()).filter(s => !!s)
+                            eventList = eventList.split(this.sys.regexp.commaSplitter).filter(Boolean)
                         } else if (container.dataset.facetCid) {
-                            const { statements } = this.app.facets.classes[container.dataset.facetCid] ?? {}
-                            if (!statements) return { selector, scope }
-                            const [statementIndex, stepIndex] = position.split('-').map(s => parseInt(s))
-                            if (statements[statementIndex].steps.length === stepIndex + 1) return { selector, scope }
+                            const [statementIndex, stepIndex] = position.split('-')
+                            if (!this.app.facets.classes[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
                         const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
                         for (let eventName of eventNames) {
-                            let keepDefault = eventName.slice(-3).includes('+'), exactMatch = eventName.slice(-3).includes('='), once = eventName.slice(-3).includes('-')
+                            const eventNameSlice3 = eventName.slice(-3), keepDefault = eventNameSlice3.includes('+'), exactMatch = eventNameSlice3.includes('='), once = eventNameSlice3.includes('-')
                             if (keepDefault) eventName = eventName.replace('+', '')
                             if (exactMatch) eventName = eventName.replace('=', '')
                             if (once) eventName = eventName.replace('-', '')
@@ -107,7 +107,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 } else if (selector && exactMatch && !event.target.matches(selector)) { return }
                                 targetElement ??= (exactMatch ? event.target : event.target.closest(selector))
                                 if (!targetElement) return
-                                let tagDefaultEventType = targetElement.constructor.events?.default ?? this.sys.defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'
+                                const tagDefaultEventType = targetElement.constructor.events?.default ?? this.sys.defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'
                                 if (!eventList && (event.type !== tagDefaultEventType)) return
                                 if (!keepDefault) event.preventDefault()
                                 container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
@@ -1725,8 +1725,8 @@ const ElementHTML = Object.defineProperties({}, {
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
             regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s,
-                gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/,
+                constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
