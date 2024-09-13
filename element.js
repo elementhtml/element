@@ -64,7 +64,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\(.*\)$/, {
                     name: 'selector',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { selector, scope } = descriptor
+                        const { descriptor } = envelope, { scope, selector } = descriptor
                         if (value != undefined) {
                             const target = this.resolveSelector(selector, scope)
                             if (Array.isArray(target)) {
@@ -119,7 +119,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\{.*\}$/, {
                     name: 'variable',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, labels, cells, context, fields } = envelope
+                        const { descriptor, cells, context, fields, labels } = envelope
                         return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
                     },
                     binder: async function (container, position, envelope) { // optimal
@@ -128,9 +128,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
-                    handler: async function (container, position, envelope, value) {
-                        const { descriptor, labels, fields, cells, context } = envelope, { expression } = descriptor
-                        return this.runTransform(expression, value, container, { cells, fields, labels, context, value })
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { cells, context, fields, labels } = envelope
+                        return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
                     },
                     binder: async function (container, position, envelope) { // optimal
                         return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
