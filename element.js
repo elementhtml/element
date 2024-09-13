@@ -121,9 +121,6 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor, cells, context, fields, labels } = envelope
                         return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
-                    },
-                    binder: async function (container, position, envelope) { // optimal
-                        return { expression: envelope.descriptor.expression.slice(2, -1).trim() }
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -132,7 +129,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const { cells, context, fields, labels } = envelope
                         return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
                     },
-                    binder: async function (container, position, envelope) { // optimal
+                    binder: async function (container, position, envelope) {
+                        // possibly something to pre-load transformers here
                         return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
                     }
                 }],
@@ -224,14 +222,15 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { regexp } = descriptor
                         if (typeof value !== 'string') value = `${value}`
                         if (regexp.lastIndex) regexp.lastIndex = 0
                         const match = value.match(regexp)
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
-                    binder: async function (container, position, envelope) { // optimal
+                    binder: async function (container, position, envelope) {
+                        // do something to  allow to lazy loading to patterns
                         const { descriptor } = envelope, { expression } = descriptor,
                             regexp = expression[0] === '*' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
                         return { regexp }
@@ -240,7 +239,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^`.*`$/, {
                     name: 'network',
                     handler: async function (container, position, envelope, value) {
-                        const { labels, env, descriptor } = envelope, { cells, context, fields } = env, { expression, expressionIncludesVariable, returnFullRequest } = descriptor
+                        const { labels, cells, context, fields, descriptor } = envelope, { expression, expressionIncludesVariable, returnFullRequest } = descriptor
                         let url = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
                         if (!url) return
                         const options = {}
@@ -279,24 +278,23 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
-                    handler: async function (container, position, envelope, value) {
-                        const { labels, env, descriptor } = envelope, { cells, context, fields } = env, { expression } = descriptor, done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value }))
-                        let ms = 0, now = Date.now()
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { descriptor, labels, fields, cells, context } = envelope, { expression } = descriptor,
+                            done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
+                        let ms = 0
                         if (expression === 'frame') {
                             await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
-                            done()
                         } else if (expression.startsWith('idle')) {
                             let timeout = expression.split(':')[0]
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
                             await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
-                            done()
                         } else if (expression[0] === '+') {
                             ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped: false }, { cells, context, fields, labels, value })) || 1
                         } else if (this.sys.regexp.isNumeric.test(expression)) {
                             ms = (parseInt(expression) || 1) - now
                         } else {
                             expression = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
-                            let expressionSplit = expression.split(':').map(s => s.trim())
+                            const expressionSplit = expression.split(':').map(s => s.trim())
                             if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
                                 ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
                                 if (ms < 0) ms = (ms + (1000 * 3600 * 24))
@@ -305,21 +303,20 @@ const ElementHTML = Object.defineProperties({}, {
                                 ms = Date.parse(expression) - now
                             }
                         }
-                        ms = Math.max(ms, 0)
-                        await new Promise(resolve => setTimeout(resolve, ms))
+                        if (ms) await new Promise(resolve => setTimeout(resolve, Math.max(ms, 0)))
                         done()
                     }
                 }],
                 [/^\$`.*`$/, {
                     name: 'command',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         if (this.modules.dev) $([envelope.descriptor.invocation])
                         return value
                     }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         if (this.modules.dev) (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
                     }

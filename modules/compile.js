@@ -346,10 +346,10 @@ ${scriptBody.join('{')}`
     },
     parsers: {
         value: {
-            command: function (expression, hasDefault) {
+            command: function (expression, hasDefault) { // optimal
                 return { invocation: expression.trim() }
             },
-            console: function (expression, hasDefault) {
+            console: function (expression, hasDefault) { // optimal
                 return { verbose: expression === '$?' }
             },
             network: function (expression, hasDefault) {
@@ -361,36 +361,21 @@ ${scriptBody.join('{')}`
                 }
                 return { expression, expressionIncludesVariable, hasDefault, returnFullRequest }
             },
-            pattern: function (expression, hasDefault) {
+            pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()
-                if (!expression) return
                 return { expression }
             },
-            proxy: function (expression, hasDefault) {
-                const [parentExpression, childExpression] = expression.split('.').map(s => s.trim())
-                if (!parentExpression || (childExpression === '')) return
-                let [parentObjectName, ...parentArgs] = parentExpression.split('(').map(s => s.trim())
-                parentArgs = parentArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-                let useHelper = parentObjectName[0] === '~', childMethodName, childArgs
-                if (useHelper) {
-                    parentObjectName = parentObjectName.slice(1)
-                } else {
-                    [childMethodName, ...childArgs] = childExpression.split('(').map(s => s.trim())
-                    childArgs = childArgs.join('(').slice(0, -1).trim().split(',').map(s => s.trim())
-                }
-                return { childArgs, childMethodName, parentArgs, parentObjectName, useHelper }
-            },
-            router: function (expression, hasDefault) {
+            router: function (expression, hasDefault) { // optimal
                 return { expression, signal: expression === '#' }
             },
-            selector: function (expression, hasDefault) {
+            selector: function (expression, hasDefault) { // optimal
                 return { signal: true, ...this.resolveScopedSelector(expression.slice(2, -1)) }
             },
-            shape: function (expression, hasDefault) {
+            shape: function (expression, hasDefault) { // optimal
                 const shape = this.resolveShape(expression)
                 return { shape }
             },
-            state: function (expression, hasDefault) {
+            state: function (expression, hasDefault) { // optimal
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1)
@@ -398,17 +383,16 @@ ${scriptBody.join('{')}`
                 return { signal: true, target, shape }
             },
             transform: function (expression, hasDefault) {
-                if (expression && expression.startsWith('(`') && expression.endsWith('`)')) expression = expression.slice(1, -1)
-                return { expression }
+                return { expression: expression.slice(1, -1) }
             },
-            type: function (expression, hasDefault) {
+            type: function (expression, hasDefault) { // optimal
                 let mode = 'any', types = []
+                expression = expression.slice(1, -1)
                 switch (expression[0]) {
                     case '|':
                         if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
                         break
-                    case '?':
-                        if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
+                    case '?': if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
                 }
                 for (let typeName of expression.split(',')) {
                     typeName = typeName.trim()
@@ -418,15 +402,15 @@ ${scriptBody.join('{')}`
                 }
                 return { types, mode }
             },
-            value: function (expression, hasDefault) {
+            value: function (expression, hasDefault) { // optimal
                 const value = expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression)
                 return { value }
             },
-            variable: function (expression, hasDefault) {
-                return { expression }
+            variable: function (expression, hasDefault) { // optimal
+                return { expression: expression.slice(2, -1).trim() }
             },
             wait: function (expression, hasDefault) {
-                return { expression }
+                return { expression: expression.slice(1, -1) }
             }
         }
     }
