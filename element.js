@@ -138,16 +138,16 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal - but maybe needs to == undefined for a reason?
                         const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
-                        if (value == undefined) return getReturnValue()
+                        if (value === undefined) return getReturnValue()
                         switch (shape) {
                             case 'single': target[target.type].set(value, target.mode); break
-                            case 'array': if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) != undefined) (t = target[i])[t.type].set(v, t.mode); break
-                            case 'object': if (value instanceof Object) for (const k in value) if (value[k] != undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
+                            case 'array': if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) !== undefined) (t = target[i])[t.type].set(v, t.mode); break
+                            case 'object': if (value instanceof Object) for (const k in value) if (value[k] !== undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
                         }
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (container, position, envelope) { // optimal
                         const { descriptor } = envelope, { signal, shape } = descriptor, items = []
                         let { target } = descriptor, getReturnValue
                         switch (shape) {
