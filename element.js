@@ -160,7 +160,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 for (const t of target) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                                 getReturnValue = () => {
                                     const r = []
-                                    for (const t of target) if ((r[r.length] = t[t.type].get()) == undefined) return
+                                    for (const t of target) if ((r[r.length] = t[t.type].get()) === undefined) return
                                     return r
                                 }
                                 break
@@ -169,14 +169,14 @@ const ElementHTML = Object.defineProperties({}, {
                                 for (const t of Object.values(target)) (items[items.length = t])[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                                 getReturnValue = () => {
                                     const r = {}
-                                    for (const k in target) if ((r[k] = target[k][target[k].type].get()) == undefined) return
+                                    for (const k in target) if ((r[k] = target[k][target[k].type].get()) === undefined) return
                                     return r
                                 }
                         }
                         for (const item of items) {
                             item[item.type].eventTarget.addEventListener('change', () => {
                                 const detail = getReturnValue()
-                                if (detail != undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal })
                         }
                         return { getReturnValue, shape, target }
