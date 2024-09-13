@@ -130,8 +130,6 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, labels, fields, cells, context } = envelope, { expression } = descriptor
-                        //  fields = this.app.facets.instances.get(container).valueOf(),
-                        // cells = Object.freeze(Object.fromEntries(Object.entries(this.app.cells).map(c => [c[0], c[1].get()])))
                         return this.runTransform(expression, value, container, { cells, fields, labels, context, value })
                     },
                     binder: async function (container, position, envelope) { // optimal
