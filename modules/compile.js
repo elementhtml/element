@@ -350,6 +350,9 @@ ${scriptBody.join('{')}`
                 const [model, prompt] = expression.slice(2, -2).split(this.sys.regexp.pipeSplitterAndTrim)
                 return { model, prompt }
             },
+            api: function (expression, hasDefault) {
+                // yet to complete!
+            },
             command: function (expression, hasDefault) { // optimal
                 return { invocation: expression.trim() }
             },

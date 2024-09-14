@@ -123,6 +123,12 @@ const ElementHTML = Object.defineProperties({}, {
                         return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
                     }
                 }],
+                [/^\(\(.*\)\)$/, {
+                    name: 'api',
+                    handler: async function (container, position, envelope, value) {
+                        // yet to do!
+                    }
+                }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
@@ -132,12 +138,6 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         // possibly something to pre-load transformers here
                         return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
-                    }
-                }],
-                [/^\{\{.*\}\}$/, {
-                    name: 'ai',
-                    handler: async function (container, position, envelope, value) {
-                        // yet to do!
                     }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
@@ -186,16 +186,22 @@ const ElementHTML = Object.defineProperties({}, {
                         return { getReturnValue, shape, target }
                     }
                 }],
+                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
+                    name: 'value',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        return envelope.descriptor.value
+                    }
+                }],
                 [/^\[\[.*\]\]$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
                         // yet to do!
                     }
                 }],
-                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
-                    name: 'value',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        return envelope.descriptor.value
+                [/^\{\{.*\}\}$/, {
+                    name: 'ai',
+                    handler: async function (container, position, envelope, value) {
+                        // yet to do!
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
