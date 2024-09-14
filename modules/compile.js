@@ -347,7 +347,8 @@ ${scriptBody.join('{')}`
     parsers: {
         value: {
             ai: function (expression, hasDefault) {
-                //not done yet!
+                const [model, prompt] = expression.slice(2, -2).split(this.sys.regexp.pipeSplitterAndTrim)
+                return { model, prompt }
             },
             command: function (expression, hasDefault) { // optimal
                 return { invocation: expression.trim() }
@@ -356,7 +357,8 @@ ${scriptBody.join('{')}`
                 return { verbose: expression === '$?' }
             },
             content: function (expression, hasDefault) {
-                //not done yet!
+                token = expression.slice(2, -2)
+                return { token }
             },
             pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()
