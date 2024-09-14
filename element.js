@@ -238,7 +238,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^`.*`$/, {
                     name: 'request',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { labels, cells, context, fields, descriptor } = envelope
                         let { url, contentType, hasDefault } = descriptor
                         url = this.resolveUrl(this.resolveVariable(url, { wrapped: false }, { cells, context, fields, labels, value }))
