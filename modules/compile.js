@@ -352,8 +352,9 @@ ${scriptBody.join('{')}`
             console: function (expression, hasDefault) { // optimal
                 return { verbose: expression === '$?' }
             },
-            network: function (expression, hasDefault) { // optimal
-                return { url: expression.slice(1, -1).trim(), hasDefault }
+            request: function (expression, hasDefault) { // optimal
+                const [url, contentType] = this.expression.slice(1, -1).trim().split('|')
+                return { url: url.trim() || undefined, contentType: contentType ? contentType.trim() : undefined, hasDefault }
             },
             pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()

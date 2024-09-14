@@ -237,40 +237,48 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }],
                 [/^`.*`$/, {
-                    name: 'network',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    name: 'request',
+                    handler: async function (container, position, envelope, value) {
                         const { labels, cells, context, fields, descriptor } = envelope
-                        let { url } = descriptor
-                        url = this.resolveUrl(this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value }))
+                        let { url, contentType, hasDefault } = descriptor
+                        url = this.resolveUrl(this.resolveVariable(url, { wrapped: false }, { cells, context, fields, labels, value }))
                         if (!url) return
+                        contentType = this.resolveVariable(contentType, { wrapped: false }, { cells, context, fields, labels, value })
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
-                            case 'undefined':
-                                value = { method: 'GET' }
-                            case 'boolean':
-                                value = { method: value ? 'GET' : 'DELETE' }
-                                break
+                            case 'undefined': value = { method: 'GET' }; break
+                            case 'boolean': value = { method: value ? 'GET' : 'DELETE' }; break
+                            case 'bigint':
+                                value = value.toString()
                             case 'number':
                                 value = { method: 'POST', headers: new Headers(), body: JSON.stringify(value) }
                                 value.headers.append('Content-Type', 'application/json')
                                 break
                             case 'string':
                                 value = { method: 'POST', headers: new Headers(), body: value }
-                                if (this.sys.valueAliases[value.body] !== undefined) {
-                                    value.body = JSON.stringify(this.sys.valueAliases[value.body])
+                                const { valueAliases, regexp } = this.sys
+                                if (valueAliases[value.body] !== undefined) {
+                                    value.body = JSON.stringify(valueAliases[value.body])
                                     value.headers.append('Content-Type', 'application/json')
-                                } else if (this.sys.regexp.isJSONObject.test(value.body)) {
+                                } else if (regexp.isJSONObject.test(value.body)) {
                                     value.headers.append('Content-Type', 'application/json')
-                                } else if (this.sys.regexp.isFormString.test(value.body)) {
+                                } else if (regexp.isFormString.test(value.body)) {
                                     value.headers.append('Content-Type', 'application/x-www-form-urlencoded')
                                 }
                                 break
                             case 'object':
                                 if (value.body && (typeof value.body !== 'string')) value.body = await this.serialize(value.body, value.headers?.['Content-Type'])
                                 break
+                            default:
+                                return
                         }
-                        if (value == null) return
-                        return await fetch(url, value)
+                        const response = await fetch(url, value)
+                        return contentType === undefined ? this.flatten(response) : this.parse(response, contentType)
+                    },
+                    binder: async function (container, position, envelope) {
+                        // do something to  allow to lazy loading of contentType transformer to transforms and gateway to gateways
+                        const { labels, cells, context, fields, descriptor } = envelope
+                        let { url, contentType, hasDefault } = descriptor
                     }
                 }],
                 [/^_.*_$/, {
