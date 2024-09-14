@@ -346,6 +346,9 @@ ${scriptBody.join('{')}`
     },
     parsers: {
         value: {
+            ai: function (expression, hasDefault) {
+                //not done yet!
+            },
             command: function (expression, hasDefault) { // optimal
                 return { invocation: expression.trim() }
             },
@@ -355,13 +358,13 @@ ${scriptBody.join('{')}`
             content: function (expression, hasDefault) {
                 //not done yet!
             },
-            request: function (expression, hasDefault) { // optimal
-                const [url, contentType] = this.expression.slice(1, -1).trim().split('|')
-                return { url: url.trim() || undefined, contentType: contentType ? contentType.trim() : undefined, hasDefault }
-            },
             pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()
                 return { expression }
+            },
+            request: function (expression, hasDefault) { // optimal
+                const [url, contentType] = this.expression.slice(1, -1).trim().split('|')
+                return { url: url.trim() || undefined, contentType: contentType ? contentType.trim() : undefined, hasDefault }
             },
             router: function (expression, hasDefault) { // optimal
                 return { expression, signal: expression === '#' }
