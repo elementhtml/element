@@ -134,6 +134,12 @@ const ElementHTML = Object.defineProperties({}, {
                         return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
                     }
                 }],
+                [/^\{\{.*\}\}$/, {
+                    name: 'ai',
+                    handler: async function (container, position, envelope, value) {
+                        // yet to do!
+                    }
+                }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
                     handler: async function (container, position, envelope, value) { // optimal - but maybe needs to == undefined for a reason?
@@ -178,6 +184,12 @@ const ElementHTML = Object.defineProperties({}, {
                             }, { signal })
                         }
                         return { getReturnValue, shape, target }
+                    }
+                }],
+                [/^\[\[.*\]\]$/, {
+                    name: 'content',
+                    handler: async function (container, position, envelope, value) {
+                        // yet to do!
                     }
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
