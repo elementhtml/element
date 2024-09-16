@@ -445,7 +445,29 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    ImportPackage: { // optimal
+    resolveFunctionUnit: {
+        value: async function (unitTypeCollectionName, unitKey, unit) {
+            const { unitTypeCollectionChecks } = this.sys
+            if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) return
+            if ((typeof unit === 'function') && (unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) unit = await unit(this, pkg)
+            if ((unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
+                (unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) return
+            switch (unitTypeCollectionName) {
+                case 'gateways':
+                    if (!Array.isArray(unit)) unit = [unit]
+                    const newUnit = []
+                    for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
+                    if (!newUnit.length) return
+                    unit = newUnit
+                    break
+                case 'hooks': (env[unitTypeCollectionName][unitKey] ??= []).push(unit); continue
+                case 'resolvers': if (!(unitKey in env)) return
+            }
+        }
+    },
+
+
+    ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
@@ -459,26 +481,24 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'facets': case 'gateways': case 'hooks': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey]
-                            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-                            if ((typeof unit === 'function') && (unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) {
-                                unit = await unit(this, pkg)
-                            } else if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) {
-                                continue
+                            if (typeof unit === 'string') {
+                                if (unit.startsWith('`') && unit.endsWith('`')) {
+                                    unit = await this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl))
+                                } else {
+                                    env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
+                                    continue
+                                }
+                            } else {
+                                unit = await this.resolveFunctionUnit(unitTypeCollectionName, unitKey, unit)
                             }
-                            if ((unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
-                                (unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) continue
+                            if (!unit) continue
                             switch (unitTypeCollectionName) {
-                                case 'gateways':
-                                    if (!Array.isArray(unit)) unit = [unit]
-                                    const newUnit = []
-                                    for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
-                                    if (!newUnit.length) continue
-                                    unit = newUnit
+                                case 'hooks':
+                                    (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
                                     break
-                                case 'hooks': (env[unitTypeCollectionName][unitKey] ??= []).push(unit); continue
-                                case 'resolvers': if (!(unitKey in env)) continue
+                                default:
+                                    env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                             }
-                            env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
                         break
                     case 'apis': case 'content': case 'models': case 'context': case 'namespaces': case 'patterns': case 'snippets':
@@ -639,12 +659,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    addToQueue: {//optimal
-        enumerable: true, value: function (job, jobName = this.generateUuid()) {
-            this.queue.set(jobName, job)
-            return jobName
-        }
-    },
     checkType: {
         enumerable: true, value: async function (typeName, value, validate) {
             if (!(typeName = typeName.trim())) return
@@ -968,11 +982,6 @@ const ElementHTML = Object.defineProperties({}, {
                 hasHelper = await this.loadHelper(inputUrlExtension)
                 if (hasHelper) return this.useHelper(inputUrlExtension, text) ?? text
             }
-        }
-    },
-    removeFromQueue: {
-        enumerable: true, value: async function (name) {
-            return this.queue.delete(name, job)
         }
     },
     render: {
