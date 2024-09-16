@@ -2284,11 +2284,40 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return Object.values(this).every(v => v === true) }
         }
     },
+    Job: {
+        enumerable: true, value: class {
+
+            id
+            jobFunction
+            runner
+            running = false
+
+            static cancelJob(id) { return this.E.queue.delete(id) }
+            static isRunning(id) { return this.E.queue.get(id)?.running }
+            static getJobFunction(id) { return this.E.queue.get(id)?.jobFunction }
+            static getJobRunner(id) { return this.E.queue.get(id)?.runner }
+
+            constructor(id, jobFunction) {
+                this.id = id ?? this.constructor.E.generateUuid()
+                if (this.constructor.E.queue.get(id)) return
+                this.jobFunction = jobFunction
+                this.runner = async () => {
+                    this.running = true
+                    try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
+                }
+                this.constructor.E.queue.set(this.id, this)
+            }
+
+            cancel() { this.constructor.E.queue.delete(this.id) }
+
+        }
+    },
     queue: { value: new Map() }
 })
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
 ElementHTML.Validator.E = ElementHTML
+ElementHTML.Job.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: {
         value: class extends ElementHTML.State {
