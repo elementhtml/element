@@ -4,7 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
-            components: {}, context: {}, facets: {},
+            apis: {}, components: {}, content: {}, context: {}, facets: {},
             gateways: {
                 'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link', auto: true }],
                 'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link', auto: true }],
@@ -360,6 +360,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
+            models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
@@ -480,7 +481,7 @@ const ElementHTML = Object.defineProperties({}, {
                             env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                         }
                         break
-                    case 'context': case 'namespaces': case 'patterns': case 'snippets':
+                    case 'apis': case 'content': case 'models': case 'context': case 'namespaces': case 'patterns': case 'snippets':
                         for (const key in unitTypeCollection) {
                             let value = unitTypeCollection[key]
                             switch (typeof value) {
@@ -490,8 +491,13 @@ const ElementHTML = Object.defineProperties({}, {
                                     break
                             }
                             const valueIsString = typeof value === 'string'
+                            let isPlainObject
                             switch (unitTypeCollectionName) {
-                                case 'context': env[unitTypeCollectionName][key] = this.deepFreeze(value, true); break
+                                case 'content': if (!((isPlainObject = this.isPlainObject) || valueIsString)) continue
+                                case 'apis': case 'models': if (!(isPlainObject ??= this.isPlainObject(value))) continue
+                                case 'context':
+                                    env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
+                                    break
                                 case 'namespaces':
                                     if (valueIsString && (value !== 'e')) env[unitTypeCollectionName][key] = value
                                     break
