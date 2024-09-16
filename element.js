@@ -61,6 +61,86 @@ const ElementHTML = Object.defineProperties({}, {
                         if (signal) window.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     }
                 }],
+                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
+                    name: 'value',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        return envelope.descriptor.value
+                    }
+                }],
+                [/^\$\{.*\}$/, {
+                    name: 'variable',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { descriptor, cells, context, fields, labels } = envelope
+                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
+                    }
+                }],
+                [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
+                    name: 'shape',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { labels, cells, context, fields } = envelope
+                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
+                    }
+                }],
+                [/^#\`[^`]+(\|[^`]+)?\`$/, {
+                    name: 'content',
+                    handler: async function (container, position, envelope, value) {
+                        // yet to do!
+                    }
+                }],
+                [/^\(.*\)$/, {
+                    name: 'transform',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { cells, context, fields, labels } = envelope
+                        return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
+                    },
+                    binder: async function (container, position, envelope) {
+                        // possibly something to pre-load transformers here
+                        return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
+                    }
+                }],
+                [/^\/.*\/$/, {
+                    name: 'pattern',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { descriptor } = envelope, { regexp } = descriptor
+                        if (typeof value !== 'string') value = `${value}`
+                        if (regexp.lastIndex) regexp.lastIndex = 0
+                        const match = value.match(regexp)
+                        return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+                    },
+                    binder: async function (container, position, envelope) {
+                        // do something to  allow to lazy loading to patterns
+                        const { descriptor } = envelope, { expression } = descriptor,
+                            regexp = expression[0] === '*' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
+                        return { regexp }
+                    }
+                }],
+                [/^\|.*\|$/, {
+                    name: 'type',
+                    handler: async function (container, position, envelope, value) { // optimal
+                        const { descriptor } = envelope, { types, mode } = descriptor
+                        let pass
+                        switch (mode) {
+                            case 'any':
+                                for (const { if: ifMode, name } of types) if (pass = ifMode === (await this.checkType(name, value))) break
+                                break
+                            case 'all':
+                                for (const { if: ifMode, name } of types) if (!(pass = ifMode === (await this.checkType(name, value)))) break
+                                break
+                            case 'info':
+                                pass = true
+                                const validation = {}
+                                for (const { name } of types) validation[name] = await this.checkType(name, value, true)
+                                return { value, validation }
+                        }
+                        if (pass) return value
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { descriptor } = envelope, { types, mode } = descriptor
+                        for (typeExpression of types) {
+                            // do something to pre-load this type class 
+                        }
+                    }
+                }],
                 [/^\$\(.*\)$/, {
                     name: 'selector',
                     handler: async function (container, position, envelope, value) { // optimal
@@ -116,30 +196,6 @@ const ElementHTML = Object.defineProperties({}, {
                         return { selector, scope }
                     }
                 }],
-                [/^\$\{.*\}$/, {
-                    name: 'variable',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, cells, context, fields, labels } = envelope
-                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
-                    }
-                }],
-                [/^\(\(.*\)\)$/, {
-                    name: 'api',
-                    handler: async function (container, position, envelope, value) {
-                        // yet to do!
-                    }
-                }],
-                [/^\(.*\)$/, {
-                    name: 'transform',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        const { cells, context, fields, labels } = envelope
-                        return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
-                    },
-                    binder: async function (container, position, envelope) {
-                        // possibly something to pre-load transformers here
-                        return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
-                    }
-                }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
                     handler: async function (container, position, envelope, value) { // optimal - but maybe needs to == undefined for a reason?
@@ -186,75 +242,19 @@ const ElementHTML = Object.defineProperties({}, {
                         return { getReturnValue, shape, target }
                     }
                 }],
-                [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
-                    name: 'value',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        return envelope.descriptor.value
-                    }
-                }],
-                [/^\[\[.*\]\]$/, {
-                    name: 'content',
+                [/^!\`[^`]+(\|[^`]+)?\`$/, {
+                    name: 'api',
                     handler: async function (container, position, envelope, value) {
                         // yet to do!
                     }
                 }],
-                [/^\{\{.*\}\}$/, {
+                [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
                         // yet to do!
                     }
                 }],
-                [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
-                    name: 'shape',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        const { labels, cells, context, fields } = envelope
-                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
-                    }
-                }],
-                [/^\|.*\|$/, {
-                    name: 'type',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { types, mode } = descriptor
-                        let pass
-                        switch (mode) {
-                            case 'any':
-                                for (const { if: ifMode, name } of types) if (pass = ifMode === (await this.checkType(name, value))) break
-                                break
-                            case 'all':
-                                for (const { if: ifMode, name } of types) if (!(pass = ifMode === (await this.checkType(name, value)))) break
-                                break
-                            case 'info':
-                                pass = true
-                                const validation = {}
-                                for (const { name } of types) validation[name] = await this.checkType(name, value, true)
-                                return { value, validation }
-                        }
-                        if (pass) return value
-                    },
-                    binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { types, mode } = descriptor
-                        for (typeExpression of types) {
-                            // do something to pre-load this type class 
-                        }
-                    }
-                }],
-                [/^\/.*\/$/, {
-                    name: 'pattern',
-                    handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { regexp } = descriptor
-                        if (typeof value !== 'string') value = `${value}`
-                        if (regexp.lastIndex) regexp.lastIndex = 0
-                        const match = value.match(regexp)
-                        return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
-                    },
-                    binder: async function (container, position, envelope) {
-                        // do something to  allow to lazy loading to patterns
-                        const { descriptor } = envelope, { expression } = descriptor,
-                            regexp = expression[0] === '*' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
-                        return { regexp }
-                    }
-                }],
-                [/^`.*`$/, {
+                [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
                     handler: async function (container, position, envelope, value) { // optimal
                         const { labels, cells, context, fields, descriptor } = envelope
@@ -330,7 +330,7 @@ const ElementHTML = Object.defineProperties({}, {
                         done()
                     }
                 }],
-                [/^\$`.*`$/, {
+                [/^\$\`[^`]+\`$/, {
                     name: 'command',
                     handler: async function (container, position, envelope, value) { // optimal
                         if (this.modules.dev) $([envelope.descriptor.invocation])

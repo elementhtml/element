@@ -347,21 +347,22 @@ ${scriptBody.join('{')}`
     parsers: {
         value: {
             ai: function (expression, hasDefault) {
-                const [model, prompt] = expression.slice(2, -2).split(this.sys.regexp.pipeSplitterAndTrim)
+                const [model, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { model, prompt }
             },
             api: function (expression, hasDefault) {
-                // yet to complete!
+                const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { api, action }
             },
             command: function (expression, hasDefault) { // optimal
-                return { invocation: expression.trim() }
+                return { invocation: expression.slice(2, -1).trim() }
             },
             console: function (expression, hasDefault) { // optimal
                 return { verbose: expression === '$?' }
             },
             content: function (expression, hasDefault) {
-                token = expression.slice(2, -2)
-                return { token }
+                const [token, language] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { token, language }
             },
             pattern: function (expression, hasDefault) { // optimal
                 expression = expression.slice(1, -1).trim()
