@@ -86,6 +86,10 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, cells, context, fields, labels } = envelope, { token, language } = descriptor
                         // yet to do!
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { token, language } = descriptor
+                        // possibly something to pre-load content here
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -248,6 +252,10 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, cells, context, fields, labels } = envelope, { api, action } = descriptor
                         // yet to do!
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { api, action } = descriptor
+                        // possibly something to pre-load apis here
                     }
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
@@ -255,6 +263,10 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, cells, context, fields, labels } = envelope, { model, prompt } = descriptor
                         // yet to do!
+                    },
+                    binder: async function (container, position, envelope) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { model, prompt } = descriptor
+                        // possibly something to pre-load models here
                     }
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
