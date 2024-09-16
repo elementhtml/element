@@ -346,11 +346,11 @@ ${scriptBody.join('{')}`
     },
     parsers: {
         value: {
-            ai: function (expression, hasDefault) {
+            ai: function (expression, hasDefault) { // optimal
                 const [model, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { model, prompt }
             },
-            api: function (expression, hasDefault) {
+            api: function (expression, hasDefault) { // optimal
                 const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { api, action }
             },
@@ -360,7 +360,7 @@ ${scriptBody.join('{')}`
             console: function (expression, hasDefault) { // optimal
                 return { showStepEnvelope: expression === '$?' }
             },
-            content: function (expression, hasDefault) {
+            content: function (expression, hasDefault) { // optimal
                 const [token, language] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { token, language }
             },
@@ -372,7 +372,7 @@ ${scriptBody.join('{')}`
             },
             request: function (expression, hasDefault) { // optimal
                 const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { url: url.trim() || undefined, contentType: contentType ? contentType.trim() : undefined, hasDefault }
+                return { url, contentType, hasDefault }
             },
             router: function (expression, hasDefault) { // optimal
                 return { expression, signal: expression === '#' }
@@ -381,8 +381,7 @@ ${scriptBody.join('{')}`
                 return { signal: true, ...this.resolveScopedSelector(expression.slice(2, -1)) }
             },
             shape: function (expression, hasDefault) { // optimal
-                const shape = this.resolveShape(expression)
-                return { shape }
+                return { shape: this.resolveShape(expression) }
             },
             state: function (expression, hasDefault) { // optimal
                 expression = expression.trim()
@@ -391,7 +390,7 @@ ${scriptBody.join('{')}`
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
                 return { signal: true, target, shape }
             },
-            transform: function (expression, hasDefault) {
+            transform: function (expression, hasDefault) { // optimal
                 return { expression: expression.slice(1, -1) }
             },
             type: function (expression, hasDefault) { // optimal
@@ -412,13 +411,12 @@ ${scriptBody.join('{')}`
                 return { types, mode }
             },
             value: function (expression, hasDefault) { // optimal
-                const value = expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression)
-                return { value }
+                return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) }
             },
             variable: function (expression, hasDefault) { // optimal
                 return { expression: expression.slice(2, -1).trim() }
             },
-            wait: function (expression, hasDefault) {
+            wait: function (expression, hasDefault) { // optimal
                 return { expression: expression.slice(1, -1) }
             }
         }
