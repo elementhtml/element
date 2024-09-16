@@ -77,25 +77,26 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { labels, cells, context, fields } = envelope
-                        return this.resolveVariable(envelope.descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
+                        const { descriptor, cells, context, fields, labels } = envelope
+                        return this.resolveVariable(descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
                     }
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { token, language } = descriptor
                         // yet to do!
                     }
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { cells, context, fields, labels } = envelope
+                        const { descriptor, cells, context, fields, labels } = envelope
                         return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
                     },
                     binder: async function (container, position, envelope) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { expression } = descriptor
                         // possibly something to pre-load transformers here
-                        return { expression: envelope.descriptor.expression.slice(1, -1).trim() }
                     }
                 }],
                 [/^\/.*\/$/, {
@@ -108,9 +109,9 @@ const ElementHTML = Object.defineProperties({}, {
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
-                        // do something to  allow to lazy loading to patterns
+                        // do something to  allow to lazy loading of patterns
                         const { descriptor } = envelope, { expression } = descriptor,
-                            regexp = expression[0] === '*' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
+                            regexp = expression[0] === '~' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
                         return { regexp }
                     }
                 }],
@@ -245,12 +246,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'api',
                     handler: async function (container, position, envelope, value) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { api, action } = descriptor
                         // yet to do!
                     }
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
+                        const { descriptor, cells, context, fields, labels } = envelope, { model, prompt } = descriptor
                         // yet to do!
                     }
                 }],

@@ -386,16 +386,16 @@ ${scriptBody.join('{')}`
             state: function (expression, hasDefault) { // optimal
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
-                expression = expression.slice(1)
+                expression = expression.slice(1).trim()
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
                 return { signal: true, target, shape }
             },
             transform: function (expression, hasDefault) { // optimal
-                return { expression: expression.slice(1, -1) }
+                return { expression: expression.slice(1, -1).trim() }
             },
             type: function (expression, hasDefault) { // optimal
                 let mode = 'any', types = []
-                expression = expression.slice(1, -1)
+                expression = expression.slice(1, -1).trim()
                 switch (expression[0]) {
                     case '|':
                         if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
@@ -417,7 +417,7 @@ ${scriptBody.join('{')}`
                 return { expression: expression.slice(2, -1).trim() }
             },
             wait: function (expression, hasDefault) { // optimal
-                return { expression: expression.slice(1, -1) }
+                return { expression: expression.slice(1, -1).trim() }
             }
         }
     }
