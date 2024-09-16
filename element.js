@@ -446,8 +446,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     resolveFunctionUnit: {
-        value: async function (unitTypeCollectionName, unitKey, unit) {
+        value: async function (unit, unitKey, unitTypeCollectionName, packageUrl) {
             const { unitTypeCollectionChecks } = this.sys
+            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
             if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) return
             if ((typeof unit === 'function') && (unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) unit = await unit(this, pkg)
             if ((unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
@@ -460,7 +461,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!newUnit.length) return
                     unit = newUnit
                     break
-                case 'hooks': (env[unitTypeCollectionName][unitKey] ??= []).push(unit); continue
                 case 'resolvers': if (!(unitKey in env)) return
             }
         }
@@ -484,7 +484,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (typeof unit === 'string') {
                                 if (unit.startsWith('`') && unit.endsWith('`')) unit = await this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl))
                             } else {
-                                unit = await this.resolveFunctionUnit(unitTypeCollectionName, unitKey, unit)
+                                unit = await this.resolveFunctionUnit(unit, unitKey, unitTypeCollectionName, packageUrl)
                             }
                             if (!unit) continue
                             switch (unitTypeCollectionName) {
