@@ -358,18 +358,20 @@ ${scriptBody.join('{')}`
                 return { invocation: expression.slice(2, -1).trim() }
             },
             console: function (expression, hasDefault) { // optimal
-                return { verbose: expression === '$?' }
+                return { showStepEnvelope: expression === '$?' }
             },
             content: function (expression, hasDefault) {
                 const [token, language] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { token, language }
             },
             pattern: function (expression, hasDefault) { // optimal
-                expression = expression.slice(1, -1).trim()
+                expression = expression.slice(1, -1)
+                expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
+                expression.replaceAll('\\ ', ' ')
                 return { expression }
             },
             request: function (expression, hasDefault) { // optimal
-                const [url, contentType] = this.expression.slice(1, -1).trim().split('|')
+                const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { url: url.trim() || undefined, contentType: contentType ? contentType.trim() : undefined, hasDefault }
             },
             router: function (expression, hasDefault) { // optimal
