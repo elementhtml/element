@@ -482,12 +482,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const unitKey in unitTypeCollection) {
                             let unit = unitTypeCollection[unitKey]
                             if (typeof unit === 'string') {
-                                if (unit.startsWith('`') && unit.endsWith('`')) {
-                                    unit = await this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl))
-                                } else {
-                                    env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
-                                    continue
-                                }
+                                if (unit.startsWith('`') && unit.endsWith('`')) unit = await this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl))
                             } else {
                                 unit = await this.resolveFunctionUnit(unitTypeCollectionName, unitKey, unit)
                             }
