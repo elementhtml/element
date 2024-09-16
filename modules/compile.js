@@ -372,7 +372,7 @@ ${scriptBody.join('{')}`
             },
             request: function (expression, hasDefault) { // optimal
                 const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { url, contentType, hasDefault }
+                return { url, contentType }
             },
             router: function (expression, hasDefault) { // optimal
                 return { expression, signal: expression === '#' }

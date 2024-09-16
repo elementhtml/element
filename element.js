@@ -261,7 +261,7 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'request',
                     handler: async function (container, position, envelope, value) { // optimal
                         const { labels, cells, context, fields, descriptor } = envelope
-                        let { url, contentType, hasDefault } = descriptor
+                        let { url, contentType } = descriptor
                         url = this.resolveUrl(this.resolveVariable(url, { wrapped: false }, { cells, context, fields, labels, value }))
                         if (!url) return
                         contentType = this.resolveVariable(contentType, { wrapped: false }, { cells, context, fields, labels, value })
@@ -299,7 +299,7 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         // do something to  allow to lazy loading of contentType transformer to transforms and gateway to gateways
                         const { labels, cells, context, fields, descriptor } = envelope
-                        let { url, contentType, hasDefault } = descriptor
+                        let { url, contentType } = descriptor
                     }
                 }],
                 [/^_.*_$/, {
