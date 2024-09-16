@@ -92,7 +92,7 @@ const nativeElementsMap = {
                 for (let [index, segment] of directive.split(' >> ').entries()) {
                     segment = segment.trim()
                     if (!segment) continue
-                    let handlerExpression = segment, label, defaultExpression, hasDefault = false
+                    let handlerExpression = segment, label, defaultExpression
                     const labelMatch = handlerExpression.match(regexp.label)
                     if (labelMatch) {
                         label = labelMatch[1].trim()
@@ -102,7 +102,6 @@ const nativeElementsMap = {
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                        hasDefault = !!defaultExpression
                         if (defaultExpression[0] === '#') {
                             const cn = defaultExpression.slice(1).trim()
                             if (cn) cellNames.add(cn)
@@ -133,7 +132,7 @@ const nativeElementsMap = {
                     for (const [matcher, interpreter] of this.env.interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                            signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression, hasDefault) ?? {} }
+                            signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (name === 'state') {
                                 const { target, shape } = signature.descriptor, targetNames = { cell: cellNames, field: fieldNames }
                                 switch (shape) {
@@ -155,7 +154,7 @@ const nativeElementsMap = {
                         if (this.modules.dev) this.modules.dev.print(`No matching interpreter is available for the expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
                         for (const [matcher, interpreter] of this.env.interpreters) {
                             const { parser, name } = interpreter
-                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression, hasDefault) ?? {} }
+                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (signature) break
                         }
                     }
@@ -346,54 +345,54 @@ ${scriptBody.join('{')}`
     },
     parsers: {
         value: {
-            ai: function (expression, hasDefault) { // optimal
+            ai: function (expression) { // optimal
                 const [model, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { model, prompt }
             },
-            api: function (expression, hasDefault) { // optimal
+            api: function (expression) { // optimal
                 const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { api, action }
             },
-            command: function (expression, hasDefault) { // optimal
+            command: function (expression) { // optimal
                 return { invocation: expression.slice(2, -1).trim() }
             },
-            console: function (expression, hasDefault) { // optimal
+            console: function (expression) { // optimal
                 return { showStepEnvelope: expression === '$?' }
             },
-            content: function (expression, hasDefault) { // optimal
+            content: function (expression) { // optimal
                 const [token, language] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { token, language }
             },
-            pattern: function (expression, hasDefault) { // optimal
+            pattern: function (expression) { // optimal
                 expression = expression.slice(1, -1)
                 expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
                 expression.replaceAll('\\ ', ' ')
                 return { expression }
             },
-            request: function (expression, hasDefault) { // optimal
+            request: function (expression) { // optimal
                 const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { url, contentType }
             },
-            router: function (expression, hasDefault) { // optimal
+            router: function (expression) { // optimal
                 return { expression, signal: expression === '#' }
             },
-            selector: function (expression, hasDefault) { // optimal
+            selector: function (expression) { // optimal
                 return { signal: true, ...this.resolveScopedSelector(expression.slice(2, -1)) }
             },
-            shape: function (expression, hasDefault) { // optimal
+            shape: function (expression) { // optimal
                 return { shape: this.resolveShape(expression) }
             },
-            state: function (expression, hasDefault) { // optimal
+            state: function (expression) { // optimal
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1).trim()
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
                 return { signal: true, target, shape }
             },
-            transform: function (expression, hasDefault) { // optimal
+            transform: function (expression) { // optimal
                 return { expression: expression.slice(1, -1).trim() }
             },
-            type: function (expression, hasDefault) { // optimal
+            type: function (expression) { // optimal
                 let mode = 'any', types = []
                 expression = expression.slice(1, -1).trim()
                 switch (expression[0]) {
@@ -410,13 +409,13 @@ ${scriptBody.join('{')}`
                 }
                 return { types, mode }
             },
-            value: function (expression, hasDefault) { // optimal
+            value: function (expression) { // optimal
                 return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) }
             },
-            variable: function (expression, hasDefault) { // optimal
+            variable: function (expression) { // optimal
                 return { expression: expression.slice(2, -1).trim() }
             },
-            wait: function (expression, hasDefault) { // optimal
+            wait: function (expression) { // optimal
                 return { expression: expression.slice(1, -1).trim() }
             }
         }
