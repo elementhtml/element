@@ -2322,20 +2322,15 @@ if (initializationParameters.has('packages')) {
         packageList.push('main')
     }
     for (const key of packageList) {
-        let importUrl = imports[key]
-        const { protocol } = new URL(importUrl, document.baseURI)
+        const { protocol } = new URL(imports[key], document.baseURI)
         if (protocol !== window.location.protocol) await ElementHTML.installGateway(protocol, ElementHTML.env.gateways[protocol] ?? window[protocol])
-        importUrl = ElementHTML.resolveUrl(importUrl)
+        const importUrl = ElementHTML.resolveUrl(imports[key])
         if (!importUrl) continue
         importPromises.set(importUrl, { promise: import(importUrl), key })
     }
     await Promise.all(Array.from(importPromises.values()))
     for (const [url, imp] of importPromises) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
-if (initializationParameters.has('load')) {
-    const preloads = [], loadValue = initializationParameters.get('load')
-    if (loadValue) for (let p of loadValue.split(',')) if (p = p.trim()) preloads.push(p)
-    await ElementHTML.Load(undefined, preloads)
-}
+if (initializationParameters.has('load')) await ElementHTML.Load()
 
 export { ElementHTML }
