@@ -447,6 +447,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveFunctionUnit: {
         value: async function (unit, unitKey, unitTypeCollectionName, packageUrl) {
+            if (!unit) return
             const { unitTypeCollectionChecks } = this.sys
             if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
             if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) return
@@ -471,7 +472,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
-            const { env, sys, isPlainObject } = this, { unitTypeCollectionChecks } = sys
+            const { env, sys, isPlainObject } = this, { unitTypeCollectionChecks } = sys, promises = []
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in env) {
                 const unitTypeCollection = typeof pkg[unitTypeCollectionName] === 'string' ? await this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : pkg[unitTypeCollectionName]
                 if (!isPlainObject(unitTypeCollection)) continue
@@ -480,19 +481,22 @@ const ElementHTML = Object.defineProperties({}, {
                         env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     case 'facets': case 'gateways': case 'hooks': case 'resolvers': case 'transforms':
                         for (const unitKey in unitTypeCollection) {
-                            let unit = unitTypeCollection[unitKey]
-                            if (typeof unit === 'string') {
-                                if (unit.startsWith('`') && unit.endsWith('`')) unit = await this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl))
-                            } else {
-                                unit = await this.resolveFunctionUnit(unit, unitKey, unitTypeCollectionName, packageUrl)
-                            }
-                            if (!unit) continue
-                            switch (unitTypeCollectionName) {
-                                case 'hooks':
-                                    (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-                                    break
-                                default:
-                                    env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
+                            let unit = unitTypeCollection[unitKey], unitPromise = unit instanceof Promise ? unit : undefined
+                            unitPromise ??= ((typeof unit === 'string') && unit.startsWith('`') && unit.endsWith('`'))
+                                ? this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl)) : this.resolveFunctionUnit(unit, unitKey, unitTypeCollectionName, packageUrl)
+                            if (unitPromise) {
+                                promises.push(unitPromise.then(unit => {
+                                    if (!unit) return
+                                    switch (unitTypeCollectionName) {
+                                        case 'hooks':
+                                            (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
+                                            break
+                                        default:
+                                            env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
+                                    }
+                                }))
+                            } else if (unit && typeof unit === 'string') {
+                                env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
                             }
                         }
                         break
