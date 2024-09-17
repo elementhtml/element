@@ -474,8 +474,21 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     attachUnit: {
-        value: async function (unit, unitKey, unitTypeCollection, unitTypeCollectionName, targetKey) {
+        value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
             if (!unit) return
+            if (unitTypeCollectionName === 'components') this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
+            if (unitTypeCollectionName === 'hooks') return (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
+            if (typeof unit === 'string') return (unitTypeCollectionName === 'hooks') ? (this[scopeKey][unitTypeCollectionName][unitKey] ??= []).push(unit) : this[scopeKey][unitTypeCollectionName][unitKey] = unit
+
+            switch (unitTypeCollectionName) {
+                case 'components': case 'facets': case 'gateways':
+                    unit = await unit(this, pkg)
+                    break
+
+
+            }
+
+
             switch (unitTypeCollectionName) {
                 case 'components':
                     env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
@@ -563,16 +576,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     attachUnitTypeCollection: {
-        value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey) {
+        value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
             const { env, sys, isPlainObject } = this, { unitTypeCollectionChecks } = sys, promises = []
             if (!isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
             for (const unitKey in unitTypeCollection) {
+                if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
                 let unit = unitTypeCollection[unitKey], promise
-                if (typeof unit === 'string') {
-                    this.env[unitTypeCollectionName][unitKey] = unit
-                    continue
-                }
-                const attachUnitArgs = [unit, unitKey, unitTypeCollection, unitTypeCollectionName, 'env']
+                const attachUnitArgs = [unit, unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
                 promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(...attachUnitArgs)) : this.attachUnit(...attachUnitArgs)
                 promises.push(promise)
             }
@@ -586,15 +596,16 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
             const promises = []
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
+                const attachUnitTypeCollectionArgs = [unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg]
                 let unitTypeCollection = pkg[unitTypeCollectionName], promise
                 switch (true) {
                     case (typeof unitTypeCollection === 'string'):
                         unitTypeCollection = this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
                     case (unitTypeCollection instanceof Promise):
-                        promise = unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey))
+                        promise = unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(...attachUnitTypeCollectionArgs))
                         break
                     default:
-                        promise = this.attachTypeCollection(unitTypeCollection)
+                        promise = this.attachTypeCollection(...attachUnitTypeCollectionArgs)
                 }
                 promises.push(promise)
             }
