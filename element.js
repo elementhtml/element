@@ -461,8 +461,8 @@ const ElementHTML = Object.defineProperties({}, {
             switch (unitTypeCollectionName) {
                 case 'components':
                     return this[scopeKey][unitTypeCollectionName][`${packageKey}-${unitKey}`] = await unit(this, pkg)
-                case 'facets': case 'gateways': case 'apis': case 'content': case 'models':
-                    // create Gateway, API, Anthology, Model classes at the end of this file!
+                case 'facets': case 'gateways': case 'apis': case 'content': case 'models': case 'languages':
+                    // create Gateway, API, Anthology, Model and Lexicon classes at the end of this file!
                     return this[scopeKey][unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = await unit(this, pkg)
                 case 'resolvers': case 'transforms':
                     return this[scopeKey][unitTypeCollectionName][unitKey] = unit.bind(this)
@@ -1482,32 +1482,32 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     resolveVariable: {
-        enumerable: true, value: function (expression, flags, lexicon = {}) {
+        enumerable: true, value: function (expression, flags, envelope = {}) {
             let result = expression, { wrapped, default: dft, spread } = (flags ?? {})
             switch (true) {
                 case typeof expression === 'string':
                     expression = expression.trim()
                     wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (wrapped) expression = expression.slice(2, -1).trim()
-                    const { context, cells, fields, labels, value } = lexicon, e0 = expression[0], entries = []
+                    const { context, cells, fields, labels, value } = envelope, e0 = expression[0], entries = []
                     let expressionIsArray, u
                     switch (true) {
                         case (expression in this.sys.valueAliases):
                             result = this.sys.valueAliases[expression]
                             break
                         case (expression === '$'):
-                            result = 'value' in lexicon ? value : expression
+                            result = 'value' in envelope ? value : expression
                             break
                         case (e0 === '$'): case (e0 === '@'): case (e0 === '#'): case (e0 === '~'):
-                            const subLexicon = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
+                            const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
                             switch (undefined) {
-                                case subLexicon:
+                                case subEnvelope:
                                     result = expression
                                     break
                                 default:
                                     const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
                                     let i = 0
-                                    result = subLexicon[mainExpression.slice(1)]
+                                    result = subEnvelope[mainExpression.slice(1)]
                                     while (result !== undefined && i < l) result = result?.[vectors[i++]]
                             }
                             break
@@ -1515,9 +1515,9 @@ const ElementHTML = Object.defineProperties({}, {
                         case ((e0 === '{') && expression.endsWith('}')):
                         case ((e0 === '{') && expression.endsWith('}')):
                             result = this.resolveShape(expression)
-                            if (context || cells || fields || labels || ('value' in lexicon)) {
+                            if (context || cells || fields || labels || ('value' in envelope)) {
                                 flags.wrapped = false
-                                result = this.resolveVariable(expression, flags, lexicon)
+                                result = this.resolveVariable(expression, flags, envelope)
                             }
                             break
                         case ((e0 === '"') && expression.endsWith('"')):
@@ -1534,14 +1534,14 @@ const ElementHTML = Object.defineProperties({}, {
                 case Array.isArray(expression):
                     result = []
                     for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++)
-                        result.push(this.resolveVariable(expression[i], { inner: true, default: a ? dft[i] : dft }, lexicon))
+                        result.push(this.resolveVariable(expression[i], { inner: true, default: a ? dft[i] : dft }, envelope))
                     break
                 case this.isPlainObject(expression):
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
                     for (const key in expression) {
                         let keyFlags = { wrapped: false, default: dftIsObject ? dft[key] : dft }
-                        result[this.resolveVariable(key, lexicon, keyFlags)] = this.resolveVariable(expression[key], keyFlags, lexicon)
+                        result[this.resolveVariable(key, envelope, keyFlags)] = this.resolveVariable(expression[key], keyFlags, envelope)
                     }
             }
             return result === undefined ? dft : result
