@@ -84,11 +84,11 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { token, language } = descriptor
+                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
                         // yet to do!
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { token, language } = descriptor
+                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
                         // possibly something to pre-load content here
                     }
                 }],
@@ -449,28 +449,6 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    resolveFunctionUnit: {
-        value: async function (unit, unitKey, unitTypeCollectionName, packageUrl) {
-            if (!unit) return
-            const { unitTypeCollectionChecks } = this.sys
-            if (typeof unit === 'string') unit = await this.resolveImport(this.resolveUrl(unit, packageUrl))
-            if (typeof unit !== 'function' && unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName)) return
-            if ((typeof unit === 'function') && (unitTypeCollectionChecks.mustBeWrapped.has(unitTypeCollectionName) || (unitTypeCollectionChecks.mayBeWrapped.has(unitTypeCollectionName)))) unit = await unit(this, pkg)
-            if ((unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName] && !(unit?.prototype instanceof this[unitTypeCollectionChecks.mustBeClass[unitTypeCollectionName]])) ||
-                (unitTypeCollectionChecks.mustBeFunction.has(unitTypeCollectionName) && (typeof unit !== 'function'))) return
-            switch (unitTypeCollectionName) {
-                case 'gateways':
-                    if (!Array.isArray(unit)) unit = [unit]
-                    const newUnit = []
-                    for (const g of unit) if (g && typeof g === 'object' && ((typeof g.gateway === 'function') || (typeof g.gateway === 'string'))) newUnit.push(g)
-                    if (!newUnit.length) return
-                    unit = newUnit
-                    break
-                case 'resolvers': if (!(unitKey in env)) return
-            }
-        }
-    },
-
 
 
     attachUnit: {
@@ -478,41 +456,20 @@ const ElementHTML = Object.defineProperties({}, {
             if (!unit) return
             if (unitTypeCollectionName === 'components') this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
             if (unitTypeCollectionName === 'hooks') return (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-            if (typeof unit === 'string') return (unitTypeCollectionName === 'hooks') ? (this[scopeKey][unitTypeCollectionName][unitKey] ??= []).push(unit) : this[scopeKey][unitTypeCollectionName][unitKey] = unit
+            if (typeof unit === 'string') return (unitTypeCollectionName === 'hooks') ? (this[scopeKey][unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
 
             switch (unitTypeCollectionName) {
-                case 'components': case 'facets': case 'gateways':
-                    unit = await unit(this, pkg)
-                    break
-
-
+                case 'components':
+                    return this[scopeKey][unitTypeCollectionName][`${packageKey}-${unitKey}`] = await unit(this, pkg)
+                case 'facets': case 'gateways': case 'apis': case 'content': case 'models':
+                    // create Gateway, API, Anthology, Model classes at the end of this file!
+                    return this[scopeKey][unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = await unit(this, pkg)
+                case 'resolvers': case 'transforms':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unit.bind(this)
             }
 
 
             switch (unitTypeCollectionName) {
-                case 'components':
-                    env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                case 'facets': case 'gateways': case 'hooks': case 'resolvers': case 'transforms':
-                    for (const unitKey in unitTypeCollection) {
-                        let unit = unitTypeCollection[unitKey], unitPromise = unit instanceof Promise ? unit : undefined
-                        unitPromise ??= ((typeof unit === 'string') && unit.startsWith('`') && unit.endsWith('`'))
-                            ? this.resolveImport(this.resolveUrl(unit.slice(1, -1).trim(), packageUrl)) : this.resolveFunctionUnit(unit, unitKey, unitTypeCollectionName, packageUrl)
-                        if (unitPromise) {
-                            promises.push(unitPromise.then(unit => {
-                                if (!unit) return
-                                switch (unitTypeCollectionName) {
-                                    case 'hooks':
-                                        (env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-                                        break
-                                    default:
-                                        env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
-                                }
-                            }))
-                        } else if (unit && typeof unit === 'string') {
-                            env[unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = unit
-                        }
-                    }
-                    break
                 case 'apis': case 'content': case 'models': case 'context': case 'namespaces': case 'patterns': case 'snippets':
                     for (const key in unitTypeCollection) {
                         let value = unitTypeCollection[key]

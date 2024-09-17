@@ -360,8 +360,8 @@ ${scriptBody.join('{')}`
                 return { showStepEnvelope: expression === '$?' }
             },
             content: function (expression) { // optimal
-                const [token, language] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { token, language }
+                const [anthology, article] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { anthology, article }
             },
             pattern: function (expression) { // optimal
                 expression = expression.slice(1, -1)
