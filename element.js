@@ -562,10 +562,7 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
-                for (const [matcher, interpreter] of this.env.interpreters) {
-                    interpreter.handler = interpreter.handler.bind(this)
-                    if (interpreter.binder) interpreter.binder = interpreter.binder.bind(this)
-                }
+                for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
                 this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
                     set: () => { throw new Error('Interpreters are read-only at runtime.') },
                     delete: () => { throw new Error('Interpreters are read-only at runtime.') },
