@@ -460,6 +460,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!unit) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
             switch (unitTypeCollectionName) {
+                case 'interpreters': return
                 case 'components':
                     this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     unitKey = `${packageKey}-${unitKey}`
