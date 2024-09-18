@@ -445,97 +445,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
-
-
-
-
-
-
-
-
-    attachUnit: {
-        value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
-            if (!unit) return
-            const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
-            switch (unitTypeCollectionName) {
-                case 'interpreters': return
-                case 'components':
-                    this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    unitKey = `${packageKey}-${unitKey}`
-                case 'apis': case 'content': case 'facets': case 'gateways': case 'languages': case 'models':
-                    // create Gateway, API, Anthology, Model and Lexicon classes at the end of this file!
-                    if (unitIsString) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                    unit = (typeof unit === 'function') ? await unit(this, pkg) : undefined
-                    if (!unit) return
-                    if (!this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]] || (unit?.prototype instanceof this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]])) return
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
-                case 'hooks': case 'resolvers': case 'transforms':
-                    if (typeof unit !== 'function') return
-                    const isHooks = unitTypeCollectionName === 'hooks'
-                    unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
-                    return isHooks ? (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
-                case 'namespaces': case 'libraries':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                case 'patterns':
-                    return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
-                case 'snippets':
-                    if (unitIsString) {
-                        if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                        const template = document.createElement('template')
-                        template.innerHTML = unit
-                        unit = template
-                    }
-                    return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
-                case 'context':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
-                case 'types':
-                    switch (typeof unit) {
-                        case 'string':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = unit
-                        case 'function':
-                            if (unit.prototype instanceof this.Validator) return this[scopeKey][unitTypeCollectionName][unitKey] = unit
-                            unit = await unit(this, pkg)
-                            if (!this.isPlainObject(unit)) return
-                        case 'object':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
-                    }
-            }
-        }
-    },
-
-    attachUnitTypeCollection: {
-        value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
-            if (unitTypeCollectionName === 'interpreters') {
-                if (!(unitTypeCollection instanceof Map)) return
-                let allValid = true
-                for (const [matcher, interpreter] of unitTypeCollection) {
-                    allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
-                        && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
-                        && (!interpreter.binder || (typeof interpreter.binder === 'function'))
-                    if (!allValid) break
-                    interpreter.name = `${packageKey}-${interpreter.name}`
-                    for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
-                    Object.freeze(interpreter)
-                }
-                if (!allValid) return
-                this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
-                return
-            }
-            const promises = []
-            if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
-            for (const unitKey in unitTypeCollection) {
-                if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
-                let unit = unitTypeCollection[unitKey], promise
-                const attachUnitArgs = [unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
-                promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(unit, ...attachUnitArgs)) : this.attachUnit(unit, ...attachUnitArgs)
-                promises.push(promise)
-            }
-            await Promise.all(promises)
-        }
-    },
-
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
@@ -570,7 +479,6 @@ const ElementHTML = Object.defineProperties({}, {
                     get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
                 }))
                 Object.freeze(this.env)
-                // Object.freeze(this)
                 this.processQueue()
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
@@ -1812,6 +1720,85 @@ const ElementHTML = Object.defineProperties({}, {
                     .replace(new RegExp(`${subspaceName}-`, 'g'), `${virtualSubspaceName}-`)
             }
             globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
+        }
+    },
+    attachUnit: {
+        value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
+            if (!unit) return
+            const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
+            switch (unitTypeCollectionName) {
+                case 'interpreters': return
+                case 'components':
+                    this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
+                    unitKey = `${packageKey}-${unitKey}`
+                case 'apis': case 'content': case 'facets': case 'gateways': case 'languages': case 'models':
+                    // create Gateway, API, Anthology, Model and Lexicon classes at the end of this file!
+                    if (unitIsString) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                    unit = (typeof unit === 'function') ? await unit(this, pkg) : undefined
+                    if (!unit) return
+                    if (!this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]] || (unit?.prototype instanceof this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]])) return
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
+                case 'hooks': case 'resolvers': case 'transforms':
+                    if (typeof unit !== 'function') return
+                    const isHooks = unitTypeCollectionName === 'hooks'
+                    unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
+                    return isHooks ? (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
+                case 'namespaces': case 'libraries':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                case 'patterns':
+                    return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
+                case 'snippets':
+                    if (unitIsString) {
+                        if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                        const template = document.createElement('template')
+                        template.innerHTML = unit
+                        unit = template
+                    }
+                    return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
+                case 'context':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                case 'types':
+                    switch (typeof unit) {
+                        case 'string':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = unit
+                        case 'function':
+                            if (unit.prototype instanceof this.Validator) return this[scopeKey][unitTypeCollectionName][unitKey] = unit
+                            unit = await unit(this, pkg)
+                            if (!this.isPlainObject(unit)) return
+                        case 'object':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                    }
+            }
+        }
+    },
+    attachUnitTypeCollection: {
+        value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
+            if (unitTypeCollectionName === 'interpreters') {
+                if (!(unitTypeCollection instanceof Map)) return
+                let allValid = true
+                for (const [matcher, interpreter] of unitTypeCollection) {
+                    allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
+                        && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
+                        && (!interpreter.binder || (typeof interpreter.binder === 'function'))
+                    if (!allValid) break
+                    interpreter.name = `${packageKey}-${interpreter.name}`
+                    for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+                    Object.freeze(interpreter)
+                }
+                if (!allValid) return
+                this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
+                return
+            }
+            const promises = []
+            if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
+            for (const unitKey in unitTypeCollection) {
+                if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
+                let unit = unitTypeCollection[unitKey], promise
+                const attachUnitArgs = [unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
+                promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(unit, ...attachUnitArgs)) : this.attachUnit(unit, ...attachUnitArgs)
+                promises.push(promise)
+            }
+            await Promise.all(promises)
         }
     },
     buildCatchallSelector: {
