@@ -2333,7 +2333,6 @@ Object.defineProperties(ElementHTML, {
             constructor() {
                 super()
             }
-            async fetch() { }
         }
     },
     Model: {
@@ -2341,7 +2340,6 @@ Object.defineProperties(ElementHTML, {
             constructor() {
                 super()
             }
-            async fetch() { }
         }
     }
 })
