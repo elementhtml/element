@@ -2258,28 +2258,32 @@ const ElementHTML = Object.defineProperties({}, {
     API: {
         enumerable: true, value: class {
 
-            actions = {}
-            options = {}
-            url
-
-            constructor(url, requestOptions = {}, actions = {}) {
+            constructor(url, options = {}, actions = {}, processors = {}) {
                 if (!url || (typeof url !== 'string')) return
-                const { isPlainObject, resolveUrl } = this.constructor.E
-                if (!isPlainObject(requestOptions)) requestOptions = {}
-                this.url = resolveUrl(url)
-                this.options = requestOptions
-
-                for (const actionPath in actions) if (isPlainObject(actions[actionPath])) {
-                    const action = actions[actionPath], actionUrl = new URL(action.path, this.url)
-                    delete action.path
-                    this.actions[actionPath] = new Request(actionUrl, { ...this.options, ...action })
+                const { isPlainObject, resolveUrl, parse, serialize } = this.constructor.E, objArgs = { options, actions, processors }
+                for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
+                ({ options, actions, processors } = objArgs);
+                url = resolveUrl(url)
+                for (const p of ['pre', 'post']) {
+                    let processor = processors[p], f = p === 'pre' ? serialize : parse
+                    switch (typeof processors[p]) {
+                        case 'string': processor = async v => f(v, processor); break
+                        case 'function': processor = processor.bind(this.constructor.E, options); break
+                        default: processor = async v => f(v)
+                    }
+                    processors[p] = processor
                 }
-            }
-
-            async fetch(payload, actionName) {
-                const action = actionName ? this.actions[actionName] : new Request(this.url, this.options)
-                if (!action) return
-                return window.fetch(action, payload)
+                const { pre: preProcessor, post: postProcessor } = processors
+                for (const actionName in actions) {
+                    let action = actions[actionName]
+                    if (typeof action === 'string') action = { url: action }
+                    if (!isPlainObject(action)) continue
+                    const actionUrl = new URL(action.url, url)
+                    Object.defineProperty(this, actionName, {
+                        enumerable: true, writable: false,
+                        value: async function (input) { return postProcessor((await window.fetch(actionUrl, { ...options, ...action, ...(await preProcessor(input)) }))) }
+                    })
+                }
             }
 
         }
