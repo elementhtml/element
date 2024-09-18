@@ -349,67 +349,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }]
             ]),
             languages: {}, libraries: {
-                jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm',
-                md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
-                'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema',
-                xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
+                jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
+                'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
             }, models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
-                'application/schema+json': async function (value, typeName) {
-                    this.app.libraries['application/schema+json'] ??= (await import('https://cdn.jsdelivr.net/npm/jema.js@1.1.7/schema.min.js')).Schema
-                    if (!this.app.types[typeName]) return
-                    const valid = this.app.types[typeName].validate(value), errors = valid ? undefined : this.app.types[typeName].errors(value)
-                    return { valid, errors }
-                },
-                'application/x-jsonata': async function (text) {
-                    this.app.libraries['application/x-jsonata'] ??= (await import('https://cdn.jsdelivr.net/npm/jsonata@2.0.3/+esm')).default
-                    const expression = this.app.libraries['application/x-jsonata'](text)
-                    let helperName
-                    for (const matches of text.matchAll(this.sys.regexp.jsonataHelpers)) if (((helperName = matches[1]) in this.app.helpers) || (helperName in this.env.helpers)) expression.registerFunction(helperName, (...args) => this.useHelper(helperName, ...args))
-                    return expression
-                },
-                'form': function (obj) {
-                    if (!this.isPlainObject(obj)) return {}
-                    const formRender = {}
-                    for (const k in obj) formRender[`\`[name="${k}"]\``] = obj[k]
-                    return formRender
-                },
-                'xdr': async function (operation, ...args) {
-                    this.app.libraries.xdr ??= (await import('https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js')).default
-                    return this.app.libraries.xdr[operation](...args)
-                },
-                'text/markdown': async function (text, serialize) {
-                    if (!this.app.libraries['text/markdown']) {
-                        if (this.app.libraries['text/markdown']) return
-                        this.app.libraries['text/markdown'] ||= new (await import('https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm')).Remarkable
-                        const plugin = md => md.core.ruler.push('html-components', parser(md, {}), { alt: [] }),
-                            parser = md => {
-                                return (state) => {
-                                    let tokens = state.tokens, i = -1
-                                    while (++i < tokens.length) {
-                                        const token = tokens[i]
-                                        for (const child of (token.children ?? [])) {
-                                            if (child.type !== 'text') return
-                                            if (this.sys.regexp.isTag.test(child.content)) child.type = 'htmltag'
-                                        }
-                                    }
-                                }
-                            }
-                        this.app.libraries['text/markdown'].use(plugin)
-                        this.app.libraries['text/markdown'].set({ html: true })
-                    }
-                    const htmlBlocks = (text.match(this.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
-                        htmlSpans = (text.match(this.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
-                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
-                    for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
-                    text = this.app.libraries['text/markdown'].render(text)
-                    for (const [spanId, spanString] of htmlSpans) text = text.replace(`<span id="${spanId}"></span>`, spanString.slice(6, -7).trim())
-                    for (const [blockId, blockString] of htmlBlocks) text = text.replace(`<div id="${blockId}"></div>`, blockString.slice(6, -7).trim())
-                    return text
-                }
-
+                'application/schema+json': 'transforms/schema.json.js', 'application/x-jsonata': 'transforms/jsonata.js',
+                'form': 'transforms/form.js', 'xdr': 'transforms/xdr.js', 'text/markdown': 'transforms/md.js'
             }, types: {}
         }
     },
