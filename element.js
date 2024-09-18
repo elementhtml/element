@@ -4,9 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
-            apis: {}, components: {}, content: {}, context: {}, facets: {},
-            gateways: { 'ipfs:': 'gateways/ipfs.js', 'ipns:': 'gateways/ipns.js', 'ar:': 'gateways/ipns.js', 'bzz:': 'gateways/bzz.js', 'eth:': 'gateways/eth.js' },
-            hooks: {},
+            apis: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
@@ -348,16 +346,18 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
-            languages: {}, libraries: {
+            languages: {},
+            libraries: {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
-            }, models: {},
+            },
+            models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
-                'application/schema+json': 'transforms/schema.json.js', 'application/x-jsonata': 'transforms/jsonata.js',
-                'form': 'transforms/form.js', 'xdr': 'transforms/xdr.js', 'text/markdown': 'transforms/md.js'
-            }, types: {}
+                'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
+            },
+            types: {}
         }
     },
 
