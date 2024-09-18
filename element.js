@@ -2255,19 +2255,58 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    API: {
+        enumerable: true, value: class {
+
+            actions = {}
+            options = {}
+            url
+
+            constructor(url, requestOptions = {}, actions = {}) {
+                if (!url || (typeof url !== 'string')) return
+                const { isPlainObject, resolveUrl } = this.constructor.E
+                if (!isPlainObject(requestOptions)) requestOptions = {}
+                this.url = resolveUrl(url)
+                this.options = requestOptions
+
+                for (const actionPath in actions) if (isPlainObject(actions[actionPath])) {
+                    const action = actions[actionPath], actionUrl = new URL(action.path, this.url)
+                    delete action.path
+                    this.actions[actionPath] = new Request(actionUrl, { ...this.options, ...action })
+                }
+            }
+
+            async fetch(payload, actionName) {
+                const action = actionName ? this.actions[actionName] : new Request(this.url, this.options)
+                if (!action) return
+                return window.fetch(action, payload)
+            }
+
+        }
+    },
+
+    Lexicon: {
+        enumerable: true, value: class {
+
+            constructor() {
+            }
+
+        }
+    }
 
 })
-
-// create ProtocolDispatcher, API, Anthology, Model and Lexicon classes at the end of this file!
-
 
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
 ElementHTML.Validator.E = ElementHTML
 ElementHTML.Job.E = ElementHTML
+ElementHTML.ProtocolDispatcher.E = ElementHTML
+ElementHTML.API.E = ElementHTML
+ElementHTML.Lexicon.E = ElementHTML
+
 Object.defineProperties(ElementHTML, {
     Cell: {
-        value: class extends ElementHTML.State {
+        enumerable: true, value: class extends ElementHTML.State {
             constructor(name, initialValue) {
                 if (name && ElementHTML.app.cells[name]) return ElementHTML.app.cells[name]
                 super(name, initialValue)
@@ -2276,13 +2315,29 @@ Object.defineProperties(ElementHTML, {
         }
     },
     Field: {
-        value: class extends ElementHTML.State {
+        enumerable: true, value: class extends ElementHTML.State {
             constructor(facetInstanceOrContainer, name, initialValue) {
                 let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
                 if (name && fields) fields[name] ??= this
             }
+        }
+    },
+    Anthology: {
+        enumerable: true, value: class extends ElementHTML.API {
+            constructor() {
+                super()
+            }
+            async fetch() { }
+        }
+    },
+    Model: {
+        enumerable: true, value: class extends ElementHTML.API {
+            constructor() {
+                super()
+            }
+            async fetch() { }
         }
     }
 })
