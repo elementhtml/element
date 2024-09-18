@@ -454,67 +454,52 @@ const ElementHTML = Object.defineProperties({}, {
     attachUnit: {
         value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
             if (!unit) return
-            if (unitTypeCollectionName === 'components') this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-            if (unitTypeCollectionName === 'hooks') return (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit)
-            if (typeof unit === 'string') return (unitTypeCollectionName === 'hooks') ? (this[scopeKey][unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
+            const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
 
             switch (unitTypeCollectionName) {
                 case 'components':
-                    return this[scopeKey][unitTypeCollectionName][`${packageKey}-${unitKey}`] = await unit(this, pkg)
+                    this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
+                    unitKey = `${packageKey}-${unitKey}`
                 case 'facets': case 'gateways': case 'apis': case 'content': case 'models': case 'languages':
                     // create Gateway, API, Anthology, Model and Lexicon classes at the end of this file!
-                    return this[scopeKey][unitTypeCollectionName][unitTypeCollectionName === 'components' ? `${packageKey}-${unitKey}` : unitKey] = await unit(this, pkg)
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitIsString ? unitUrlFromPackage : await unit(this, pkg)
+                case 'hooks':
+                    return (this.env[unitTypeCollectionName][unitKey] ??= []).push(unitIsString ? unitUrlFromPackage : unit.bind(this, pkg))
                 case 'resolvers': case 'transforms':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = unit.bind(this)
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitIsString ? unitUrlFromPackage : unit.bind(this)
+                case 'namespaces': case 'libraries':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                case 'patterns':
+                    return unitIsString || (unit instanceof RegExp) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
+                case 'snippets':
+                    if (unitIsString) {
+                        if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                        const template = document.createElement('template')
+                        template.innerHTML = unit
+                        unit = template
+                    }
+                    return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
+                case 'context':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                case 'types':
+                    switch (typeof unit) {
+                        case 'string':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = unit
+                        case 'function':
+                            if (unit.prototype instanceof this.Validator) return this[scopeKey][unitTypeCollectionName][unitKey] = unit
+                            unit = await unit(this, pkg)
+                            if (!this.isPlainObject(unit)) return
+                        case 'object':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                    }
+
+
+
+
             }
 
 
             switch (unitTypeCollectionName) {
-                case 'apis': case 'content': case 'models': case 'context': case 'namespaces': case 'patterns': case 'snippets':
-                    for (const key in unitTypeCollection) {
-                        let value = unitTypeCollection[key]
-                        switch (typeof value) {
-                            case 'function': value = await value(this, pkg); break
-                            case 'string':
-                                if (value[0] === '`' && value.endsWith('`')) value = await this.resolveImport(this.resolveUrl(value.slice(1, -1).trim(), packageUrl))
-                                break
-                        }
-                        const valueIsString = typeof value === 'string'
-                        let isPlainObject
-                        switch (unitTypeCollectionName) {
-                            case 'content': if (!((isPlainObject = this.isPlainObject) || valueIsString)) continue
-                            case 'apis': case 'models': if (!(isPlainObject ??= this.isPlainObject(value))) continue
-                            case 'context':
-                                env[unitTypeCollectionName][key] = this.deepFreeze(value, true)
-                                break
-                            case 'namespaces':
-                                if (valueIsString && (value !== 'e')) env[unitTypeCollectionName][key] = value
-                                break
-                            case 'patterns':
-                                if (valueIsString || (value instanceof RegExp)) env[unitTypeCollectionName][key] = new RegExp(value)
-                                break
-                            case 'snippets':
-                                if (valueIsString) {
-                                    const template = document.createElement('template')
-                                    template.innerHTML = value
-                                    value = template
-                                }
-                                if (value instanceof HTMLElement) env[unitTypeCollectionName][key] = Object.freeze(value)
-                                break
-                        }
-                    }
-                    break
-                case 'types':
-                    for (const typeName in unitTypeCollection) {
-                        let typeClass = unitTypeCollection[typeName]
-                        if (typeof typeClass === 'function' && !(typeClass.prototype instanceof this.Validator)) typeClass = await typeClass(this, pkg)
-                        switch (true) {
-                            case (typeClass.prototype instanceof this.Validator): typeClass.E = this; break
-                            case (isPlainObject(typeClass)): Object.freeze(typeClass)
-                        }
-                        env[unitTypeCollectionName][typeName] = typeClass
-                    }
-                    break
                 case 'interpreters':
                     if (!(unitTypeCollection instanceof Map)) continue
                     let allValid = true
@@ -539,8 +524,8 @@ const ElementHTML = Object.defineProperties({}, {
             for (const unitKey in unitTypeCollection) {
                 if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
                 let unit = unitTypeCollection[unitKey], promise
-                const attachUnitArgs = [unit, unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
-                promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(...attachUnitArgs)) : this.attachUnit(...attachUnitArgs)
+                const attachUnitArgs = [unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
+                promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(unit, ...attachUnitArgs)) : this.attachUnit(unit, ...attachUnitArgs)
                 promises.push(promise)
             }
             await Promise.all(promises)
@@ -550,24 +535,24 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this)(pkg)) ?? pkg
+            if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this, pkg)()) ?? pkg
             const promises = []
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
-                const attachUnitTypeCollectionArgs = [unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg]
+                const attachUnitTypeCollectionArgs = [unitTypeCollectionName, packageUrl, packageKey, pkg]
                 let unitTypeCollection = pkg[unitTypeCollectionName], promise
                 switch (true) {
                     case (typeof unitTypeCollection === 'string'):
                         unitTypeCollection = this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
                     case (unitTypeCollection instanceof Promise):
-                        promise = unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(...attachUnitTypeCollectionArgs))
+                        promise = unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, ...attachUnitTypeCollectionArgs))
                         break
                     default:
-                        promise = this.attachTypeCollection(...attachUnitTypeCollectionArgs)
+                        promise = this.attachTypeCollection(unitTypeCollection, ...attachUnitTypeCollectionArgs)
                 }
                 promises.push(promise)
             }
             await Promise.all(promises)
-            if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this)(pkg)
+            if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this, pkg)()
         }
     },
     Load: {
