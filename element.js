@@ -5,19 +5,7 @@ const ElementHTML = Object.defineProperties({}, {
     env: {
         enumerable: true, value: {
             apis: {}, components: {}, content: {}, context: {}, facets: {},
-            gateways: {
-                'ipfs:': [{ gateway: '{path|/|0}.ipfs.localhost:8080/{path|/|1:}', head: 'ipfs.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipfs.dweb.link/{path|/|1:}', head: 'ipfs.dweb.link', auto: true }],
-                'ipns:': [{ gateway: '{path|/|0}.ipns.localhost:8080/{path|/|1:}', head: 'ipns.localhost:8080', auto: true }, { gateway: '{path|/|0}.ipns.dweb.link/{path|/|1:}', head: 'ipns.dweb.link', auto: true }],
-                'ar:': [{
-                    gateway: function (useHost = {}, gatewayArgs = {}) {
-                        if (typeof useHost !== 'string') return fetch(`${window.location.protocol}//localhost:1984`, { method: 'HEAD' }).then(r => r.ok ? 'localhost:1984' : 'arweave.net')
-                        const [txid, ...chunks] = gatewayArgs.path.split('/')
-                        return (txid.length === 43 && txid.includes('.')) ? `${useHost}/${txid}/${chunks.join('/')}` : `${txid}.arweave.net/${chunks.join('/')}`
-                    }, auto: true
-                }],
-                'bzz:': [{ gateway: 'localhost:1633/bzz/{host}/{path}', head: 'localhost:1633/bzz/swarm.eth', auto: true }, { gateway: 'gateway.ethswarm.org/bzz/{host}/{path}', head: 'gateway.ethswarm.org/bzz/swarm.eth', auto: true }],
-                'eth:': [{ gateway: '{path}.link/{path|/|1:}', head: 'eth.link', auto: true }]
-            },
+            gateways: { 'ipfs:': 'gateways/ipfs.js', 'ipns:': 'gateways/ipns.js', 'ar:': 'gateways/ipns.js', 'bzz:': 'gateways/bzz.js', 'eth:': 'gateways/eth.js' },
             hooks: {},
             interpreters: new Map([
                 [/^[#?/:]$/, {
@@ -360,7 +348,12 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
-            languages: {}, libraries: {}, models: {},
+            languages: {}, libraries: {
+                jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm',
+                md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
+                'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema',
+                xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
+            }, models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
@@ -1699,7 +1692,7 @@ const ElementHTML = Object.defineProperties({}, {
                 mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'Gateway', languages: 'Lexicon', models: 'Model' })
+            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', languages: 'Lexicon', models: 'Model' })
         })
     },
 
@@ -1732,7 +1725,6 @@ const ElementHTML = Object.defineProperties({}, {
                     this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     unitKey = `${packageKey}-${unitKey}`
                 case 'apis': case 'content': case 'facets': case 'gateways': case 'languages': case 'models':
-                    // create Gateway, API, Anthology, Model and Lexicon classes at the end of this file!
                     if (unitIsString) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
                     unit = (typeof unit === 'function') ? await unit(this, pkg) : undefined
                     if (!unit) return
@@ -1840,7 +1832,7 @@ const ElementHTML = Object.defineProperties({}, {
             const gatewayManifests = this.env.gateways[protocol]
             if (!(Array.isArray(gatewayManifests) && gatewayManifests.length)) return
             for (let manifest of gatewayManifests) {
-                const { gateway, head = gateway, auto, ...ctx } = manifest
+                const { gateway, head = gateway, auto, ctx } = manifest
                 let connection
                 switch (typeof head) {
                     case 'string':
@@ -2120,6 +2112,7 @@ const ElementHTML = Object.defineProperties({}, {
             return !(document.createElement(tag) instanceof HTMLUnknownElement)
         }
     },
+    queue: { value: new Map() },
 
     Component: {
         enumerable: true, value: class extends globalThis.HTMLElement {
@@ -2297,8 +2290,30 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-    queue: { value: new Map() }
+
+    ProtocolDispatcher: {
+        enumerable: true, value: class {
+
+            fallbacks = []
+
+            constructor(fallbacks) {
+                if (!Array.isArray(fallbacks)) fallbacks = [fallbacks]
+                for (let fallback of fallbacks) {
+                    if (typeof fallback === 'string') fallback = { gateway: fallback }
+                    if (!this.constructor.E.isPlainObject(fallback)) continue
+                    this.fallbacks.push(fallback)
+                }
+            }
+
+        }
+    },
+
+
 })
+
+// create ProtocolDispatcher, API, Anthology, Model and Lexicon classes at the end of this file!
+
+
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
 ElementHTML.Validator.E = ElementHTML
