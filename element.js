@@ -426,7 +426,7 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
-                for (const [matcher, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name]
+                for (const [matcher, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name].bind(this)
             })
         }
     },
@@ -562,6 +562,10 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined, preload = []) {
             if (!rootElement) {
+                for (const [matcher, interpreter] of this.env.interpreters) {
+                    interpreter.handler = interpreter.handler.bind(this)
+                    if (interpreter.binder) interpreter.binder = interpreter.binder.bind(this)
+                }
                 this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
                     set: () => { throw new Error('Interpreters are read-only at runtime.') },
                     delete: () => { throw new Error('Interpreters are read-only at runtime.') },
