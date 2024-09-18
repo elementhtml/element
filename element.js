@@ -360,7 +360,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
-            models: {},
+            languages: {}, libraries: {}, models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
             patterns: {}, resolvers: {}, snippets: {},
             transforms: {
@@ -451,11 +451,14 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
+
+
+
+
     attachUnit: {
         value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
             if (!unit) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
-
             switch (unitTypeCollectionName) {
                 case 'components':
                     this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
@@ -492,35 +495,28 @@ const ElementHTML = Object.defineProperties({}, {
                         case 'object':
                             return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
                     }
-
-
-
-
-            }
-
-
-            switch (unitTypeCollectionName) {
-                case 'interpreters':
-                    if (!(unitTypeCollection instanceof Map)) continue
-                    let allValid = true
-                    for (const [matcher, interpreter] of unitTypeCollection) {
-                        allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
-                            && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
-                            && (!interpreter.binder || (typeof interpreter.binder === 'function'))
-                        if (!allValid) break
-                        interpreter.name = `${packageKey}-${interpreter.name}`
-                    }
-                    if (!allValid) continue
-                    env.interpreters = new Map([...env.interpreters, ...unitTypeCollection])
-                    break
             }
         }
     },
 
     attachUnitTypeCollection: {
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
-            const { env, sys, isPlainObject } = this, { unitTypeCollectionChecks } = sys, promises = []
-            if (!isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
+            if (unitTypeCollectionName === 'interpreters') {
+                if (!(unitTypeCollection instanceof Map)) return
+                let allValid = true
+                for (const [matcher, interpreter] of unitTypeCollection) {
+                    allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
+                        && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
+                        && (!interpreter.binder || (typeof interpreter.binder === 'function'))
+                    if (!allValid) break
+                    interpreter.name = `${packageKey}-${interpreter.name}`
+                }
+                if (!allValid) return
+                this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
+                return
+            }
+            const promises = []
+            if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
             for (const unitKey in unitTypeCollection) {
                 if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
                 let unit = unitTypeCollection[unitKey], promise
