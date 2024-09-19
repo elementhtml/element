@@ -2371,13 +2371,13 @@ Object.defineProperties(ElementHTML, {
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, prompts = {}, promptUtils = {} }) {
+            constructor({ api = {}, prompts = {}, promptConfig = {} }) {
                 if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
-                const actions = {}, { key = 'prompt', mapper } = promptUtils, hasPromptMapper = typeof mapper === 'function'
+                const actions = {}, { key = 'prompt', mapper } = promptConfig, hasPromptMapper = typeof mapper === 'function'
                 for (const promptName in prompts) {
                     const body = prompts[promptName]
                     switch (typeof body) {
-                        case 'string': body = { [promptKey]: body }
+                        case 'string': body = { [key]: body }
                         default:
                             if (!ElementHTML.isPlainObject(body)) continue
                     }
