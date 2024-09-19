@@ -1364,14 +1364,14 @@ const ElementHTML = Object.defineProperties({}, {
                 case Array.isArray(expression):
                     result = []
                     for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++)
-                        result.push(this.resolveVariable(expression[i], { inner: true, default: a ? dft[i] : dft }, envelope))
+                        result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
                     break
                 case this.isPlainObject(expression):
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
                     for (const key in expression) {
-                        let keyFlags = { wrapped: false, default: dftIsObject ? dft[key] : dft }
-                        result[this.resolveVariable(key, envelope, keyFlags)] = this.resolveVariable(expression[key], keyFlags, envelope)
+                        let keyFlags = { default: dftIsObject ? dft[key] : dft }
+                        result[this.resolveVariable(key, keyFlags, envelope)] = this.resolveVariable(expression[key], keyFlags, envelope)
                     }
             }
             return result === undefined ? dft : result
@@ -2258,41 +2258,61 @@ const ElementHTML = Object.defineProperties({}, {
     API: {
         enumerable: true, value: class {
 
-            constructor({ url, actions = {}, options = {}, processors = {} }) {
+            constructor({ url, options = {}, actions = {}, processors = {} }) {
                 if (!url || (typeof url !== 'string')) return
                 const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
                 for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
                 ({ options, actions, processors } = objArgs);
-                url = resolveUrl(url)
                 for (const p of ['pre', 'post']) {
                     let processor = processors[p], f = p === 'pre' ? serialize : parse
-                    switch (typeof processors[p]) {
+                    switch (typeof processor) {
                         case 'string': processor = async v => f(v, processor); break
                         case 'function': processor = processor.bind(this.constructor.E, options); break
                         default: processor = async v => f(v)
                     }
                     processors[p] = processor
                 }
-                const resolveVariableFlags = { wrapped: true },
-                    resolveVariableEnvelope = { context: env.context, cells, fields, value }
-                const { pre: preProcessor, post: postProcessor } = processors
+                const resolveVariableFlags = { wrapped: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
                 for (const actionName in actions) {
                     let action = actions[actionName]
-                    if (typeof action === 'string') action = { url: action }
+                    if (typeof action === 'string') actions[actionName] = action = { url: action }
                     if (!isPlainObject(action)) continue
-                    const actionUrl = (new URL(action.url, url)).href,
-                        actionHeaders = { ...(options.headers ?? {}), ...(action.headers ?? {}) }
+                    if (!isPlainObject(action.options)) action.options = {}
+                    if ((typeof action.url !== 'string') && !(Array.isArray(url))) action.url ??= './'
+                    action.options.headers = { ...(options.headers ?? {}), ...(action.options.headers ?? {}) }
+                    if (isPlainObject(action.options.body) && isPlainObject(options.body)) action.options.body = { ...options.body, ...action.options.body }
                     Object.defineProperty(this, actionName, {
                         enumerable: true, writable: false,
                         value: async function (input) {
-                            const inputIsObject = isPlainObject(input), useUrl = (inputIsObject && input.url) ? (new URL(input.url, actionUrl)).href : actionUrl
-                            if (inputIsObject) delete input.url
-                            input = input === undefined ? { method: 'GET' } : await preProcessor(input)
-                            input.method ??= input.body === undefined ? 'POST' : 'GET'
-                            const headers = { ...actionHeaders, ...(input.headers ?? {}) }, cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells }
-                            for (const headerName in headers) if (headers[headerName].startsWith('$'))
-                                headers[headerName] = resolveVariable(headers[headerName], resolveVariableFlags, envelope)
-                            return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input, ...{ headers } })))
+                            const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
+                            let useUrl = action.url
+                            switch (true) {
+                                case (Array.isArray(useUrl)): useUrl = resolveVariable(useUrl, resolveVariableFlags, envelope).join('/'); break
+                                case (typeof useUrl === 'string' && useUrl.startsWith('$')): useUrl = resolveVariable(useUrl, resolveVariableFlags, envelope)
+                            }
+                            useOptions.headers = { ...(useOptions.headers ?? {}) }
+                            const bodyIsObject = isPlainObject(useOptions.body)
+                            if (bodyIsObject) try { useOptions.body = JSON.parse(JSON.stringify(useOptions.body)) } catch (e) { /* raise an error here */ }
+                            for (const p in useOptions) {
+                                const optionValue = useOptions[p]
+                                switch (optionProp) {
+                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope); break
+                                    case 'headers':
+                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], resolveVariableFlags, envelope)
+                                        break
+                                    default:
+                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope)
+                                }
+                            }
+                            const requiresBody = (useOptions.method === 'POST' || useOptions.method === 'PUT')
+                            if (requiresBody && !('body' in useOptions)) {
+                                useOptions.body = await preProcessor(input)
+                            } else if (useOptions.body && !('method' in useOptions)) {
+                                useOptions.method = 'POST'
+                            }
+
+
+                            return postProcessor(await window.fetch(useUrl, useOptions))
                         }
                     })
                 }
@@ -2342,21 +2362,33 @@ Object.defineProperties(ElementHTML, {
     },
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ url, languages = {}, options = {} }) {
+            constructor({ url, languages = {}, requestOptions = {} }) {
                 const actions = {}
-                options.method ??= 'GET'
+                requestOptions.method ??= 'GET'
                 if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './' }
                 for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? langCode }
-                super({ url, actions, options, processors: { pre: url => ({ url }), post: 'md' } })
+                super({ url, actions, requestOptions, processors: { pre: function (reqOpts, url) { return { ...reqOpts, url } }, post: 'md' } })
             }
         }
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ endpoint, }) {
+            constructor({ url, promptTemplates = {}, requestOptions = {}, processors = {} }) {
 
+                if (!ElementHTML.isPlainObject(promptTemplates) || !Object.keys(promptTemplates).length) promptTemplates = { default: '$' }
+                const actions = {}
+                for (const promptName in promptTemplates) {
+                    const body = promptTemplates[promptName]
+                    switch (typeof body) {
+                        case 'string': body = { prompt: body }
+                        default:
+                            if (!ElementHTML.isPlainObject(body)) continue
+                            body = { ...(requestOptions.body ?? {}), ...body }
+                    }
+                    actions[promptName] = { body }
+                }
 
-                super({ url, actions, options, processors: {} })
+                super({ url, actions, requestOptions, processors })
             }
         }
     }
