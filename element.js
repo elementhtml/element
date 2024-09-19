@@ -2307,11 +2307,10 @@ const ElementHTML = Object.defineProperties({}, {
                             const requiresBody = (useOptions.method === 'POST' || useOptions.method === 'PUT')
                             if (requiresBody && !('body' in useOptions)) {
                                 useOptions.body = await preProcessor(input)
-                            } else if (useOptions.body && !('method' in useOptions)) {
-                                useOptions.method = 'POST'
+                            } else if (bodyIsObject) {
+                                useOptions.body = await preProcessor(useOptions.body)
                             }
-
-
+                            if (useOptions.body && !('method' in useOptions)) useOptions.method = 'POST'
                             return postProcessor(await window.fetch(useUrl, useOptions))
                         }
                     })
