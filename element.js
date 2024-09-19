@@ -347,6 +347,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }]
             ]),
             languages: {},
+            lexicon: undefined,
             libraries: {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
@@ -418,6 +419,14 @@ const ElementHTML = Object.defineProperties({}, {
                     clear: () => { throw new Error('Interpreters are read-only at runtime.') },
                     get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
                 }))
+                if (this.env.lexicon) {
+                    switch (true) {
+                        case (this.env.lexicon instanceof this.Lexicon): break
+                        case (this.env.lexicon === true): this.env.lexicon = new this.Lexicon(); break
+                        case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
+                        case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon)
+                    }
+                }
                 Object.freeze(this.env)
                 this.processQueue()
             } else {
@@ -2322,7 +2331,8 @@ const ElementHTML = Object.defineProperties({}, {
     Lexicon: {
         enumerable: true, value: class {
 
-            constructor() {
+            constructor({ attributes = ['data-e-lexicon-token'], patterns = [/\{\{[^}]+\}\}/], config = { default: 'default' } }) {
+
             }
 
         }
