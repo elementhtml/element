@@ -2278,14 +2278,16 @@ const ElementHTML = Object.defineProperties({}, {
                     let action = actions[actionName]
                     if (typeof action === 'string') action = { url: action }
                     if (!isPlainObject(action)) continue
-                    const actionUrl = (new URL(action.url, url)).href
+                    const actionUrl = (new URL(action.url, url)).href,
+                        actionHeaders = { ...(options.headers ?? {}), ...(action.headers ?? {}) }
                     Object.defineProperty(this, actionName, {
                         enumerable: true, writable: false,
                         value: async function (input) {
                             const inputIsObject = isPlainObject(input), useUrl = (inputIsObject && input.url) ? (new URL(input.url, actionUrl)).href : actionUrl
                             if (inputIsObject) delete input.url
                             input = input === undefined ? { method: 'GET' } : await preProcessor(input)
-                            return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input })))
+                            const headers = { ...actionHeaders, ...(input.headers ?? {}) }
+                            return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input, ...{ headers } })))
                         }
                     })
                 }
@@ -2346,7 +2348,7 @@ Object.defineProperties(ElementHTML, {
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor() {
+            constructor({ endpoint, }) {
                 super()
             }
         }
