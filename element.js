@@ -2338,7 +2338,7 @@ Object.defineProperties(ElementHTML, {
             constructor(url, languages = {}, options = {}) {
                 const actions = {}
                 options.method ??= 'GET'
-                if (!this.constructor.E.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './' }
+                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './' }
                 for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? langCode }
                 super(url, actions, options, processors = { pre: url => ({ url }), post: 'md' })
             }
