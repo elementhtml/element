@@ -2266,8 +2266,9 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const p of ['pre', 'post']) {
                     let processor = processors[p], f = p === 'pre' ? serialize : parse
                     switch (typeof processor) {
+                        case 'undefined': processor = v => v; break
                         case 'string': processor = async v => f(v, processor); break
-                        case 'function': processor = processor.bind(this.constructor.E, options); break
+                        case 'function': processor = processor.bind(this.constructor.E); break
                         default: processor = async v => f(v)
                     }
                     processors[p] = processor
@@ -2360,10 +2361,10 @@ Object.defineProperties(ElementHTML, {
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
             constructor({ api = {}, languages = {} }) {
-                const { url: apiUrl, options: apiOptions } = api, actions = {}
-                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: ['$'] }
-                for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? langCode }
-                super({ url, options, actions, processors: { pre: function (reqOpts, url) { return { ...reqOpts, url } }, post: 'md' } })
+                const actions = {}
+                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './${$}' }
+                for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? `./${langCode}/\${$}` }
+                super({ ...api, actions, processors: { post: 'md' } })
             }
         }
     },
@@ -2384,7 +2385,7 @@ Object.defineProperties(ElementHTML, {
                     actions[promptName] = { body }
                 }
 
-                super({ url, actions, requestOptions, processors })
+                super({ url, options, actions, processors })
             }
         }
     }
