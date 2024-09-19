@@ -2260,7 +2260,7 @@ const ElementHTML = Object.defineProperties({}, {
 
             constructor({ url, actions = {}, options = {}, processors = {} }) {
                 if (!url || (typeof url !== 'string')) return
-                const { isPlainObject, resolveUrl, parse, serialize } = this.constructor.E, objArgs = { options, actions, processors }
+                const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
                 for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
                 ({ options, actions, processors } = objArgs);
                 url = resolveUrl(url)
@@ -2273,6 +2273,8 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     processors[p] = processor
                 }
+                const resolveVariableFlags = { wrapped: true },
+                    resolveVariableEnvelope = { context: env.context, cells, fields, value }
                 const { pre: preProcessor, post: postProcessor } = processors
                 for (const actionName in actions) {
                     let action = actions[actionName]
@@ -2287,7 +2289,9 @@ const ElementHTML = Object.defineProperties({}, {
                             if (inputIsObject) delete input.url
                             input = input === undefined ? { method: 'GET' } : await preProcessor(input)
                             input.method ??= input.body === undefined ? 'POST' : 'GET'
-                            const headers = { ...actionHeaders, ...(input.headers ?? {}) }
+                            const headers = { ...actionHeaders, ...(input.headers ?? {}) }, cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells }
+                            for (const headerName in headers) if (headers[headerName].startsWith('$'))
+                                headers[headerName] = resolveVariable(headers[headerName], resolveVariableFlags, envelope)
                             return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input, ...{ headers } })))
                         }
                     })
@@ -2350,7 +2354,9 @@ Object.defineProperties(ElementHTML, {
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
             constructor({ endpoint, }) {
-                super()
+
+
+                super({ url, actions, options, processors: {} })
             }
         }
     }
