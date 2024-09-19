@@ -2371,22 +2371,20 @@ Object.defineProperties(ElementHTML, {
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, promptTemplates = {}, processors = {} }) {
-
-                if (!ElementHTML.isPlainObject(promptTemplates) || !Object.keys(promptTemplates).length) promptTemplates = { default: '$' }
-                const actions = {}
-                for (const promptName in promptTemplates) {
-                    const body = promptTemplates[promptName]
+            constructor({ api = {}, prompts = {}, promptSettings = {} }) {
+                if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
+                const actions = {}, { key = 'prompt', mapper } = promptSettings, hasPromptMapper = typeof mapper === 'function'
+                for (const promptName in prompts) {
+                    const body = prompts[promptName]
                     switch (typeof body) {
-                        case 'string': body = { prompt: body }
+                        case 'string': body = { [promptKey]: body }
                         default:
                             if (!ElementHTML.isPlainObject(body)) continue
-                            body = { ...(requestOptions.body ?? {}), ...body }
                     }
+                    if (hasPromptMapper) body = mapper(body)
                     actions[promptName] = { body }
                 }
-
-                super({ url, options, actions, processors })
+                super({ ...api, actions })
             }
         }
     }
