@@ -2341,7 +2341,57 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributes = [...attributes]
                 this.patterns = [...patterns]
                 this.config = { ...config }
+                this.observeDOM()
+                this.replaceTokensInContent()
+            }
 
+            getLexicon() {
+                const currentLanguage = this.config.default || 'default'
+                return this.constructor.E.env.languages[currentLanguage] || {}
+            }
+
+            replaceTokensInAttributes() {
+                const lexicon = this.getLexicon()
+                for (const attribute of this.attributes) {
+                    for (const element of document.querySelectorAll(`[${attribute}]`)) {
+                        const token = element.getAttribute(attribute)
+                        if (token in lexicon) element.textContent = lexicon[token]
+                    }
+                }
+            }
+
+            replaceTokensInContent() {
+                const lexicon = this.getLexicon(), walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false)
+
+                while (walker.nextNode()) {
+                    const node = walker.currentNode
+                    for (const pattern of this.patterns) {
+                        const matches = node.nodeValue.match(pattern)
+                        if (matches) for (const match of matches) {
+                            const token = match.slice(2, -2).trim()
+                            if (token in lexicon) node.nodeValue = node.nodeValue.replace(match, lexicon[token])
+                        }
+                    }
+                }
+            }
+
+            observeDOM() {
+                const observer = new MutationObserver(mutations => {
+                    for (const mutation of mutations) {
+                        switch (mutation.type) {
+                            case 'childList':
+                                this.replaceTokensInAttributes()
+                                this.replaceTokensInContent()
+                                break
+                            case 'attributes':
+                                this.replaceTokensInAttributes()
+                                break
+                            case 'characterData':
+                                this.replaceTokensInContent()
+                        }
+                    }
+                })
+                observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: this.attributes })
             }
 
         }
