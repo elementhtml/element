@@ -2361,16 +2361,17 @@ Object.defineProperties(ElementHTML, {
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
             constructor({ api = {}, languages = {} }) {
-                const actions = {}
+                const actions = {}, processors = api.processors ?? {}
                 if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './${$}' }
                 for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? `./${langCode}/\${$}` }
-                super({ ...api, actions, processors: { post: 'md' } })
+                processors.post ??= 'md'
+                super({ ...api, actions, processors })
             }
         }
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ url, promptTemplates = {}, requestOptions = {}, processors = {} }) {
+            constructor({ api = {}, promptTemplates = {}, processors = {} }) {
 
                 if (!ElementHTML.isPlainObject(promptTemplates) || !Object.keys(promptTemplates).length) promptTemplates = { default: '$' }
                 const actions = {}
