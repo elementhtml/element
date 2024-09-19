@@ -2278,10 +2278,15 @@ const ElementHTML = Object.defineProperties({}, {
                     let action = actions[actionName]
                     if (typeof action === 'string') action = { url: action }
                     if (!isPlainObject(action)) continue
-                    const actionUrl = new URL(action.url, url)
+                    const actionUrl = (new URL(action.url, url)).href
                     Object.defineProperty(this, actionName, {
                         enumerable: true, writable: false,
-                        value: async function (input) { return postProcessor((await window.fetch(actionUrl, { ...options, ...action, ...(await preProcessor(input)) }))) }
+                        value: async function (input) {
+                            const inputIsObject = isPlainObject(input), useUrl = (inputIsObject && input.url) ? (new URL(input.url, actionUrl)).href : actionUrl
+                            if (inputIsObject) delete input.url
+                            input = input === undefined ? { method: 'GET' } : await preProcessor(input)
+                            return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input })))
+                        }
                     })
                 }
             }
@@ -2330,8 +2335,14 @@ Object.defineProperties(ElementHTML, {
     },
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor() {
-                super()
+            constructor(url, options = {}, languages = {}) {
+                const actions = {}
+                options.method ??= 'GET'
+                for (const langCode in languages) {
+                    const language = languages[langCode]
+                    actions[langCode] = { url: language.url ?? langCode }
+                }
+                super(url, options = {}, actions = {}, processors = { post: 'md' })
             }
         }
     },
