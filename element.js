@@ -2361,10 +2361,13 @@ const ElementHTML = Object.defineProperties({}, {
             replaceTokensInContentSingleElement(element, language) {
                 for (const pattern of this.patterns) {
                     const matches = element.textContent.match(pattern)
-                    if (matches) for (const match of matches) element.textContent = element.textContent.replace(match, language[match.slice(2, -2).trim()] ?? match)
+                    if (matches) {
+                        let newText = element.textContent
+                        for (const match of matches) newText = newText.replace(match, language[match.slice(2, -2).trim()] ?? match)
+                        element.textContent = newText
+                    }
                 }
             }
-
 
             replaceTokensInContent(element) {
                 const language = this.getLanguage()
