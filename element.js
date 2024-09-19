@@ -426,6 +426,8 @@ const ElementHTML = Object.defineProperties({}, {
                         case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
                         case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon)
                     }
+                } else {
+                    delete this.env.lexicon
                 }
                 Object.freeze(this.env)
                 this.processQueue()
@@ -2331,7 +2333,14 @@ const ElementHTML = Object.defineProperties({}, {
     Lexicon: {
         enumerable: true, value: class {
 
+            attributes = []
+            patterns = []
+            config = {}
+
             constructor({ attributes = ['data-e-lexicon-token'], patterns = [/\{\{[^}]+\}\}/], config = { default: 'default' } }) {
+                this.attributes = [...attributes]
+                this.patterns = [...patterns]
+                this.config = { ...config }
 
             }
 
