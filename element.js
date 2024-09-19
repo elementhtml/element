@@ -2272,23 +2272,24 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     processors[p] = processor
                 }
-                const resolveVariableFlags = { wrapped: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
+                const resolveVariableFlags = { merge: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
                 for (const actionName in actions) {
                     let action = actions[actionName]
                     if (typeof action === 'string') actions[actionName] = action = { url: action }
                     if (!isPlainObject(action)) continue
                     if (!isPlainObject(action.options)) action.options = {}
-                    if ((typeof action.url !== 'string') && !(Array.isArray(url))) action.url ??= './'
+                    if (typeof action.url !== 'string') action.url ??= './'
                     action.options.headers = { ...(options.headers ?? {}), ...(action.options.headers ?? {}) }
                     if (isPlainObject(action.options.body) && isPlainObject(options.body)) action.options.body = { ...options.body, ...action.options.body }
                     Object.defineProperty(this, actionName, {
                         enumerable: true, writable: false,
                         value: async function (input) {
                             const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
-                            let useUrl = action.url
-                            switch (true) {
-                                case (Array.isArray(useUrl)): useUrl = resolveVariable(useUrl, resolveVariableFlags, envelope).join('/'); break
-                                case (typeof useUrl === 'string' && useUrl.startsWith('$')): useUrl = resolveVariable(useUrl, resolveVariableFlags, envelope)
+                            let useUrl = resolveVariable(action.url, resolveVariableFlags, envelope)
+                            try {
+                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, resolveVariableFlags, envelope)))).href
+                            } catch (e) {
+                                /* raise an error here */
                             }
                             useOptions.headers = { ...(useOptions.headers ?? {}) }
                             const bodyIsObject = isPlainObject(useOptions.body)
@@ -2304,11 +2305,9 @@ const ElementHTML = Object.defineProperties({}, {
                                         if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope)
                                 }
                             }
-                            if (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) {
-                                useOptions.body = await preProcessor(input)
-                            } else if (bodyIsObject) {
-                                useOptions.body = await preProcessor(useOptions.body)
-                            }
+                            useOptions.body = (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) ? await preProcessor()
+                                : (bodyIsObject ? await preProcessor(useOptions.body) : undefined)
+                            if (useOptions.body === undefined) delete useOptions.body
                             if (useOptions.body && !('method' in useOptions)) useOptions.method = 'POST'
                             return postProcessor(await window.fetch(useUrl, useOptions))
                         }
@@ -2360,12 +2359,11 @@ Object.defineProperties(ElementHTML, {
     },
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ url, languages = {}, requestOptions = {} }) {
-                const actions = {}
-                requestOptions.method ??= 'GET'
-                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './' }
+            constructor({ api = {}, languages = {} }) {
+                const { url: apiUrl, options: apiOptions } = api, actions = {}
+                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: ['$'] }
                 for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? langCode }
-                super({ url, actions, requestOptions, processors: { pre: function (reqOpts, url) { return { ...reqOpts, url } }, post: 'md' } })
+                super({ url, options, actions, processors: { pre: function (reqOpts, url) { return { ...reqOpts, url } }, post: 'md' } })
             }
         }
     },
