@@ -2304,8 +2304,7 @@ const ElementHTML = Object.defineProperties({}, {
                                         if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope)
                                 }
                             }
-                            const requiresBody = (useOptions.method === 'POST' || useOptions.method === 'PUT')
-                            if (requiresBody && !('body' in useOptions)) {
+                            if (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) {
                                 useOptions.body = await preProcessor(input)
                             } else if (bodyIsObject) {
                                 useOptions.body = await preProcessor(useOptions.body)
