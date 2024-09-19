@@ -2371,9 +2371,9 @@ Object.defineProperties(ElementHTML, {
     },
     Model: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, prompts = {}, promptSettings = {} }) {
+            constructor({ api = {}, prompts = {}, promptUtils = {} }) {
                 if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
-                const actions = {}, { key = 'prompt', mapper } = promptSettings, hasPromptMapper = typeof mapper === 'function'
+                const actions = {}, { key = 'prompt', mapper } = promptUtils, hasPromptMapper = typeof mapper === 'function'
                 for (const promptName in prompts) {
                     const body = prompts[promptName]
                     switch (typeof body) {
