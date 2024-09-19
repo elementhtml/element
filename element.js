@@ -2286,6 +2286,7 @@ const ElementHTML = Object.defineProperties({}, {
                             const inputIsObject = isPlainObject(input), useUrl = (inputIsObject && input.url) ? (new URL(input.url, actionUrl)).href : actionUrl
                             if (inputIsObject) delete input.url
                             input = input === undefined ? { method: 'GET' } : await preProcessor(input)
+                            input.method ??= input.body === undefined ? 'POST' : 'GET'
                             const headers = { ...actionHeaders, ...(input.headers ?? {}) }
                             return postProcessor((await window.fetch(useUrl, { ...options, ...action, ...input, ...{ headers } })))
                         }
