@@ -2345,34 +2345,32 @@ const ElementHTML = Object.defineProperties({}, {
                 this.replaceTokensInContent()
             }
 
-            getLexicon() {
+            getLanguage() {
                 const currentLanguage = this.config.default || 'default'
                 return this.constructor.E.env.languages[currentLanguage] || {}
             }
 
-            replaceTokensInAttributes() {
-                const lexicon = this.getLexicon()
+            replaceTokensInAttributes(element) {
+                const language = this.getLanguage()
                 for (const attribute of this.attributes) {
-                    for (const element of document.querySelectorAll(`[${attribute}]`)) {
-                        const token = element.getAttribute(attribute)
-                        if (token in lexicon) element.textContent = lexicon[token]
-                    }
+                    const elements = element ? [element] : document.querySelectorAll(`[${attribute}]`)
+                    for (const element of elements) element.textContent = language[element.getAttribute(attribute)] ?? element.textContent
                 }
             }
 
-            replaceTokensInContent() {
-                const lexicon = this.getLexicon(), walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false)
-
-                while (walker.nextNode()) {
-                    const node = walker.currentNode
-                    for (const pattern of this.patterns) {
-                        const matches = node.nodeValue.match(pattern)
-                        if (matches) for (const match of matches) {
-                            const token = match.slice(2, -2).trim()
-                            if (token in lexicon) node.nodeValue = node.nodeValue.replace(match, lexicon[token])
-                        }
-                    }
+            replaceTokensInContentSingleElement(element, language) {
+                for (const pattern of this.patterns) {
+                    const matches = element.textContent.match(pattern)
+                    if (matches) for (const match of matches) element.textContent = element.textContent.replace(match, language[match.slice(2, -2).trim()] ?? match)
                 }
+            }
+
+
+            replaceTokensInContent(element) {
+                const language = this.getLanguage()
+                if (element) return this.replaceTokensInContentSingleElement(element, language)
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null, false)
+                while (walker.nextNode()) this.replaceTokensInContentSingleElement(walker.currentNode, language)
             }
 
             observeDOM() {
@@ -2380,14 +2378,10 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const mutation of mutations) {
                         switch (mutation.type) {
                             case 'childList':
-                                this.replaceTokensInAttributes()
-                                this.replaceTokensInContent()
-                                break
                             case 'attributes':
-                                this.replaceTokensInAttributes()
-                                break
+                                this.replaceTokensInAttributes(mutation.target)
                             case 'characterData':
-                                this.replaceTokensInContent()
+                                if (mutation.type !== 'attributes') this.replaceTokensInContent(mutation.target)
                         }
                     }
                 })
