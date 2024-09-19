@@ -2258,7 +2258,7 @@ const ElementHTML = Object.defineProperties({}, {
     API: {
         enumerable: true, value: class {
 
-            constructor(url, actions = {}, options = {}, processors = {}) {
+            constructor({ url, actions = {}, options = {}, processors = {} }) {
                 if (!url || (typeof url !== 'string')) return
                 const { isPlainObject, resolveUrl, parse, serialize } = this.constructor.E, objArgs = { options, actions, processors }
                 for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
@@ -2335,12 +2335,12 @@ Object.defineProperties(ElementHTML, {
     },
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor(url, languages = {}, options = {}) {
+            constructor({ url, languages = {}, options = {} }) {
                 const actions = {}
                 options.method ??= 'GET'
                 if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './' }
                 for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? langCode }
-                super(url, actions, options, processors = { pre: url => ({ url }), post: 'md' })
+                super({ url, actions, options, processors: { pre: url => ({ url }), post: 'md' } })
             }
         }
     },
