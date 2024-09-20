@@ -346,8 +346,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
-            languages: {},
-            lexicon: undefined,
+            languages: {}, lexicon: undefined,
             libraries: {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
