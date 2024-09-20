@@ -492,7 +492,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (element) {
             if (!(element instanceof HTMLElement)) return
             const promises = []
-            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll('*')) promises.push(this.unmountElement(n))
+            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.unmountElement(n))
             await Promise.all(promises)
             if (this.isFacetContainer(removedNode)) return this.unmountFacet(removedNode)
             if (this.getCustomTag(removedNode) && removedNode.disconnectedCallback) return removedNode.disconnectedCallback()
