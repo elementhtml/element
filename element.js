@@ -422,6 +422,7 @@ const ElementHTML = Object.defineProperties({}, {
                     delete this.env.lexicon
                 }
                 Object.freeze(this.env)
+                Object.freeze(this.app)
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
@@ -479,13 +480,12 @@ const ElementHTML = Object.defineProperties({}, {
             }
             this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
-                Object.freeze(this.app)
-                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-                const systemEvents = ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
-                for (const eventName of systemEvents) addEventListener(eventName, event => {
+                for (const eventName of this.sys.systemEvents) addEventListener(eventName, event => {
                     this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                     this.runHook(eventName)
                 })
+                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+                this.runHook('load')
                 Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
             }
         }
@@ -1636,7 +1636,8 @@ const ElementHTML = Object.defineProperties({}, {
                 mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' })
+            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' }),
+            systemEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
         })
     },
 
