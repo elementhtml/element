@@ -1893,12 +1893,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     processQueue: {
         value: async function () {
-            const firstKey = this.queue.keys().next().value
-            if (firstKey !== undefined) {
-                const job = this.queue.get(firstKey)
-                this.queue.delete(firstKey)
-                if (typeof job === 'function') await job()
-            }
+            for (const [, job] of this.queue) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
@@ -2242,6 +2237,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.constructor.E.queue.get(id)) return
                 this.jobFunction = jobFunction
                 this.runner = async () => {
+                    if (this.running) return
                     this.running = true
                     try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
                 }
@@ -2249,6 +2245,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             cancel() { this.constructor.E.queue.delete(this.id) }
+
+            async run() { return this.running ? undefined : this.runner() }
 
         }
     },
