@@ -1719,6 +1719,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
             switch (unitTypeCollectionName) {
                 case 'interpreters':
+                    if (typeof unitTypeCollection === 'function') unitTypeCollection = await unitTypeCollection(this, pkg)
                     if (!(unitTypeCollection instanceof Map)) return
                     let allValid = true
                     for (const [matcher, interpreter] of unitTypeCollection) {
@@ -1733,6 +1734,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!allValid) return
                     return this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
                 case 'lexicon':
+                    if (typeof unitTypeCollection === 'function' && !(unitTypeCollection.prototype instanceof this.Lexicon)) unitTypeCollection = await unitTypeCollection(this, pkg)
                     return ((unitTypeCollection instanceof this.Lexicon)
                         || (unitTypeCollection?.prototype instanceof this.Lexicon) || (this.isPlainObject(unitTypeCollection))) ? (this.env.lexicon = unitTypeCollection) : undefined
             }
