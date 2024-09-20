@@ -1733,7 +1733,7 @@ const ElementHTML = Object.defineProperties({}, {
                         || (unitTypeCollection?.prototype instanceof this.Lexicon) || (this.isPlainObject(unitTypeCollection))) ? (this.env.lexicon = unitTypeCollection) : undefined
             }
             const promises = []
-            if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
+            if (!(unitTypeCollectionName in this.env) || !this.isPlainObject(unitTypeCollection)) return
             for (const unitKey in unitTypeCollection) {
                 if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
                 promises.push(Promise.resolve(unitTypeCollection[unitKey]).then(unit => this.attachUnit(unit, unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg)))
