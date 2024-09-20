@@ -419,12 +419,12 @@ const ElementHTML = Object.defineProperties({}, {
                     clear: () => { throw new Error('Interpreters are read-only at runtime.') },
                     get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
                 }))
-                if (this.env.lexicon) {
+                if (Object.keys(this.env.languages).length) {
                     switch (true) {
                         case (this.env.lexicon instanceof this.Lexicon): break
-                        case (this.env.lexicon === true): this.env.lexicon = new this.Lexicon(); break
                         case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
-                        case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon)
+                        case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon); break
+                        default: this.env.lexicon = new this.Lexicon()
                     }
                 } else {
                     delete this.env.lexicon
@@ -1723,21 +1723,24 @@ const ElementHTML = Object.defineProperties({}, {
     },
     attachUnitTypeCollection: {
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
-            if (unitTypeCollectionName === 'interpreters') {
-                if (!(unitTypeCollection instanceof Map)) return
-                let allValid = true
-                for (const [matcher, interpreter] of unitTypeCollection) {
-                    allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
-                        && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
-                        && (!interpreter.binder || (typeof interpreter.binder === 'function'))
-                    if (!allValid) break
-                    interpreter.name = `${packageKey}-${interpreter.name}`
-                    for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
-                    Object.freeze(interpreter)
-                }
-                if (!allValid) return
-                this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
-                return
+            switch (unitTypeCollectionName) {
+                case 'interpreters':
+                    if (!(unitTypeCollection instanceof Map)) return
+                    let allValid = true
+                    for (const [matcher, interpreter] of unitTypeCollection) {
+                        allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
+                            && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
+                            && (!interpreter.binder || (typeof interpreter.binder === 'function'))
+                        if (!allValid) break
+                        interpreter.name = `${packageKey}-${interpreter.name}`
+                        for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+                        Object.freeze(interpreter)
+                    }
+                    if (!allValid) return
+                    return this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
+                case 'lexicon':
+                    return ((unitTypeCollection instanceof this.Lexicon)
+                        || (unitTypeCollection?.prototype instanceof this.Lexicon) || (this.isPlainObject(unitTypeCollection))) ? (this.env.lexicon = unitTypeCollection) : undefined
             }
             const promises = []
             if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
