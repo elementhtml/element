@@ -388,15 +388,16 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this, pkg)()) ?? pkg
-            const promises = []
+            if (typeof pkg.hooks?.prePackageInstall === 'function') pkg = (await pkg.hooks.prePackageInstall.bind(this, pkg)()) ?? pkg
+            const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall
+            if (postPackageInstall) delete pkg.hooks.postPackageInstall
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
                 let unitTypeCollection = (typeof pkg[unitTypeCollectionName] === 'string')
                     ? this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
                 promises.push(unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg)))
             }
             await Promise.all(promises)
-            if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this, pkg)()
+            if (typeof postPackageInstall === 'function') await postPackageInstall.bind(this, pkg)()
         }
     },
     Load: {
@@ -487,9 +488,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 const systemEvents = ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
-                for (const eventName of systemEvents) addEventListener(n, event => {
+                for (const eventName of systemEvents) addEventListener(eventName, event => {
                     this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
-                    this.runHook()
+                    this.runHook(eventName)
                 })
                 Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
             }
@@ -1492,7 +1493,7 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: Object.defineProperties({
             compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
-            expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {},
+            expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {}, hooks: {},
             interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, namespaces: {},
             options: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }, {
@@ -1699,10 +1700,9 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]] || (unit?.prototype instanceof this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]])) return
                     return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
                 case 'hooks': case 'resolvers': case 'transforms':
-                    if (typeof unit !== 'function') return
-                    const isHooks = unitTypeCollectionName === 'hooks'
-                    unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
-                    return isHooks ? ((this.env.hooks[unitKey] ??= {})[packageKey] = unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
+                    if (!unitIsString && (typeof unit !== 'function')) return
+                    if (!unitIsString) unit = unit.bind(this)
+                    return (unitTypeCollectionName === 'hooks') ? ((this.env.hooks[unitKey] ??= {})[packageKey] = unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
                 case 'types':
                     if (typeof unit === 'function' && !(unit.prototype instanceof this.Validator)) unit = await unit(this, pkg)
                     switch (typeof unit) {
