@@ -400,7 +400,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     Load: {
-        enumerable: true, value: async function (rootElement = undefined, preload = []) {
+        enumerable: true, value: async function (rootElement = undefined) {
             if (!rootElement) {
                 for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
                 this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
@@ -420,7 +420,6 @@ const ElementHTML = Object.defineProperties({}, {
                     delete this.env.lexicon
                 }
                 Object.freeze(this.env)
-                this.processQueue()
             } else {
                 await this.activateTag(this.getCustomTag(rootElement), rootElement)
                 const isAttr = rootElement.getAttribute('is')
@@ -487,14 +486,16 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.seal(this.app)
                 }
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-                const eventMap = {
-                    'beforeinstallprompt': 'installprompt', 'beforeunload': 'unload', 'appinstalled': 'install',
-                    'offline': 'offline', 'online': 'online', 'visibilitychange': 'visibilitychange', 'pagehide': 'hide', 'pageshow': 'show'
-                }
-                for (const n in eventMap) addEventListener(n, event => this.app.eventTarget.dispatchEvent(new CustomEvent(eventMap[n], { detail: this })))
+                const systemEvents = ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
+                for (const eventName of systemEvents) addEventListener(n, event => {
+                    this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
+                    this.runHook()
+                })
+                Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
             }
         }
     },
+
 
     checkType: {
         enumerable: true, value: async function (typeName, value, validate) {
@@ -1701,7 +1702,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof unit !== 'function') return
                     const isHooks = unitTypeCollectionName === 'hooks'
                     unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
-                    return isHooks ? (this.env.hooks[unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
+                    return isHooks ? ((this.env.hooks[unitKey] ??= {})[packageKey] = unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
                 case 'types':
                     if (typeof unit === 'function' && !(unit.prototype instanceof this.Validator)) unit = await unit(this, pkg)
                     switch (typeof unit) {
@@ -1754,6 +1755,12 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
+    createEnvelope: { // optimal
+        enumerable: true, value: async function (baseObj = {}) {
+            if (!this.isPlainObject(baseObj)) baseObj = { value: baseObj }
+            return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: context = this.env.context })
+        }
+    },
     deepFreeze: { //optimal
         value: function (obj, copy) {
             if (!Array.isArray(obj) && !this.isPlainObject(obj)) return obj
@@ -1777,7 +1784,6 @@ const ElementHTML = Object.defineProperties({}, {
             Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
-
     installGateway: { // optimal
         value: async function (protocol) {
             if (!protocol) return
@@ -1967,7 +1973,6 @@ const ElementHTML = Object.defineProperties({}, {
             return snippetKey
         }
     },
-
     resolveUnit: {
         value: async function (unitExpression, unitType) {
             unitExpression = unitExpression.trim()
@@ -2013,7 +2018,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     runElementMethod: {
         value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
@@ -2032,6 +2036,24 @@ const ElementHTML = Object.defineProperties({}, {
                 valuePrototype = value?.constructor?.prototype
             if (valuePrototype && (typeof value[methodName] === 'function')) return value[methodName](...this.mergeArgs(argsList, value))
             return
+        }
+    },
+    runHook: { // optimal
+        enumerable: true, value: async function (hookName) {
+            if (!this.app.hooks[hookName]) {
+                if (!this.env.hooks[hookName]) return
+                this.app.hooks[hookName] = {}
+                const promises = []
+                for (const packageKey in this.env.hooks[hookName]) {
+                    let hookFunction = this.env.hooks[hookName][packageKey]
+                    if (typeof hookFunction === 'string') promises.push(this.resolveUnit(hookFunction, 'hook').then(hookFunction => { if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction }))
+                    if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction
+                }
+                await Promise.all(promises)
+            }
+            if (!this.app.hooks[hookName]) return
+            const envelope = this.createEnvelope()
+            for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
         }
     },
     setGlobalNamespace: {
