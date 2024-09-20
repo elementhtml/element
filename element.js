@@ -2219,7 +2219,7 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return Object.values(this).every(v => v === true) }
         }
     },
-    Job: {
+    Job: { // optimal
         enumerable: true, value: class {
 
             id
@@ -2232,21 +2232,23 @@ const ElementHTML = Object.defineProperties({}, {
             static getJobFunction(id) { return this.E.queue.get(id)?.jobFunction }
             static getJobRunner(id) { return this.E.queue.get(id)?.runner }
 
-            constructor(id, jobFunction) {
+            constructor(jobFunction, id) {
+                if (typeof jobFunction !== 'function') return
                 this.id = id ?? this.constructor.E.generateUuid()
-                if (this.constructor.E.queue.get(id)) return
+                if (this.constructor.E.queue.get(this.id)) return
                 this.jobFunction = jobFunction
-                this.runner = async () => {
-                    if (this.running) return
-                    this.running = true
-                    try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
-                }
                 this.constructor.E.queue.set(this.id, this)
             }
 
             cancel() { this.constructor.E.queue.delete(this.id) }
 
-            async run() { return this.running ? undefined : this.runner() }
+            async run() { if (!this.running) return this.runner() }
+
+            async runner() {
+                if (this.running) return
+                this.running = true
+                try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
+            }
 
         }
     },
