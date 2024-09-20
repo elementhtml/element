@@ -459,26 +459,13 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!rootElement.shadowRoot) return
             }
             const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
-            for (const element of domTraverser.call(domRoot, '*')) this.initializeElement(element)
-            if (!this.app.observers.has(observerRoot)) {
-                this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
-                    for (const mutation of mutations) {
-                        for (const addedNode of (mutation.addedNodes || [])) {
-                            this.initializeElement(addedNode).then(() => {
-                                if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) this.initializeElement(n)
-                            })
-                        }
-                        for (const removedNode of (mutation.removedNodes || [])) {
-                            if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
-                            if (this.isFacetContainer(removedNode)) {
-                                this.unmountFacet(removedNode)
-                            } else if (this.getCustomTag(removedNode) && (typeof removedNode?.disconnectedCallback === 'function')) {
-                                removedNode.disconnectedCallback()
-                            }
-                        }
-                    }
-                }))
-            }
+            for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
+            if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
+                for (const mutation of mutations) {
+                    for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
+                    for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
+                }
+            }))
             this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
                 for (const eventName of this.sys.windowEvents) addEventListener(eventName, event => {
@@ -489,6 +476,26 @@ const ElementHTML = Object.defineProperties({}, {
                 this.runHook('load')
                 Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
             }
+        }
+    },
+
+    mountElement: {
+        value: async function (element) {
+            if (this.isFacetContainer(element)) return this.mountFacet(element)
+            if (this.getCustomTag(element)) await this.Load(element)
+            const promises = []
+            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.mountElement(n))
+            return Promise.all(promises)
+        }
+    },
+    unmountElement: {
+        value: async function (element) {
+            if (!(element instanceof HTMLElement)) return
+            const promises = []
+            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll('*')) promises.push(this.unmountElement(n))
+            await Promise.all(promises)
+            if (this.isFacetContainer(removedNode)) return this.unmountFacet(removedNode)
+            if (this.getCustomTag(removedNode) && removedNode.disconnectedCallback) return removedNode.disconnectedCallback()
         }
     },
 
@@ -1771,11 +1778,6 @@ const ElementHTML = Object.defineProperties({}, {
             let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
             if (!tag) return
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
-        }
-    },
-    initializeElement: { // optimal
-        value: async function (element) {
-            if (this.isFacetContainer(element)) { return this.mountFacet(element) } else if (this.getCustomTag(element)) { return this.Load(element) }
         }
     },
     installModule: { // optimal
