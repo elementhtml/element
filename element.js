@@ -480,7 +480,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
-                for (const eventName of this.sys.systemEvents) addEventListener(eventName, event => {
+                for (const eventName of this.sys.windowEvents) addEventListener(eventName, event => {
                     this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                     this.runHook(eventName)
                 })
@@ -1637,7 +1637,7 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' }),
-            systemEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
+            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
         })
     },
 
