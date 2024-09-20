@@ -403,79 +403,79 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Load: {
         enumerable: true, value: async function (rootElement = undefined) {
-            if (!rootElement) {
-                for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
-                this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
-                    set: () => { throw new Error('Interpreters are read-only at runtime.') },
-                    delete: () => { throw new Error('Interpreters are read-only at runtime.') },
-                    clear: () => { throw new Error('Interpreters are read-only at runtime.') },
-                    get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
-                }))
-                if (Object.keys(this.env.languages).length) {
-                    switch (true) {
-                        case (this.env.lexicon instanceof this.Lexicon): break
-                        case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
-                        case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon); break
-                        default: this.env.lexicon = new this.Lexicon()
-                    }
-                } else {
-                    delete this.env.lexicon
-                }
-                Object.freeze(this.env)
-                Object.freeze(this.app)
-            } else {
-                await this.activateTag(this.getCustomTag(rootElement), rootElement)
-                const isAttr = rootElement.getAttribute('is')
-                if (isAttr) {
-                    const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
-                    for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
-                    if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
-                    this.app.components.natives.set(componentInstance, rootElement)
-                    if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
-                    if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                        this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
-                            for (const record of records) {
-                                switch (record.type) {
-                                    case 'childList':
-                                        for (const removedNode of (record.removedNodes ?? [])) {
-                                            if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
-                                            if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
-                                        }
-                                        break
-                                    case 'attributes':
-                                        const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
-                                        componentInstance.setAttribute(attrName, attrNewValue)
-                                        if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
-                                        break
-                                    case 'characterData':
-                                        componentInstance.innerHTML = rootElement.innerHTML
-                                        break
-                                }
-                            }
-                        }))
-                        this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
-                    }
-                }
-                if (!rootElement.shadowRoot) return
-            }
-            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
-            for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
-            if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
-                for (const mutation of mutations) {
-                    for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
-                    for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
-                }
+            for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+            this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
+                set: () => { throw new Error('Interpreters are read-only at runtime.') },
+                delete: () => { throw new Error('Interpreters are read-only at runtime.') },
+                clear: () => { throw new Error('Interpreters are read-only at runtime.') },
+                get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
             }))
-            this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
-            if (!rootElement) {
-                for (const eventName of this.sys.windowEvents) addEventListener(eventName, event => {
-                    this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
-                    this.runHook(eventName)
-                })
-                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-                this.runHook('load')
-                Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
+            if (Object.keys(this.env.languages).length) {
+                switch (true) {
+                    case (this.env.lexicon instanceof this.Lexicon): break
+                    case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
+                    case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon); break
+                    default: this.env.lexicon = new this.Lexicon()
+                }
+            } else {
+                delete this.env.lexicon
             }
+            Object.freeze(this.env)
+            Object.freeze(this.app)
+            await this.mountElement(document.documentElement)
+            for (const eventName of this.sys.windowEvents) addEventListener(eventName, event => {
+                this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
+                this.runHook(eventName)
+            })
+            Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
+            this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+            this.runHook('load')
+
+
+            // } else {
+            //     await this.activateTag(this.getCustomTag(rootElement), rootElement)
+            //     const isAttr = rootElement.getAttribute('is')
+            //     if (isAttr) {
+            //         const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
+            //         for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
+            //         if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
+            //         this.app.components.natives.set(componentInstance, rootElement)
+            //         if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
+            //         if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
+            //             this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
+            //                 for (const record of records) {
+            //                     switch (record.type) {
+            //                         case 'childList':
+            //                             for (const removedNode of (record.removedNodes ?? [])) {
+            //                                 if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
+            //                                 if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
+            //                             }
+            //                             break
+            //                         case 'attributes':
+            //                             const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
+            //                             componentInstance.setAttribute(attrName, attrNewValue)
+            //                             if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
+            //                             break
+            //                         case 'characterData':
+            //                             componentInstance.innerHTML = rootElement.innerHTML
+            //                             break
+            //                     }
+            //                 }
+            //             }))
+            //             this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+            //         }
+            //     }
+            //     if (!rootElement.shadowRoot) return
+            // }
+            // const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
+            // for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
+            // if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
+            //     for (const mutation of mutations) {
+            //         for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
+            //         for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
+            //     }
+            // }))
+            // this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
         }
     },
 
@@ -483,9 +483,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (element) {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
             if (this.getCustomTag(element)) await this.Load(element)
-            const promises = []
-            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.mountElement(n))
-            return Promise.all(promises)
+            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) this.mountElement(n)
         }
     },
     unmountElement: {
@@ -494,8 +492,8 @@ const ElementHTML = Object.defineProperties({}, {
             const promises = []
             if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.unmountElement(n))
             await Promise.all(promises)
-            if (this.isFacetContainer(removedNode)) return this.unmountFacet(removedNode)
-            if (this.getCustomTag(removedNode) && removedNode.disconnectedCallback) return removedNode.disconnectedCallback()
+            if (this.isFacetContainer(element)) return this.unmountFacet(element)
+            if (this.getCustomTag(element) && element.disconnectedCallback) return element.disconnectedCallback()
         }
     },
 
