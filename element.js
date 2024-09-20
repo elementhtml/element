@@ -367,6 +367,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
                 for (const [, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name].bind(this)
+                Object.defineProperty(globalThis, this.modules.compile.globalNamespace, { value: this })
             })
         }
     },
@@ -456,8 +457,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (!rootElement.shadowRoot) return
             }
-            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'],
-                observerRoot = rootElement || this.app
+            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement || this.app
             for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.Load(element) }
             if (!this.app.observers.has(observerRoot)) {
                 this.app.observers.set(observerRoot, new MutationObserver(async records => {
@@ -479,13 +479,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
             if (!rootElement) {
-                if (!this.app._globalNamespace) {
-                    Object.defineProperty(this.app, '_globalNamespace', { value: undefined, writable: true })
-                    const appDescriptors = Object.getOwnPropertyDescriptors(this.app)
-                    for (const key in appDescriptors) appDescriptors[key].writable = key === '_globalNamespace'
-                    Object.defineProperties(this.app, appDescriptors)
-                    Object.seal(this.app)
-                }
+                Object.freeze(this.app)
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 const systemEvents = ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
                 for (const eventName of systemEvents) addEventListener(eventName, event => {
@@ -2054,15 +2048,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (!this.app.hooks[hookName]) return
             const envelope = this.createEnvelope()
             for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
-        }
-    },
-    setGlobalNamespace: {
-        enumerable: true, value: function () {
-            if (!this.app._globalNamespace) {
-                Object.defineProperty(this.app, '_globalNamespace', { value: crypto.randomUUID() })
-                Object.defineProperty(globalThis, this.app._globalNamespace, { value: this })
-                Object.freeze(this.app)
-            }
         }
     },
     sliceAndStep: {

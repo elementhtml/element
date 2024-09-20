@@ -1,4 +1,4 @@
-const nativeElementsMap = {
+const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     ...Object.fromEntries(['abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'cite', 'code', 'dd', 'dfn', 'dt', 'em', 'figcaption', 'figure', 'footer', 'header',
         'hgroup', 'i', 'kbd', 'main', 'mark', 'nav', 'noscript', 'rp', 'rt', 'ruby', 's', 'samp', 'search', 'section', 'small', 'strong', 'sub', 'summary', 'sup', 'u', 'var', 'wbr'].map(l => [l, 'HTMLElement'])),
     ...Object.fromEntries(['blockquote', 'q'].map(l => [l, 'HTMLQuoteElement'])), ...Object.fromEntries(['col', 'colgroup'].map(l => [l, 'HTMLTableColElement'])),
@@ -205,8 +205,7 @@ const nativeElementsMap = {
 
 ${scriptBody.join('{')}`
 
-                this.setGlobalNamespace()
-                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${script}`], { type: 'text/javascript' }))
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${globalNamespace}']; export default ${script}`], { type: 'text/javascript' }))
                 ComponentClass = (await import(classAsModuleUrl)).default
                 URL.revokeObjectURL(classAsModuleUrl)
             }
@@ -262,8 +261,7 @@ ${scriptBody.join('{')}`
 
     }`
 
-                this.setGlobalNamespace()
-                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${this.app._globalNamespace}']; export default ${source}`], { type: 'text/javascript' }))
+                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${globalNamespace}']; export default ${source}`], { type: 'text/javascript' }))
                 FacetClass = (await import(classAsModuleUrl)).default
                 URL.revokeObjectURL(classAsModuleUrl)
             }
@@ -330,6 +328,7 @@ ${scriptBody.join('{')}`
             return group
         }
     },
+    globalNamespace: { value: globalNamespace },
     toBase32: {
         value: function (buffer) {
             const alphabet = 'abcdefghijklmnopqrstuvwxyz234567', size = buffer.length
