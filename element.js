@@ -366,7 +366,7 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
-                for (const [matcher, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name].bind(this)
+                for (const [, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name].bind(this)
             })
         }
     },
@@ -385,24 +385,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    ImportPackage: {
+    ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.preInstall === 'function') pkg = (await pkg.hooks.preInstall.bind(this, pkg)()) ?? pkg
             const promises = []
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
-                const attachUnitTypeCollectionArgs = [unitTypeCollectionName, packageUrl, packageKey, pkg]
-                let unitTypeCollection = pkg[unitTypeCollectionName], promise
-                switch (true) {
-                    case (typeof unitTypeCollection === 'string'):
-                        unitTypeCollection = this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true)
-                    case (unitTypeCollection instanceof Promise):
-                        promise = unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, ...attachUnitTypeCollectionArgs))
-                        break
-                    default:
-                        promise = this.attachUnitTypeCollection(unitTypeCollection, ...attachUnitTypeCollectionArgs)
-                }
-                promises.push(promise)
+                let unitTypeCollection = (typeof pkg[unitTypeCollectionName] === 'string')
+                    ? this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
+                promises.push(unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg)))
             }
             await Promise.all(promises)
             if (pkg.hooks?.postInstall === 'function') await pkg.hooks.postInstall.bind(this, pkg)()
@@ -1745,12 +1736,9 @@ const ElementHTML = Object.defineProperties({}, {
             if (!this.isPlainObject(unitTypeCollection) || !(unitTypeCollectionName in this.env)) return
             for (const unitKey in unitTypeCollection) {
                 if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
-                let unit = unitTypeCollection[unitKey], promise
-                const attachUnitArgs = [unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg]
-                promise = (unit instanceof Promise) ? unit.then(unit => this.attachUnit(unit, ...attachUnitArgs)) : this.attachUnit(unit, ...attachUnitArgs)
-                promises.push(promise)
+                promises.push(Promise.resolve(unitTypeCollection[unitKey]).then(unit => this.attachUnit(unit, unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg)))
             }
-            await Promise.all(promises)
+            return Promise.all(promises)
         }
     },
     buildCatchallSelector: {
