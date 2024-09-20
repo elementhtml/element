@@ -1663,7 +1663,7 @@ const ElementHTML = Object.defineProperties({}, {
             globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
         }
     },
-    attachUnit: {
+    attachUnit: { // optimal
         value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
             if (!unit || (unitTypeCollectionName === 'interpreters') || (unitTypeCollectionName === 'lexicon')) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
@@ -1715,7 +1715,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    attachUnitTypeCollection: {
+    attachUnitTypeCollection: { // optimal
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
             switch (unitTypeCollectionName) {
                 case 'interpreters':
