@@ -404,10 +404,9 @@ const ElementHTML = Object.defineProperties({}, {
     Load: {
         enumerable: true, value: async function (rootElement = undefined) {
             for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+            const interpretersProxyError = () => { throw new Error('Interpreters are read-only at runtime.') }
             this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
-                set: () => { throw new Error('Interpreters are read-only at runtime.') },
-                delete: () => { throw new Error('Interpreters are read-only at runtime.') },
-                clear: () => { throw new Error('Interpreters are read-only at runtime.') },
+                set: interpretersProxyError, delete: interpretersProxyError, clear: interpretersProxyError,
                 get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
             }))
             if (Object.keys(this.env.languages).length) {
@@ -423,66 +422,68 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(this.env)
             Object.freeze(this.app)
             await this.mountElement(document.documentElement)
-            for (const eventName of this.sys.windowEvents) addEventListener(eventName, event => {
+            for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
                 this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                 this.runHook(eventName)
             })
             Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
             this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
             this.runHook('load')
-
-
-            // } else {
-            //     await this.activateTag(this.getCustomTag(rootElement), rootElement)
-            //     const isAttr = rootElement.getAttribute('is')
-            //     if (isAttr) {
-            //         const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
-            //         for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
-            //         if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
-            //         this.app.components.natives.set(componentInstance, rootElement)
-            //         if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
-            //         if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-            //             this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
-            //                 for (const record of records) {
-            //                     switch (record.type) {
-            //                         case 'childList':
-            //                             for (const removedNode of (record.removedNodes ?? [])) {
-            //                                 if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
-            //                                 if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
-            //                             }
-            //                             break
-            //                         case 'attributes':
-            //                             const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
-            //                             componentInstance.setAttribute(attrName, attrNewValue)
-            //                             if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
-            //                             break
-            //                         case 'characterData':
-            //                             componentInstance.innerHTML = rootElement.innerHTML
-            //                             break
-            //                     }
-            //                 }
-            //             }))
-            //             this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
-            //         }
-            //     }
-            //     if (!rootElement.shadowRoot) return
-            // }
-            // const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
-            // for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
-            // if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
-            //     for (const mutation of mutations) {
-            //         for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
-            //         for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
-            //     }
-            // }))
-            // this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
         }
     },
 
     mountElement: {
         value: async function (element) {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
-            if (this.getCustomTag(element)) await this.Load(element)
+            if (this.getCustomTag(element)) {
+
+                // } else {
+                //     await this.activateTag(this.getCustomTag(rootElement), rootElement)
+                //     const isAttr = rootElement.getAttribute('is')
+                //     if (isAttr) {
+                //         const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
+                //         for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
+                //         if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
+                //         this.app.components.natives.set(componentInstance, rootElement)
+                //         if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
+                //         if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
+                //             this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
+                //                 for (const record of records) {
+                //                     switch (record.type) {
+                //                         case 'childList':
+                //                             for (const removedNode of (record.removedNodes ?? [])) {
+                //                                 if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
+                //                                 if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
+                //                             }
+                //                             break
+                //                         case 'attributes':
+                //                             const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
+                //                             componentInstance.setAttribute(attrName, attrNewValue)
+                //                             if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
+                //                             break
+                //                         case 'characterData':
+                //                             componentInstance.innerHTML = rootElement.innerHTML
+                //                             break
+                //                     }
+                //                 }
+                //             }))
+                //             this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                //         }
+                //     }
+                //     if (!rootElement.shadowRoot) return
+                // }
+                // const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
+                // for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
+                // if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
+                //     for (const mutation of mutations) {
+                //         for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
+                //         for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
+                //     }
+                // }))
+                // this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
+
+
+            }
             if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) this.mountElement(n)
         }
     },
@@ -493,7 +494,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.unmountElement(n))
             await Promise.all(promises)
             if (this.isFacetContainer(element)) return this.unmountFacet(element)
-            if (this.getCustomTag(element) && element.disconnectedCallback) return element.disconnectedCallback()
+            if (this.getCustomTag(element) && element.disconnectedCallback) element.disconnectedCallback()
         }
     },
 
