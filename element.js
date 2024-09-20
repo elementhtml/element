@@ -385,7 +385,6 @@ const ElementHTML = Object.defineProperties({}, {
             window[name || 'E'] ??= this
         }
     },
-
     ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
@@ -401,7 +400,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (typeof postPackageInstall === 'function') await postPackageInstall.bind(this, pkg)()
         }
     },
-    Load: {
+    Load: { // optimal
         enumerable: true, value: async function (rootElement = undefined) {
             for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
             const interpretersProxyError = () => { throw new Error('Interpreters are read-only at runtime.') }
