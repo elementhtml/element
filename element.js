@@ -1891,9 +1891,9 @@ const ElementHTML = Object.defineProperties({}, {
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
-    processQueue: {
+    processQueue: { // optimal
         value: async function () {
-            for (const [, job] of this.queue) job.run()
+            for (const job of this.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
