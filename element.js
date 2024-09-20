@@ -458,16 +458,17 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (!rootElement.shadowRoot) return
             }
-            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement || this.app
-            for (const element of domTraverser.call(domRoot, '*')) if (this.isFacetContainer(element)) { this.mountFacet(element) } else if (this.getCustomTag(element)) { this.Load(element) }
+            const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
+            for (const element of domTraverser.call(domRoot, '*')) this.initializeElement(element)
             if (!this.app.observers.has(observerRoot)) {
-                this.app.observers.set(observerRoot, new MutationObserver(async records => {
-                    for (const record of records) {
-                        for (const addedNode of (record.addedNodes || [])) {
-                            if (this.isFacetContainer(addedNode)) { this.mountFacet(addedNode) } else if (this.getCustomTag(addedNode)) { this.Load(addedNode) }
-                            if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) if (this.getCustomTag(n)) this.Load(n)
+                this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
+                    for (const mutation of mutations) {
+                        for (const addedNode of (mutation.addedNodes || [])) {
+                            this.initializeElement(addedNode).then(() => {
+                                if (typeof addedNode?.querySelectorAll === 'function') for (const n of addedNode.querySelectorAll('*')) this.initializeElement(n)
+                            })
                         }
-                        for (const removedNode of (record.removedNodes || [])) {
+                        for (const removedNode of (mutation.removedNodes || [])) {
                             if (typeof removedNode?.querySelectorAll === 'function') for (const n of removedNode.querySelectorAll('*')) if (this.getCustomTag(n)) if (typeof n?.disconnectedCallback === 'function') n.disconnectedCallback()
                             if (this.isFacetContainer(removedNode)) {
                                 this.unmountFacet(removedNode)
@@ -1770,6 +1771,11 @@ const ElementHTML = Object.defineProperties({}, {
             let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
             if (!tag) return
             return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
+        }
+    },
+    initializeElement: { // optimal
+        value: async function (element) {
+            if (this.isFacetContainer(element)) { return this.mountFacet(element) } else if (this.getCustomTag(element)) { return this.Load(element) }
         }
     },
     installModule: { // optimal
