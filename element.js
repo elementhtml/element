@@ -1640,7 +1640,7 @@ const ElementHTML = Object.defineProperties({}, {
                 mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', languages: 'Lexicon', models: 'Model' })
+            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' })
         })
     },
 
@@ -1665,20 +1665,33 @@ const ElementHTML = Object.defineProperties({}, {
     },
     attachUnit: {
         value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
-            if (!unit) return
+            if (!unit || (unitTypeCollectionName === 'interpreters') || (unitTypeCollectionName === 'lexicon')) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
             switch (unitTypeCollectionName) {
-                case 'interpreters': case 'lexicon': return
-                case 'context': case 'languages':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
-                case 'namespaces': case 'libraries':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                case 'patterns':
-                    return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
+                case 'context': case 'languages': case 'libraries': case 'namespaces': case 'patterns': case 'snippets':
+                    if (typeof unit === 'function') unit = await unit(this, pkg)
+                    switch (unitTypeCollectionName) {
+                        case 'context':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                        case 'languages':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
+                        case 'libraries': case 'namespaces':
+                            return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                        case 'patterns':
+                            return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
+                        case 'snippets':
+                            if (unitIsString) {
+                                if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                                const template = document.createElement('template')
+                                template.innerHTML = unit
+                                unit = template
+                            }
+                            return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
+                    }
                 case 'components':
                     this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     unitKey = `${packageKey}-${unitKey}`
-                case 'apis': case 'content': case 'facets': case 'gateways': case 'languages': case 'models':
+                case 'apis': case 'content': case 'facets': case 'gateways': case 'models':
                     if (unitIsString) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
                     unit = (typeof unit === 'function') ? await unit(this, pkg) : undefined
                     if (!unit) return
@@ -1688,23 +1701,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof unit !== 'function') return
                     const isHooks = unitTypeCollectionName === 'hooks'
                     unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
-                    return isHooks ? (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
-                case 'snippets':
-                    if (unitIsString) {
-                        if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                        const template = document.createElement('template')
-                        template.innerHTML = unit
-                        unit = template
-                    }
-                    return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
+                    return isHooks ? (this.env.hooks[unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
                 case 'types':
+                    if (typeof unit === 'function' && !(unit.prototype instanceof this.Validator)) unit = await unit(this, pkg)
                     switch (typeof unit) {
                         case 'string':
                             return this[scopeKey][unitTypeCollectionName][unitKey] = unit
                         case 'function':
-                            if (unit.prototype instanceof this.Validator) return this[scopeKey][unitTypeCollectionName][unitKey] = unit
-                            unit = await unit(this, pkg)
-                            if (!this.isPlainObject(unit)) return
+                            return (unit.prototype instanceof this.Validator) ? (this[scopeKey][unitTypeCollectionName][unitKey] = unit) : undefined
                         case 'object':
                             return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
                     }
