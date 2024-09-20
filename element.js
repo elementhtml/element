@@ -1678,7 +1678,13 @@ const ElementHTML = Object.defineProperties({}, {
             if (!unit) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
             switch (unitTypeCollectionName) {
-                case 'interpreters': return
+                case 'interpreters': case 'lexicon': return
+                case 'context': case 'languages':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
+                case 'namespaces': case 'libraries':
+                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
+                case 'patterns':
+                    return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
                 case 'components':
                     this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
                     unitKey = `${packageKey}-${unitKey}`
@@ -1693,10 +1699,6 @@ const ElementHTML = Object.defineProperties({}, {
                     const isHooks = unitTypeCollectionName === 'hooks'
                     unit = unit.bind(...(isHooks ? [this, pkg] : [this]))
                     return isHooks ? (this.env[unitTypeCollectionName][unitKey] ??= []).push(unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
-                case 'namespaces': case 'libraries':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                case 'patterns':
-                    return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
                 case 'snippets':
                     if (unitIsString) {
                         if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
@@ -1705,8 +1707,6 @@ const ElementHTML = Object.defineProperties({}, {
                         unit = template
                     }
                     return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
-                case 'context':
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
                 case 'types':
                     switch (typeof unit) {
                         case 'string':
