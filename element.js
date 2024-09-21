@@ -373,7 +373,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Dev: { //optimal
         enumerable: true, value: function () {
-            this.app.facets.exports = new WeakMap()
             return this.installModule('dev').then(() => {
                 for (const [p, v = this.modules.dev[p]] of Object.getOwnPropertyNames(this.modules.dev)) if (this.isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
             }).then(() => this.modules.dev.console.welcome())
@@ -696,9 +695,9 @@ const ElementHTML = Object.defineProperties({}, {
             return (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
         }
     },
-    isFacetContainer: {
+    isFacetContainer: { // optimal
         enumerable: true, value: function (element) {
-            return ((element instanceof HTMLScriptElement) && (element.type === 'directives/element' || element.type === 'facet/element' || element.type === 'application/element'))
+            return ((element instanceof HTMLScriptElement) && element.type?.endsWith('/element'))
         }
     },
     isPlainObject: { // optimal
@@ -1851,24 +1850,22 @@ const ElementHTML = Object.defineProperties({}, {
             switch (type) {
                 case 'directives/element':
                     if (!this.modules.compile) return
-                    const directives = await this.modules.compile?.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    const directives = await this.modules.compile.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
                     if (!directives) break
                     facetCid = await this.modules.compile.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.modules.compile?.facet(directives, facetCid)
+                    this.app.facets.classes[facetCid] ??= await this.modules.compile.facet(directives, facetCid)
                     break
                 case 'application/element':
                     if (!src || this.app.facets.classes[src]) break
                     FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await import(this.resolveUrl(src)))
                     FacetClass.E ??= this
-                    FacetClass.prototype.E ??= E
+                    FacetClass.prototype.E ??= this
                     facetCid = FacetClass.cid
                     this.app.facets.classes[facetCid] = FacetClass
-                    this.app.facets.classes[src] = FacetClass
                     break
             }
             FacetClass = this.app.facets.classes[facetCid]
-            if (this.modules.dev && !this.app.facets.exports.has(FacetClass)) this.app.facets.exports.set(FacetClass, { statements: JSON.parse(JSON.stringify(FacetClass.statements)) })
-            if (!FacetClass || !(FacetClass.prototype instanceof this.Facet)) return
+            if (!(FacetClass?.prototype instanceof this.Facet)) return
             if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
             facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
@@ -1878,7 +1875,7 @@ const ElementHTML = Object.defineProperties({}, {
             for (const cellName of FacetClass.cellNames) cells[cellName] = new this.Cell(cellName)
             Object.freeze(fields)
             Object.freeze(cells)
-            facetInstance.observer = new MutationObserver(records => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
+            facetInstance.observer = new MutationObserver(() => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
             facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
             facetInstance.disabled = facetContainer.hasAttribute('disabled')
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
