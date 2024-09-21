@@ -420,77 +420,77 @@ const ElementHTML = Object.defineProperties({}, {
             }
             Object.freeze(this.env)
             Object.freeze(this.app)
-            await this.mountElement(document.documentElement)
             for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
                 this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                 this.runHook(eventName)
             })
-            Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
-            this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-            this.runHook('load')
+            this.mountElement(document.documentElement).then(async () => {
+                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+                await this.runHook('load')
+                Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
+            })
         }
     },
 
     mountElement: {
         value: async function (element) {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
-            if (this.getCustomTag(element)) {
+            const customTag = this.getCustomTag(element)
+            if (customTag) {
 
-                // } else {
-                //     await this.activateTag(this.getCustomTag(rootElement), rootElement)
-                //     const isAttr = rootElement.getAttribute('is')
-                //     if (isAttr) {
-                //         const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
-                //         for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
-                //         if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
-                //         this.app.components.natives.set(componentInstance, rootElement)
-                //         if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
-                //         if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                //             this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
-                //                 for (const record of records) {
-                //                     switch (record.type) {
-                //                         case 'childList':
-                //                             for (const removedNode of (record.removedNodes ?? [])) {
-                //                                 if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
-                //                                 if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
-                //                             }
-                //                             break
-                //                         case 'attributes':
-                //                             const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
-                //                             componentInstance.setAttribute(attrName, attrNewValue)
-                //                             if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
-                //                             break
-                //                         case 'characterData':
-                //                             componentInstance.innerHTML = rootElement.innerHTML
-                //                             break
-                //                     }
-                //                 }
-                //             }))
-                //             this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
-                //         }
-                //     }
-                //     if (!rootElement.shadowRoot) return
-                // }
-                // const domRoot = rootElement ? rootElement.shadowRoot : document, domTraverser = domRoot[rootElement ? 'querySelectorAll' : 'getElementsByTagName'], observerRoot = rootElement ?? this.app
-                // for (const element of domTraverser.call(domRoot, '*')) this.mountElement(element)
-                // if (!this.app.observers.has(observerRoot)) this.app.observers.set(observerRoot, new MutationObserver(async mutations => {
-                //     for (const mutation of mutations) {
-                //         for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
-                //         for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
-                //     }
-                // }))
-                // this.app.observers.get(observerRoot).observe(domRoot, { subtree: true, childList: true })
-
-
+                await this.activateTag(customTag, element)
+                const isAttr = element.getAttribute('is')
+                if (isAttr) {
+                    const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
+                    for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
+                    if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
+                    this.app.components.natives.set(componentInstance, rootElement)
+                    if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
+                    if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
+                        this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
+                            for (const record of records) {
+                                switch (record.type) {
+                                    case 'childList':
+                                        for (const removedNode of (record.removedNodes ?? [])) {
+                                            if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
+                                            if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
+                                        }
+                                        break
+                                    case 'attributes':
+                                        const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
+                                        componentInstance.setAttribute(attrName, attrNewValue)
+                                        if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
+                                        break
+                                    case 'characterData':
+                                        componentInstance.innerHTML = rootElement.innerHTML
+                                        break
+                                }
+                            }
+                        }))
+                        this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                    }
+                }
+                if (element.shadowRoot || (element === document.documentElement)) {
+                    const root = element.shadowRoot ?? element, observer = new MutationObserver(async mutations => {
+                        for (const mutation of mutations) {
+                            for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
+                            for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
+                        }
+                    })
+                    observer.observe(root, { subtree: true, childList: true })
+                    this.app.observers.set(root, observer)
+                }
             }
-            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) this.mountElement(n)
+            const promises = []
+            for (const n of element.children) promises.push(this.mountElement(n))
+            await Promise.all(promises)
         }
     },
     unmountElement: {
         value: async function (element) {
             if (!(element instanceof HTMLElement)) return
             const promises = []
-            if (typeof element?.querySelectorAll === 'function') for (const n of element.querySelectorAll(':scope > *')) promises.push(this.unmountElement(n))
+            for (const n of element.children) promises.push(this.unmountElement(n))
             await Promise.all(promises)
             if (this.isFacetContainer(element)) return this.unmountFacet(element)
             if (this.getCustomTag(element) && element.disconnectedCallback) element.disconnectedCallback()
