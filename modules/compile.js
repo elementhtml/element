@@ -80,7 +80,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     },
     facet: {
         enumerable: true, value: async function (directives, cid) {
-            cid ??= await this.modules.compile.digest(directives = (await this.modules.compile?.canonicalizeDirectives(directives)))
+            cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let index = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
