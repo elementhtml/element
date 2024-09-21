@@ -1707,11 +1707,10 @@ const ElementHTML = Object.defineProperties({}, {
             return Object.freeze(obj)
         }
     },
-    getCustomTag: {
+    getCustomTag: { // optimal
         value: function (element) {
             let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
-            if (!tag) return
-            return ((tag[0] !== '-') && !tag.endsWith('-') && tag.includes('-')) ? tag : undefined
+            return tag.includes('-') ? tag : undefined
         }
     },
     installModule: { // optimal
