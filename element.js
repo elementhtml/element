@@ -157,7 +157,7 @@ const ElementHTML = Object.defineProperties({}, {
                             eventList = eventList.split(this.sys.regexp.commaSplitter).filter(Boolean)
                         } else if (container.dataset.facetCid) {
                             const [statementIndex, stepIndex] = position.split('-')
-                            if (!this.app.facets.classes[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
+                            if (!this.app.facets[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
                         const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
                         for (let eventName of eventNames) {
@@ -1428,12 +1428,13 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: Object.defineProperties({
             compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
-            expose: undefined, facets: { classes: {}, instances: new WeakMap() }, gateways: {}, helpers: {}, hooks: {},
+            expose: undefined, facets: {}, gateways: {}, helpers: {}, hooks: {},
             interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, namespaces: {},
             options: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
         }, {
             cells: { value: {} },
             eventTarget: { value: new EventTarget() },
+            facetInstances: { value: new WeakMap() },
             libraries: { value: {} },
             observers: { value: new WeakMap() }
         })
@@ -1843,7 +1844,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    mountFacet: {
+    mountFacet: { // optimal
         value: async function (facetContainer) {
             let { type } = facetContainer, FacetClass, facetCid
             const src = facetContainer.getAttribute('src')
@@ -1854,22 +1855,22 @@ const ElementHTML = Object.defineProperties({}, {
                     const directives = await this.modules.compile.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : facetContainer.textContent)
                     if (!directives) break
                     facetCid = await this.modules.compile.cid(directives)
-                    this.app.facets.classes[facetCid] ??= await this.modules.compile.facet(directives, facetCid)
+                    this.app.facets[facetCid] ??= await this.modules.compile.facet(directives, facetCid)
                     break
                 case 'application/element':
-                    if (!src || this.app.facets.classes[src]) break
+                    if (!src || this.app.facets[src]) break
                     FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await import(this.resolveUrl(src)))
                     FacetClass.E ??= this
                     FacetClass.prototype.E ??= this
                     facetCid = FacetClass.cid
-                    this.app.facets.classes[facetCid] = FacetClass
+                    this.app.facets[facetCid] = FacetClass
                     break
             }
-            FacetClass ??= this.app.facets.classes[facetCid]
+            FacetClass ??= this.app.facets[facetCid]
             if (!(FacetClass?.prototype instanceof this.Facet)) return
             if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
             const facetInstance = new FacetClass()
-            this.app.facets.instances.set(facetContainer, facetInstance)
+            this.app.facetInstances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
                 context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
             for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
@@ -2037,14 +2038,16 @@ const ElementHTML = Object.defineProperties({}, {
             for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
         }
     },
-    sliceAndStep: {
+    sliceAndStep: { // optimal
         value: function (sig, list) {
+            if (!Array.isArray(list)) return list
             if (!sig.includes(':')) return [list[parseInt(sig) || 0]]
-            let [start = 0, end = list.length, step = 0] = sig.split(':').map(s => (parseInt(s) || 0))
-            if (end === 0) end = list.length
-            list = list.slice(start, end)
+            let [start = 0, end = list.length, step = 0] = sig.split(':').map(Number)
+            list = list.slice(start || 0, end || list.length)
             if (!step) return list
-            return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
+            const newList = []
+            for (let i = 0, l = list.length; i < l; i += step) newList.push(list[i])
+            return newList
         }
     },
     unmountElement: { // optimal
@@ -2059,10 +2062,10 @@ const ElementHTML = Object.defineProperties({}, {
             if ((typeof element.disconnectedCallback === 'function') && this.getCustomTag(element)) element.disconnectedCallback()
         }
     },
-    unmountFacet: {
+    unmountFacet: { // optimal
         value: function (facetContainer) {
-            const facetInstance = this.app.facets.instances.get(facetContainer)
-            for (const [k, v] of Object.entries((facetInstance.controllers))) v.abort()
+            const facetInstance = this.app.facetInstances.get(facetContainer)
+            for (const p in facetInstance.controllers) facetInstance.controllers[p].abort()
             facetInstance.controller.abort()
             facetInstance.observer.disconnect()
         }
@@ -2424,7 +2427,7 @@ Object.defineProperties(ElementHTML, {
     Field: {
         enumerable: true, value: class extends ElementHTML.State {
             constructor(facetInstanceOrContainer, name, initialValue) {
-                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facets.instances.get(facetInstanceOrContainer).fields : undefined)
+                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facetInstances.get(facetInstanceOrContainer).fields : undefined)
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
                 if (name && fields) fields[name] ??= this

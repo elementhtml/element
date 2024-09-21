@@ -133,7 +133,7 @@ const module = {
                     case 'fields': case 'statements':
                         containerElement = document.querySelector(`script[type$=\\/element][id="${container}"]`)
                             ?? document.querySelector(`script[type$=\\/element][name="${container}"]`) ?? document.querySelector(`script[type$=\\/element][data-facet-cid="${container}"]`)
-                        facetInstance = this.app.facets.instances.get(containerElement)
+                        facetInstance = this.app.facetInstances.get(containerElement)
                         whatItems = facetInstance[what === 'fields' ? 'fields' : 'labels']
                         whatSymbol = what === 'fields' ? '@' : ''
                         break
@@ -272,7 +272,7 @@ const module = {
                 if (!identifier) throw new Error(`An identifier is required`)
                 if (identifier instanceof HTMLElement) {
                     if (unitType === 'component') identifier = this.app.components.virtuals.get(identifier) ?? identifier
-                    unitClass = unitType === 'component' ? identifier.constructor : this.app.facets.instances.get(identifier).constructor
+                    unitClass = unitType === 'component' ? identifier.constructor : this.app.facetInstances.get(identifier).constructor
                 } else if (identifier.prototype) {
                     unitClass = unitType === 'component' ? (identifier.prototype instanceof this.Component ? identifier : undefined)
                         : (identifier.prototype instanceof this.Facet ? identifier : undefined)
