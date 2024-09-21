@@ -231,10 +231,15 @@ ${scriptBody.join('{')}`
             return canonicalizedDirectives.join('\n')
         }
     },
-    digest: {
+    digest: { // optimal
         value: async function (str) {
-            if (typeof str !== 'string') str = `${str}`
-            return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))).map(b => b.toString(16).padStart(2, '0')).join('')
+            if (typeof str !== 'string') str = String(str)
+            const bytes = (new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)))), hex = '0123456789abcdef', digest = new Array(bytes.length * 2)
+            for (let i = 0, j = 0, l = bytes.length, b; i < l; i++) {
+                digest[j++] = hex[(b = bytes[i]) >> 4]
+                digest[j++] = hex[b & 15]
+            }
+            return digest.join('')
         }
     },
     facetFactory: {
