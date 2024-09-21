@@ -86,7 +86,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 index = index + 1
                 let handle, handleMatch
-                if (handleMatch = directive.match(/^([A-Z][A-Z0-9]*)::\s(.*)/)) [, handle, directive] = handleMatch
+                if (handleMatch = directive.match(this.sys.regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
                 const statement = { handle, index, labels: new Set(), steps: [] }
                 let stepIndex = -1
                 for (let [index, segment] of directive.split(' >> ').entries()) {
