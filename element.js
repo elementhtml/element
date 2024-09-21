@@ -432,68 +432,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    mountElement: { // optimal
-        value: async function (element) {
-            if (this.isFacetContainer(element)) return this.mountFacet(element)
-            const customTag = this.getCustomTag(element)
-            if (customTag) {
-                await this.activateTag(customTag, element)
-                const isAttr = element.getAttribute('is')
-                if (isAttr) {
-                    const componentInstance = this.app.components.virtuals.set(element, document.createElement(isAttr)).get(element)
-                    for (const a of element.attributes) componentInstance.setAttribute(a.name, a.value)
-                    if (element.innerHTML != undefined) componentInstance.innerHTML = element.innerHTML
-                    this.app.components.natives.set(componentInstance, element)
-                    if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
-                    if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                        const observer = new MutationObserver(mutations => {
-                            for (const mutation of mutations) {
-                                switch (mutation.type) {
-                                    case 'childList':
-                                        for (const removedNode of (mutation.removedNodes ?? [])) {
-                                            if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
-                                            if ((typeof componentInstance.adoptedCallback === 'function') && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
-                                        }
-                                        break
-                                    case 'attributes': componentInstance.setAttribute(mutation.attributeName, mutation.target.getAttribute(attrName)); break
-                                    case 'characterData': componentInstance.innerHTML = element.innerHTML; break
-                                }
-                            }
-                        })
-                        observer.observe(element, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
-                        this.app.components.bindings.set(element, observer)
-                    }
-                }
-                const root = (element.shadowRoot || (element === document.documentElement)) ? (element.shadowRoot ?? element) : undefined
-                if (root) {
-                    const observer = new MutationObserver(mutations => {
-                        for (const mutation of mutations) {
-                            for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
-                            for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
-                        }
-                    })
-                    observer.observe(root, { subtree: true, childList: true })
-                    this.app.observers.set(root, observer)
-                }
-            }
-            const promises = []
-            if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
-            for (const n of element.children) promises.push(this.mountElement(n))
-            return Promise.all(promises)
-        }
-    },
-    unmountElement: { // optimal
-        value: async function (element) {
-            if (!(element instanceof HTMLElement)) return
-            if (this.isFacetContainer(element)) return this.unmountFacet(element)
-            if (element.children.length) {
-                const promises = []
-                for (const n of element.children) promises.push(this.unmountElement(n))
-                await Promise.all(promises)
-            }
-            if ((typeof element.disconnectedCallback === 'function') && this.getCustomTag(element)) element.disconnectedCallback()
-        }
-    },
 
 
     checkType: {
@@ -1855,6 +1793,58 @@ const ElementHTML = Object.defineProperties({}, {
             return newArgs
         }
     },
+
+    mountElement: { // optimal
+        value: async function (element) {
+            if (this.isFacetContainer(element)) return this.mountFacet(element)
+            const customTag = this.getCustomTag(element)
+            if (customTag) {
+                await this.activateTag(customTag, element)
+                const isAttr = element.getAttribute('is')
+                if (isAttr) {
+                    const componentInstance = this.app.components.virtuals.set(element, document.createElement(isAttr)).get(element)
+                    for (const a of element.attributes) componentInstance.setAttribute(a.name, a.value)
+                    if (element.innerHTML != undefined) componentInstance.innerHTML = element.innerHTML
+                    this.app.components.natives.set(componentInstance, element)
+                    if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
+                    if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
+                        const observer = new MutationObserver(mutations => {
+                            for (const mutation of mutations) {
+                                switch (mutation.type) {
+                                    case 'childList':
+                                        for (const removedNode of (mutation.removedNodes ?? [])) {
+                                            if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
+                                            if ((typeof componentInstance.adoptedCallback === 'function') && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
+                                        }
+                                        break
+                                    case 'attributes': componentInstance.setAttribute(mutation.attributeName, mutation.target.getAttribute(attrName)); break
+                                    case 'characterData': componentInstance.innerHTML = element.innerHTML; break
+                                }
+                            }
+                        })
+                        observer.observe(element, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                        this.app.components.bindings.set(element, observer)
+                    }
+                }
+                const root = (element.shadowRoot || (element === document.documentElement)) ? (element.shadowRoot ?? element) : undefined
+                if (root) {
+                    const observer = new MutationObserver(mutations => {
+                        for (const mutation of mutations) {
+                            for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
+                            for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
+                        }
+                    })
+                    observer.observe(root, { subtree: true, childList: true })
+                    this.app.observers.set(root, observer)
+                }
+            }
+            const promises = []
+            if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
+            for (const n of element.children) promises.push(this.mountElement(n))
+            return Promise.all(promises)
+        }
+    },
+
     mountFacet: {
         value: async function (facetContainer) {
             let { type, textContent } = facetContainer, src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
@@ -2058,6 +2048,18 @@ const ElementHTML = Object.defineProperties({}, {
             list = list.slice(start, end)
             if (!step) return list
             return (step === 1) ? list.filter((v, i) => (i + 1) % 2) : list.filter((v, i) => (i + 1) % step === 0)
+        }
+    },
+    unmountElement: { // optimal
+        value: async function (element) {
+            if (!(element instanceof HTMLElement)) return
+            if (this.isFacetContainer(element)) return this.unmountFacet(element)
+            if (element.children.length) {
+                const promises = []
+                for (const n of element.children) promises.push(this.unmountElement(n))
+                await Promise.all(promises)
+            }
+            if ((typeof element.disconnectedCallback === 'function') && this.getCustomTag(element)) element.disconnectedCallback()
         }
     },
     unmountFacet: {
