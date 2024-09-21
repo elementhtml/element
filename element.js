@@ -446,23 +446,17 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.components.natives.set(componentInstance, element)
                     if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
                     if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                        const observer = new MutationObserver(async mutations => {
+                        const observer = new MutationObserver(mutations => {
                             for (const mutation of mutations) {
                                 switch (mutation.type) {
                                     case 'childList':
                                         for (const removedNode of (mutation.removedNodes ?? [])) {
                                             if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
-                                            if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
+                                            if ((typeof componentInstance.adoptedCallback === 'function') && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
                                         }
                                         break
-                                    case 'attributes':
-                                        const attrName = mutation.attributeName, attrOldValue = mutation.oldValue, attrNewValue = mutation.target.getAttribute(attrName)
-                                        componentInstance.setAttribute(attrName, attrNewValue)
-                                        if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
-                                        break
-                                    case 'characterData':
-                                        componentInstance.innerHTML = element.innerHTML
-                                        break
+                                    case 'attributes': componentInstance.setAttribute(mutation.attributeName, mutation.target.getAttribute(attrName)); break
+                                    case 'characterData': componentInstance.innerHTML = element.innerHTML; break
                                 }
                             }
                         })
@@ -471,7 +465,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 if (element.shadowRoot || (element === document.documentElement)) {
-                    const root = element.shadowRoot ?? element, observer = new MutationObserver(async mutations => {
+                    const root = element.shadowRoot ?? element, observer = new MutationObserver(mutations => {
                         for (const mutation of mutations) {
                             for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
                             for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
@@ -486,14 +480,16 @@ const ElementHTML = Object.defineProperties({}, {
             return Promise.all(promises)
         }
     },
-    unmountElement: {
+    unmountElement: { // optimal
         value: async function (element) {
             if (!(element instanceof HTMLElement)) return
-            const promises = []
-            for (const n of element.children) promises.push(this.unmountElement(n))
-            await Promise.all(promises)
             if (this.isFacetContainer(element)) return this.unmountFacet(element)
-            if (this.getCustomTag(element) && element.disconnectedCallback) element.disconnectedCallback()
+            if (element.children.length) {
+                const promises = []
+                for (const n of element.children) promises.push(this.unmountElement(n))
+                await Promise.all(promises)
+            }
+            if ((typeof element.disconnectedCallback === 'function') && this.getCustomTag(element)) element.disconnectedCallback()
         }
     },
 
