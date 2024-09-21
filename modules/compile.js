@@ -80,7 +80,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     },
     facet: {
         enumerable: true, value: async function (directives, cid) {
-            cid ??= await this.modules.compile.cid(directives = (await this.modules.compile?.canonicalizeDirectives(directives)))
+            cid ??= await this.modules.compile.digest(directives = (await this.modules.compile?.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let index = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
@@ -215,26 +215,20 @@ ${scriptBody.join('{')}`
             return ComponentClass
         }
     },
-    canonicalizeDirectives: {
+    canonicalizeDirectives: { // optimal
         value: async function (directives) {
             directives = directives.trim()
             if (!directives) return 'null'
             const canonicalizedDirectivesMap = {}, canonicalizedDirectives = []
             for (let directive of directives.split(this.sys.regexp.splitter)) {
                 directive = directive.trim()
-                if (!directive || (directive.slice(0, 3) === '|* ')) continue
-                directive = directive.replace(this.sys.regexp.segmenter, ' >> ').trim()
+                if (!directive || directive.startsWith('|* ')) continue
+                directive = directive.replace(this.sys.regexp.segmenter, ' >> ')
                 if (!directive) continue
                 canonicalizedDirectivesMap[await this.modules.compile.digest(directive)] = directive
             }
             for (const directiveDigest of Object.keys(canonicalizedDirectivesMap).sort()) canonicalizedDirectives.push(canonicalizedDirectivesMap[directiveDigest])
-            return canonicalizedDirectives.join('\n').trim()
-        }
-    },
-    cid: {
-        value: async function (data) {
-            if (typeof data === 'string') data = (new TextEncoder()).encode(data)
-            return `b${this.modules.compile.toBase32(new Uint8Array([0x01, 0x55, ...(new Uint8Array([0x12, 0x20, ...(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))]))]))}`
+            return canonicalizedDirectives.join('\n')
         }
     },
     digest: {
