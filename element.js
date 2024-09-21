@@ -1845,12 +1845,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     mountFacet: {
         value: async function (facetContainer) {
-            let { type, textContent } = facetContainer, src = facetContainer.getAttribute('src'), facetInstance, FacetClass, facetCid
+            let { type } = facetContainer, FacetClass, facetCid
+            const src = facetContainer.getAttribute('src')
             if (type === 'facet/element') type = src ? 'application/element' : 'directives/element'
             switch (type) {
                 case 'directives/element':
                     if (!this.modules.compile) return
-                    const directives = await this.modules.compile.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : textContent)
+                    const directives = await this.modules.compile.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : facetContainer.textContent)
                     if (!directives) break
                     facetCid = await this.modules.compile.cid(directives)
                     this.app.facets.classes[facetCid] ??= await this.modules.compile.facet(directives, facetCid)
@@ -1864,10 +1865,10 @@ const ElementHTML = Object.defineProperties({}, {
                     this.app.facets.classes[facetCid] = FacetClass
                     break
             }
-            FacetClass = this.app.facets.classes[facetCid]
+            FacetClass ??= this.app.facets.classes[facetCid]
             if (!(FacetClass?.prototype instanceof this.Facet)) return
             if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
-            facetInstance = new FacetClass()
+            const facetInstance = new FacetClass()
             this.app.facets.instances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
                 context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
