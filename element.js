@@ -432,7 +432,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    mountElement: {
+    mountElement: { // optimal
         value: async function (element) {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
             const customTag = this.getCustomTag(element)
@@ -464,8 +464,9 @@ const ElementHTML = Object.defineProperties({}, {
                         this.app.components.bindings.set(element, observer)
                     }
                 }
-                if (element.shadowRoot || (element === document.documentElement)) {
-                    const root = element.shadowRoot ?? element, observer = new MutationObserver(mutations => {
+                const root = (element.shadowRoot || (element === document.documentElement)) ? (element.shadowRoot ?? element) : undefined
+                if (root) {
+                    const observer = new MutationObserver(mutations => {
                         for (const mutation of mutations) {
                             for (const addedNode of (mutation.addedNodes || [])) this.mountElement(addedNode)
                             for (const removedNode of (mutation.removedNodes || [])) this.unmountElement(removedNode)
@@ -476,6 +477,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const promises = []
+            if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
             return Promise.all(promises)
         }
