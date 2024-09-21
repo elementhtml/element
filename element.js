@@ -437,37 +437,37 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
             const customTag = this.getCustomTag(element)
             if (customTag) {
-
                 await this.activateTag(customTag, element)
                 const isAttr = element.getAttribute('is')
                 if (isAttr) {
-                    const componentInstance = this.app.components.virtuals.set(rootElement, document.createElement(isAttr)).get(rootElement)
-                    for (const a of rootElement.attributes) componentInstance.setAttribute(a.name, a.value)
-                    if (rootElement.innerHTML != undefined) componentInstance.innerHTML = rootElement.innerHTML
-                    this.app.components.natives.set(componentInstance, rootElement)
+                    const componentInstance = this.app.components.virtuals.set(element, document.createElement(isAttr)).get(element)
+                    for (const a of element.attributes) componentInstance.setAttribute(a.name, a.value)
+                    if (element.innerHTML != undefined) componentInstance.innerHTML = element.innerHTML
+                    this.app.components.natives.set(componentInstance, element)
                     if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
                     if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
-                        this.app.components.bindings.set(rootElement, new MutationObserver(async records => {
-                            for (const record of records) {
-                                switch (record.type) {
+                        const observer = new MutationObserver(async mutations => {
+                            for (const mutation of mutations) {
+                                switch (mutation.type) {
                                     case 'childList':
-                                        for (const removedNode of (record.removedNodes ?? [])) {
+                                        for (const removedNode of (mutation.removedNodes ?? [])) {
                                             if (typeof componentInstance.disconnectedCallback === 'function') componentInstance.disconnectedCallback()
                                             if (typeof componentInstance.adoptedCallback === 'function' && removedNode.ownerDocument !== document) componentInstance.adoptedCallback()
                                         }
                                         break
                                     case 'attributes':
-                                        const attrName = record.attributeName, attrOldValue = record.oldValue, attrNewValue = record.target.getAttribute(attrName)
+                                        const attrName = mutation.attributeName, attrOldValue = mutation.oldValue, attrNewValue = mutation.target.getAttribute(attrName)
                                         componentInstance.setAttribute(attrName, attrNewValue)
                                         if (typeof componentInstance.attributeChangedCallback === 'function') componentInstance.attributeChangedCallback(attrName, attrOldValue, attrNewValue)
                                         break
                                     case 'characterData':
-                                        componentInstance.innerHTML = rootElement.innerHTML
+                                        componentInstance.innerHTML = element.innerHTML
                                         break
                                 }
                             }
-                        }))
-                        this.app.components.bindings.get(rootElement).observe(rootElement, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                        })
+                        observer.observe(element, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
+                        this.app.components.bindings.set(element, observer)
                     }
                 }
                 if (element.shadowRoot || (element === document.documentElement)) {
@@ -483,7 +483,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const promises = []
             for (const n of element.children) promises.push(this.mountElement(n))
-            await Promise.all(promises)
+            return Promise.all(promises)
         }
     },
     unmountElement: {
