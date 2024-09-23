@@ -84,14 +84,14 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             const fieldNames = new Set(), cellNames = new Set(), statements = []
             let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
-                statementIndex = statementIndex + 1
+                statementIndex++
                 let stepIndex = -1, handle, handleMatch
                 if (handleMatch = directive.match(this.sys.regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
                 directive = directive.trim()
                 const statement = { handle, index: statementIndex, labels: new Set(), steps: [] }
-                for (let segment of directive.split(this.sys.regexp.segmenter)) {
+                for (const segment of directive.split(this.sys.regexp.segmenter)) {
                     if (!segment) continue
-                    stepIndex = stepIndex + 1
+                    stepIndex++
                     let handlerExpression = segment, label, defaultExpression
                     const labelMatch = handlerExpression.match(regexp.label)
                     if (labelMatch) {
@@ -128,7 +128,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     for (const [matcher, interpreter] of this.env.interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                            signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
+                            signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (name === 'state') {
                                 const { target, shape } = signature.descriptor
                                 switch (shape) {
@@ -150,19 +150,20 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                         if (this.modules.dev) this.modules.dev.print(`No matching interpreter is available for the expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
                         for (const [matcher, interpreter] of this.env.interpreters) {
                             const { parser, name } = interpreter
-                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
+                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (signature) break
                         }
                     }
-                    const step = { label, labelMode, signature }
+                    Object.freeze(signature.descriptor)
+                    const step = { label, labelMode, signature: Object.freeze(signature) }
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
                     statement.labels.add(`${stepIndex}`)
-                    statement.steps.push(step)
+                    statement.steps.push(Object.freeze(step))
                 }
-                statement.labels = Array.from(statement.labels)
+                statement.labels = [...statement.labels]
                 Object.seal(statement.labels)
-                this.deepFreeze(statement.steps)
+                Object.freeze(statement.steps)
                 Object.freeze(statement)
                 statements.push(statement)
             }
