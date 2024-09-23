@@ -2146,9 +2146,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             async run(container, { fields, cells, context }) {
-                const E = this.constructor.E, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, saveToLabel, disabled } = this
+                const { E, statements } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, saveToLabel, disabled } = this
                 let statementIndex = -1
-                for (const statement of this.constructor.statements) {
+                for (const statement of statements) {
                     statementIndex++
                     const { steps = [] } = statement, labels = {}
                     for (const label of statement.labels) labels[label] = undefined
