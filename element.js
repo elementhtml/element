@@ -2146,12 +2146,13 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             async run(container, { fields, cells, context }) {
+                const E = this.constructor.E, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, saveToLabel, disabled } = this
                 let statementIndex = -1
                 for (const statement of this.constructor.statements) {
                     statementIndex++
-                    this.labels[statementIndex] = {}
-                    const { steps = [] } = statement, labels = this.labels[statementIndex]
+                    const { steps = [] } = statement, labels = {}
                     for (const label of statement.labels) labels[label] = undefined
+                    this.labels[statementIndex] = labels
                     let stepIndex = -1
                     for (const step of steps) {
                         stepIndex++
@@ -2159,22 +2160,22 @@ const ElementHTML = Object.defineProperties({}, {
                             { interpreter: interpreterKey } = signature, descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor,
                             envelope = { descriptor, labels, fields, cells, context }
                         let interpreter, matcher
-                        for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === interpreterKey) break
-                        if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
+                        for (matcher of interpreterKeys) if (matcher.toString() === interpreterKey) break
+                        if (matcher) interpreter = interpreters.get(matcher)
                         if (!interpreter) continue
-                        const { binder, handler, name } = interpreter
-                        if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
+                        const { binder, handler } = interpreter
+                        if (signal) descriptor.signal = (controllers[position] = new AbortController()).signal
                         if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
-                        this.descriptors[position] = Object.freeze(descriptor)
-                        container.addEventListener(`done-${position}`, async event => this.saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells), { signal: this.controller.signal })
+                        descriptors[position] = Object.freeze(descriptor)
+                        container.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells), { signal: controller.signal })
                         const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async () => {
-                            if (this.disabled) return
-                            const E = this.constructor.E, handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) }
-                            const value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
-                                ?? (defaultExpression ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
+                            if (disabled) return
+                            const handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) },
+                                value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
+                                    ?? (defaultExpression ? E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: this.controller.signal })
+                        }, { signal: controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
