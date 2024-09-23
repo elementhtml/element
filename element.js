@@ -2264,7 +2264,6 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-
     ProtocolDispatcher: {
         enumerable: true, value: class {
 
@@ -2281,7 +2280,6 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-
     API: {
         enumerable: true, value: class {
 
@@ -2345,7 +2343,6 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-
     Lexicon: {
         enumerable: true, value: class {
 
@@ -2409,9 +2406,7 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     }
-
 })
-
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
 ElementHTML.Validator.E = ElementHTML
@@ -2419,7 +2414,6 @@ ElementHTML.Job.E = ElementHTML
 ElementHTML.ProtocolDispatcher.E = ElementHTML
 ElementHTML.API.E = ElementHTML
 ElementHTML.Lexicon.E = ElementHTML
-
 Object.defineProperties(ElementHTML, {
     Cell: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
