@@ -78,7 +78,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             return this.modules.compile.componentFactory({ extends: extendsId, native, script: sanitizedScript, style, template }, id)
         }
     },
-    facet: {
+    facet: { // optimal
         enumerable: true, value: async function (directives, cid) {
             cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames },
@@ -216,13 +216,13 @@ ${scriptBody.join('{')}`
         value: async function (directives) {
             directives = directives.trim()
             if (!directives) return 'null'
-            const canonicalizedDirectivesMap = {}, canonicalizedDirectives = []
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
+            const canonicalizedDirectivesMap = {}, canonicalizedDirectives = [], { regexp: sysRegexp } = this.sys, { digest } = this.modules.compile
+            for (let directive of directives.split(sysRegexp.splitter)) {
                 directive = directive.trim()
                 if (!directive || directive.startsWith('|* ')) continue
-                directive = directive.replace(this.sys.regexp.segmenter, ' >> ')
+                directive = directive.replace(sysRegexp.segmenter, ' >> ')
                 if (!directive) continue
-                canonicalizedDirectivesMap[await this.modules.compile.digest(directive)] = directive
+                canonicalizedDirectivesMap[await digest(directive)] = directive
             }
             for (const directiveDigest of Object.keys(canonicalizedDirectivesMap).sort()) canonicalizedDirectives.push(canonicalizedDirectivesMap[directiveDigest])
             return canonicalizedDirectives.join('\n')
