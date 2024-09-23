@@ -2135,24 +2135,27 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = new this.constructor.E.Field(this, fieldName)
                 Object.freeze(this.fields)
             }
-            async run(container, { fields, cells, context }) {
-                for (const [statementIndex, statement] of this.constructor.statements.entries()) {
-                    this.labels[statementIndex] = {}
-                    const { steps = [] } = statement, labels = this.labels[statementIndex], saveToLabel = (stepIndex, label, value, labelMode) => {
-                        labels[`${stepIndex}`] = value
-                        if (label && (label != stepIndex)) {
-                            switch (label[0]) {
-                                case '@':
-                                    fields[label.slice(1)].set(value, labelMode)
-                                    break
-                                case '#':
-                                    cells[label.slice(1)].set(value, labelMode)
-                                    break
-                                default:
-                                    labels[label] = value
-                            }
-                        }
+            saveToLabel(stepIndex, label, value, labelMode, labels, fields, cells) {
+                labels[`${stepIndex}`] = value
+                if (label && (label != stepIndex)) {
+                    switch (label[0]) {
+                        case '@':
+                            fields[label.slice(1)].set(value, labelMode)
+                            break
+                        case '#':
+                            cells[label.slice(1)].set(value, labelMode)
+                            break
+                        default:
+                            labels[label] = value
                     }
+                }
+            }
+            async run(container, { fields, cells, context }) {
+                let statementIndex = -1
+                for (const statement of this.constructor.statements) {
+                    statementIndex++
+                    this.labels[statementIndex] = {}
+                    const { steps = [] } = statement, labels = this.labels[statementIndex]
                     for (const label of statement.labels) labels[label] = undefined
                     for (const [stepIndex, step] of steps.entries()) {
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step,
@@ -2173,7 +2176,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
                         this.descriptors[position] = Object.freeze(descriptor)
                         container.addEventListener(`done-${position}`, async event => {
-                            saveToLabel(stepIndex, label, event.detail, labelMode)
+                            this.saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells)
                         }, { signal: this.controller.signal })
                         const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async event => execStep(previousStepIndex), { signal: this.controller.signal })
