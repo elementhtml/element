@@ -2244,11 +2244,12 @@ const ElementHTML = Object.defineProperties({}, {
             static getJobRunner(id) { return this.E.queue.get(id)?.runner }
 
             constructor(jobFunction, id) {
+                const { E } = this.constructor, { queue } = E
                 if (typeof jobFunction !== 'function') return
-                this.id = id ?? this.constructor.E.generateUuid()
-                if (this.constructor.E.queue.get(this.id)) return
+                this.id = id ?? E.generateUuid()
+                if (queue.get(this.id)) return
                 this.jobFunction = jobFunction
-                this.constructor.E.queue.set(this.id, this)
+                queue.set(this.id, this)
             }
 
             cancel() { this.constructor.E.queue.delete(this.id) }
