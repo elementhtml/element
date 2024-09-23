@@ -82,16 +82,16 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
         enumerable: true, value: async function (directives, cid) {
             cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = []
-            let index = -1
+            let statementIndex = -1
             for (let directive of directives.split(this.sys.regexp.splitter)) {
-                index = index + 1
-                let handle, handleMatch
+                statementIndex = statementIndex + 1
+                let stepIndex = -1, handle, handleMatch
                 if (handleMatch = directive.match(this.sys.regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
-                const statement = { handle, index, labels: new Set(), steps: [] }
-                let stepIndex = -1
-                for (let [index, segment] of directive.split(' >> ').entries()) {
-                    segment = segment.trim()
+                directive = directive.trim()
+                const statement = { handle, index: statementIndex, labels: new Set(), steps: [] }
+                for (let segment of directive.split(this.sys.regexp.segmenter)) {
                     if (!segment) continue
+                    stepIndex = stepIndex + 1
                     let handlerExpression = segment, label, defaultExpression
                     const labelMatch = handlerExpression.match(regexp.label)
                     if (labelMatch) {
@@ -102,39 +102,35 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     if (defaultExpressionMatch) {
                         defaultExpression = defaultExpressionMatch[1].trim()
                         handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                        if (defaultExpression[0] === '#') {
-                            const cn = defaultExpression.slice(1).trim()
-                            if (cn) cellNames.add(cn)
+                        if (defaultExpression.length > 1) switch (defaultExpression[0]) {
+                            case '@': fieldNames.add(defaultExpression.slice(1).trim()); break
+                            case '#': cellNames.add(defaultExpression.slice(1).trim()); break
                         }
                     }
-                    label ||= `${index}`
-                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                    label ||= `${stepIndex}`
+                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined),
+                        targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames }
                     if (labelMode) {
                         label = label.slice(0, -1).trim()
                         labelMode = labelMode
                     }
                     label = label
                     switch (label[0]) {
-                        case '@':
-                            let fn = label.slice(1).trim()
-                            if (fn) fieldNames.add(fn)
-                            break
-                        case '#':
-                            const cn = label.slice(1).trim()
-                            if (cn) cellNames.add(cn)
+                        case '@': case '#':
+                            let n = label.slice(1).trim()
+                            if (n) (targetNames[label[0]]).add(n)
                             break
                         default:
                             const ln = label.trim()
                             if (ln) statement.labels.add(ln)
                     }
                     let signature
-                    stepIndex = stepIndex + 1
                     for (const [matcher, interpreter] of this.env.interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
                             signature = { interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (name === 'state') {
-                                const { target, shape } = signature.descriptor, targetNames = { cell: cellNames, field: fieldNames }
+                                const { target, shape } = signature.descriptor
                                 switch (shape) {
                                     case 'single':
                                         targetNames[target.type].add(target.name)
@@ -161,7 +157,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     const step = { label, labelMode, signature }
                     if (defaultExpression) step.defaultExpression = defaultExpression
                     statement.labels.add(label)
-                    statement.labels.add(`${index}`)
+                    statement.labels.add(`${stepIndex}`)
                     statement.steps.push(step)
                 }
                 statement.labels = Array.from(statement.labels)
