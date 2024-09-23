@@ -239,7 +239,7 @@ ${scriptBody.join('{')}`
             return digest.join('')
         }
     },
-    facetFactory: {
+    facetFactory: { // optimal
         value: async function (manifest) {
             let FacetClass
             if (manifest.prototype instanceof this.Facet) {
