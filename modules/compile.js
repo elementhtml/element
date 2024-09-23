@@ -81,15 +81,16 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     facet: {
         enumerable: true, value: async function (directives, cid) {
             cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
-            const fieldNames = new Set(), cellNames = new Set(), statements = []
+            const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames },
+                { dev } = this.modules, { interpreters } = this.env, { regexp: sysRegexp } = this.sys
             let statementIndex = -1
-            for (let directive of directives.split(this.sys.regexp.splitter)) {
+            for (let directive of directives.split(sysRegexp.splitter)) {
                 statementIndex++
                 let stepIndex = -1, handle, handleMatch
-                if (handleMatch = directive.match(this.sys.regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
+                if (handleMatch = directive.match(sysRegexp.directiveHandleMatch)) [, handle, directive] = handleMatch
                 directive = directive.trim()
                 const statement = { handle, index: statementIndex, labels: new Set(), steps: [] }
-                for (const segment of directive.split(this.sys.regexp.segmenter)) {
+                for (const segment of directive.split(sysRegexp.segmenter)) {
                     if (!segment) continue
                     stepIndex++
                     let handlerExpression = segment, label, defaultExpression
@@ -108,8 +109,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                         }
                     }
                     label ||= `${stepIndex}`
-                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined),
-                        targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames }
+                    const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
                     if (labelMode) {
                         label = label.slice(0, -1).trim()
                         labelMode = labelMode
@@ -125,7 +125,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                             if (ln) statement.labels.add(ln)
                     }
                     let signature
-                    for (const [matcher, interpreter] of this.env.interpreters) {
+                    for (const [matcher, interpreter] of interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
                             signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
@@ -147,8 +147,8 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                         }
                     }
                     if (signature === undefined) {
-                        if (this.modules.dev) this.modules.dev.print(`No matching interpreter is available for the expression at ${position} in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
-                        for (const [matcher, interpreter] of this.env.interpreters) {
+                        if (dev) dev.print(`No matching interpreter is available for the expression at postition '${statementIndex}-${stepIndex}' in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
+                        for (const [matcher, interpreter] of interpreters) {
                             const { parser, name } = interpreter
                             if (matcher.test('$?') && (typeof parser === 'function')) signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
                             if (signature) break
