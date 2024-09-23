@@ -251,9 +251,9 @@ ${scriptBody.join('{')}`
                 const source = `  class ${cid} extends E.Facet {
 
         static cid = '${cid}'
-        static fieldNames = ${JSON.stringify(Array.from(fieldNames))}
-        static cellNames = ${JSON.stringify(Array.from(cellNames))}
-        static statements = ${JSON.stringify(statements)}
+        static fieldNames = Object.freeze(${JSON.stringify(Array.from(fieldNames))})
+        static cellNames = Object.freeze(${JSON.stringify(Array.from(cellNames))})
+        static statements = E.deepFreeze(${JSON.stringify(statements)})
 
     }`
 

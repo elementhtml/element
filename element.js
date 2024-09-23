@@ -2139,14 +2139,9 @@ const ElementHTML = Object.defineProperties({}, {
                 labels[`${stepIndex}`] = value
                 if (label && (label != stepIndex)) {
                     switch (label[0]) {
-                        case '@':
-                            fields[label.slice(1)].set(value, labelMode)
-                            break
-                        case '#':
-                            cells[label.slice(1)].set(value, labelMode)
-                            break
-                        default:
-                            labels[label] = value
+                        case '@': fields[label.slice(1)].set(value, labelMode); break
+                        case '#': cells[label.slice(1)].set(value, labelMode); break
+                        default: labels[label] = value
                     }
                 }
             }
@@ -2157,29 +2152,29 @@ const ElementHTML = Object.defineProperties({}, {
                     this.labels[statementIndex] = {}
                     const { steps = [] } = statement, labels = this.labels[statementIndex]
                     for (const label of statement.labels) labels[label] = undefined
-                    for (const [stepIndex, step] of steps.entries()) {
+                    let stepIndex = -1
+                    for (const step of steps) {
+                        stepIndex++
                         const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step,
-                            { interpreter: interpreterKey, descriptor = {} } = signature, { signal } = descriptor,
+                            { interpreter: interpreterKey } = signature, descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor,
                             envelope = { descriptor, labels, fields, cells, context }
                         let interpreter, matcher
                         for (matcher of this.constructor.E.env.interpreters.keys()) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = this.constructor.E.env.interpreters.get(matcher)
                         if (!interpreter) continue
-                        const { binder, handler, name } = interpreter, execStep = async previousStepIndex => {
+                        const { binder, handler, name } = interpreter
+                        if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
+                        if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
+                        this.descriptors[position] = Object.freeze(descriptor)
+                        container.addEventListener(`done-${position}`, async event => this.saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells), { signal: this.controller.signal })
+                        const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
+                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async () => {
                             if (this.disabled) return
                             const E = this.constructor.E, handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) }
                             const value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
                                 ?? (defaultExpression ? this.constructor.E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }
-                        if (signal) descriptor.signal = (this.controllers[position] = new AbortController()).signal
-                        if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
-                        this.descriptors[position] = Object.freeze(descriptor)
-                        container.addEventListener(`done-${position}`, async event => {
-                            this.saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells)
                         }, { signal: this.controller.signal })
-                        const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async event => execStep(previousStepIndex), { signal: this.controller.signal })
                     }
                 }
                 container.dispatchEvent(new CustomEvent('run'))
