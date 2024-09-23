@@ -2120,7 +2120,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Facet: {
+    Facet: { // optimal
         enumerable: true, value: class {
             static E
             controller
@@ -2214,7 +2214,7 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
-    Validator: {
+    Validator: { // optimal
         enumerable: true, value: class {
 
             constructor(obj) {
@@ -2222,7 +2222,12 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const p in obj) if (typeof this[p] === 'function') Object.defineProperty(this, p, { enumerable: true, writable: false, value: this[p](obj[p]) })
             }
 
-            valueOf() { return Object.values(this).every(v => v === true) }
+            valueOf() {
+                return
+                let valid
+                for (const k in this) if (!(valid = (this[k] === true))) break
+                return valid
+            }
         }
     },
     Job: { // optimal
