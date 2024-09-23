@@ -2189,7 +2189,7 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
-    State: {
+    State: { // optimal
         value: class {
             name
             type
@@ -2416,16 +2416,17 @@ ElementHTML.API.E = ElementHTML
 ElementHTML.Lexicon.E = ElementHTML
 
 Object.defineProperties(ElementHTML, {
-    Cell: {
+    Cell: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
             constructor(name, initialValue) {
-                if (name && ElementHTML.app.cells[name]) return ElementHTML.app.cells[name]
+                const { cells } = ElementHTML.app
+                if (name && cells[name]) return cells[name]
                 super(name, initialValue)
-                if (this.name) ElementHTML.app.cells[this.name] ??= this
+                if (this.name) cells[this.name] ??= this
             }
         }
     },
-    Field: {
+    Field: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
             constructor(facetInstanceOrContainer, name, initialValue) {
                 let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facetInstances.get(facetInstanceOrContainer).fields : undefined)
