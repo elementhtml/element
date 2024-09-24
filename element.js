@@ -561,7 +561,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                     return result
                 case Object:
-                    if (typeof value.valueOf === 'function') return value.valueOf()
+                    if (typeof value.valueOf === 'function') return this.flatten(value.valueOf())
                     result = {}
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
@@ -576,8 +576,41 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
-            switch (true) {
-                case (value instanceof this.State): case (value instanceof this.Facet): return this.flatten(value.valueOf())
+            if (value.valueOf === 'function') return this.flatten(value.valueOf())
+            if (value instanceof HTMLElement) {
+                result = new Proxy({}, {
+                    get(target, prop, receiver) {
+                        switch (prop) {
+                            case '<>': return value.innerHTML
+                            case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
+                            case '..': return value.textContent
+                            case '...': return value.innerText
+                            case '#': return value.id
+                            case '@': return value.name
+                            case '$': return value.value
+                            case '^': return this.flatten(value.parentElement)
+                            case '!': return this.flatten(event)
+                            case 'tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
+                            case 'itemscope': return value.hasAttribute('itemscope')
+
+
+                            default:
+                                const propertyFlag = prop[0], propertyMain = prop.slice(1)
+                                switch (propertyFlag) {
+                                    case '@': return value.getAttribute(propertyMain)
+                                    case '%': return value.style.getPropertyValue(propertyMain)
+                                    case '&': return window.getComputedStyle(value).getPropertyValue(propertyMain)
+                                    case '.': return value.classList.contains(propertyMain)
+                                    case '?': return value.dataset[propertyMain]
+                                    default:
+                                        return this.flatten(value[prop])
+                                }
+                        }
+                    },
+                    has(target, key) { },
+                    ownKeys(target) { }
+                })
+                return result
             }
 
 
@@ -586,52 +619,52 @@ const ElementHTML = Object.defineProperties({}, {
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
                     style = {}, computedStyle = {}, textContent = value.textContent, innerText = value.innerText
                 result = {
-                    ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
+                    // ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
                     ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
                         'clientHeight', 'clientLeft', 'clientTop', 'clientWidth', 'id', 'lang', 'localName', 'name', 'namespaceURI',
                         'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
                         'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
                         'selected', 'slot', 'tagName', 'title'], []))),
                     textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
-                    '..': textContent, '...': innerText, '#': value.id
+                    // '..': textContent, '...': innerText, '#': value.id
                 }
-                Object.defineProperty(result, 'innerHTML', { enumerable: true, get: () => value.innerHTML })
-                Object.defineProperty(result, '<>', { enumerable: true, get: () => value.innerHTML })
-                Object.defineProperty(result, '.', {
-                    enumerable: true,
-                    get: () => {
-                        const t = value.textContent
-                        return ((t.includes('<') && t.includes('>')) || (t.includes('&') && t.includes(';'))) ? value.innerHTML : t
-                    }
-                })
-                for (const r in value.style) {
-                    const ruleValue = value.style.getPropertyValue(r)
-                    if (!ruleValue) continue
-                    result.style[r] = result[`%${r}`] = ruleValue
-                }
-                Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
-                const computedStyleDescriptors = {}, directComputedStyleDescriptors = {}
-                for (const s of result.computedStyle._) {
-                    computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
-                    directComputedStyleDescriptors[`&${s}`] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
-                }
-                Object.defineProperties(result.computedStyle, computedStyleDescriptors)
-                Object.defineProperties(result, directComputedStyleDescriptors)
-                for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
-                for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
-                if (value.hasAttribute('itemscope')) result.itemscope = true
-                for (const c of Object.keys(classList)) result[`.${c}`] = true
-                for (const ent of Object.entries(style)) result[`%${ent[0]}`] = ent[1]
+                // Object.defineProperty(result, 'innerHTML', { enumerable: true, get: () => value.innerHTML })
+                // Object.defineProperty(result, '<>', { enumerable: true, get: () => value.innerHTML })
+                // Object.defineProperty(result, '.', {
+                //     enumerable: true,
+                //     get: () => {
+                //         const t = value.textContent
+                //         return ((t.includes('<') && t.includes('>')) || (t.includes('&') && t.includes(';'))) ? value.innerHTML : t
+                //     }
+                // })
+                // for (const r in value.style) {
+                //     const ruleValue = value.style.getPropertyValue(r)
+                //     if (!ruleValue) continue
+                //     result.style[r] = result[`%${r}`] = ruleValue
+                // }
+                // Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
+                // const computedStyleDescriptors = {}, directComputedStyleDescriptors = {}
+                // for (const s of result.computedStyle._) {
+                //     computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                //     directComputedStyleDescriptors[`&${s}`] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
+                // }
+                // Object.defineProperties(result.computedStyle, computedStyleDescriptors)
+                // Object.defineProperties(result, directComputedStyleDescriptors)
+                // for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
+                // for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
+                // if (value.hasAttribute('itemscope')) result.itemscope = true
+                // for (const c of Object.keys(classList)) result[`.${c}`] = true
+                // for (const ent of Object.entries(style)) result[`%${ent[0]}`] = ent[1]
                 if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
-                result.dataset = {}
-                for (const p in value.dataset) result.dataset[p] = result[`?${p}`] = value.dataset[p]
+                // result.dataset = {}
+                // for (const p in value.dataset) result.dataset[p] = result[`?${p}`] = value.dataset[p]
                 result._named = {}
                 for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
                 result._itemprop = {}
                 for (const c of value.querySelectorAll('[itemprop]')) result._itemprop[c.getAttribute('itemprop')] ||= this.flatten(c)._
-                if (value.hasAttribute('itemprop')) result['^'] = value.getAttribute('itemprop')
-                result.$ = value.value
-                result['@'] = value.name
+                // if (value.hasAttribute('itemprop')) result['^'] = value.getAttribute('itemprop')
+                // result.$ = value.value
+                // result['@'] = value.name
                 result._rows = []
                 const rows = Array.from(value.querySelectorAll('tr'))
                 if (rows.length) {
