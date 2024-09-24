@@ -539,6 +539,40 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'bigint': case 'symbol': return value.toString()
                 case 'function': return undefined
             }
+            let result
+            switch (true) {
+                case (Array.isArray(value)):
+                    result = []
+                    for (const v of value) result.push(this.flatten(v, key, event))
+                case (this.isPlainObject(value)):
+                    result = {}
+                    for (const k in value) result[`${k}`] = this.flatten(value[k], key, event)
+                    return result
+            }
+
+            if (value instanceof Event) {
+                return compile(
+                    ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
+                        'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
+                        'acceleration', 'accelerationIncludingGravity', 'interval', 'rotationRate',
+                        'absolute', 'alpha', 'beta', 'gamma', 'message', 'filename', 'lineno', 'colno',
+                        'clientId', 'replacesClientId', 'resultingClientId', 'newURL', 'oldURL', 'newVersion', 'oldVersion',
+                        'inputType', 'isComposing', 'altKey', 'code', 'ctrlKey', 'isComposing', 'key', 'location', 'metaKey', 'repeat', 'shiftKey',
+                        'lastEventId', 'origin', 'button', 'buttons', 'clientX', 'clientY', 'ctrlKey', 'metaKey', 'movementX', 'movementY',
+                        'offsetX', 'offsetY', 'pageX', 'pageY', 'screenX', 'screenY', 'shiftKey', 'x', 'y', 'persisted',
+                        'height', 'isPrimary', 'pointerId', 'pointerType', 'pressure', 'tangentialPressure', 'tiltX', 'tiltY', 'twist', 'width',
+                        'state', 'lengthComputable', 'loaded', 'total', 'key', 'newValue', 'oldValue', 'url', 'propertyName', 'detail', 'statusMessage',
+                        'deltaX', 'deltaY', 'deltaZ'
+                    ],
+                    ['currentTarget', 'target', 'data', 'clipboardData', 'detail', 'dataTransfer', 'relatedTarget', 'formData', 'submitter']
+                )
+            }
+            if (value instanceof Blob) return compile(['size', 'type'])
+            if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
+            if (value instanceof FormData) return Object.fromEntries(value.entries())
+            if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
+            if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
+
             if ((value instanceof this.State) || (value instanceof this.Facet)) return this.flatten(value.valueOf())
             if (value instanceof HTMLElement) {
                 let result
@@ -659,34 +693,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (event instanceof Event) result._event = this.flatten(event)
                 return result
             }
-            if (value instanceof Event) {
-                return compile(
-                    ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
-                        'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
-                        'acceleration', 'accelerationIncludingGravity', 'interval', 'rotationRate',
-                        'absolute', 'alpha', 'beta', 'gamma', 'message', 'filename', 'lineno', 'colno',
-                        'clientId', 'replacesClientId', 'resultingClientId', 'newURL', 'oldURL', 'newVersion', 'oldVersion',
-                        'inputType', 'isComposing', 'altKey', 'code', 'ctrlKey', 'isComposing', 'key', 'location', 'metaKey', 'repeat', 'shiftKey',
-                        'lastEventId', 'origin', 'button', 'buttons', 'clientX', 'clientY', 'ctrlKey', 'metaKey', 'movementX', 'movementY',
-                        'offsetX', 'offsetY', 'pageX', 'pageY', 'screenX', 'screenY', 'shiftKey', 'x', 'y', 'persisted',
-                        'height', 'isPrimary', 'pointerId', 'pointerType', 'pressure', 'tangentialPressure', 'tiltX', 'tiltY', 'twist', 'width',
-                        'state', 'lengthComputable', 'loaded', 'total', 'key', 'newValue', 'oldValue', 'url', 'propertyName', 'detail', 'statusMessage',
-                        'deltaX', 'deltaY', 'deltaZ'
-                    ],
-                    ['currentTarget', 'target', 'data', 'clipboardData', 'detail', 'dataTransfer', 'relatedTarget', 'formData', 'submitter']
-                )
-            }
-            if (value instanceof Blob) return compile(['size', 'type'])
-            if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
-            if (value instanceof FormData) return Object.fromEntries(value.entries())
-            if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
-            if (Array.isArray(value)) return value.map(e => this.flatten(e, key))
-            if (this.isPlainObject(value)) {
-                const result = {}
-                for (const k in value) result[`${k}`] = this.flatten(value[k])
-                return result
-            }
-            if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
         }
     },
     generateUuid: {//optimal
@@ -1249,7 +1255,7 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    resolveVariable: {
+    resolveVariable: { // optimal
         enumerable: true, value: function (expression, flags, envelope = {}) {
             let result, { wrapped, default: dft, spread } = (flags ?? {})
             switch (true) {
