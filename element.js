@@ -526,7 +526,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     flatten: {
-        enumerable: true, value: function (value, key, event) {
+        enumerable: true, value: function (value, event) {
             const compile = (plain, complex = []) => {
                 return {
                     ...Object.fromEntries(plain.filter(p => value[p] !== undefined).map(p => ([p, value[p]]))),
@@ -540,38 +540,33 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'function': return undefined
             }
             let result
+            switch (value?.constructor) {
+                case Blob: return { size: value.size, type: value.type }
+                case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
+                case DataTransferItem: return { kind: value.kind, type: value.type }
+                case FileList: case DataTransferItemList:
+                    result = []
+                    for (const f of value) result.push(this.flatten(f))
+                    return result
+                case DataTransfer: return { dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, files: this.flatten(value.files), items: this.flatten(value.items), types: value.types }
+                case FormData: return Object.fromEntries(value.entries())
+                case Response: return {
+                    body: this.parse(value), bodyUsed: value.bodyUsed, headers: Object.fromEntries(value.headers.entries()),
+                    ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url
+                }
+                case Object: return (value.valueOf ?? (() => undefined))()
+            }
             switch (true) {
                 case (Array.isArray(value)):
                     result = []
-                    for (const v of value) result.push(this.flatten(v, key, event))
-                case (this.isPlainObject(value)):
+                    for (const v of value) result.push(this.flatten(v))
+                    return result
+                case (value instanceof Event): case (this.isPlainObject(value)):
                     result = {}
-                    for (const k in value) result[`${k}`] = this.flatten(value[k], key, event)
+                    for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
 
-            if (value instanceof Event) {
-                return compile(
-                    ['bubbles', 'cancelable', 'composed', 'defaultPrevented', 'eventPhase', 'isTrusted', 'timeStamp', 'type',
-                        'animationName', 'elapsedTime', 'pseudoElement', 'code', 'reason', 'wasClean', 'data',
-                        'acceleration', 'accelerationIncludingGravity', 'interval', 'rotationRate',
-                        'absolute', 'alpha', 'beta', 'gamma', 'message', 'filename', 'lineno', 'colno',
-                        'clientId', 'replacesClientId', 'resultingClientId', 'newURL', 'oldURL', 'newVersion', 'oldVersion',
-                        'inputType', 'isComposing', 'altKey', 'code', 'ctrlKey', 'isComposing', 'key', 'location', 'metaKey', 'repeat', 'shiftKey',
-                        'lastEventId', 'origin', 'button', 'buttons', 'clientX', 'clientY', 'ctrlKey', 'metaKey', 'movementX', 'movementY',
-                        'offsetX', 'offsetY', 'pageX', 'pageY', 'screenX', 'screenY', 'shiftKey', 'x', 'y', 'persisted',
-                        'height', 'isPrimary', 'pointerId', 'pointerType', 'pressure', 'tangentialPressure', 'tiltX', 'tiltY', 'twist', 'width',
-                        'state', 'lengthComputable', 'loaded', 'total', 'key', 'newValue', 'oldValue', 'url', 'propertyName', 'detail', 'statusMessage',
-                        'deltaX', 'deltaY', 'deltaZ'
-                    ],
-                    ['currentTarget', 'target', 'data', 'clipboardData', 'detail', 'dataTransfer', 'relatedTarget', 'formData', 'submitter']
-                )
-            }
-            if (value instanceof Blob) return compile(['size', 'type'])
-            if (value instanceof DataTransfer) return compile(['dropEffect', 'effectAllowed', 'types'])
-            if (value instanceof FormData) return Object.fromEntries(value.entries())
-            if (value instanceof Response) return { body: this.parse(value), ok: value.ok, status: value.status, headers: Object.fromEntries(value.headers.entries()) }
-            if (value instanceof Object) return (value.valueOf ?? (() => undefined))()
 
             if ((value instanceof this.State) || (value instanceof this.Facet)) return this.flatten(value.valueOf())
             if (value instanceof HTMLElement) {
