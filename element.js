@@ -544,17 +544,27 @@ const ElementHTML = Object.defineProperties({}, {
                 case Blob: return { size: value.size, type: value.type }
                 case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
                 case DataTransferItem: return { kind: value.kind, type: value.type }
-                case FileList: case DataTransferItemList:
+                case FileList: case DataTransferItemList: case Array:
                     result = []
                     for (const f of value) result.push(this.flatten(f))
                     return result
-                case DataTransfer: return { dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, files: this.flatten(value.files), items: this.flatten(value.items), types: value.types }
+                case DataTransfer:
+                    result = { dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types }
+                    Object.defineProperties(result, { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
+                    return result
                 case FormData: return Object.fromEntries(value.entries())
-                case Response: return {
-                    body: this.parse(value), bodyUsed: value.bodyUsed, headers: Object.fromEntries(value.headers.entries()),
-                    ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url
-                }
-                case Object: return (value.valueOf ?? (() => undefined))()
+                case Response:
+                    result = { ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }
+                    Object.defineProperties(result, {
+                        body: { enumerable: true, get: () => this.parse(value) }, bodyUsed: { enumerable: true, get: () => value.bodyUsed },
+                        headers: { enumerable: true, get: () => Object.fromEntries(value.headers.entries()) }
+                    })
+                    return result
+                case Object:
+                    if (typeof value.valueOf === 'function') return value.valueOf()
+                    result = {}
+                    for (const k in value) result[k] = this.flatten(value[k])
+                    return result
             }
             switch (true) {
                 case (Array.isArray(value)):
@@ -566,9 +576,11 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
+            switch (true) {
+                case (value instanceof this.State): case (value instanceof this.Facet): return this.flatten(value.valueOf())
+            }
 
 
-            if ((value instanceof this.State) || (value instanceof this.Facet)) return this.flatten(value.valueOf())
             if (value instanceof HTMLElement) {
                 let result
                 const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
