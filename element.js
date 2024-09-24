@@ -1251,27 +1251,20 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveVariable: {
         enumerable: true, value: function (expression, flags, envelope = {}) {
-            let result = expression, { wrapped, default: dft, spread } = (flags ?? {})
+            let result, { wrapped, default: dft, spread } = (flags ?? {})
             switch (true) {
                 case typeof expression === 'string':
                     expression = expression.trim()
                     wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                     if (wrapped) expression = expression.slice(2, -1).trim()
-                    const { context, cells, fields, labels, value } = envelope, e0 = expression[0], entries = []
-                    let expressionIsArray, u
+                    const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
                     switch (true) {
-                        case (expression in this.sys.valueAliases):
-                            result = this.sys.valueAliases[expression]
-                            break
-                        case (expression === '$'):
-                            result = 'value' in envelope ? value : expression
-                            break
+                        case (expression in this.sys.valueAliases): result = this.sys.valueAliases[expression]; break
+                        case (expression === '$'): result = 'value' in envelope ? value : expression; break
                         case (e0 === '$'): case (e0 === '@'): case (e0 === '#'): case (e0 === '~'):
                             const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
                             switch (undefined) {
-                                case subEnvelope:
-                                    result = expression
-                                    break
+                                case subEnvelope: result = expression; break
                                 default:
                                     const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
                                     let i = 0
@@ -1279,38 +1272,23 @@ const ElementHTML = Object.defineProperties({}, {
                                     while (result !== undefined && i < l) result = result?.[vectors[i++]]
                             }
                             break
-                        case (e0 === '?'):
-                        case ((e0 === '{') && expression.endsWith('}')):
-                        case ((e0 === '{') && expression.endsWith('}')):
+                        case (e0 === '?'): case ((e0 === '{') && expression.endsWith('}')): case ((e0 === '{') && expression.endsWith('}')):
                             result = this.resolveShape(expression)
-                            if (context || cells || fields || labels || ('value' in envelope)) {
-                                flags.wrapped = false
-                                result = this.resolveVariable(expression, flags, envelope)
-                            }
+                            if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, { ...flags, wrapped: false }, envelope)
                             break
-                        case ((e0 === '"') && expression.endsWith('"')):
-                        case ((e0 === "'") && expression.endsWith("'")):
-                            result = expression.slice(1, -1)
-                            break
-                        case (this.sys.regexp.isNumeric.test(expression)):
-                            result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
-                            break
-                        default:
-                            result = expression
+                        case ((e0 === '"') && expression.endsWith('"')): case ((e0 === "'") && expression.endsWith("'")): result = expression.slice(1, -1); break
+                        case (this.sys.regexp.isNumeric.test(expression)): result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression); break
+                        default: result = expression
                     }
                     break
                 case Array.isArray(expression):
                     result = []
-                    for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++)
-                        result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
+                    for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
                     break
                 case this.isPlainObject(expression):
                     result = {}
                     const dftIsObject = spread && this.isPlainObject(dft)
-                    for (const key in expression) {
-                        let keyFlags = { default: dftIsObject ? dft[key] : dft }
-                        result[this.resolveVariable(key, keyFlags, envelope)] = this.resolveVariable(expression[key], keyFlags, envelope)
-                    }
+                    for (const key in expression) result[this.resolveVariable(key, {}, envelope)] = this.resolveVariable(expression[key], { default: dftIsObject ? dft[key] : dft }, envelope)
             }
             return result === undefined ? dft : result
         }
