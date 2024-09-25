@@ -593,7 +593,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (v == null) {
                             for (const k in dataset) delete dataset[k]
                         } else if (this.isPlainObject(v)) {
-                            for (const k in v) dataset[k] = v[k]
+                            for (const k in v) v[k] == null ? (delete dataset[k]) : (dataset[k] = v[k])
                         }
                         return
                     }
@@ -604,17 +604,17 @@ const ElementHTML = Object.defineProperties({}, {
                 '?': syntaxMap.$data,
                 '$style': function (el, w, v, p) {
                     const { style } = el
-                    if (p) return w ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : dataset[p]
+                    if (p) return w ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : style.getPropertyValue[p]
                     if (w) {
                         if (v == null) {
-                            for (const k in dataset) delete dataset[k]
+                            if (style.length) for (let i = 0, l = style.length; i < l; i++) style.removeProperty(style[i])
                         } else if (this.isPlainObject(v)) {
-                            for (const k in v) dataset[k] = v[k]
+                            for (const k in v) v[k] == null ? (style.removeProperty(k)) : (style.setProperty(k, v))
                         }
                         return
                     }
                     const r = {}
-                    for (const k in dataset) r[k] = dataset[k]
+                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
                     return r
                 },
                 '%': syntaxMap.$style,
