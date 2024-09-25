@@ -527,12 +527,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     flatten: {
         enumerable: true, value: function (value, event) {
-            const compile = (plain, complex = []) => {
-                return {
-                    ...Object.fromEntries(plain.filter(p => value[p] !== undefined).map(p => ([p, value[p]]))),
-                    ...Object.fromEntries(complex.filter(p => value[p] !== undefined).map(p => ([p, this.flatten(value[p])])))
-                }
-            }
             if (value == undefined) return null
             switch (typeof value) {
                 case 'string': case 'number': case 'boolean': return value
@@ -561,7 +555,7 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                     return result
                 case Object:
-                    if (typeof value.valueOf === 'function') return this.flatten(value.valueOf())
+                    if (typeof value.valueOf === 'function') return value.valueOf()
                     result = {}
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
@@ -577,22 +571,44 @@ const ElementHTML = Object.defineProperties({}, {
                     return result
             }
             if (value.valueOf === 'function') return this.flatten(value.valueOf())
+
+            const syntaxMap = {
+                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
+                '@': (el, w, v, p = 'name') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v))) : el.getAttribute(p),
+                '$': (el, w, v) => w ? (v == null ? (el.value = '') : (el.value = v)) : el.value,
+                '.': (el, w, v) => w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent),
+                '$inner': syntaxMap['.'],
+                '..': (el, w, v) => w ? (el.textContent = v) : el.textContent,
+                '$content': syntaxMap['..'],
+                '...': (el, w, v) => w ? (el.innerText = v) : el.innerText,
+                '$text': syntaxMap['..'],
+                '<>': (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
+                '$html': syntaxMap['<>'],
+
+
+
+            }
+
             if (value instanceof HTMLElement) {
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
                         switch (prop) {
-                            case '<>': return value.innerHTML
-                            case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
-                            case '..': return value.textContent
-                            case '...': return value.innerText
                             case '#': return value.id
                             case '@': return value.name
                             case '$': return value.value
-                            case '^': return this.flatten(value.parentElement)
-                            case '!': return this.flatten(event)
-                            case 'tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
-                            case 'itemscope': return value.hasAttribute('itemscope')
-
+                            case '$content': case '..': return value.textContent
+                            case '$text': case '...': return value.innerText
+                            case '$html': case '<>': return value.innerHTML
+                            case '$inner': case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
+                            case '$tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
+                            case '$data': case '?': return this.flatten(value.dataset)
+                            case '$style': case '%': return this.flatten(value.style)
+                            case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
+                            case '$parent': case '^': return this.flatten(value.parentElement)
+                            case '$event': case '!': return this.flatten(event)
+                            case '$aria': case '*': return // aria value object
+                            case '$form': case '[]': return //form value object
+                            case '$item': case '{}': return // item value object
 
                             default:
                                 const propertyFlag = prop[0], propertyMain = prop.slice(1)
@@ -600,9 +616,20 @@ const ElementHTML = Object.defineProperties({}, {
                                     case '@': return value.getAttribute(propertyMain)
                                     case '%': return value.style.getPropertyValue(propertyMain)
                                     case '&': return window.getComputedStyle(value).getPropertyValue(propertyMain)
-                                    case '.': return value.classList.contains(propertyMain)
                                     case '?': return value.dataset[propertyMain]
+                                    case '!': return this.flatten(event?.detail?.[propertyMain])
+                                    case '*': return // get aria object property
                                     default:
+                                        switch (true) {
+                                            case ((propertyFlag === '[') && propertyMain.endsWith(']')):
+                                                // get named form input value 
+
+                                                break
+                                            case ((propertyFlag === '{') && propertyMain.endsWith('}')):
+                                                // get item's named property value
+
+                                                break
+                                        }
                                         return this.flatten(value[prop])
                                 }
                         }
