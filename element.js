@@ -584,8 +584,8 @@ const ElementHTML = Object.defineProperties({}, {
                 '...': syntaxMap.$text,
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '<>': syntaxMap.$html,
-                '$tag': (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                '$data': function (el, w, v, p) {
+                $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
+                $data: function (el, w, v, p) {
                     const { dataset } = el
                     p &&= this.toCamelCase(p)
                     if (p) return w ? (v == null ? (delete dataset[p]) : (dataset[p] = v)) : dataset[p]
@@ -602,10 +602,10 @@ const ElementHTML = Object.defineProperties({}, {
                     return r
                 },
                 '?': syntaxMap.$data,
-                '$style': function (el, w, v, p) {
-                    const { style } = el
-                    if (p) return w ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : style.getPropertyValue[p]
-                    if (w) {
+                $style: function (el, w, v, p, isComputed) {
+                    const style = isComputed ? window.getComputedStyle(el) : el.style, writable = w && !isComputed
+                    if (p) return writable ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : style.getPropertyValue[p]
+                    if (writable) {
                         if (v == null) {
                             if (style.length) for (let i = 0, l = style.length; i < l; i++) style.removeProperty(style[i])
                         } else if (this.isPlainObject(v)) {
@@ -618,6 +618,29 @@ const ElementHTML = Object.defineProperties({}, {
                     return r
                 },
                 '%': syntaxMap.$style,
+                $computed: (el, w, v, p) => syntaxMap(el, w, v, p, true),
+                '&': syntaxMap.$computed,
+                $parent: (el, w, v, p) => (w ?? v ?? p) ? undefined : this.flatten(el.parentElement),
+                '^': syntaxMap.$parent,
+                $event: (el, w, v, p, ev) => (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)),
+                '!': syntaxMap.$event,
+                $aria: (el, w, v, p) => {
+                    if (p) return w ? el.setAttribute(`aria-${p}`, v) : el.getAttribute(`aria-${p}`)
+                    const { attributes } = el
+                    if (w) {
+                        if (v == null) {
+                            if (attributes.length) for (let i = 0, l = attributes.length; i < l; i++) style.removeProperty(style[i])
+                        } else if (this.isPlainObject(v)) {
+                            for (const k in v) v[k] == null ? (style.removeProperty(k)) : (style.setProperty(k, v))
+                        }
+                        return
+                    }
+                    const r = {}
+                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
+                    return r
+                },
+                '*': syntaxMap.$aria
+
 
 
 
@@ -636,10 +659,10 @@ const ElementHTML = Object.defineProperties({}, {
                             // case '$inner': case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
                             // case '$tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
                             // case '$data': case '?': return this.flatten(value.dataset)
-                            case '$style': case '%': return this.flatten(value.style)
-                            case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
-                            case '$parent': case '^': return this.flatten(value.parentElement)
-                            case '$event': case '!': return this.flatten(event)
+                            // case '$style': case '%': return this.flatten(value.style)
+                            // case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
+                            // case '$parent': case '^': return this.flatten(value.parentElement)
+                            // case '$event': case '!': return this.flatten(event)
                             case '$aria': case '*': return // aria value object
                             case '$form': case '[]': return //form value object
                             case '$item': case '{}': return // item value object
