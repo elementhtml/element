@@ -586,10 +586,38 @@ const ElementHTML = Object.defineProperties({}, {
                 '<>': syntaxMap.$html,
                 '$tag': (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
                 '$data': function (el, w, v, p) {
-                    // more to do here...
-                    w ? (v == null ? (delete el.dataset[p]) : (el.dataset[p] = v)) : (p ? el.dataset[p] : el.dataset)
+                    const { dataset } = el
+                    p &&= this.toCamelCase(p)
+                    if (p) return w ? (v == null ? (delete dataset[p]) : (dataset[p] = v)) : dataset[p]
+                    if (w) {
+                        if (v == null) {
+                            for (const k in dataset) delete dataset[k]
+                        } else if (this.isPlainObject(v)) {
+                            for (const k in v) dataset[k] = v[k]
+                        }
+                        return
+                    }
+                    const r = {}
+                    for (const k in dataset) r[k] = dataset[k]
+                    return r
                 },
                 '?': syntaxMap.$data,
+                '$style': function (el, w, v, p) {
+                    const { style } = el
+                    if (p) return w ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : dataset[p]
+                    if (w) {
+                        if (v == null) {
+                            for (const k in dataset) delete dataset[k]
+                        } else if (this.isPlainObject(v)) {
+                            for (const k in v) dataset[k] = v[k]
+                        }
+                        return
+                    }
+                    const r = {}
+                    for (const k in dataset) r[k] = dataset[k]
+                    return r
+                },
+                '%': syntaxMap.$style,
 
 
 
@@ -766,6 +794,11 @@ const ElementHTML = Object.defineProperties({}, {
                 if (event instanceof Event) result._event = this.flatten(event)
                 return result
             }
+        }
+    },
+    toCamelCase: {
+        enumerable: true, value: function (str) {
+            return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())
         }
     },
     generateUuid: {//optimal
@@ -1610,11 +1643,13 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/,
-                constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/,
+                constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
+                directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/,
                 gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
+                nothing: /^(.)/,
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, protocolSplitter: /\:\/\/(.+)/, dash: /-/g, xy: /[xy]/g,
                 isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
