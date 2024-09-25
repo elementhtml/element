@@ -584,6 +584,11 @@ const ElementHTML = Object.defineProperties({}, {
                 '$text': syntaxMap['..'],
                 '<>': (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '$html': syntaxMap['<>'],
+                '$tag': (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
+                '$data': function (el, w, v, p) {
+                    // more to do here...
+                    w ? (v == null ? (delete el.dataset[p]) : (el.dataset[p] = v)) : (p ? el.dataset[p] : el.dataset)
+                },
 
 
 
@@ -593,15 +598,15 @@ const ElementHTML = Object.defineProperties({}, {
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
                         switch (prop) {
-                            case '#': return value.id
-                            case '@': return value.name
-                            case '$': return value.value
-                            case '$content': case '..': return value.textContent
-                            case '$text': case '...': return value.innerText
-                            case '$html': case '<>': return value.innerHTML
-                            case '$inner': case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
-                            case '$tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
-                            case '$data': case '?': return this.flatten(value.dataset)
+                            // case '#': return value.id
+                            // case '@': return value.name
+                            // case '$': return value.value
+                            // case '$content': case '..': return value.textContent
+                            // case '$text': case '...': return value.innerText
+                            // case '$html': case '<>': return value.innerHTML
+                            // case '$inner': case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
+                            // case '$tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
+                            // case '$data': case '?': return this.flatten(value.dataset)
                             case '$style': case '%': return this.flatten(value.style)
                             case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
                             case '$parent': case '^': return this.flatten(value.parentElement)
