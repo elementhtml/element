@@ -576,19 +576,20 @@ const ElementHTML = Object.defineProperties({}, {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
                 '@': (el, w, v, p = 'name') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v))) : el.getAttribute(p),
                 '$': (el, w, v) => w ? (v == null ? (el.value = '') : (el.value = v)) : el.value,
-                '.': (el, w, v) => w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent),
-                '$inner': syntaxMap['.'],
-                '..': (el, w, v) => w ? (el.textContent = v) : el.textContent,
-                '$content': syntaxMap['..'],
-                '...': (el, w, v) => w ? (el.innerText = v) : el.innerText,
-                '$text': syntaxMap['..'],
-                '<>': (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
-                '$html': syntaxMap['<>'],
+                $inner: (el, w, v) => w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent),
+                '.': syntaxMap.$inner,
+                $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
+                '..': syntaxMap.$content,
+                $text: (el, w, v) => w ? (el.innerText = v) : el.innerText,
+                '...': syntaxMap.$text,
+                $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
+                '<>': syntaxMap.$html,
                 '$tag': (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
                 '$data': function (el, w, v, p) {
                     // more to do here...
                     w ? (v == null ? (delete el.dataset[p]) : (el.dataset[p] = v)) : (p ? el.dataset[p] : el.dataset)
                 },
+                '?': syntaxMap.$data,
 
 
 
