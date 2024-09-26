@@ -712,7 +712,7 @@ const ElementHTML = Object.defineProperties({}, {
                             // case '$parent': case '^': return this.flatten(value.parentElement)
                             // case '$event': case '!': return this.flatten(event)
                             // case '$aria': case '*': return // aria value object
-                            case '$form': case '[]': return //form value object
+                            // case '$form': case '[]': return //form value object
                             case '$item': case '{}': return // item value object
 
                             default:
