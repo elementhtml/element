@@ -574,8 +574,46 @@ const ElementHTML = Object.defineProperties({}, {
 
             const syntaxMap = {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                '@': (el, w, v, p = 'name') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v))) : el.getAttribute(p),
-                '$': (el, w, v) => w ? (v == null ? (el.value = '') : (el.value = v)) : el.value,
+                $attributes: (el, w, v, p, defaultAttribute = 'name') => {
+                    p &&= this.toKebabCase(p)
+                    if (w) {
+                        if (p) return el[v == null ? 'removeAttribute' : 'setAttribute'](p, v)
+                        if (typeof v === 'object') {
+                            for (const k in v) el[v[k] == null ? 'removeAttribute' : 'setAttribute'](this.toKebabCase(k), v[k])
+                        } else {
+                            p ||= defaultAttribute
+                            el.setAttribute(p, v)
+                        }
+                        return
+                    }
+                    if (p) return el.getAttribute(p)
+                    const r = {}, { attributes } = el
+                    if (attributes.length) for (let i = 0, l = attributes.length; i < l; i++) r[attributes[i]] = style.getAttribute(attributes[i])
+                    return r
+                },
+                '@': syntaxMap.$attributes,
+                $data: function (el, w, v, p) {
+                    if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
+                    if (p && !p.startsWith('data-')) p = `data-${p}`
+                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('data-')) {
+                        v[`data-${k}`] = v[k]
+                        delete v[k]
+                    }
+                    return syntaxMap.$attributes(el, w, v, p, 'value')
+                },
+                '$': syntaxMap.$data,
+
+                $aria: function (el, w, v, p) {
+                    if (p && !p.startsWith('aria-')) p = `aria-${p}`
+                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('aria-')) {
+                        v[`aria-${k}`] = v[k]
+                        delete v[k]
+                    }
+                    return syntaxMap.$attributes(el, w, v, p, 'value')
+                },
+                '*': syntaxMap.$aria,
+
+
                 $inner: (el, w, v) => w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent),
                 '.': syntaxMap.$inner,
                 $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
@@ -585,31 +623,15 @@ const ElementHTML = Object.defineProperties({}, {
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '<>': syntaxMap.$html,
                 $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                $data: function (el, w, v, p) {
-                    const { dataset } = el
-                    p &&= this.toCamelCase(p)
-                    if (p) return w ? (v == null ? (delete dataset[p]) : (dataset[p] = v)) : dataset[p]
-                    if (w) {
-                        if (v == null) {
-                            for (const k in dataset) delete dataset[k]
-                        } else if (this.isPlainObject(v)) {
-                            for (const k in v) v[k] == null ? (delete dataset[k]) : (dataset[k] = v[k])
-                        }
-                        return
-                    }
-                    const r = {}
-                    for (const k in dataset) r[k] = dataset[k]
-                    return r
-                },
-                '?': syntaxMap.$data,
                 $style: function (el, w, v, p, isComputed) {
                     const style = isComputed ? window.getComputedStyle(el) : el.style, writable = w && !isComputed
+                    p &&= this.toKebabCase(p)
                     if (p) return writable ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : style.getPropertyValue[p]
                     if (writable) {
                         if (v == null) {
                             if (style.length) for (let i = 0, l = style.length; i < l; i++) style.removeProperty(style[i])
                         } else if (this.isPlainObject(v)) {
-                            for (const k in v) v[k] == null ? (style.removeProperty(k)) : (style.setProperty(k, v))
+                            for (const k in v) v[k] == null ? (style.removeProperty(this.toKebabCase(k))) : (style.setProperty(this.toKebabCase(k), v))
                         }
                         return
                     }
@@ -624,22 +646,7 @@ const ElementHTML = Object.defineProperties({}, {
                 '^': syntaxMap.$parent,
                 $event: (el, w, v, p, ev) => (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)),
                 '!': syntaxMap.$event,
-                $aria: (el, w, v, p) => {
-                    if (p) return w ? el.setAttribute(`aria-${p}`, v) : el.getAttribute(`aria-${p}`)
-                    const { attributes } = el
-                    if (w) {
-                        if (v == null) {
-                            if (attributes.length) for (let i = 0, l = attributes.length; i < l; i++) style.removeProperty(style[i])
-                        } else if (this.isPlainObject(v)) {
-                            for (const k in v) v[k] == null ? (style.removeProperty(k)) : (style.setProperty(k, v))
-                        }
-                        return
-                    }
-                    const r = {}
-                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
-                    return r
-                },
-                '*': syntaxMap.$aria
+
 
 
 
@@ -663,7 +670,7 @@ const ElementHTML = Object.defineProperties({}, {
                             // case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
                             // case '$parent': case '^': return this.flatten(value.parentElement)
                             // case '$event': case '!': return this.flatten(event)
-                            case '$aria': case '*': return // aria value object
+                            // case '$aria': case '*': return // aria value object
                             case '$form': case '[]': return //form value object
                             case '$item': case '{}': return // item value object
 
@@ -822,6 +829,11 @@ const ElementHTML = Object.defineProperties({}, {
     toCamelCase: {
         enumerable: true, value: function (str) {
             return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())
+        }
+    },
+    toKebabCase: {
+        enumerable: true, value: function (str) {
+            return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z])([A-Z][a-z])/g, '$1-$2').toLowerCase()
         }
     },
     generateUuid: {//optimal
