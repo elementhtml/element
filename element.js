@@ -653,44 +653,45 @@ const ElementHTML = Object.defineProperties({}, {
                         if (p) {
                             const inputField = el.querySelector(`[name="${p}"]`)
                             switch (inputField.type) {
-                                case 'radio':
-                                    const radioInputs = el.querySelectorAll(`[name="${p}"]`)
-                                    if (!radioInputs) return
-                                    for (const f of radioInputs) f.checked = vIsNull ? false : (f.value === v)
-                                    return
-                                case 'checkbox':
-                                    const checkInputs = el.querySelectorAll(`[name="${p}"]`)
-                                    if (!checkInputs) return
+                                case 'radio': case 'checkbox':
+                                    const inputs = el.querySelectorAll(`[name="${p}"]`)
+                                    if (!inputs) return
                                     if (v && (typeof v === 'object')) {
-                                        for (const c of checkInputs) c.checked = (c.value in v)
+                                        for (const c of inputs) c.checked = (c.value in v)
                                         return
                                     }
-                                    for (const f of checkInputs) f.checked = vIsNull ? false : (f.value === v)
+                                    for (const f of inputs) f.checked = vIsNull ? false : (f.value === v)
                                     return
                                 default:
                                     if (v && (typeof v === 'object') && (inputField.tagName.toLowerCase() === 'fieldset')) {
-                                        for (const k in v) syntaxMap.$form(inputField, w, v[k], k)
+                                        for (const k in v) syntaxMap.$form(inputField, true, v[k], k)
                                         return
                                     }
                                     return inputField ? (inputField.value = v || '') : undefined
                             }
                         }
+                        if (v && (typeof v === 'object')) for (const k in v) syntaxMap.$form(el, true, v[k], k)
                         return
                     }
                     if (p) {
                         const inputElement = el.querySelector(`[name="${p}"]`)
                         if (!inputElement) return
                         if (inputElement.tagName.toLowerCase() === 'fieldset') return syntaxMap.$form(inputElement)
-                        return inputElement.value
+                        let r = null, inputs
+                        switch (inputElement.type) {
+                            case 'radio': case 'checkbox':
+                                inputs = el.querySelectorAll(`[name="${p}"]`)
+                                for (const i of inputs) r[i.value] = i.checked
+                                if (inputElement.type === 'radio') for (const kk in r) if (r[kk]) return kk
+                                return (inputElement.type === 'radio') ? null : r
+                            default:
+                                return inputElement.value
+                        }
                     }
                     const r = {}
                     for (const inputField of el.querySelectorAll('[name]')) r[inputField.getAttribute('name')] = (inputField.tagName.toLowerCase() === 'fieldset') ? $form(inputField) : inputField.value
                     return r
                 }
-
-
-
-
             }
 
             if (value instanceof HTMLElement) {
