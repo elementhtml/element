@@ -574,7 +574,7 @@ const ElementHTML = Object.defineProperties({}, {
 
             const syntaxMap = {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                $attributes: (el, w, v, p, defaultAttribute = 'name') => {
+                $attributes: function (el, w, v, p, defaultAttribute = 'name') {
                     p &&= this.toKebabCase(p)
                     if (w) {
                         if (p) return el[v == null ? 'removeAttribute' : 'setAttribute'](p, v)
@@ -602,19 +602,37 @@ const ElementHTML = Object.defineProperties({}, {
                     return syntaxMap.$attributes(el, w, v, p, 'value')
                 },
                 '$': syntaxMap.$data,
-
                 $aria: function (el, w, v, p) {
                     if (p && !p.startsWith('aria-')) p = `aria-${p}`
                     if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('aria-')) {
                         v[`aria-${k}`] = v[k]
                         delete v[k]
                     }
-                    return syntaxMap.$attributes(el, w, v, p, 'value')
+                    return syntaxMap.$attributes(el, w, v, p, 'label')
                 },
                 '*': syntaxMap.$aria,
-
-
-                $inner: (el, w, v) => w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent),
+                $syle: function (el, w, v, p, isComputed) {
+                    p &&= this.toKebabCase(p)
+                    const style = isComputed ? window.getComputedStyle(el) : el.style, writable = w && !isComputed
+                    if (writable) {
+                        if (p) return style[v == null ? 'removeProperty' : 'setProperty'](p, v)
+                        if (typeof v === 'object') {
+                            for (const k in v) el[v[k] == null ? 'removeProperty' : 'setProperty'](this.toKebabCase(k), v[k])
+                        } else {
+                            p ||= defaultAttribute
+                            style.setProperty(p, v)
+                        }
+                        return
+                    }
+                    if (p) return style.getPropertyValue(p)
+                    const r = {}
+                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
+                    return r
+                },
+                '%': syntaxMap.$style,
+                $computed: function (el, w, v, p) { return syntaxMap.$style(el, w, v, p, true) },
+                '&': syntaxMap.$computed,
+                $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
                 '.': syntaxMap.$inner,
                 $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
                 '..': syntaxMap.$content,
@@ -623,30 +641,52 @@ const ElementHTML = Object.defineProperties({}, {
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '<>': syntaxMap.$html,
                 $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                $style: function (el, w, v, p, isComputed) {
-                    const style = isComputed ? window.getComputedStyle(el) : el.style, writable = w && !isComputed
-                    p &&= this.toKebabCase(p)
-                    if (p) return writable ? (v == null ? style.removeProperty(p) : style.setProperty(p, v)) : style.getPropertyValue[p]
-                    if (writable) {
-                        if (v == null) {
-                            if (style.length) for (let i = 0, l = style.length; i < l; i++) style.removeProperty(style[i])
-                        } else if (this.isPlainObject(v)) {
-                            for (const k in v) v[k] == null ? (style.removeProperty(this.toKebabCase(k))) : (style.setProperty(this.toKebabCase(k), v))
+                $parent: function (el, w, v, p) { return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement) },
+                '^': syntaxMap.$parent,
+                $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
+                '!': syntaxMap.$event,
+
+
+                $form: (el, w, v, p) => {
+                    const vIsNull = (v == null)
+                    if (w) {
+                        if (p) {
+                            const inputField = el.querySelector(`[name="${p}"]`)
+                            switch (inputField.type) {
+                                case 'radio':
+                                    const radioInputs = el.querySelectorAll(`[name="${p}"]`)
+                                    if (!radioInputs) return
+                                    for (const f of radioInputs) f.checked = vIsNull ? false : (f.value === v)
+                                    return
+                                case 'checkbox':
+                                    const checkInputs = el.querySelectorAll(`[name="${p}"]`)
+                                    if (!checkInputs) return
+                                    if (v && (typeof v === 'object')) {
+                                        for (const c of checkInputs) c.checked = (c.value in v)
+                                        return
+                                    }
+                                    for (const f of checkInputs) f.checked = vIsNull ? false : (f.value === v)
+                                    return
+                                default:
+                                    if (v && (typeof v === 'object') && (inputField.tagName.toLowerCase() === 'fieldset')) {
+                                        for (const k in v) syntaxMap.$form(inputField, w, v[k], k)
+                                        return
+                                    }
+                                    return inputField ? (inputField.value = v || '') : undefined
+                            }
                         }
                         return
                     }
+                    if (p) {
+                        const inputElement = el.querySelector(`[name="${p}"]`)
+                        if (!inputElement) return
+                        if (inputElement.tagName.toLowerCase() === 'fieldset') return syntaxMap.$form(inputElement)
+                        return inputElement.value
+                    }
                     const r = {}
-                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
+                    for (const inputField of el.querySelectorAll('[name]')) r[inputField.getAttribute('name')] = (inputField.tagName.toLowerCase() === 'fieldset') ? $form(inputField) : inputField.value
                     return r
-                },
-                '%': syntaxMap.$style,
-                $computed: (el, w, v, p) => syntaxMap(el, w, v, p, true),
-                '&': syntaxMap.$computed,
-                $parent: (el, w, v, p) => (w ?? v ?? p) ? undefined : this.flatten(el.parentElement),
-                '^': syntaxMap.$parent,
-                $event: (el, w, v, p, ev) => (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)),
-                '!': syntaxMap.$event,
-
+                }
 
 
 
