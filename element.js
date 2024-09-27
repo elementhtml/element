@@ -574,6 +574,7 @@ const ElementHTML = Object.defineProperties({}, {
             const elementMappers = {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
                 $attributes: function (el, w, v, p, options = {}) {
+                    if (!(el && (el instanceof HTMLElement))) return
                     const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', filter } = options,
                         target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
                     p &&= this.toKebabCase(p)
@@ -624,10 +625,8 @@ const ElementHTML = Object.defineProperties({}, {
                 '^': elementMappers.$parent,
                 $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
                 '!': elementMappers.$event,
-
-
                 $form: (el, w, v, p) => {
-                    if (!el || (el instanceof HTMLElement)) return
+                    if (!(el && (el instanceof HTMLElement))) return
                     const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
                     switch (tagName.toLowerCase()) {
                         case 'form': case 'fieldset':
@@ -639,8 +638,7 @@ const ElementHTML = Object.defineProperties({}, {
                         default:
                             const { type, name } = el
                             switch (type) {
-                                case undefined:
-                                    return w ? el.setAttribute('data-value', v) : el.getAttribute('data-value')
+                                case undefined: return
                                 case 'checkbox': case 'radio':
                                     const inputs = el.closest('form,fieldset').querySelectorAll(`[name="${name}"][type=${type}]`)
                                     if (!inputs) return
@@ -660,7 +658,22 @@ const ElementHTML = Object.defineProperties({}, {
                                     return w ? (el.value = v) : el.value
                             }
                     }
-                }
+                },
+                '[]': elementMappers.$form,
+                $microdata: (el, w, v, p) => {
+                    if (!(el && (el instanceof HTMLElement)) || !el.hasAttribute('itemscope')) return
+                    if (p) {
+                        const propElement = el.querySelector(`[itemprop="${p}"]`)
+                        if (!propElement) return
+                        return w ? this.render(propElement, v) : this.flatten(propElement)
+                    }
+                    if (w) if (this.isPlainObject(v)) for (const k in v) elementMappers.$microdata(el, w, v[k], k)
+                    if (w) return
+                    const r = {}
+                    for (const propElement of el.querySelectorAll('[itemprop]')) r[propElement.getAttribute('itemprop')] = this.flatten(propElement)
+                    return r
+                },
+                '{}': elementMappers.$microdata,
             }
 
             if (value instanceof HTMLElement) {
