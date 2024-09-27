@@ -627,8 +627,40 @@ const ElementHTML = Object.defineProperties({}, {
 
 
                 $form: (el, w, v, p) => {
-                    const vIsNull = (v == null)
+                    const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
+                    switch (tagName.toLowerCase()) {
+                        case 'form': case 'fieldset':
+
+                        default:
+                            const { type, name } = el
+                            switch (type) {
+                                case undefined:
+                                    return w ? el.setAttribute('data-value', v) : el.getAttribute('data-value')
+                                case 'checkbox': case 'radio':
+                                    const inputs = el.closest('form,fieldset').querySelectorAll(`[name="${name}"][type=${type}]`)
+                                    if (!inputs) return
+                                    if (w) {
+                                        if (vIsObject) for (const c of inputs) c.checked = (c.value in v)
+                                        if (vIsObject) return
+                                        for (const f of inputs) f.checked = vIsNull ? false : (f.value === v)
+                                        return
+                                    }
+
+                                default:
+                                    return el.value = v
+                            }
+                    }
+
                     if (w) {
+                        if (!p) {
+                            if (vIsNull) {
+                                for (const inputElement of el.querySelectorAll(`[name="${p}"]`)) {
+
+                                }
+                            }
+                            if (v && (typeof v === 'object')) for (const k in v) elementMappers.$form(el, true, v[k], k)
+                            return
+                        }
                         if (p) {
                             const inputField = el.querySelector(`[name="${p}"]`)
                             switch (inputField.type) {
@@ -649,8 +681,6 @@ const ElementHTML = Object.defineProperties({}, {
                                     return inputField ? (inputField.value = v || '') : undefined
                             }
                         }
-                        if (v && (typeof v === 'object')) for (const k in v) elementMappers.$form(el, true, v[k], k)
-                        return
                     }
                     if (p) {
                         const inputElement = el.querySelector(`[name="${p}"]`)
