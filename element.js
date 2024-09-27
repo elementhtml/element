@@ -609,17 +609,11 @@ const ElementHTML = Object.defineProperties({}, {
                     return elementMappers.$attributes(el, w, v, p, { defaultAttribute, filter })
                 },
                 '$': elementMappers.$data,
-                $aria: function (el, w, v, p) {
-                    return elementMappers.$data(el, w, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' })
-                },
+                $aria: function (el, w, v, p) { return elementMappers.$data(el, w, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
                 '*': elementMappers.$aria,
-                $syle: function (el, w, v, p, isComputed) {
-                    return elementMappers.$attributes(el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
-                },
+                $syle: function (el, w, v, p) { return elementMappers.$attributes(el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '%': elementMappers.$style,
-                $computed: function (el, w, v, p) {
-                    return elementMappers[''](el, w, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
-                },
+                $computed: function (el, w, v, p) { return elementMappers.$attributes(el, w, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '&': elementMappers.$computed,
                 $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
                 '.': elementMappers.$inner,
