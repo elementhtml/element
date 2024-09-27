@@ -570,20 +570,17 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
-
+            for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
             if (value instanceof HTMLElement) {
+                value = this.app.components.virtuals.get(value) ?? value
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
                         const { elementMappers } = this.sys
+                        if (prop === '^') value = this.app.components.natives.get(value) ?? value
                         if (prop in elementMappers) return elementMappers(value)
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
                         if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1))
-                        if (value instanceof this.Component) {
-                            result = {}
-                            for (const p of (value.constructor.properties?.flattenable ?? [])) result[p] = value[p]
-                            return result
-                        }
                         return this.flatten(value[prop])
                     },
                     has(target, key) {
