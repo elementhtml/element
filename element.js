@@ -626,7 +626,7 @@ const ElementHTML = Object.defineProperties({}, {
                 $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
                 '!': elementMappers.$event,
                 $form: (el, w, v, p) => {
-                    if (!(el && (el instanceof HTMLElement))) return
+                    if (!(el instanceof HTMLElement)) return
                     const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
                     switch (tagName.toLowerCase()) {
                         case 'form': case 'fieldset':
@@ -660,8 +660,8 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 },
                 '[]': elementMappers.$form,
-                $microdata: (el, w, v, p) => {
-                    if (!(el && (el instanceof HTMLElement)) || !el.hasAttribute('itemscope')) return
+                $microdata: function (el, w, v, p) {
+                    if (!((el instanceof HTMLElement) && el.hasAttribute('itemscope'))) return
                     if (p) {
                         const propElement = el.querySelector(`[itemprop="${p}"]`)
                         if (!propElement) return
@@ -674,55 +674,50 @@ const ElementHTML = Object.defineProperties({}, {
                     return r
                 },
                 '{}': elementMappers.$microdata,
+                $options: function (el, w, v, p) {
+                    if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLDataListElement))) return
+                    if (w) {
+                        const optionElements = []
+                        if (v && (typeof v === 'object')) {
+                            const vIsArray = Array.isArray(v), optionsMap = vIsArray ? {} : v
+                            if (vIsArray) for (const f of v) optionsMap[f] = f
+                            for (const k in optionsMap) {
+                                const optionElement = document.createElement('option')
+                                if (!vIsArray) optionElement.setAttribute('value', k)
+                                optionElement.textContent = optionsMap[k]
+                                optionElements.push(optionElement)
+                            }
+                        }
+                        return el.replaceChildren(...optionElements)
+                    }
+                    const rObj = {}, rArr = []
+                    let isMap
+                    for (const optionElement of el.children) {
+                        isMap ||= optionElement.hasAttribute('value')
+                        const optionText = optionElement.textContent.trim(), optionValue = optionElement.getAttribute('value') || optionText
+                        rObj[optionValue] = optionText
+                        if (!isMap) rArr.push(optionText)
+                    }
+                    return isMap ? rObj : rArr
+                }
             }
 
             if (value instanceof HTMLElement) {
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
-                        switch (prop) {
-                            // case '#': return value.id
-                            // case '@': return value.name
-                            // case '$': return value.value
-                            // case '$content': case '..': return value.textContent
-                            // case '$text': case '...': return value.innerText
-                            // case '$html': case '<>': return value.innerHTML
-                            // case '$inner': case '.': if (this.sys.regexp.isHTML.test(value.textContent)) return value.innerHTML
-                            // case '$tag': return (value.getAttribute('is') || value.tagName).toLowerCase()
-                            // case '$data': case '?': return this.flatten(value.dataset)
-                            // case '$style': case '%': return this.flatten(value.style)
-                            // case '$computedStyle': case '&': return this.flatten(window.getComputedStyle(value))
-                            // case '$parent': case '^': return this.flatten(value.parentElement)
-                            // case '$event': case '!': return this.flatten(event)
-                            // case '$aria': case '*': return // aria value object
-                            // case '$form': case '[]': return //form value object
-                            case '$item': case '{}': return // item value object
-
-                            default:
-                                const propertyFlag = prop[0], propertyMain = prop.slice(1)
-                                switch (propertyFlag) {
-                                    case '@': return value.getAttribute(propertyMain)
-                                    case '%': return value.style.getPropertyValue(propertyMain)
-                                    case '&': return window.getComputedStyle(value).getPropertyValue(propertyMain)
-                                    case '?': return value.dataset[propertyMain]
-                                    case '!': return this.flatten(event?.detail?.[propertyMain])
-                                    case '*': return // get aria object property
-                                    default:
-                                        switch (true) {
-                                            case ((propertyFlag === '[') && propertyMain.endsWith(']')):
-                                                // get named form input value 
-
-                                                break
-                                            case ((propertyFlag === '{') && propertyMain.endsWith('}')):
-                                                // get item's named property value
-
-                                                break
-                                        }
-                                        return this.flatten(value[prop])
-                                }
-                        }
+                        if (prop in elementMappers) return elementMappers(value)
+                        const propFlag = prop[0], propMain = prop.slice(1)
+                        if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
+                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1))
+                        return this.flatten(value[prop])
                     },
-                    has(target, key) { },
-                    ownKeys(target) { }
+                    has(target, key) {
+                        if (prop in elementMappers) return elementMappers(value, undefined, undefined, prop) !== undefined
+                        const propFlag = prop[0], propMain = prop.slice(1)
+                        if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain) !== undefined
+                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1)) !== undefined
+                        return value[prop] !== undefined
+                    }
                 })
                 return result
             }
@@ -742,33 +737,7 @@ const ElementHTML = Object.defineProperties({}, {
                     textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
                     // '..': textContent, '...': innerText, '#': value.id
                 }
-                // Object.defineProperty(result, 'innerHTML', { enumerable: true, get: () => value.innerHTML })
-                // Object.defineProperty(result, '<>', { enumerable: true, get: () => value.innerHTML })
-                // Object.defineProperty(result, '.', {
-                //     enumerable: true,
-                //     get: () => {
-                //         const t = value.textContent
-                //         return ((t.includes('<') && t.includes('>')) || (t.includes('&') && t.includes(';'))) ? value.innerHTML : t
-                //     }
-                // })
-                // for (const r in value.style) {
-                //     const ruleValue = value.style.getPropertyValue(r)
-                //     if (!ruleValue) continue
-                //     result.style[r] = result[`%${r}`] = ruleValue
-                // }
-                // Object.defineProperty(result.computedStyle, '_', { enumerable: false, value: window.getComputedStyle(value) })
-                // const computedStyleDescriptors = {}, directComputedStyleDescriptors = {}
-                // for (const s of result.computedStyle._) {
-                //     computedStyleDescriptors[s] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
-                //     directComputedStyleDescriptors[`&${s}`] = { enumerable: true, get: () => result.computedStyle._.getPropertyValue(s) }
-                // }
-                // Object.defineProperties(result.computedStyle, computedStyleDescriptors)
-                // Object.defineProperties(result, directComputedStyleDescriptors)
-                // for (const p of ['id', 'name', 'value', 'checked', 'selected']) if (p in value) result[p] = value[p]
-                // for (const a of ['itemprop', 'class']) if (value.hasAttribute(a)) result[a] = value.getAttribute(a)
-                // if (value.hasAttribute('itemscope')) result.itemscope = true
-                // for (const c of Object.keys(classList)) result[`.${c}`] = true
-                // for (const ent of Object.entries(style)) result[`%${ent[0]}`] = ent[1]
+
                 if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
                 // result.dataset = {}
                 // for (const p in value.dataset) result.dataset[p] = result[`?${p}`] = value.dataset[p]
@@ -835,16 +804,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (isObj) result._options = Object.fromEntries(result._options)
                     if (result.tag === 'datalist') result._ = result._options
                 }
-                if (value.parentElement && value.parentElement instanceof HTMLElement) {
-                    result._closest = {
-                        class: value.parentElement.closest('[class]')?.getAttribute('class'),
-                        id: value.parentElement.closest('[id]')?.id,
-                        itemprop: value.parentElement.closest('[itemprop]')?.getAttribute('itemprop'),
-                        itemscope: this.flatten(value.parentElement.closest('[itemscope]')),
-                        name: value.parentElement.closest('[name]')?.name
-                    }
-                }
-                if (event instanceof Event) result._event = this.flatten(event)
                 return result
             }
         }
