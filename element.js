@@ -786,7 +786,11 @@ const ElementHTML = Object.defineProperties({}, {
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
                         if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1))
-                        // if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
+                        if (value instanceof this.Component) {
+                            result = {}
+                            for (const p of (value.constructor.properties?.flattenable ?? [])) result[p] = value[p]
+                            return result
+                        }
                         return this.flatten(value[prop])
                     },
                     has(target, key) {
@@ -794,6 +798,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain) !== undefined
                         if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1)) !== undefined
+                        if (value instanceof this.Component) return (value.constructor.properties?.flattenable ?? []).includes(prop)
                         return value[prop] !== undefined
                     }
                 })
