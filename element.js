@@ -628,15 +628,13 @@ const ElementHTML = Object.defineProperties({}, {
 
                 $form: (el, w, v, p) => {
                     if (!el || (el instanceof HTMLElement)) return
-                    const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object'), vIsArray = Array.isArray(v)
+                    const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
                     switch (tagName.toLowerCase()) {
                         case 'form': case 'fieldset':
                             if (p) return elementMappers.$form(el.querySelector(`[name="${p}"]`), w, v)
                             if (!vIsObject) return
                             const r = {}
-                            for (const fieldName in v) {
-                                r[fieldName] = elementMappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
-                            }
+                            for (const fieldName in v) r[fieldName] = elementMappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
                             return r
                         default:
                             const { type, name } = el
@@ -648,7 +646,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (!inputs) return
                                     const isCheckbox = type === 'checkbox', isRadio = !isCheckbox
                                     if (w) {
-                                        const useV = vIsObject ? v : (vIsArray ? {} : { [v]: true })
+                                        const vIsArray = Array.isArray(v), useV = vIsObject ? v : (vIsArray ? {} : { [v]: true })
                                         if (vIsArray) for (const f of v) useV[f] = true
                                         for (const c of inputs) if ((c.checked = !!useV[c.value]) && isRadio) return
                                         return
