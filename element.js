@@ -579,20 +579,17 @@ const ElementHTML = Object.defineProperties({}, {
                     p &&= this.toKebabCase(p)
                     if (writable) {
                         if (p) return target[v == null ? remove : set](p, v)
-                        if (typeof v === 'object') {
-                            for (const k in v) target[v[k] == null ? remove : set](this.toKebabCase(k), v[k])
-                        } else if (!style && defaultAttribute) {
-                            p ||= defaultAttribute
-                            target[set](p, v)
-                        }
-                        return
+                        const vIsObject = typeof v === 'object'
+                        if (vIsObject) for (const k in v) target[v[k] == null ? remove : set](this.toKebabCase(k), v[k])
+                        if (vIsObject || style) return
+                        p ||= defaultAttribute
+                        return target[set](p, v)
                     }
                     if (p) return target[get](p)
                     const r = {}, iterator = style ? target : el.attributes
-                    if (iterator.length) for (let i = 0, l = iterator.length; i < l; i++) {
-                        const k = iterator[i]
-                        if (filter && !k.startsWith(filter)) continue
-                        r[k] = target[get](k)
+                    if (iterator.length) for (let i = 0, k, l = iterator.length; i < l; i++) {
+                        if (filter && !iterator[i].startsWith(filter)) continue
+                        r[iterator[i]] = target[get](iterator[i])
                     }
                     return r
                 },
