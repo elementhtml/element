@@ -574,7 +574,7 @@ const ElementHTML = Object.defineProperties({}, {
 
             const elementMappers = {
                 '': function (el, w, v, p, options = {}) {
-                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute } = options,
+                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute, filter } = options,
                         target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
                     p &&= this.toKebabCase(p)
                     if (writable) {
@@ -589,7 +589,11 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (p) return target[get](p)
                     const r = {}, iterator = style ? target : el.attributes
-                    if (iterator.length) for (let i = 0, l = iterator.length; i < l; i++) r[iterator[i]] = target[get](iterator[i])
+                    if (iterator.length) for (let i = 0, l = iterator.length; i < l; i++) {
+                        const k = iterator[i]
+                        if (filter && !k.startsWith(filter)) continue
+                        r[k] = target[get](k)
+                    }
                     return r
                 },
 
@@ -598,23 +602,19 @@ const ElementHTML = Object.defineProperties({}, {
                     return elementMappers[''](el, w, v, p, { defaultAttribute })
                 },
                 '@': elementMappers.$attributes,
-                $data: function (el, w, v, p) {
+                $data: function (el, w, v, p, options = {}) {
+                    const { filter = 'data-', defaultAttribute = 'data-value' } = options
                     if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
-                    if (p && !p.startsWith('data-')) p = `data-${p}`
-                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('data-')) {
-                        v[`data-${k}`] = v[k]
+                    if (p && !p.startsWith(filter)) p = `${filter}${p}`
+                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith(filter)) {
+                        v[`${filter}${k}`] = v[k]
                         delete v[k]
                     }
-                    return elementMappers[''](el, w, v, p, { defaultAttribute: 'data-value' })
+                    return elementMappers[''](el, w, v, p, { defaultAttribute, filter })
                 },
                 '$': elementMappers.$data,
                 $aria: function (el, w, v, p) {
-                    if (p && !p.startsWith('aria-')) p = `aria-${p}`
-                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('aria-')) {
-                        v[`aria-${k}`] = v[k]
-                        delete v[k]
-                    }
-                    return elementMappers[''](el, w, v, p, { defaultAttribute: 'aria-label' })
+                    return elementMappers.$data(el, w, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' })
                 },
                 '*': elementMappers.$aria,
                 $syle: function (el, w, v, p, isComputed) {
