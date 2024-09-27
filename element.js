@@ -570,7 +570,6 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
-            if (value.valueOf === 'function') return this.flatten(value.valueOf())
 
             const elementMappers = {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
