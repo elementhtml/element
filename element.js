@@ -701,7 +701,42 @@ const ElementHTML = Object.defineProperties({}, {
                     return isMap ? rObj : rArr
                 },
                 $table: function (el, w, v, p) {
-
+                    if (!((el instanceof HTMLTableElement) || (el instanceof HTMLTableSectionElement))) return
+                    if (w) {
+                        if (!Array.isArray(v)) return
+                        let thead = el.querySelector('thead')
+                        const hasHead = !!thead
+                        if (el instanceof HTMLTableElement) {
+                            const headers = v.shift()
+                            if (!Array.isArray(headers)) return
+                            thead ??= document.createElement('thead')
+                            const tr = document.createElement('tr'), ths = []
+                            for (const h of headers) {
+                                const th = document.createElement('th')
+                                th.textContent = h
+                                ths.push(th)
+                            }
+                            tr.append(...ths)
+                            thead.replaceChildren(tr)
+                        }
+                        let tbody = (el instanceof HTMLTableSectionElement) ? el : el.querySelector('tbody')
+                        const hasBody = !!tbody, trs = []
+                        for (const row of v) {
+                            if (!Array.isArray(row)) continue
+                            const tr = document.createElement('tr'), tds = []
+                            for (const d of row) {
+                                const td = document.createElement('td')
+                                td.textContent = d
+                            }
+                            tr.replaceChildren(...tds)
+                            trs.push(tr)
+                        }
+                        tbody ??= document.createElement('tbody')
+                        tbody.replaceChildren(...trs)
+                        if (!hasHead && (el instanceof HTMLTableElement)) el.replaceChildren(thead)
+                        if (!hasBody) el.append(tbody)
+                        return
+                    }
 
                     const result = [], rows = Array.from(el.querySelectorAll('tr'))
                     if (rows.length) {
@@ -724,6 +759,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
                         if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1))
+                        // if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
                         return this.flatten(value[prop])
                     },
                     has(target, key) {
@@ -738,7 +774,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
 
-            // if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
         }
     },
     toCamelCase: {
