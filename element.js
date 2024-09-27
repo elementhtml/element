@@ -572,26 +572,32 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (value.valueOf === 'function') return this.flatten(value.valueOf())
 
-            const syntaxMap = {
-                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                $attributes: function (el, w, v, p, defaultAttribute = 'name') {
+            const elementMappers = {
+                '': function (el, w, v, p, options = {}) {
+                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute } = options,
+                        target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
                     p &&= this.toKebabCase(p)
-                    if (w) {
-                        if (p) return el[v == null ? 'removeAttribute' : 'setAttribute'](p, v)
+                    if (writable) {
+                        if (p) return target[v == null ? remove : set](p, v)
                         if (typeof v === 'object') {
-                            for (const k in v) el[v[k] == null ? 'removeAttribute' : 'setAttribute'](this.toKebabCase(k), v[k])
+                            for (const k in v) target[v[k] == null ? remove : set](this.toKebabCase(k), v[k])
                         } else {
                             p ||= defaultAttribute
-                            el.setAttribute(p, v)
+                            target[set](p, v)
                         }
                         return
                     }
-                    if (p) return el.getAttribute(p)
-                    const r = {}, { attributes } = el
-                    if (attributes.length) for (let i = 0, l = attributes.length; i < l; i++) r[attributes[i]] = style.getAttribute(attributes[i])
+                    if (p) return target[get](p)
+                    const r = {}, iterator = style ? target : el.attributes
+                    if (iterator.length) for (let i = 0, l = iterator.length; i < l; i++) r[iterator[i]] = target[get](iterator[i])
                     return r
                 },
-                '@': syntaxMap.$attributes,
+
+                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
+                $attributes: function (el, w, v, p, defaultAttribute = 'name') {
+                    return elementMappers[''](el, w, v, p, { defaultAttribute })
+                },
+                '@': elementMappers.$attributes,
                 $data: function (el, w, v, p) {
                     if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
                     if (p && !p.startsWith('data-')) p = `data-${p}`
@@ -599,52 +605,39 @@ const ElementHTML = Object.defineProperties({}, {
                         v[`data-${k}`] = v[k]
                         delete v[k]
                     }
-                    return syntaxMap.$attributes(el, w, v, p, 'value')
+                    return elementMappers[''](el, w, v, p, { defaultAttribute: 'data-value' })
                 },
-                '$': syntaxMap.$data,
+                '$': elementMappers.$data,
                 $aria: function (el, w, v, p) {
                     if (p && !p.startsWith('aria-')) p = `aria-${p}`
                     if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith('aria-')) {
                         v[`aria-${k}`] = v[k]
                         delete v[k]
                     }
-                    return syntaxMap.$attributes(el, w, v, p, 'label')
+                    return elementMappers[''](el, w, v, p, { defaultAttribute: 'aria-label' })
                 },
-                '*': syntaxMap.$aria,
+                '*': elementMappers.$aria,
                 $syle: function (el, w, v, p, isComputed) {
-                    p &&= this.toKebabCase(p)
-                    const style = isComputed ? window.getComputedStyle(el) : el.style, writable = w && !isComputed
-                    if (writable) {
-                        if (p) return style[v == null ? 'removeProperty' : 'setProperty'](p, v)
-                        if (typeof v === 'object') {
-                            for (const k in v) el[v[k] == null ? 'removeProperty' : 'setProperty'](this.toKebabCase(k), v[k])
-                        } else {
-                            p ||= defaultAttribute
-                            style.setProperty(p, v)
-                        }
-                        return
-                    }
-                    if (p) return style.getPropertyValue(p)
-                    const r = {}
-                    if (style.length) for (let i = 0, l = style.length; i < l; i++) r[style[i]] = style.getPropertyValue(style[i])
-                    return r
+                    return elementMappers[''](el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
                 },
-                '%': syntaxMap.$style,
-                $computed: function (el, w, v, p) { return syntaxMap.$style(el, w, v, p, true) },
-                '&': syntaxMap.$computed,
+                '%': elementMappers.$style,
+                $computed: function (el, w, v, p) {
+                    return elementMappers[''](el, w, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
+                },
+                '&': elementMappers.$computed,
                 $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
-                '.': syntaxMap.$inner,
+                '.': elementMappers.$inner,
                 $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
-                '..': syntaxMap.$content,
+                '..': elementMappers.$content,
                 $text: (el, w, v) => w ? (el.innerText = v) : el.innerText,
-                '...': syntaxMap.$text,
+                '...': elementMappers.$text,
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
-                '<>': syntaxMap.$html,
+                '<>': elementMappers.$html,
                 $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
                 $parent: function (el, w, v, p) { return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement) },
-                '^': syntaxMap.$parent,
+                '^': elementMappers.$parent,
                 $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
-                '!': syntaxMap.$event,
+                '!': elementMappers.$event,
 
 
                 $form: (el, w, v, p) => {
@@ -664,19 +657,19 @@ const ElementHTML = Object.defineProperties({}, {
                                     return
                                 default:
                                     if (v && (typeof v === 'object') && (inputField.tagName.toLowerCase() === 'fieldset')) {
-                                        for (const k in v) syntaxMap.$form(inputField, true, v[k], k)
+                                        for (const k in v) elementMappers.$form(inputField, true, v[k], k)
                                         return
                                     }
                                     return inputField ? (inputField.value = v || '') : undefined
                             }
                         }
-                        if (v && (typeof v === 'object')) for (const k in v) syntaxMap.$form(el, true, v[k], k)
+                        if (v && (typeof v === 'object')) for (const k in v) elementMappers.$form(el, true, v[k], k)
                         return
                     }
                     if (p) {
                         const inputElement = el.querySelector(`[name="${p}"]`)
                         if (!inputElement) return
-                        if (inputElement.tagName.toLowerCase() === 'fieldset') return syntaxMap.$form(inputElement)
+                        if (inputElement.tagName.toLowerCase() === 'fieldset') return elementMappers.$form(inputElement)
                         let r = null, inputs
                         switch (inputElement.type) {
                             case 'radio': case 'checkbox':
