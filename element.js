@@ -674,7 +674,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return r
                 },
                 '{}': elementMappers.$microdata,
-                $options: function (el, w, v, p) {
+                $options: function (el, w, v) {
                     if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLDataListElement))) return
                     if (w) {
                         const optionElements = []
@@ -699,6 +699,21 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!isMap) rArr.push(optionText)
                     }
                     return isMap ? rObj : rArr
+                },
+                $table: function (el, w, v, p) {
+
+
+                    const result = [], rows = Array.from(el.querySelectorAll('tr'))
+                    if (rows.length) {
+                        for (const [index, header] of Array.from(rows.shift().querySelectorAll('th')).entries()) {
+                            for (const [i, row] of rows.entries()) {
+                                result._rows[i - 1] ||= {}
+                                const cell = rows[i].querySelectorAll('td')[index]
+                                result._rows[i - 1][header.textContent] = this.flatten(cell)
+                            }
+                        }
+                    }
+                    return result
                 }
             }
 
@@ -723,89 +738,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
 
-            if (value instanceof HTMLElement) {
-                let result
-                const classList = Object.fromEntries(Object.values(value.classList).map(c => [c, true])),
-                    style = {}, computedStyle = {}, textContent = value.textContent, innerText = value.innerText
-                result = {
-                    // ...Object.fromEntries(value.getAttributeNames().map(a => ([`@${a}`, value.getAttribute(a)]))),
-                    ...Object.fromEntries(Object.entries(compile(['baseURI', 'checked', 'childElementCount', 'className',
-                        'clientHeight', 'clientLeft', 'clientTop', 'clientWidth', 'id', 'lang', 'localName', 'name', 'namespaceURI',
-                        'offsetHeight', 'offsetLeft', 'offsetTop', 'offsetWidth', 'outerHTML', 'outerText', 'prefix',
-                        'scrollHeight', 'scrollLeft', 'scrollLeftMax', 'scrollTop', 'scrollTopMax', 'scrollWidth',
-                        'selected', 'slot', 'tagName', 'title'], []))),
-                    textContent, innerText, style, computedStyle, classList, tag: (value.getAttribute('is') || value.tagName).toLowerCase(),
-                    // '..': textContent, '...': innerText, '#': value.id
-                }
-
-                if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
-                // result.dataset = {}
-                // for (const p in value.dataset) result.dataset[p] = result[`?${p}`] = value.dataset[p]
-                result._named = {}
-                for (const c of value.querySelectorAll('[name]')) result._named[c.getAttribute('name')] ||= this.flatten(c)._
-                result._itemprop = {}
-                for (const c of value.querySelectorAll('[itemprop]')) result._itemprop[c.getAttribute('itemprop')] ||= this.flatten(c)._
-                // if (value.hasAttribute('itemprop')) result['^'] = value.getAttribute('itemprop')
-                // result.$ = value.value
-                // result['@'] = value.name
-                result._rows = []
-                const rows = Array.from(value.querySelectorAll('tr'))
-                if (rows.length) {
-                    for (const [index, header] of Array.from(rows.shift().querySelectorAll('th')).entries()) {
-                        for (const [i, row] of rows.entries()) {
-                            result._rows[i - 1] ||= {}
-                            const cell = rows[i].querySelectorAll('td')[index]
-                            result._rows[i - 1][header.textContent] = this.flatten(cell)._
-                        }
-                    }
-                }
-                result._options = []
-                if (value.constructor.properties?.value) {
-                    result._ = value[value.constructor.properties.value]
-                } else if (value.constructor.observedAttributes && value.constructor.observedAttributes.includes('value')) {
-                    result._ = value.value
-                } else {
-                    switch (result.tag) {
-                        case 'form': case 'fieldset':
-                            result._ = result._named
-                            break
-                        case 'table':
-                            result._ = result._rows
-                            break
-                        case 'data': case 'meter': case 'input': case 'select': case 'textarea':
-                            if (result.tag === 'input') {
-                                switch (value.getAttribute('type')) {
-                                    case 'checkbox':
-                                        result._ = value.checked
-                                        break
-                                    case 'radio':
-                                        result._ = value.selected
-                                        break
-                                    default:
-                                        result._ = value.value
-                                }
-                            } else {
-                                result._ = value.value
-                            }
-                            break
-                        case 'time':
-                            result._ = value.getAttribute('datetime')
-                            break
-                        case 'meta':
-                            result._ = value.getAttribute('content')
-                            break
-                        default:
-                            result._ = value.hasAttribute('itemscope') ? result._itemprop : innerText.trim()
-                    }
-                }
-                if (result.tag === 'select' || result.tag === 'datalist') {
-                    const options = Array.from(value.querySelectorAll('option')), isObj = options.some(opt => opt.hasAttribute('value'))
-                    for (const opt of options) result._options.push(isObj ? [opt.getAttribute('value'), opt.textContent.trim()] : opt.textContent.trim())
-                    if (isObj) result._options = Object.fromEntries(result._options)
-                    if (result.tag === 'datalist') result._ = result._options
-                }
-                return result
-            }
+            // if (Array.isArray(value.constructor.properties?.flattenable)) for (const p of value.constructor.properties?.flattenable) result[p] = value[p]
         }
     },
     toCamelCase: {
