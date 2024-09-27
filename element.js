@@ -701,55 +701,82 @@ const ElementHTML = Object.defineProperties({}, {
                     return isMap ? rObj : rArr
                 },
                 $table: function (el, w, v, p) {
-                    if (!((el instanceof HTMLTableElement) || (el instanceof HTMLTableSectionElement))) return
+                    if (!(el instanceof HTMLTableElement || el instanceof HTMLTableSectionElement)) return
                     if (w) {
                         if (!Array.isArray(v)) return
-                        let thead = el.querySelector('thead')
-                        const hasHead = !!thead
                         if (el instanceof HTMLTableElement) {
-                            const headers = v.shift()
-                            if (!Array.isArray(headers)) return
-                            thead ??= document.createElement('thead')
-                            const tr = document.createElement('tr'), ths = []
-                            for (const h of headers) {
+                            if (v.length === 0) return
+                            const headers = Object.keys(v[0])
+                            if (headers.length === 0) return
+                            let thead = el.querySelector('thead')
+                            if (!thead) {
+                                thead = document.createElement('thead')
+                                el.prepend(thead)
+                            }
+                            const headerRow = document.createElement('tr'), ths = []
+                            for (const header of headers) {
                                 const th = document.createElement('th')
-                                th.textContent = h
+                                th.textContent = header
                                 ths.push(th)
                             }
-                            tr.append(...ths)
-                            thead.replaceChildren(tr)
-                        }
-                        let tbody = (el instanceof HTMLTableSectionElement) ? el : el.querySelector('tbody')
-                        const hasBody = !!tbody, trs = []
-                        for (const row of v) {
-                            if (!Array.isArray(row)) continue
-                            const tr = document.createElement('tr'), tds = []
-                            for (const d of row) {
-                                const td = document.createElement('td')
-                                td.textContent = d
+                            headerRow.replaceChildren(...ths)
+                            thead.replaceChildren(headerRow)
+                            let tbody = el.querySelector('tbody')
+                            if (!tbody) {
+                                tbody = document.createElement('tbody')
+                                el.appendChild(tbody)
                             }
-                            tr.replaceChildren(...tds)
-                            trs.push(tr)
+                            const rows = []
+                            for (const item of v) {
+                                const tr = document.createElement('tr'), tds = []
+                                for (const header of headers) {
+                                    const td = document.createElement('td')
+                                    td.textContent = item[header] !== undefined ? item[header] : ''
+                                    tds.push(td)
+                                }
+                                tr.replaceChildren(...tds)
+                                rows.push(tr)
+                            }
+                            tbody.replaceChildren(...rows)
+                        } else if (el instanceof HTMLTableSectionElement && el.tagName.toLowerCase() === 'tbody') {
+                            const rows = []
+                            for (const rowData of v) {
+                                const tr = document.createElement('tr'), tds = []
+                                for (const cellData of rowData) {
+                                    const td = document.createElement('td')
+                                    td.textContent = cellData
+                                    tds.push(td)
+                                }
+                                tr.replaceChildren(...tds)
+                                rows.push(tr)
+                            }
+                            el.replaceChildren(...rows)
                         }
-                        tbody ??= document.createElement('tbody')
-                        tbody.replaceChildren(...trs)
-                        if (!hasHead && (el instanceof HTMLTableElement)) el.replaceChildren(thead)
-                        if (!hasBody) el.append(tbody)
                         return
                     }
-
-                    const result = [], rows = Array.from(el.querySelectorAll('tr'))
-                    if (rows.length) {
-                        for (const [index, header] of Array.from(rows.shift().querySelectorAll('th')).entries()) {
-                            for (const [i, row] of rows.entries()) {
-                                result._rows[i - 1] ||= {}
-                                const cell = rows[i].querySelectorAll('td')[index]
-                                result._rows[i - 1][header.textContent] = this.flatten(cell)
-                            }
+                    if (el instanceof HTMLTableElement) {
+                        const thead = el.querySelector('thead'), tbody = el.querySelector('tbody')
+                        if (!thead || !tbody) return []
+                        const headers = [], rows = []
+                        for (const th of thead.querySelectorAll('th')) headers.push(th.textContent.trim())
+                        for (const tr of tbody.querySelectorAll('tr')) {
+                            const cells = tr.querySelectorAll('td'), rowObj = {}
+                            let index = -1
+                            for (const header of headers) rowObj[header] = this.flatten(cells[++index])
+                            rows.push(rowObj)
                         }
+                        return rows
+                    } else if (el instanceof HTMLTableSectionElement && el.tagName.toLowerCase() === 'tbody') {
+                        const rows = []
+                        for (const tr of el.querySelectorAll('tr')) {
+                            const row = []
+                            for (const td of tr.querySelectorAll('td')) row.push(this.flatten(td))
+                            rows.push(row)
+                        }
+                        return rows
                     }
-                    return result
-                }
+                    return
+                },
             }
 
             if (value instanceof HTMLElement) {
