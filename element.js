@@ -573,15 +573,16 @@ const ElementHTML = Object.defineProperties({}, {
             if (value.valueOf === 'function') return this.flatten(value.valueOf())
 
             const elementMappers = {
-                '': function (el, w, v, p, options = {}) {
-                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute, filter } = options,
+                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
+                $attributes: function (el, w, v, p, options = {}) {
+                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', filter } = options,
                         target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
                     p &&= this.toKebabCase(p)
                     if (writable) {
                         if (p) return target[v == null ? remove : set](p, v)
                         if (typeof v === 'object') {
                             for (const k in v) target[v[k] == null ? remove : set](this.toKebabCase(k), v[k])
-                        } else {
+                        } else if (!style && defaultAttribute) {
                             p ||= defaultAttribute
                             target[set](p, v)
                         }
@@ -596,11 +597,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return r
                 },
-
-                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                $attributes: function (el, w, v, p, defaultAttribute = 'name') {
-                    return elementMappers[''](el, w, v, p, { defaultAttribute })
-                },
                 '@': elementMappers.$attributes,
                 $data: function (el, w, v, p, options = {}) {
                     const { filter = 'data-', defaultAttribute = 'data-value' } = options
@@ -610,7 +606,7 @@ const ElementHTML = Object.defineProperties({}, {
                         v[`${filter}${k}`] = v[k]
                         delete v[k]
                     }
-                    return elementMappers[''](el, w, v, p, { defaultAttribute, filter })
+                    return elementMappers.$attributes(el, w, v, p, { defaultAttribute, filter })
                 },
                 '$': elementMappers.$data,
                 $aria: function (el, w, v, p) {
@@ -618,7 +614,7 @@ const ElementHTML = Object.defineProperties({}, {
                 },
                 '*': elementMappers.$aria,
                 $syle: function (el, w, v, p, isComputed) {
-                    return elementMappers[''](el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
+                    return elementMappers.$attributes(el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' })
                 },
                 '%': elementMappers.$style,
                 $computed: function (el, w, v, p) {
