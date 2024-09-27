@@ -576,7 +576,6 @@ const ElementHTML = Object.defineProperties({}, {
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
                         const { elementMappers } = this.sys
-                        if (prop === '^') value = this.app.components.natives.get(value) ?? value
                         if (prop in elementMappers) return elementMappers(value)
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
@@ -1425,7 +1424,10 @@ const ElementHTML = Object.defineProperties({}, {
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '<>': '$html',
                 $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                $parent: function (el, w, v, p) { return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement) },
+                $parent: function (el, w, v, p) {
+                    el = this.app.components.natives.get(el) ?? el
+                    return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
+                },
                 '^': '$parent',
                 $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
                 '!': '$event',
