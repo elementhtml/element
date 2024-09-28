@@ -525,7 +525,7 @@ const ElementHTML = Object.defineProperties({}, {
             return this.app.types[typeName](value, validate)
         }
     },
-    flatten: {
+    flatten: { //optimal
         enumerable: true, value: function (value, event) {
             if (value == undefined) return null
             switch (typeof value) {
@@ -576,32 +576,22 @@ const ElementHTML = Object.defineProperties({}, {
                         const { elementMappers } = this.sys
                         if (prop in elementMappers) return elementMappers(value)
                         const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain)
-                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1))
+                        if (propFlag in elementMappers) return elementMappers(value, propMain)
+                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, propMain.slice(0, -1))
                         return this.flatten(value[prop])
                     },
                     has(target, key) {
                         const { elementMappers } = this.sys
-                        if (prop in elementMappers) return elementMappers(value, undefined, undefined, prop) !== undefined
+                        if (prop in elementMappers) return elementMappers(value, prop) !== undefined
                         const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain) !== undefined
-                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1)) !== undefined
+                        if (propFlag in elementMappers) return elementMappers(value, propMain) !== undefined
+                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, propMain.slice(0, -1)) !== undefined
                         return value[prop] !== undefined
                     }
                 })
                 return result
             }
             for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
-        }
-    },
-    toCamelCase: {
-        enumerable: true, value: function (str) {
-            return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())
-        }
-    },
-    toKebabCase: {
-        enumerable: true, value: function (str) {
-            return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z])([A-Z][a-z])/g, '$1-$2').toLowerCase()
         }
     },
     generateUuid: {//optimal
@@ -1312,9 +1302,14 @@ const ElementHTML = Object.defineProperties({}, {
             return this.useHelper(contentType, input, true) ?? `${input}`
         }
     },
-    useHelper: {
-        enumerable: true, value: function (name, ...args) {
-            if (typeof this.app.helpers[name] === 'function') return this.app.helpers[name](...args)
+    toCamelCase: {
+        enumerable: true, value: function (str) {
+            return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())
+        }
+    },
+    toKebabCase: {
+        enumerable: true, value: function (str) {
+            return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z])([A-Z][a-z])/g, '$1-$2').toLowerCase()
         }
     },
 
@@ -1374,7 +1369,7 @@ const ElementHTML = Object.defineProperties({}, {
             },
             elementMappers: {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                $attributes: function (el, w, v, p, options = {}) {
+                $attributes: function (el, p, w, v, options = {}) {
                     if (!(el && (el instanceof HTMLElement))) return
                     const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', toggle = 'toggleAttribute', filter } = options,
                         target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
@@ -1398,7 +1393,7 @@ const ElementHTML = Object.defineProperties({}, {
                     return r
                 },
                 '@': '$attributes',
-                $data: function (el, w, v, p, options = {}) {
+                $data: function (el, p, w, v, options = {}) {
                     const { filter = 'data-', defaultAttribute = 'data-value' } = options
                     if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
                     if (p && !p.startsWith(filter)) p = `${filter}${p}`
@@ -1406,14 +1401,14 @@ const ElementHTML = Object.defineProperties({}, {
                         v[`${filter}${k}`] = v[k]
                         delete v[k]
                     }
-                    return this.sys.elementMappers.$attributes(el, w, v, p, { defaultAttribute, filter })
+                    return this.sys.elementMappers.$attributes(el, p, w, v, { defaultAttribute, filter })
                 },
                 '$': '$data',
-                $aria: function (el, w, v, p) { return this.sys.elementMappers.$data(el, w, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
+                $aria: function (el, p, w, v) { return this.sys.elementMappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
                 '*': '$aria',
-                $style: function (el, w, v, p) { return this.sys.elementMappers.$attributes(el, w, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+                $style: function (el, p, w, v) { return this.sys.elementMappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '%': '$style',
-                $computed: function (el, w, v, p) { return this.sys.elementMappers.$attributes(el, w, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+                $computed: function (el, p, w, v) { return this.sys.elementMappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '&': '$computed',
                 $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
                 '.': '$inner',
@@ -1423,15 +1418,15 @@ const ElementHTML = Object.defineProperties({}, {
                 '...': '$text',
                 $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
                 '<>': '$html',
-                $tag: (el, w, v, p = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                $parent: function (el, w, v, p) {
+                $tag: (el, p, w, v = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
+                $parent: function (el, p, w, v) {
                     el = this.app.components.natives.get(el) ?? el
                     return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
                 },
                 '^': '$parent',
-                $event: function (el, w, v, p, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
+                $event: function (el, p, w, v, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
                 '!': '$event',
-                $form: (el, w, v, p) => {
+                $form: (el, p, w, v) => {
                     if (!(el instanceof HTMLElement)) return
                     const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
                     switch (tagName.toLowerCase()) {
@@ -1466,7 +1461,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 },
                 '[]': '$form',
-                $microdata: function (el, w, v, p) {
+                $microdata: function (el, p, w, v) {
                     if (!((el instanceof HTMLElement) && el.hasAttribute('itemscope'))) return
                     if (p) {
                         const propElement = el.querySelector(`[itemprop="${p}"]`)
@@ -1506,7 +1501,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     return isMap ? rObj : rArr
                 },
-                $table: function (el, w, v, p) {
+                $table: function (el, p, w, v) {
                     if (!(el instanceof HTMLTableElement || el instanceof HTMLTableSectionElement)) return
                     if (w) {
                         if (!Array.isArray(v)) return
