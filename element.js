@@ -687,20 +687,29 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const { elementMappers } = this.sys
 
-            const resolveSnippets = function (snippets) {
-                const nodes = []
+            const resolveSnippets = async function (snippets) {
+                const nodes = [], appSnippets = this.app.snippets
+                let labels, envelope
                 for (let i = 0, snippet, l = snippets.length; i < l; i++) {
                     snippet = snippets[i]
+                    if (typeof snippet === 'string' && snippet[0] === '$') {
+                        envelope ??= await this.createEnvelope()
+                        snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, envelope)
+                    }
                     switch (true) {
                         case (snippet instanceof HTMLTemplateElement): nodes.push(...snippet.content.cloneNode(true).children); continue
                         case (snippet instanceof Node): case (snippet instanceof HTMLElement): nodes.push(snippet); continue
                         case (snippet instanceof NodeList): case (snippet instanceof HTMLCollection): nodes.push(...snippet); continue
                         case (typeof snippet === 'string'):
                             switch (true) {
-                                case (this.app.snippets[snippet]): nodes.push(...this.app.snippets[snippet].content.cloneNode(true).children); continue
-                                case (this.env.snippets[snippet]):
-                                //something
-
+                                case (appSnippets[snippet]): nodes.push(...appSnippets[snippet].content.cloneNode(true).children); continue
+                                case (this.env.snippets[snippet]): nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children); continue
+                                case (snippet[0] === '`' && snippet.endsWith('`')):
+                                    const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1), 'snippet')
+                                    if (!resolvedSnippet instanceof HTMLTemplateElement) continue
+                                    nodes.push(...resolvedSnippet.content.cloneNode(true).children)
+                                    appSnippets[snippet] = resolvedSnippet
+                                    continue
                                 default:
                                     const template = document.createElement('template')
                                     template.innerHTML = snippet
