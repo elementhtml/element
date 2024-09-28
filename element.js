@@ -586,7 +586,6 @@ const ElementHTML = Object.defineProperties({}, {
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in elementMappers) return elementMappers(value, undefined, undefined, propMain) !== undefined
                         if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, undefined, undefined, propMain.slice(0, -1)) !== undefined
-                        if (value instanceof this.Component) return (value.constructor.properties?.flattenable ?? []).includes(prop)
                         return value[prop] !== undefined
                     }
                 })
