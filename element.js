@@ -570,9 +570,7 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
-            for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
             if (value instanceof HTMLElement) {
-                value = this.app.components.virtuals.get(value) ?? value
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
                         const { elementMappers } = this.sys
@@ -594,6 +592,7 @@ const ElementHTML = Object.defineProperties({}, {
                 })
                 return result
             }
+            for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
         }
     },
     toCamelCase: {
