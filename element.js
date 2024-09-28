@@ -740,9 +740,7 @@ const ElementHTML = Object.defineProperties({}, {
                         default: snippets = [snippets]
                     }
                     if (!snippets.length) { element[position](...snippets); continue }
-
-
-                    element[position](...nodes)
+                    element[position](...resolveSnippets(snippets))
                     continue
                 }
                 const pFlag = p[0]
