@@ -665,10 +665,59 @@ const ElementHTML = Object.defineProperties({}, {
     },
     render: {
         enumerable: true, value: async function (element, data) {
+            if (!(element instanceof HTMLElement)) return
+            element = this.app.components.natives.get(element) ?? element
+            const tag = element.tagName.toLowerCase()
+            switch (data) {
+                case null: case undefined:
+                    for (const p of ['checked', 'selected']) if (p in element) return element[p] = false
+                    if ('value' in element) return element.value = ''
+                    if (tag in this.sys.voidElementTags) return element.removeAttribute(this.sys.voidElementTags[tag])
+                    return element.textContent = ''
+                case true: case false:
+                    for (const p of ['checked', 'selected', 'value']) if (p in element) return element[p] = data
+                    if (tag in this.sys.voidElementTags) return element.toggleAttribute(this.sys.voidElementTags[tag])
+                    return element.textContent = data
+            }
+            if (typeof data !== 'object') {
+                for (const p of ['checked', 'selected']) if (p in element) return element[p] = !!data
+                if ('value' in element) return element.value = data
+                if (tag in this.sys.voidElementTags) return element.setAttribute(this.sys.voidElementTags[tag], data)
+                return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
+            }
+            const { elementMappers } = this.sys
+            for (const p in data) {
+                if (p in elementMappers) { elementMappers[p](element, undefined, true, data[p]); continue }
+                const pFlag = p[0]
+                switch (true) {
+                    case (pFlag in elementMappers): elementMappers[pFlag](element, p.slice(1).trim(), true, data[p]); continue
+                    case ((pFlag === '[') && p.endsWith(']')): elementMappers.$form(element, p.slice(1, -1).trim(), true, data[p]); continue
+                    case ((pFlag === '{') && p.endsWith('}')): elementMappers.$microdata(element, p.slice(1, -1).trim(), true, data[p]); continue
+                    case (typeof element[p] === 'function'): element[p](data[p]); continue
+                    case (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')):
+                        let [functionName, argsList] = p.slice(0, -1).split('(')
+                        functionName = functionName.trim()
+                        argsList ||= '$'
+                        if (typeof element[functionName] !== 'function') continue
+                        argsList = argsList.split(',')
+                        const args = [], labels = { ...element.dataset }, envelope = await this.createEnvelope({ labels, value: data })
+                        for (let a of argsList) {
+                            a = a.trim()
+                            args.push(this.resolveVariable(a, { wrapped: false, default: a }, envelope))
+                        }
+                        element[functionName](...args)
+                        break
+                    default: element[p] = data[p]
+                }
+            }
+
+
+
+
             const isElement = element instanceof HTMLElement, isFragment = element instanceof DocumentFragment
             if (!(isElement || (isFragment && (typeof data === 'object')))) return
             if (data === null) return
-            let tag
+            // let tag
             if (isElement) {
                 element = this.app.components.natives.get(element) ?? element
                 tag = (element.getAttribute('is') || element.tagName).toLowerCase()
@@ -1664,7 +1713,10 @@ const ElementHTML = Object.defineProperties({}, {
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
                 spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
             }),
-            voidElementTags: Object.freeze(new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])),
+            voidElementTags: Object.freeze({
+                area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
+                param: 'value', source: 'src', track: 'src', wbr: null
+            }),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
             autoScopes: Object.freeze(new Set(['head', 'body', '^', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window'])),
@@ -1797,7 +1849,7 @@ const ElementHTML = Object.defineProperties({}, {
     createEnvelope: { // optimal
         enumerable: true, value: async function (baseObj = {}) {
             if (!this.isPlainObject(baseObj)) baseObj = { value: baseObj }
-            return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: context = this.env.context })
+            return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: this.env.context })
         }
     },
     deepFreeze: { //optimal
