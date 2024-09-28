@@ -1392,8 +1392,10 @@ const ElementHTML = Object.defineProperties({}, {
                     if (p) return target[get](p)
                     const r = {}, iterator = style ? target : el.attributes
                     if (iterator.length) for (let i = 0, k, l = iterator.length; i < l; i++) {
-                        if (filter && !iterator[i].startsWith(filter)) continue
-                        r[iterator[i]] = target[get](iterator[i])
+                        k = iterator[i]
+                        if (filter && !k.startsWith(filter)) continue
+                        r[k] = target[get](k)
+                        if (!style && (r[k] === '')) r[k] = true
                     }
                     return r
                 },
