@@ -686,10 +686,65 @@ const ElementHTML = Object.defineProperties({}, {
                 return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
             }
             const { elementMappers } = this.sys
+
+            const resolveSnippets = function (snippets) {
+                const nodes = []
+                for (let i = 0, snippet, l = snippets.length; i < l; i++) {
+                    snippet = snippets[i]
+                    switch (true) {
+                        case (snippet instanceof HTMLTemplateElement): nodes.push(...snippet.content.cloneNode(true).children); continue
+                        case (snippet instanceof Node): case (snippet instanceof HTMLElement): nodes.push(snippet); continue
+                        case (snippet instanceof NodeList): case (snippet instanceof HTMLCollection): nodes.push(...snippet); continue
+                        case (typeof snippet === 'string'):
+                            switch (true) {
+                                case (this.app.snippets[snippet]): nodes.push(...this.app.snippets[snippet].content.cloneNode(true).children); continue
+                                case (this.env.snippets[snippet]):
+                                //something
+
+                                default:
+                                    const template = document.createElement('template')
+                                    template.innerHTML = snippet
+                                    nodes.push(...template.content.cloneNode(true).children)
+                            }
+                    }
+                }
+                return nodes
+            }
+
             for (const p in data) {
                 if (p in elementMappers) { elementMappers[p](element, undefined, true, data[p]); continue }
+                if (p.startsWith('::')) {
+                    // after append before prepend remove replaceChildren replaceWith
+                    const position = p.slice(2)
+                    if (typeof element[position] !== 'function') continue
+                    let snippets = data[p]
+                    if (!snippets) { element[position](snippets); continue }
+                    if (!Array.isArray(snippets)) switch (true) {
+                        case (this.isPlainObject(snippets)):
+                            for (const snippetKey in snippets) {
+                                switch (true) {
+                                    case (this.app.snippets[snippetKey]):
+
+                                }
+
+                            }
+                        default: snippets = [snippets]
+                    }
+                    if (!snippets.length) { element[position](...snippets); continue }
+
+
+                    element[position](...nodes)
+                    continue
+                }
                 const pFlag = p[0]
                 switch (true) {
+                    case (pFlag === '&'):
+                        let child = this.resolveScopedSelector(p, element)
+                        if (!child) continue
+                        if (!Array.isArray(child)) { this.render(child, data[p]); continue }
+                        const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
+                        for (const c of child) this.render(c, useArray ? useArray.shift() : data[p])
+                        continue
                     case (pFlag in elementMappers): elementMappers[pFlag](element, p.slice(1).trim(), true, data[p]); continue
                     case ((pFlag === '[') && p.endsWith(']')): elementMappers.$form(element, p.slice(1, -1).trim(), true, data[p]); continue
                     case ((pFlag === '{') && p.endsWith('}')): elementMappers.$microdata(element, p.slice(1, -1).trim(), true, data[p]); continue
