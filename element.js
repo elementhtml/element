@@ -68,7 +68,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { anthology: anthologySignature, article, lang } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value }
                         anthology = await this.resolveUnit(this.resolveVariable(anthologySignature, { wrapped, default: anthologySignature }, valueEnvelope), 'anthology')
                         if (!anthology) return
@@ -77,8 +77,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return anthology[this.resolveVariable(lang, { wrapped, default: lang }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { anthology } = descriptor
-                        if (!this.isWrappedVariable(anthology)) new Job(async function () { await this.resolveUnit({ anthology }) }, `anthology:${anthology}`)
+                        const { descriptor } = envelope, { anthology: anthologySignature } = descriptor
+                        if (!this.isWrappedVariable(anthologySignature)) new Job(async function () { await this.resolveUnit(anthologySignature, 'anthology') }, `anthology:${anthology}`)
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -90,8 +90,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { transform } = descriptor
-                        if (!this.isWrappedVariable(transform)) new Job(async function () { await this.resolveUnit({ transform }) }, `transform:${transform}`)
+                        const { descriptor } = envelope, { transform: transformSignature } = descriptor
+                        if (!this.isWrappedVariable(transformSignature)) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transform}`)
                     }
                 }],
                 [/^\/.*\/$/, {
