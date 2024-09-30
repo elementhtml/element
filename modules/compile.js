@@ -149,9 +149,9 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     if (signature === undefined) {
                         if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
                         let matcher, name = 'console'
-                        for (const [k, v] of interpreters) if (v.name === 'console') { matcher = k; break }
+                        for (const [k, v] of interpreters) if (v.name === name) { matcher = k; break }
                         if (!matcher) continue
-                        signature = { name, interpreter: matcher.toString(), descriptor: { verbose: true }, variables: {} }
+                        signature = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
                     }
                     for (const p in signature.descriptor) if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
                     if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
