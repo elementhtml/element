@@ -69,12 +69,12 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { article, lang } = descriptor, wrapped = true,
-                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped }, envelope), 'anthology')
+                        const { descriptor } = envelope, { article, lang } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped }, valueEnvelope), 'anthology')
                         if (!anthology) return
-                        lang = this.resolveVariable(lang, { wrapped }, envelope)
-                        article = this.resolveVariable(article, { wrapped }, envelope)
-                        return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
+                        article = this.resolveVariable(article, { wrapped }, valueEnvelope)
+                        if (!article) return
+                        return anthology[this.resolveVariable(lang, { wrapped }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { anthology } = descriptor
@@ -84,10 +84,10 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, cells, context, fields, labels } = envelope, { transform: transformSignature } = descriptor,
-                            transform = await this.resolveUnit(transformSignature, 'transform')
+                        let { descriptor, cells, context, fields, labels } = envelope, wrapped = true, valueEnvelope = { ...envelope, value },
+                            transform = await this.resolveUnit(this.resolveVariable(descriptor.transform, { wrapped }, valueEnvelope), 'transform')
                         if (!transform) return
-                        return this.runTransform(transform, value, container, { cells, context, fields, labels, value })
+                        return this.runTransform(transform, value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, cells, context, fields, labels } = envelope, { transform } = descriptor
