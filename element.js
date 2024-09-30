@@ -69,28 +69,32 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, variables } = envelope, { anthology: a, article, lang } = descriptor, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            anthology = await this.resolveUnit(variables.anthology ? this.resolveVariable(a, { wrapped, default: a }, valueEnvelope) : a, 'anthology')
+                        const { descriptor, variables } = envelope, { anthology: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables ? true : undefined,
+                            valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
+                            anthology = await this.resolveUnit(variables?.anthology ? this.resolveVariable(a, { wrapped, default: a }, valueEnvelope) : a, 'anthology')
                         if (!anthology) return
-                        article = this.resolveVariable(article, { wrapped, default: article }, valueEnvelope) ?? 'index'
-                        return anthology[this.resolveVariable(lang, { wrapped, default: lang }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article, valueEnvelope)
+                        const article = variables?.article ? this.resolveVariable(articleSignature, { wrapped }, valueEnvelope) : articleSignature
+                        if (variables?.article && !article) return
+                        const lang = variables?.lang ? this.resolveVariable(langSignature, { wrapped }, valueEnvelope) : langSignature
+                        return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article || 'index', valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { anthology: anthologySignature } = descriptor
-                        if (!variables.anthology) new Job(async function () { await this.resolveUnit(anthologySignature, 'anthology') }, `anthology:${anthologySignature}`)
+                        if (!variables?.anthology) new Job(async function () { await this.resolveUnit(anthologySignature, 'anthology') }, `anthology:${anthologySignature}`)
                     }
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        let { descriptor, variables } = envelope, { transform: t } = descriptor, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            transform = await this.resolveUnit(variables.transform ? this.resolveVariable(t, { wrapped, default: t }, valueEnvelope) : t, 'transform')
+                        let { descriptor, variables } = envelope, { transform: t } = descriptor, variablesTransform = variables?.transform, wrapped = variablesTransform ? true : undefined,
+                            valueEnvelope = variablesTransform ? Object.freeze({ ...envelope, value }) : envelope,
+                            transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, { wrapped, default: t }, valueEnvelope) : t, 'transform')
                         if (!transform) return
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
-                        if (!variables.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
+                        if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
                     }
                 }],
                 [/^\/.*\/$/, {

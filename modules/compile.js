@@ -154,10 +154,9 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                             if (signature) break
                         }
                     }
-                    for (const p in signature.descriptor) {
-                        if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
-                    }
-                    Object.freeze(signature.variables)
+                    for (const p in signature.descriptor) if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
+                    if (Object.keys(signature.variables.length)) Object.freeze(signature.variables)
+                    else delete signature.variables
                     Object.freeze(signature.descriptor)
                     const step = { label, labelMode, signature: Object.freeze(signature) }
                     if (defaultExpression) step.defaultExpression = defaultExpression
