@@ -56,39 +56,42 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\{.*\}$/, {
                     name: 'variable',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, cells, context, fields, labels } = envelope
-                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { cells, context, fields, labels, value })
+                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { ...envelope, value })
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor, cells, context, fields, labels } = envelope
-                        return this.resolveVariable(descriptor.shape, { wrapped: false }, { cells, context, fields, labels, value })
+                        return this.resolveVariable(descriptor.shape, { wrapped: false }, { ...envelope, value })
                     }
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article, lang } = descriptor,
-                            useAnthology = await this.resolveUnit(anthology, 'anthology')
-                        if (!useAnthology) return
-                        return await useAnthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
+                        const { descriptor } = envelope, { article, lang } = descriptor,
+                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped: true }, envelope), 'anthology')
+                        if (!anthology) return
+                        lang = this.resolveVariable(lang, { wrapped: true }, envelope)
+                        article = this.resolveVariable(article, { wrapped: true }, envelope)
+                        return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
-                        new Job(async function () { await this.resolveUnit(anthology, 'anthology') }, `anthology:${anthology}`)
+                        if (!this.isWrappedVariable(anthology)) new Job(async function () { await this.resolveUnit({ anthology }) }, `anthology:${anthology}`)
                     }
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, cells, context, fields, labels } = envelope
-                        return this.runTransform(descriptor.expression, value, container, { cells, context, fields, labels, value })
+                        const { descriptor, cells, context, fields, labels } = envelope, { transform: transformSignature } = descriptor,
+                            transform = await this.resolveUnit(transformSignature, 'transform')
+                        if (!transform) return
+                        return this.runTransform(transform, value, container, { cells, context, fields, labels, value })
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { expression } = descriptor
-                        // possibly something to pre-load transformers here
+                        const { descriptor, cells, context, fields, labels } = envelope, { transform } = descriptor
+                        new Job(async function () { await this.resolveUnit({ transform }) }, `transform:${transform}`)
                     }
                 }],
                 [/^\/.*\/$/, {
@@ -1005,14 +1008,23 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    isWrappedVariable: { // optimal
+        enumerable: true, value: function (expression) {
+            return ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
+        }
+    },
 
 
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, flags, envelope = {}) {
             let result, { wrapped, default: dft, spread } = (flags ?? {})
             if (typeof expression === 'string') {
+                if (wrapped || (wrapped === undefined)) {
+                    const expressionIsWrapped = this.isWrappedVariable(expression)
+                    if (wrapped && !expressionIsWrapped) return expression
+                    wrapped ??= expressionIsWrapped
+                }
                 expression = expression.trim()
-                wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
                 if (wrapped) expression = expression.slice(2, -1).trim()
                 const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
                 if (expression in this.sys.valueAliases) result = this.sys.valueAliases[expression]

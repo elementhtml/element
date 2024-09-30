@@ -385,7 +385,7 @@ ${scriptBody.join('{')}`
                 return { signal: true, target, shape }
             },
             transform: function (expression) { // optimal
-                return { expression: expression.slice(1, -1).trim() }
+                return { transform: expression.slice(1, -1).trim() }
             },
             type: function (expression) { // optimal
                 let mode = 'any', types = []
