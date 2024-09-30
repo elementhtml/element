@@ -323,7 +323,7 @@ const ElementHTML = Object.defineProperties({}, {
                         else if (isPlusExpression) ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped }, valueEnvelope)) || 1
                         else if (this.sys.regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
                         else {
-                            if (variables.expression) expression = this.resolveVariable(expression, { wrapped }, valueEnvelope)
+                            if (variables?.expression) expression = this.resolveVariable(expression, { wrapped }, valueEnvelope)
                             const expressionSplit = expression.split(':').map(s => s.trim())
                             if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
                                 ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
@@ -342,8 +342,8 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         if (!this.modules.dev) return value
                         const { descriptor, variables } = envelope, { invocation } = descriptor,
-                            wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value })
-                        $([variables.invocation ? this.resolveVariable(invocation, { wrapped }, valueEnvelope) : invocation])
+                            wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
+                        $([variables?.invocation ? this.resolveVariable(invocation, { wrapped }, valueEnvelope) : invocation])
                         return value
                     }
                 }],
