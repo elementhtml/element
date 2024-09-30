@@ -612,13 +612,6 @@ const ElementHTML = Object.defineProperties({}, {
             return proto === null || proto === Object.prototype || proto.constructor === Object
         }
     },
-    loadHelper: {
-        enumerable: true, value: async function (name) {
-            if (typeof this.app.helpers[name] === 'function') return name
-            if (typeof this.env.loaders[name] === 'function') await this.env.loaders[name]()
-            if (typeof this.env.helpers[name] === 'function') return ((this.app.helpers[name] = this.env.helpers[name]) && name)
-        }
-    },
     parse: {
         enumerable: true, value: async function (input, contentType) {
             const typeCheck = (input instanceof Response) || (typeof input === 'text')
@@ -663,6 +656,41 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+    resolveSnippet: {
+        value: async function (snippet) {
+            const nodes = []
+            if (Array.isArray(snippet)) {
+                for (const s of snippet) nodes.push(...(await this.resolveSnippet(s)))
+                return nodes
+            }
+            const appSnippets = this.app.snippets
+            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, await this.createEnvelope())
+            switch (true) {
+                case (snippet instanceof HTMLTemplateElement): nodes.push(...snippet.content.cloneNode(true).children); break
+                case (snippet instanceof Node): case (snippet instanceof HTMLElement): nodes.push(snippet); break
+                case (snippet instanceof NodeList): case (snippet instanceof HTMLCollection): nodes.push(...snippet); break
+                case (typeof snippet === 'string'):
+                    switch (true) {
+                        case (appSnippets[snippet]): nodes.push(...appSnippets[snippet].content.cloneNode(true).children); break
+                        case (this.env.snippets[snippet]): nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children); break
+                        case (snippet[0] === '`' && snippet.endsWith('`')):
+                            const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1).trim(), 'snippet')
+                            if (!resolvedSnippet instanceof HTMLTemplateElement) break
+                            nodes.push(...resolvedSnippet.content.cloneNode(true).children)
+                            appSnippets[snippet] = resolvedSnippet
+                            break
+                        default:
+                            const template = document.createElement('template')
+                            template.innerHTML = snippet
+                            nodes.push(...template.content.cloneNode(true).children)
+                    }
+            }
+            return nodes
+        }
+    },
+
+
     render: {
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
@@ -686,42 +714,9 @@ const ElementHTML = Object.defineProperties({}, {
                 return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
             }
             const { elementMappers } = this.sys
-
-            const resolveSnippet = async function (snippet) {
-                const nodes = []
-                if (Array.isArray(snippet)) {
-                    for (const s of snippet) nodes.push(...(await resolveSnippet(s)))
-                    return nodes
-                }
-                const appSnippets = this.app.snippets
-                if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, await this.createEnvelope())
-                switch (true) {
-                    case (snippet instanceof HTMLTemplateElement): nodes.push(...snippet.content.cloneNode(true).children); break
-                    case (snippet instanceof Node): case (snippet instanceof HTMLElement): nodes.push(snippet); break
-                    case (snippet instanceof NodeList): case (snippet instanceof HTMLCollection): nodes.push(...snippet); break
-                    case (typeof snippet === 'string'):
-                        switch (true) {
-                            case (appSnippets[snippet]): nodes.push(...appSnippets[snippet].content.cloneNode(true).children); break
-                            case (this.env.snippets[snippet]): nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children); break
-                            case (snippet[0] === '`' && snippet.endsWith('`')):
-                                const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1).trim(), 'snippet')
-                                if (!resolvedSnippet instanceof HTMLTemplateElement) break
-                                nodes.push(...resolvedSnippet.content.cloneNode(true).children)
-                                appSnippets[snippet] = resolvedSnippet
-                                break
-                            default:
-                                const template = document.createElement('template')
-                                template.innerHTML = snippet
-                                nodes.push(...template.content.cloneNode(true).children)
-                        }
-                }
-                return nodes
-            }
-
             for (const p in data) {
                 if (p in elementMappers) { elementMappers[p](element, undefined, true, data[p]); continue }
                 if (p.startsWith('::')) {
-                    // after append before prepend remove replaceChildren replaceWith
                     const position = p.slice(2)
                     if (typeof element[position] !== 'function') continue
                     let snippets = data[p]
@@ -738,7 +733,7 @@ const ElementHTML = Object.defineProperties({}, {
                         default: snippets = [snippets]
                     }
                     if (!snippets.length) { element[position](); continue }
-                    element[position](...resolveSnippet(snippets))
+                    element[position](...this.resolveSnippet(snippets))
                     continue
                 }
                 const pFlag = p[0]
@@ -774,196 +769,6 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-            const isElement = element instanceof HTMLElement, isFragment = element instanceof DocumentFragment
-            if (!(isElement || (isFragment && (typeof data === 'object')))) return
-            if (data === null) return
-            // let tag
-            if (isElement) {
-                element = this.app.components.natives.get(element) ?? element
-                tag = (element.getAttribute('is') || element.tagName).toLowerCase()
-                if (typeof data !== 'object') {
-                    if (element.constructor.properties?.value) {
-                        try { return element[element.constructor.properties.value] = data } catch (e) { return }
-                    } else if (element.constructor.observedAttributes && element.constructor.observedAttributes.includes('value')) {
-                        try { return element.value = data } catch (e) { return }
-                    } else {
-                        switch (tag) {
-                            case 'meta':
-                                return data == undefined ? element.removeAttribute('content') : element.setAttribute('content', data)
-                            case 'data': case 'input': case 'meter': case 'select': case 'textarea':
-                                return element.value = data
-                            case 'audio': case 'embed': case 'iframe': case 'img': case 'source': case 'track': case 'video':
-                                return data == undefined ? element.removeAttribute('src') : element.setAttribute('src', data)
-                            case 'area': case 'link':
-                                return data == undefined ? element.removeAttribute('href') : element.setAttribute('href', data)
-                            case 'object':
-                                return data == undefined ? element.removeAttribute('data') : element.setAttribute('data', data)
-                            default:
-                                if (typeof data === 'string') return element[
-                                    ((data.includes('<') && data.includes('>')) || (data.includes('&') && data.includes(';'))) ? 'innerHTML' : 'textContent'
-                                ] = data
-                                return element.textContent = (data == undefined) ? '' : data
-                        }
-                    }
-                }
-            }
-            const setProperty = (k, v, element) => {
-                if (v === undefined) try { return delete element[k] } catch (e) { return }
-                if (k.includes('(') && k.endsWith(')')) return this.runElementMethod(k, v, element)
-                element[k] = v
-            }
-            const snippetUsageCounter = {}
-            for (const [k, v] of Object.entries(data)) {
-                if (!k || (isFragment && k[0] !== '`')) continue
-                switch (k[0]) {
-                    case '#':
-                        if (k === '#') { element.setAttribute('id', v); continue }
-                        if (k.charCodeAt(1) >= 65 && k.charCodeAt(1) <= 90) {
-                            element[`aria${k.slice(1)}`] = v
-                        } else {
-                            element.setAttribute(`aria-${k.slice(1)}`, v)
-                        }
-                    case '%':
-                        const styleRule = k.slice(1)
-                        if (!styleRule) continue
-                        element.style[v === null ? 'removeProperty' : 'setProperty'](styleRule, v)
-                        continue
-                    case '@':
-                        if (k === '@') {
-                            element.name = v;
-                            continue
-                        }
-                        const attrName = k.slice(1) || 'name'
-                        switch (v) {
-                            case true: case false:
-                                element.toggleAttribute(attrName, v)
-                                continue
-                            case null: case undefined:
-                                element.removeAttribute(attrName)
-                                continue
-                            default:
-                                element.setAttribute(attrName, v)
-                                continue
-                        }
-                    case '$':
-                        if (k === '$') {
-                            element.value = v
-                            continue
-                        } else if (v == undefined) {
-                            delete element.dataset[k.slice(1)]
-                        } else {
-                            element.dataset[k.slice(1)] = v
-                        }
-                        continue
-                    case '!':
-                        let eventName = k.slice(1)
-                        if (!eventName) eventName = element.constructor.events?.default ?? this.sys.defaultEventTypes[tag] ?? 'click'
-                        if (v != null) {
-                            const eventOptions = (typeof v === 'object' && ('bubbles' in v || 'cancelable' in v || 'detail' in v)) ? v : { detail: v, bubbles: true, cancelable: true }
-                            element.dispatchEvent(new CustomEvent(eventName, eventOptions))
-                        }
-                        continue
-                    case '.': case '<':
-                        switch (k) {
-                            case '<>':
-                                if (!v) { element.replaceChildren(); continue }
-                                element.innerHTML = v
-                                continue
-                            case '.':
-                                if (!v) { element.replaceChildren(); continue }
-                                element[v.includes('<') && v.includes('>') ? 'innerHTML' : 'textContent'] = v
-                                continue
-                            case '..':
-                                if (!v) { element.replaceChildren(); continue }
-                                element.textContent = v
-                                continue
-                            case '...':
-                                if (!v) { element.replaceChildren(); continue }
-                                element.innerText = v
-                                continue
-                            default:
-                                if (k[0] === '<' && k.slice(-1) === '>') {
-                                    if (v === false) continue
-                                    let renderExpression = k.slice(1, -1).trim(), insertSelector, insertPosition
-                                    if (renderExpression.includes('::')) [renderExpression, insertPosition] = renderExpression.split('::').map(s => s.trim())
-                                    if (insertPosition && insertPosition.includes('|')) [insertPosition, insertSelector] = insertPosition.split('|', 2).map(s => s.trim())
-                                    const snippetUsageCounterIndex = insertSelector || ':scope'
-                                    if (insertPosition && !(insertPosition in this.sys.insertPositions)) insertPosition = undefined
-                                    if (!insertPosition) insertPosition = snippetUsageCounter[snippetUsageCounterIndex] ? 'append' : (['html', 'head', 'body'].includes(tag) ? 'append' : 'replaceChildren')
-                                    snippetUsageCounter[snippetUsageCounterIndex] = snippetUsageCounter[snippetUsageCounterIndex] ? (snippetUsageCounter[snippetUsageCounterIndex] + 1) : 1
-                                    if (renderExpression[0] === '&' && renderExpression.slice(-1) === '&') {
-                                        renderExpression = renderExpression.slice(1, -1)
-                                        let useSnippet
-                                        if (renderExpression[0] === '`' && renderExpression.slice(-1) === '`') {
-                                            renderExpression = renderExpression.slice(1, -1)
-                                            if (this.app.snippets[renderExpression] === true) {
-                                                let waitCount = 0
-                                                while ((waitCount <= 100) && (this.app.snippets[renderExpression] === true)) await new Promise(resolve => requestIdleCallback
-                                                    ? requestIdleCallback(resolve, { timeout: 100 }) : setTimeout(resolve, 100))
-                                            }
-                                            if (this.app.snippets[renderExpression] === true) delete this.app.snippets[renderExpression]
-                                            if (this.app.snippets[renderExpression] && (this.app.snippets[renderExpression] instanceof HTMLTemplateElement)) {
-                                                useSnippet = this.app.snippets[renderExpression]
-                                            } else if (this.env.snippets[renderExpression]) {
-                                                this.app.snippets[renderExpression] = true
-                                                const envSnippet = this.env.snippets[renderExpression]
-                                                useSnippet = document.createElement('template')
-                                                if (envSnippet instanceof HTMLElement) {
-                                                    useSnippet = envSnippet.cloneNode(true)
-                                                } else if (typeof envSnippet === 'string') {
-                                                    if (envSnippet[0] === '`' && envSnippet.endsWith('`')) {
-                                                        let snippetUrl = this.resolveSnippetKey(envSnippet)
-                                                        useSnippet.innerHTML = await (await fetch(this.resolveUrl(snippetUrl))).text()
-                                                    } else {
-                                                        useSnippet.innerHTML = envSnippet
-                                                    }
-                                                }
-                                            } else {
-                                                this.app.snippets[renderExpression] = true
-                                                useSnippet = document.createElement('template')
-                                                let snippetUrl = renderExpression
-                                                snippetUrl = this.resolveSnippetKey('`' + snippetUrl + '`')
-                                                useSnippet.innerHTML = await (await fetch(this.resolveUrl(snippetUrl))).text()
-                                            }
-                                            this.app.snippets[renderExpression] = useSnippet
-                                        } else {
-                                            useSnippet = this.resolveScopedSelector(renderExpression, element)
-                                        }
-                                        if (useSnippet) this.renderWithSnippet(element, v, useSnippet, insertPosition, insertSelector)
-                                        continue
-                                    }
-                                    const tagMatch = renderExpression.match(this.sys.regexp.tagMatch) ?? [],
-                                        idMatch = renderExpression.match(this.sys.regexp.idMatch) ?? [], classMatch = renderExpression.match(this.sys.regexp.classMatch) ?? [],
-                                        attrMatch = renderExpression.match(this.sys.regexp.attrMatch) ?? []
-                                    this.renderWithSnippet(element, v, tagMatch[0], insertPosition, insertSelector, (idMatch[0] ?? '').slice(1),
-                                        (classMatch[0] ?? '').slice(1).split('.').map(s => s.trim()).filter(s => !!s),
-                                        Object.fromEntries((attrMatch ?? []).map(m => m.slice(1, -1)).map(m => m.split('=').map(ss => ss.trim())))
-                                    )
-                                    continue
-                                } else if (k[0] === '.' && k.length > 1 && k[1] !== '.') {
-                                    const className = k.slice(1)
-                                    if (!className) continue
-                                    element.classList.toggle(className, v)
-                                    continue
-                                }
-                        }
-                    case '`':
-                        let nestingTargets = this.resolveScopedSelector(k.slice(1, -1), element)
-                        if (!nestingTargets) continue
-                        if (!Array.isArray(nestingTargets)) nestingTargets = [nestingTargets]
-                        await Promise.all(nestingTargets.map(t => this.render(t, v)))
-                        continue
-                    case '^':
-                        if (element.hasAttribute('itemscope')) {
-                            this.render(element.querySelector(`[itemprop="${k.slice(1)}"]`), v)
-                            break
-                        } else {
-                            element.setAttribute(`itemprop`, k.slice(1))
-                        }
-                    default:
-                        setProperty(k, v, element)
-                }
-            }
         },
     },
     resolveScope: {
