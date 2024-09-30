@@ -70,12 +70,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
-                        // yet to do!
+                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article, lang } = descriptor,
+                            useAnthology = await this.resolveUnit(anthology, 'anthology')
+                        if (!useAnthology) return
+                        return await useAnthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
-                        // possibly something to pre-load content here
+                        new Job(async function () { await this.resolveUnit(anthology, 'anthology') }, `anthology:${anthology}`)
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -410,7 +412,7 @@ const ElementHTML = Object.defineProperties({}, {
             this.mountElement(document.documentElement).then(async () => {
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 await this.runHook('load')
-                Promise.resolve(new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))).then(() => this.processQueue())
+                new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100)).then(() => this.processQueue())
             })
         }
     },
@@ -2236,6 +2238,21 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             cancel() { this.constructor.E.queue.delete(this.id) }
+
+            complete(deadline = 1000) {
+                const { E } = this.constructor, { queue } = E
+                if (!queue.has(this.id)) return
+                const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
+                deadline = now + deadline
+                let beforeDeadline = (now < deadline)
+                return new Promise((async res => {
+                    while (beforeDeadline && queue.has(this.id)) {
+                        await new Promise(resolve => timeoutFunc(resolve, timeoutArg))
+                        beforeDeadline = (Date.now() < deadline)
+                    }
+                    res(!queue.has(this.id))
+                }))
+            }
 
             async run() { if (!this.running) return this.runner() }
 

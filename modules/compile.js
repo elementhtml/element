@@ -147,7 +147,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                         }
                     }
                     if (signature === undefined) {
-                        if (dev) dev.print(`No matching interpreter is available for the expression at postition '${statementIndex}-${stepIndex}' in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
+                        if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
                         for (const [matcher, interpreter] of interpreters) {
                             const { parser, name } = interpreter
                             if (matcher.test('$?') && (typeof parser === 'function')) signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
@@ -355,8 +355,8 @@ ${scriptBody.join('{')}`
                 return { showStepEnvelope: expression === '$?' }
             },
             content: function (expression) { // optimal
-                const [anthology, article] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { anthology, article }
+                const [anthology, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { anthology, article, lang }
             },
             pattern: function (expression) { // optimal
                 expression = expression.slice(1, -1)
