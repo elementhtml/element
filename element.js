@@ -69,7 +69,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { anthology: a, article, lang, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                        const { descriptor } = envelope, { anthology: a, article, lang, isVariable = {} } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
                             anthology = await this.resolveUnit(isVariable.anthology ? this.resolveVariable(a, { wrapped, default: a }, valueEnvelope) : a, 'anthology')
                         if (!anthology) return
                         article = this.resolveVariable(article, { wrapped, default: article }, valueEnvelope)
@@ -77,27 +77,27 @@ const ElementHTML = Object.defineProperties({}, {
                         return anthology[this.resolveVariable(lang, { wrapped, default: lang }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, isVariable } = envelope, { anthology: anthologySignature } = descriptor
+                        const { descriptor, isVariable = {} } = envelope, { anthology: anthologySignature } = descriptor
                         if (!isVariable.anthology) new Job(async function () { await this.resolveUnit(anthologySignature, 'anthology') }, `anthology:${anthologySignature}`)
                     }
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        let { descriptor } = envelope, { transform: t, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                        let { descriptor } = envelope, { transform: t, isVariable = {} } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
                             transform = await this.resolveUnit(isVariable.transform ? this.resolveVariable(t, { wrapped, default: t }, valueEnvelope) : t, 'transform')
                         if (!transform) return
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { transform: transformSignature, isVariable } = descriptor
+                        const { descriptor } = envelope, { transform: transformSignature, isVariable = {} } = descriptor
                         if (!isVariable.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
                     }
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { pattern: p, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                        const { descriptor } = envelope, { pattern: p, isVariable = {} } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
                             pattern = await this.resolveUnit(isVariable.pattern ? this.resolveVariable(p, { wrapped, default: p }, valueEnvelope) : p, 'pattern')
                         if (!(pattern instanceof RegExp)) return
                         if (pattern.lastIndex) pattern.lastIndex = 0
@@ -105,7 +105,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { pattern: patternSignature, isVariable } = descriptor
+                        const { descriptor } = envelope, { pattern: patternSignature, isVariable = {} } = descriptor
                         if (!isVariable.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     }
                 }],
@@ -230,7 +230,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal })
                         }
-                        return { getReturnValue, shape, target }
+                        return { getReturnValue, target }
                     }
                 }],
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
