@@ -112,15 +112,16 @@ const ElementHTML = Object.defineProperties({}, {
                         let pass
                         switch (mode) {
                             case 'any':
-                                for (const { if: ifMode, name } of types) if (pass = ifMode === (await this.checkType(name, value))) break
+                                for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.checkType(name, value)))) break
                                 break
                             case 'all':
-                                for (const { if: ifMode, name } of types) if (!(pass = ifMode === (await this.checkType(name, value)))) break
+                                for (const { if: ifMode, name } of types) if (!(pass = (ifMode === (await this.checkType(name, value))))) break
                                 break
                             case 'info':
                                 pass = true
-                                const validation = {}
-                                for (const { name } of types) validation[name] = await this.checkType(name, value, true)
+                                const validation = {}, promises = []
+                                for (const { name } of types) promises.push(this.checkType(name, value, true).then(r => validation[name] = r))
+                                await Promise.all(promises)
                                 return { value, validation }
                         }
                         if (pass) return value
@@ -138,11 +139,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const { descriptor } = envelope, { scope, selector } = descriptor
                         if (value != undefined) {
                             const target = this.resolveSelector(selector, scope)
-                            if (Array.isArray(target)) {
-                                for (const t of target) this.render(t, value)
-                            } else if (target) {
-                                this.render(target, value)
-                            }
+                            if (Array.isArray(target)) for (const t of target) this.render(t, value)
+                            else if (target) this.render(target, value)
                         }
                         return value
                     },
@@ -153,18 +151,15 @@ const ElementHTML = Object.defineProperties({}, {
                         let selector = selectorStatement.trim(), eventList
                         if (lastIndexOfBang > selector.lastIndexOf(']') && lastIndexOfBang > selector.lastIndexOf(')') && lastIndexOfBang > selector.lastIndexOf('"') && lastIndexOfBang > selector.lastIndexOf("'"))
                             [selector, eventList] = [selector.slice(0, lastIndexOfBang).trim(), selector.slice(lastIndexOfBang + 1).trim()]
-                        if (eventList) {
-                            eventList = eventList.split(this.sys.regexp.commaSplitter).filter(Boolean)
-                        } else if (container.dataset.facetCid) {
+                        if (eventList) eventList = eventList.split(this.sys.regexp.commaSplitter).filter(Boolean)
+                        else if (container.dataset.facetCid) {
                             const [statementIndex, stepIndex] = position.split('-')
                             if (!this.app.facets[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
                         const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
                         for (let eventName of eventNames) {
                             const eventNameSlice3 = eventName.slice(-3), keepDefault = eventNameSlice3.includes('+'), exactMatch = eventNameSlice3.includes('='), once = eventNameSlice3.includes('-')
-                            if (keepDefault) eventName = eventName.replace('+', '')
-                            if (exactMatch) eventName = eventName.replace('=', '')
-                            if (once) eventName = eventName.replace('-', '')
+                            for (const [v, r] of [[keepDefault, '+'], [exactMatch, '='], [once, '-']]) if (v) eventName = eventName.replace(r, '')
                             scope.addEventListener(eventName, event => {
                                 let targetElement
                                 if (selector.endsWith('}') && selector.includes('{')) {
@@ -175,7 +170,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     const catchallSelector = this.buildCatchallSelector(selector)
                                     targetElement = exactMatch ? event.target : event.target.closest(selector)
                                     if (!targetElement.matches(catchallSelector)) return
-                                } else if (selector && exactMatch && !event.target.matches(selector)) { return }
+                                } else if (selector && exactMatch && !event.target.matches(selector)) return
                                 targetElement ??= (exactMatch ? event.target : event.target.closest(selector))
                                 if (!targetElement) return
                                 const tagDefaultEventType = targetElement.constructor.events?.default ?? this.sys.defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'
@@ -189,9 +184,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
-                    handler: async function (container, position, envelope, value) { // optimal - but maybe needs to == undefined for a reason?
+                    handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
-                        if (value === undefined) return getReturnValue()
+                        if (value == undefined) return getReturnValue()
                         switch (shape) {
                             case 'single': target[target.type].set(value, target.mode); break
                             case 'array': if (Array.isArray(value)) for (let i = 0, v, t, l = value.length; i < l; i++) if ((v = value[i]) !== undefined) (t = target[i])[t.type].set(v, t.mode); break
@@ -267,8 +262,7 @@ const ElementHTML = Object.defineProperties({}, {
                         switch (typeof value) {
                             case 'undefined': value = { method: 'GET' }; break
                             case 'boolean': value = { method: value ? 'GET' : 'DELETE' }; break
-                            case 'bigint':
-                                value = value.toString()
+                            case 'bigint': value = value.toString(); break
                             case 'number':
                                 value = { method: 'POST', headers: new Headers(), body: JSON.stringify(value) }
                                 value.headers.append('Content-Type', 'application/json')
@@ -279,17 +273,14 @@ const ElementHTML = Object.defineProperties({}, {
                                 if (valueAliases[value.body] !== undefined) {
                                     value.body = JSON.stringify(valueAliases[value.body])
                                     value.headers.append('Content-Type', 'application/json')
-                                } else if (regexp.isJSONObject.test(value.body)) {
-                                    value.headers.append('Content-Type', 'application/json')
-                                } else if (regexp.isFormString.test(value.body)) {
-                                    value.headers.append('Content-Type', 'application/x-www-form-urlencoded')
                                 }
+                                else if (regexp.isJSONObject.test(value.body)) value.headers.append('Content-Type', 'application/json')
+                                else if (regexp.isFormString.test(value.body)) value.headers.append('Content-Type', 'application/x-www-form-urlencoded')
                                 break
                             case 'object':
                                 if (value.body && (typeof value.body !== 'string')) value.body = await this.serialize(value.body, value.headers?.['Content-Type'])
                                 break
-                            default:
-                                return
+                            default: return
                         }
                         const response = await fetch(url, value)
                         return contentType === undefined ? this.flatten(response) : this.parse(response, contentType)
@@ -306,17 +297,15 @@ const ElementHTML = Object.defineProperties({}, {
                         const { descriptor, labels, fields, cells, context } = envelope, { expression } = descriptor,
                             done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
                         let ms = 0
-                        if (expression === 'frame') {
-                            await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
-                        } else if (expression.startsWith('idle')) {
+                        if (expression === 'frame') await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
+                        else if (expression.startsWith('idle')) {
                             let timeout = expression.split(':')[0]
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
                             await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
-                        } else if (expression[0] === '+') {
-                            ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped: false }, { cells, context, fields, labels, value })) || 1
-                        } else if (this.sys.regexp.isNumeric.test(expression)) {
-                            ms = (parseInt(expression) || 1) - now
-                        } else {
+                        }
+                        else if (expression[0] === '+') ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped: false }, { cells, context, fields, labels, value })) || 1
+                        else if (this.sys.regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
+                        else {
                             expression = this.resolveVariable(expression, { wrapped: false }, { cells, context, fields, labels, value })
                             const expressionSplit = expression.split(':').map(s => s.trim())
                             if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
@@ -380,8 +369,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: { //optimal
         enumerable: true, value: function (name) {
-            this.expose = true
-            window[name || 'E'] ??= this
+            this.expose = !!(window[name || 'E'] ??= this)
         }
     },
     ImportPackage: { // optimal
@@ -408,15 +396,11 @@ const ElementHTML = Object.defineProperties({}, {
                 get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
             }))
             if (Object.keys(this.env.languages).length) {
-                switch (true) {
-                    case (this.env.lexicon instanceof this.Lexicon): break
-                    case (this.env.lexicon?.prototype instanceof this.Lexicon): this.env.lexicon = new this.env.lexicon(); break
-                    case (this.isPlainObject(this.env.lexicon)): this.env.lexicon = new this.env.lexicon(this.env.lexicon); break
-                    default: this.env.lexicon = new this.Lexicon()
-                }
-            } else {
-                delete this.env.lexicon
+                if (this.env.lexicon?.prototype instanceof this.Lexicon) this.env.lexicon = new this.env.lexicon()
+                else if (this.isPlainObject(this.env.lexicon)) this.env.lexicon = new this.env.lexicon(this.env.lexicon)
+                else this.env.lexicon = new this.Lexicon()
             }
+            else delete this.env.lexicon
             Object.freeze(this.env)
             Object.freeze(this.app)
             for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
@@ -502,23 +486,21 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                 }
-                switch (true) {
-                    case isXDR:
-                        this.app.types[typeName] = (function (value, validate) {
-                            try {
-                                let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
-                                return validate ? { value, typeName, valid, errors: undefined } : valid
-                            } catch (e) {
-                                let valid = false
-                                return validate ? { value, typeName, valid, errors: e } : valid
-                            }
-                        }).bind(this)
-                        break
-                    case isJSONSchema:
-                        this.app.types[typeName] = (function (value, validate) {
-                            const valid = typeDefinition.validate(value)
-                            return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
-                        }).bind(this)
+                if (isXDR) {
+                    this.app.types[typeName] = (function (value, validate) {
+                        try {
+                            let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
+                            return validate ? { value, typeName, valid, errors: undefined } : valid
+                        } catch (e) {
+                            let valid = false
+                            return validate ? { value, typeName, valid, errors: e } : valid
+                        }
+                    }).bind(this)
+                } else if (isJSONSchema) {
+                    this.app.types[typeName] = (function (value, validate) {
+                        const valid = typeDefinition.validate(value)
+                        return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
+                    }).bind(this)
                 }
             }
             if (!this.app.types[typeName]) return
@@ -560,15 +542,14 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const k in value) result[k] = this.flatten(value[k])
                     return result
             }
-            switch (true) {
-                case (Array.isArray(value)):
-                    result = []
-                    for (const v of value) result.push(this.flatten(v))
-                    return result
-                case (value instanceof Event): case (this.isPlainObject(value)):
-                    result = {}
-                    for (const k in value) result[k] = this.flatten(value[k])
-                    return result
+            if (Array.isArray(value)) {
+                result = []
+                for (const v of value) result.push(this.flatten(v))
+                return result
+            } else if ((value instanceof Event) || this.isPlainObject(value)) {
+                result = {}
+                for (const k in value) result[k] = this.flatten(value[k])
+                return result
             }
             if (value instanceof HTMLElement) {
                 result = new Proxy({}, {
@@ -1027,43 +1008,37 @@ const ElementHTML = Object.defineProperties({}, {
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, flags, envelope = {}) {
             let result, { wrapped, default: dft, spread } = (flags ?? {})
-            switch (true) {
-                case typeof expression === 'string':
-                    expression = expression.trim()
-                    wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
-                    if (wrapped) expression = expression.slice(2, -1).trim()
-                    const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
-                    switch (true) {
-                        case (expression in this.sys.valueAliases): result = this.sys.valueAliases[expression]; break
-                        case (expression === '$'): result = 'value' in envelope ? value : expression; break
-                        case (e0 === '$'): case (e0 === '@'): case (e0 === '#'): case (e0 === '~'):
-                            const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
-                            switch (undefined) {
-                                case subEnvelope: result = expression; break
-                                default:
-                                    const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
-                                    let i = 0
-                                    result = subEnvelope[mainExpression.slice(1)]
-                                    while (result !== undefined && i < l) result = result?.[vectors[i++]]
-                            }
-                            break
-                        case (e0 === '?'): case ((e0 === '{') && expression.endsWith('}')): case ((e0 === '{') && expression.endsWith('}')):
-                            result = this.resolveShape(expression)
-                            if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, { ...flags, wrapped: false }, envelope)
-                            break
-                        case ((e0 === '"') && expression.endsWith('"')): case ((e0 === "'") && expression.endsWith("'")): result = expression.slice(1, -1); break
-                        case (this.sys.regexp.isNumeric.test(expression)): result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression); break
-                        default: result = expression
+            if (typeof expression === 'string') {
+                expression = expression.trim()
+                wrapped ??= ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
+                if (wrapped) expression = expression.slice(2, -1).trim()
+                const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
+                if (expression in this.sys.valueAliases) result = this.sys.valueAliases[expression]
+                else if (expression === '$') result = 'value' in envelope ? value : expression
+                else if ((e0 === '$') || (e0 === '@') || (e0 === '#') || (e0 === '~')) {
+                    const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
+                    if (subEnvelope === undefined) result = expression
+                    else {
+                        const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
+                        let i = 0
+                        result = subEnvelope[mainExpression.slice(1)]
+                        while (result !== undefined && i < l) result = result?.[vectors[i++]]
                     }
-                    break
-                case Array.isArray(expression):
-                    result = []
-                    for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
-                    break
-                case this.isPlainObject(expression):
-                    result = {}
-                    const dftIsObject = spread && this.isPlainObject(dft)
-                    for (const key in expression) result[this.resolveVariable(key, {}, envelope)] = this.resolveVariable(expression[key], { default: dftIsObject ? dft[key] : dft }, envelope)
+                }
+                else if ((e0 === '?') || ((e0 === '{') && expression.endsWith('}')) || ((e0 === '{') && expression.endsWith('}'))) {
+                    result = this.resolveShape(expression)
+                    if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, { ...flags, wrapped: false }, envelope)
+                }
+                else if (((e0 === '"') && expression.endsWith('"')) || ((e0 === "'") && expression.endsWith("'"))) result = expression.slice(1, -1)
+                else if (this.sys.regexp.isNumeric.test(expression)) result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
+                else result = expression
+            } else if (Array.isArray(expression)) {
+                result = []
+                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
+            } else if (this.isPlainObject(expression)) {
+                result = {}
+                const dftIsObject = spread && this.isPlainObject(dft)
+                for (const key in expression) result[this.resolveVariable(key, {}, envelope)] = this.resolveVariable(expression[key], { default: dftIsObject ? dft[key] : dft }, envelope)
             }
             return result === undefined ? dft : result
         }
