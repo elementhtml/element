@@ -100,7 +100,8 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value }),
+                        const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = variables ? true : undefined,
+                            valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
                             pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, { wrapped, default: p }, valueEnvelope) : p, 'pattern')
                         if (!(pattern instanceof RegExp)) return
                         if (pattern.lastIndex) pattern.lastIndex = 0
@@ -109,14 +110,14 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
-                        if (!variables.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
+                        if (!variables?.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     }
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { types, mode } = descriptor, promises = []
-                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(t.name, 'type'))
+                        const { descriptor } = envelope, { types, mode } = descriptor, promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
+                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, { wrapped }, valueEnvelope), 'type'))
                         await Promise.all(promises)
                         let pass
                         switch (mode) {
