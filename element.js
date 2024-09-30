@@ -97,16 +97,16 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { pattern: patternSignature } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
-                            pattern = await this.resolveUnit(this.resolveVariable(patternSignature, { wrapped, default: patternSignature }, valueEnvelope), 'pattern')
+                        const { descriptor } = envelope, { pattern: p, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                            pattern = await this.resolveUnit(isVariable.pattern ? this.resolveVariable(p, { wrapped, default: p }, valueEnvelope) : p, 'pattern')
                         if (!(pattern instanceof RegExp)) return
                         if (pattern.lastIndex) pattern.lastIndex = 0
                         const match = value.match(pattern)
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { pattern: patternSignature } = descriptor
-                        if (!this.isWrappedVariable(patternSignature)) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
+                        const { descriptor } = envelope, { pattern: patternSignature, isVariable } = descriptor
+                        if (!isVariable.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     }
                 }],
                 [/^\|.*\|$/, {
