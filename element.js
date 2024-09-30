@@ -682,6 +682,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
             }
             const { elementMappers } = this.sys
+            const promises = []
             for (const p in data) {
                 if (p in elementMappers) { elementMappers[p](element, undefined, true, data[p]); continue }
                 if (p.startsWith('::')) {
@@ -689,54 +690,41 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof element[position] !== 'function') continue
                     let snippets = data[p]
                     if (!snippets) { element[position](snippets); continue }
-                    if (!Array.isArray(snippets)) switch (true) {
-                        case (this.isPlainObject(snippets)):
-                            for (const snippetKey in snippets) {
-                                switch (true) {
-                                    case (this.app.snippets[snippetKey]):
-
-                                }
-
-                            }
-                        default: snippets = [snippets]
-                    }
+                    if (!Array.isArray(snippets)) if (this.isPlainObject(snippets)) {
+                        for (const snippetKey in snippets) promises.push(this.resolveSnippet(snippetKey).then(s => this.render(s, snippets[snippetKey])).then(s => element[position](...s)))
+                        continue
+                    } else snippets = [snippets]
                     if (!snippets.length) { element[position](); continue }
-                    element[position](...this.resolveSnippet(snippets))
+                    promises.push(this.resolveSnippet(snippets).then(s => element[position](...s)))
                     continue
                 }
                 const pFlag = p[0]
-                switch (true) {
-                    case (pFlag === '&'):
-                        let child = this.resolveScopedSelector(p, element)
-                        if (!child) continue
-                        if (!Array.isArray(child)) { this.render(child, data[p]); continue }
-                        const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
-                        for (const c of child) this.render(c, useArray ? useArray.shift() : data[p])
-                        continue
-                    case (pFlag in elementMappers): elementMappers[pFlag](element, p.slice(1).trim(), true, data[p]); continue
-                    case ((pFlag === '[') && p.endsWith(']')): elementMappers.$form(element, p.slice(1, -1).trim(), true, data[p]); continue
-                    case ((pFlag === '{') && p.endsWith('}')): elementMappers.$microdata(element, p.slice(1, -1).trim(), true, data[p]); continue
-                    case (typeof element[p] === 'function'): element[p](data[p]); continue
-                    case (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')):
-                        let [functionName, argsList] = p.slice(0, -1).split('(')
-                        functionName = functionName.trim()
-                        argsList ||= '$'
-                        if (typeof element[functionName] !== 'function') continue
-                        argsList = argsList.split(',')
-                        const args = [], labels = { ...element.dataset }, envelope = await this.createEnvelope({ labels, value: data })
-                        for (let a of argsList) {
-                            a = a.trim()
-                            args.push(this.resolveVariable(a, { wrapped: false, default: a }, envelope))
-                        }
-                        element[functionName](...args)
-                        break
-                    default: element[p] = data[p]
+                if (pFlag === '&') {
+                    let child = this.resolveScopedSelector(p, element)
+                    if (!child) continue
+                    if (!Array.isArray(child)) { this.render(child, data[p]); continue }
+                    const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
+                    for (const c of child) promises.push(this.render(c, useArray ? useArray.shift() : data[p]))
                 }
+                else if (pFlag in elementMappers) elementMappers[pFlag](element, p.slice(1).trim(), true, data[p])
+                else if ((pFlag === '[') && p.endsWith(']')) elementMappers.$form(element, p.slice(1, -1).trim(), true, data[p])
+                else if ((pFlag === '{') && p.endsWith('}')) elementMappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
+                else if (typeof element[p] === 'function') element[p](data[p])
+                else if (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')) {
+                    let [functionName, argsList] = p.slice(0, -1).split('(')
+                    functionName = functionName.trim()
+                    argsList ||= '$'
+                    if (typeof element[functionName] !== 'function') continue
+                    argsList = argsList.trim().split(this.sys.regexp.commaSplitter)
+                    const args = [], labels = { ...element.dataset }
+                    promises.push(this.createEnvelope({ labels, value: data }).then(envelope => {
+                        for (let a of argsList) args.push(this.resolveVariable(a, { wrapped: false, default: a }, envelope))
+                        element[functionName](...args)
+                    }))
+                }
+                else element[p] = data[p]
             }
-
-
-
-
+            return await Promise.all(promises)
         },
     },
     resolveScope: {
