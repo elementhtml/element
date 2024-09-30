@@ -362,7 +362,7 @@ ${scriptBody.join('{')}`
                 expression = expression.slice(1, -1)
                 expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
                 expression.replaceAll('\\ ', ' ')
-                return { expression }
+                return { pattern: expression }
             },
             request: function (expression) { // optimal
                 const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)

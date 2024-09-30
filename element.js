@@ -69,12 +69,12 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { article, lang } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
-                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped }, valueEnvelope), 'anthology')
+                        const { descriptor } = envelope, { anthology: anthologySignature, article, lang } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value }
+                        anthology = await this.resolveUnit(this.resolveVariable(anthologySignature, { wrapped, default: anthologySignature }, valueEnvelope), 'anthology')
                         if (!anthology) return
-                        article = this.resolveVariable(article, { wrapped }, valueEnvelope)
+                        article = this.resolveVariable(article, { wrapped, default: article }, valueEnvelope)
                         if (!article) return
-                        return anthology[this.resolveVariable(lang, { wrapped }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
+                        return anthology[this.resolveVariable(lang, { wrapped, default: lang }, valueEnvelope) ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { anthology } = descriptor
@@ -84,8 +84,8 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        let { descriptor } = envelope, wrapped = true, valueEnvelope = { ...envelope, value },
-                            transform = await this.resolveUnit(this.resolveVariable(descriptor.transform, { wrapped }, valueEnvelope), 'transform')
+                        let { descriptor } = envelope, { transform: transformSignature } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                            transform = await this.resolveUnit(this.resolveVariable(transformSignature, { wrapped, default: transformSignature }, valueEnvelope), 'transform')
                         if (!transform) return
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
@@ -97,17 +97,16 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\/.*\/$/, {
                     name: 'pattern',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { regexp } = descriptor
-                        if (typeof value !== 'string') value = `${value}`
-                        if (regexp.lastIndex) regexp.lastIndex = 0
-                        const match = value.match(regexp)
+                        const { descriptor } = envelope, wrapped = true, valueEnvelope = { ...envelope, value },
+                            pattern = await this.resolveUnit(this.resolveVariable(descriptor.pattern, { wrapped }, valueEnvelope), 'pattern')
+                        if (!(pattern instanceof RegExp)) return
+                        if (pattern.lastIndex) pattern.lastIndex = 0
+                        const match = value.match(pattern)
                         return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
-                        // do something to  allow to lazy loading of patterns
-                        const { descriptor } = envelope, { expression } = descriptor,
-                            regexp = expression[0] === '~' ? (this.env.patterns[expression.slice(1)] ?? /(?!)/) : new RegExp(expression)
-                        return { regexp }
+                        const { descriptor } = envelope, { pattern } = descriptor
+                        if (!this.isWrappedVariable(pattern)) new Job(async function () { await this.resolveUnit({ pattern }) }, `pattern:${pattern}`)
                     }
                 }],
                 [/^\|.*\|$/, {
