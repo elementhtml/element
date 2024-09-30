@@ -657,38 +657,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    resolveSnippet: {
-        value: async function (snippet) {
-            const nodes = []
-            if (Array.isArray(snippet)) {
-                for (const s of snippet) nodes.push(...(await this.resolveSnippet(s)))
-                return nodes
-            }
-            const appSnippets = this.app.snippets
-            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, await this.createEnvelope())
-            switch (true) {
-                case (snippet instanceof HTMLTemplateElement): nodes.push(...snippet.content.cloneNode(true).children); break
-                case (snippet instanceof Node): case (snippet instanceof HTMLElement): nodes.push(snippet); break
-                case (snippet instanceof NodeList): case (snippet instanceof HTMLCollection): nodes.push(...snippet); break
-                case (typeof snippet === 'string'):
-                    switch (true) {
-                        case (appSnippets[snippet]): nodes.push(...appSnippets[snippet].content.cloneNode(true).children); break
-                        case (this.env.snippets[snippet]): nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children); break
-                        case (snippet[0] === '`' && snippet.endsWith('`')):
-                            const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1).trim(), 'snippet')
-                            if (!resolvedSnippet instanceof HTMLTemplateElement) break
-                            nodes.push(...resolvedSnippet.content.cloneNode(true).children)
-                            appSnippets[snippet] = resolvedSnippet
-                            break
-                        default:
-                            const template = document.createElement('template')
-                            template.innerHTML = snippet
-                            nodes.push(...template.content.cloneNode(true).children)
-                    }
-            }
-            return nodes
-        }
-    },
 
 
     render: {
@@ -1956,6 +1924,38 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+    resolveSnippet: {
+        value: async function (snippet) {
+            const nodes = []
+            if (Array.isArray(snippet)) {
+                let promises = []
+                for (const s of snippet) promises.push(this.resolveSnippet(s))
+                promises = await Promise.all(promises)
+                for (const p of promises) nodes.push(...p)
+                return nodes
+            }
+            const { snippets: appSnippets } = this.app
+            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, await this.createEnvelope())
+            if (snippet instanceof HTMLTemplateElement) nodes.push(...snippet.content.cloneNode(true).children)
+            else if ((snippet instanceof Node) || (snippet instanceof HTMLElement)) nodes.push(snippet)
+            else if ((snippet instanceof NodeList) || (snippet instanceof HTMLCollection)) nodes.push(...snippet)
+            else if (typeof snippet === 'string') {
+                if (appSnippets[snippet]) nodes.push(...appSnippets[snippet].content.cloneNode(true).children)
+                else if (this.env.snippets[snippet]) nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children)
+                else if (snippet[0] === '`' && snippet.endsWith('`')) {
+                    const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1).trim(), 'snippet')
+                    if (resolvedSnippet instanceof HTMLTemplateElement) nodes.push(...(appSnippets[snippet] = resolvedSnippet).content.cloneNode(true).children)
+                }
+                else {
+                    const template = document.createElement('template')
+                    template.innerHTML = snippet
+                    nodes.push(...template.content.cloneNode(true).children)
+                }
+            }
+            return nodes
+        }
+    },
     resolveSnippetKey: {
         value: function (snippetKey) {
             if (snippetKey[0] === '`' && snippetKey.endsWith('`')) {
@@ -1974,6 +1974,8 @@ const ElementHTML = Object.defineProperties({}, {
             return snippetKey
         }
     },
+
+
     resolveUnit: {
         value: async function (unitExpression, unitType) {
             unitExpression = unitExpression.trim()
