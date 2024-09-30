@@ -240,39 +240,41 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'api',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { api: a, action } = descriptor, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            api = await this.resolveUnit(variables.api ? this.resolveVariable(a, { wrapped, default: a }, valueEnvelope) : a, 'api')
+                        const { descriptor, variables } = envelope, { api: a, action: actionSignature } = descriptor, wrapped = variables ? true : undefined,
+                            valueEnvelope = Object.freeze({ ...envelope, value }),
+                            api = await this.resolveUnit(variables?.api ? this.resolveVariable(a, { wrapped }, valueEnvelope) : a, 'api')
                         if (!api) return
-                        action = this.resolveVariable(action, { wrapped, default: action }, valueEnvelope) ?? 'default'
+                        const action = variables?.action ? this.resolveVariable(actionSignature, { wrapped }, valueEnvelope) : actionSignature
+                        if (variables?.action && !action) return
                         return api[action](value, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
-                        if (!variables.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
+                        if (!variables?.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
                     }
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { model: m, prompt: p } = descriptor, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            model = await this.resolveUnit(variables.model ? this.resolveVariable(m, { wrapped, default: a }, valueEnvelope) : a, 'model'),
-                            prompt = this.resolveVariable(p, { wrapped: false, merge: true, default: `${prompt}\n${value}` })
-                        if (!model) return
-                        return model[prompt](value, valueEnvelope)
+                        const { descriptor, variables } = envelope, { model: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
+                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, { wrapped, default: a }, valueEnvelope) : a, 'model'),
+                            prompt = this.resolveVariable(p, { wrapped: false, merge: true, default: `${prompt}\n${value}`.trim() }, valueEnvelope)
+                        if (!model || !prompt) return
+                        return model.inference(prompt, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { model: modelSignature, } = descriptor
-                        if (!variables.model) new Job(async function () { await this.resolveUnit(modelSignature, 'model') }, `model:${modelSignature}`)
+                        if (!variables?.model) new Job(async function () { await this.resolveUnit(modelSignature, 'model') }, `model:${modelSignature}`)
                     }
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { labels, cells, context, fields, descriptor, variables } = envelope, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value })
+                        const { descriptor, variables } = envelope, wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
                         let { url, contentType } = descriptor
-                        url = this.resolveUrl(variables.url ? this.resolveVariable(url, { wrapped }, valueEnvelope) : url)
+                        url = this.resolveUrl(variables?.url ? this.resolveVariable(url, { wrapped }, valueEnvelope) : url)
                         if (!url) return
-                        contentType = variables.contentType ? this.resolveVariable(contentType, { wrapped }, valueEnvelope) : contentType
+                        contentType = variables?.contentType ? this.resolveVariable(contentType, { wrapped }, valueEnvelope) : contentType
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
                             case 'undefined': value = { method: 'GET' }; break
@@ -302,15 +304,15 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { contentType } = descriptor
-                        if (!variables.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
+                        if (!variables?.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
                     }
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, labels, fields, cells, context, variables } = envelope, { expression } = descriptor,
-                            wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value })
-                        done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
+                        const { descriptor, labels, fields, cells, context, variables } = envelope, { expression } = descriptor, isPlusExpression = (expression[0] === '+'),
+                            wrapped = (variables || isPlusExpression) ? true : undefined, valueEnvelope = (variables || isPlusExpression) ? Object.freeze({ ...envelope, value }) : undefined,
+                            done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
                         let ms = 0
                         if (expression === 'frame') await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
                         else if (expression.startsWith('idle')) {
@@ -318,7 +320,7 @@ const ElementHTML = Object.defineProperties({}, {
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
                             await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
                         }
-                        else if (expression[0] === '+') ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped }, valueEnvelope)) || 1
+                        else if (isPlusExpression) ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped }, valueEnvelope)) || 1
                         else if (this.sys.regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
                         else {
                             if (variables.expression) expression = this.resolveVariable(expression, { wrapped }, valueEnvelope)
