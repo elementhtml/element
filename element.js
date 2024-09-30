@@ -149,7 +149,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return value
                     },
                     binder: async function (container, position, envelope) { // optimal
-                        const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor, scope = this.resolveScope(scopeStatement, container)
+                        const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
+                            scope = this.resolveScope(scopeStatement, container)
                         if (!scope) return {}
                         const lastIndexOfBang = selectorStatement.lastIndexOf('!')
                         let selector = selectorStatement.trim(), eventList
