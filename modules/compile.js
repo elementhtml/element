@@ -148,14 +148,13 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     }
                     if (signature === undefined) {
                         if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in ${container.id || container.name || container.dataset.facetCid}: ${handlerExpression}`, 'warning')
-                        for (const [matcher, interpreter] of interpreters) {
-                            const { parser, name } = interpreter
-                            if (matcher.test('$?') && (typeof parser === 'function')) signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
-                            if (signature) break
-                        }
+                        let matcher, name = 'console'
+                        for (const [k, v] of interpreters) if (v.name === 'console') { matcher = k; break }
+                        if (!matcher) continue
+                        signature = { name, interpreter: matcher.toString(), descriptor: { verbose: true }, variables: {} }
                     }
                     for (const p in signature.descriptor) if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
-                    if (Object.keys(signature.variables.length)) Object.freeze(signature.variables)
+                    if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
                     else delete signature.variables
                     Object.freeze(signature.descriptor)
                     const step = { label, labelMode, signature: Object.freeze(signature) }
@@ -355,7 +354,7 @@ ${scriptBody.join('{')}`
                 return { invocation: expression.slice(2, -1).trim() }
             },
             console: function (expression) { // optimal
-                return { showStepEnvelope: expression === '$?' }
+                return { verbose: expression === '$?' }
             },
             content: function (expression) { // optimal
                 const [anthology, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
