@@ -69,15 +69,15 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { article, lang } = descriptor,
-                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped: true }, envelope), 'anthology')
+                        const { descriptor } = envelope, { article, lang } = descriptor, wrapped = true,
+                            anthology = await this.resolveUnit(this.resolveVariable(descriptor.anthology, { wrapped }, envelope), 'anthology')
                         if (!anthology) return
-                        lang = this.resolveVariable(lang, { wrapped: true }, envelope)
-                        article = this.resolveVariable(article, { wrapped: true }, envelope)
+                        lang = this.resolveVariable(lang, { wrapped }, envelope)
+                        article = this.resolveVariable(article, { wrapped }, envelope)
                         return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, cells, context, fields, labels } = envelope, { anthology, article } = descriptor
+                        const { descriptor } = envelope, { anthology } = descriptor
                         if (!this.isWrappedVariable(anthology)) new Job(async function () { await this.resolveUnit({ anthology }) }, `anthology:${anthology}`)
                     }
                 }],
