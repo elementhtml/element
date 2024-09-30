@@ -333,14 +333,18 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\`[^`]+\`$/, {
                     name: 'command',
                     handler: async function (container, position, envelope, value) { // optimal
-                        if (this.modules.dev) $([envelope.descriptor.invocation])
+                        if (!this.modules.dev) return value
+                        const { descriptor, variables } = envelope, { invocation } = descriptor,
+                            wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value })
+                        $([variables.invocation ? this.resolveVariable(invocation, { wrapped }, valueEnvelope) : invocation])
                         return value
                     }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) { // optimal
-                        if (this.modules.dev) (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
+                        if (!this.modules.dev) return value;
+                        (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
                     }
                 }]
