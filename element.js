@@ -659,7 +659,7 @@ const ElementHTML = Object.defineProperties({}, {
 
 
 
-    render: {
+    render: { // optimal
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
             element = this.app.components.natives.get(element) ?? element
