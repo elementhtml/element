@@ -112,7 +112,9 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\|.*\|$/, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor } = envelope, { types, mode } = descriptor
+                        const { descriptor } = envelope, { types, mode } = descriptor, promises = []
+                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(t.name, 'type'))
+                        await Promise.all(promises)
                         let pass
                         switch (mode) {
                             case 'any':
@@ -131,10 +133,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (pass) return value
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { types, mode } = descriptor
-                        for (typeExpression of types) {
-                            // do something to pre-load this type class 
-                        }
+                        const { descriptor } = envelope, { types } = descriptor
+                        for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
                     }
                 }],
                 [/^\$\(.*\)$/, {
