@@ -263,11 +263,11 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { labels, cells, context, fields, descriptor } = envelope
+                        const { labels, cells, context, fields, descriptor, variables } = envelope, wrapped = true, valueEnvelope = Object.freeze({ ...envelope, value })
                         let { url, contentType } = descriptor
-                        url = this.resolveUrl(this.resolveVariable(url, { wrapped: false }, { cells, context, fields, labels, value }))
+                        url = this.resolveUrl(variables.url ? this.resolveVariable(url, { wrapped }, valueEnvelope) : url)
                         if (!url) return
-                        contentType = this.resolveVariable(contentType, { wrapped: false }, { cells, context, fields, labels, value })
+                        contentType = variables.contentType ? this.resolveVariable(contentType, { wrapped }, valueEnvelope) : contentType
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
                             case 'undefined': value = { method: 'GET' }; break
@@ -296,9 +296,8 @@ const ElementHTML = Object.defineProperties({}, {
                         return contentType === undefined ? this.flatten(response) : this.parse(response, contentType)
                     },
                     binder: async function (container, position, envelope) {
-                        // do something to  allow to lazy loading of contentType transformer to transforms and gateway to gateways
-                        const { labels, cells, context, fields, descriptor } = envelope
-                        let { url, contentType } = descriptor
+                        const { descriptor, variables } = envelope, { contentType } = descriptor
+                        if (!variables.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
                     }
                 }],
                 [/^_.*_$/, {
