@@ -128,7 +128,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     for (const [matcher, interpreter] of interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                            signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {} }
+                            signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {}, variables: {} }
                             if (name === 'state') {
                                 const { target, shape } = signature.descriptor
                                 switch (shape) {
@@ -155,10 +155,9 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                         }
                     }
                     for (const p in signature.descriptor) {
-                        const isVariable = {}
-                        if (this.isWrappedVariable(signature.descriptor[p])) isVariable[p] = true
+                        if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
                     }
-                    if (Object.keys(isVariable).length) signature.descriptor.isVariable = Object.freeze(isVariable)
+                    Object.freeze(signature.variables)
                     Object.freeze(signature.descriptor)
                     const step = { label, labelMode, signature: Object.freeze(signature) }
                     if (defaultExpression) step.defaultExpression = defaultExpression
