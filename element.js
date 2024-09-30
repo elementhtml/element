@@ -84,14 +84,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) { // optimal
-                        let { descriptor } = envelope, { transform: transformSignature, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
-                            transform = await this.resolveUnit(this.resolveVariable(transformSignature, { wrapped, default: transformSignature }, valueEnvelope), 'transform')
+                        let { descriptor } = envelope, { transform: t, isVariable } = descriptor, wrapped = true, valueEnvelope = { ...envelope, value },
+                            transform = await this.resolveUnit(isVariable.transform ? this.resolveVariable(t, { wrapped, default: t }, valueEnvelope) : t, 'transform')
                         if (!transform) return
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor } = envelope, { transform: transformSignature } = descriptor
-                        if (!this.isWrappedVariable(transformSignature)) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
+                        const { descriptor } = envelope, { transform: transformSignature, isVariable } = descriptor
+                        if (!isVariable.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
                     }
                 }],
                 [/^\/.*\/$/, {
