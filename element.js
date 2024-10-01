@@ -751,7 +751,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    resolveScopedSelector: {
+    resolveScopedSelector: { // optimal
         enumerable: true, value: function (scopedSelector, element) {
             if (element) element = this.app.components.natives.get(element) ?? element
             if (this.sys.impliedScopes[scopedSelector]) return element ? this.resolveScope(this.sys.impliedScopes[scopedSelector], element) : { scope: this.sys.impliedScopes[scopedSelector] }
@@ -766,7 +766,7 @@ const ElementHTML = Object.defineProperties({}, {
             return element ? this.resolveSelector(scopedSelector, scope) : { selector: scopedSelector }
         }
     },
-    resolveSelector: {
+    resolveSelector: {  // optimal
         enumerable: true, value: function (selector, scope) {
             if (!selector) return scope
             if (selector[0] === ':') return scope.querySelector(this.buildCatchallSelector(selector))
@@ -795,11 +795,8 @@ const ElementHTML = Object.defineProperties({}, {
                                         qualified = combinatorProcessor(track), remainingSegment = segment.slice(nonDefaultCombinator.length).trim()
                                     while (remainingSegment) {
                                         let indexOfNextClause = -1, writeIndex = 0
-                                        if (remainingSegment[0] === '[') {
-                                            indexOfNextClause = remainingSegment.indexOf(']', 1) + 1
-                                        } else {
-                                            for (const c in this.sys.selector.clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
-                                        }
+                                        if (remainingSegment[0] === '[') indexOfNextClause = remainingSegment.indexOf(']', 1) + 1
+                                        else for (const c in this.sys.selector.clauseOpeners) if ((indexOfNextClause = remainingSegment.indexOf(c, 1)) !== -1) break
                                         const noIndexOfNextClause = indexOfNextClause === -1, thisClause = remainingSegment.slice(0, noIndexOfNextClause ? undefined : indexOfNextClause).trim()
                                         try {
                                             for (let i = 0; i < qualified.length; i++) if (qualified[i].matches(thisClause)) qualified[writeIndex++] = qualified[i]
@@ -818,12 +815,9 @@ const ElementHTML = Object.defineProperties({}, {
                                                     let clauseReferenceValue = clauseComparator ? thisClause.slice(indexOfComparator + clauseComparator.length, -1).trim() : undefined
                                                     if (clauseReferenceValue && (clauseReferenceValue.length > 1) && (clauseReferenceValue[0] == '"' || clauseReferenceValue[0] == "'") && (clauseReferenceValue.endsWith('"') || clauseReferenceValue.endsWith("'"))) clauseReferenceValue = clauseReferenceValue.slice(1, -1)
                                                     switch (clauseKey) {
-                                                        case '...':
-                                                            clauseInputValueType = 'textContent'
-                                                        case '..':
-                                                            clauseInputValueType ??= 'innerText'
-                                                        case '<>':
-                                                            clauseInputValueType ??= 'innerHTML'
+                                                        case '...': clauseInputValueType = 'textContent'
+                                                        case '..': clauseInputValueType ??= 'innerText'
+                                                        case '<>': clauseInputValueType ??= 'innerHTML'
                                                             for (let i = 0; i < qualified.length; i++) if (comparatorProcessor(qualified[i][clauseInputValueType], clauseReferenceValue)) qualified[writeIndex++] = qualified[i]
                                                             break
                                                         case '.':
