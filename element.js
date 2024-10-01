@@ -738,8 +738,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'body': return document.body
                 case 'root': return element.getRootNode()
                 case 'host': return element.getRootNode().host ?? document.documentElement
-                case 'documentElement': case 'html': return document.documentElement
-                case 'document': return document
+                case 'document': return document.documentElement
                 case 'window': return window
                 case '^': case ':': case '~':
                     let scope = element.getRootNode()
