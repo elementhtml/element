@@ -738,14 +738,14 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'body': return document.body
                 case 'root': return element.getRootNode()
                 case 'host': return element.getRootNode().host ?? document.documentElement
-                case 'document': return document.documentElement
+                case 'document': case 'html': return document.documentElement
                 case 'window': return window
-                case '^': case ':': case '~':
+                case '*': case '&': case '@':
                     let scope = element.getRootNode()
                     switch (scopeStatement) {
-                        case '^': return (scope === document) ? document.documentElement : scope
-                        case ':': return (root instanceof ShadowRoot) ? root : document.body
-                        case '~': return (root instanceof ShadowRoot) ? root : document.head
+                        case '*': return (scope === document) ? document.documentElement : scope
+                        case '&': return (root instanceof ShadowRoot) ? scope : document.body
+                        case '@': return (root instanceof ShadowRoot) ? scope : document.head
                     }
                 default: return element.closest(scopeStatement)
             }
@@ -1543,7 +1543,7 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
-            autoScopes: Object.freeze(new Set(['head', 'body', '^', '~', 'root', 'host', '*', 'html', 'document', 'documentElement', 'window'])),
+            autoScopes: Object.freeze(new Set(['head', 'body', 'root', 'host', 'document', 'window', 'html', '*', '&', '@'])),
             valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
             autoResolverSuffixes: Object.freeze({
                 component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
@@ -1664,7 +1664,7 @@ const ElementHTML = Object.defineProperties({}, {
             return Promise.all(promises)
         }
     },
-    buildCatchallSelector: {
+    buildCatchallSelector: { // optimal
         value: function (selector) {
             const selectorMain = selector.slice(1)
             if (!selectorMain) return selector
