@@ -736,21 +736,19 @@ const ElementHTML = Object.defineProperties({}, {
             switch (scopeStatement) {
                 case 'head': return document.head
                 case 'body': return document.body
-                case '^': case '~':
-                    let root = element.getRootNode()
-                    return (root instanceof ShadowRoot) ? root : (scopeStatement === '~' ? document.head : document.body)
-                case 'root':
-                    return element.getRootNode()
-                case 'host':
-                    return element.getRootNode().host ?? document.documentElement
-                case '*':
-                    let scope = element.getRootNode()
-                    return (scope === document) ? document.documentElement : scope
+                case 'root': return element.getRootNode()
+                case 'host': return element.getRootNode().host ?? document.documentElement
                 case 'documentElement': case 'html': return document.documentElement
                 case 'document': return document
                 case 'window': return window
-                default:
-                    return element.closest(scopeStatement)
+                case '^': case ':': case '~':
+                    let scope = element.getRootNode()
+                    switch (scopeStatement) {
+                        case '^': return (scope === document) ? document.documentElement : scope
+                        case ':': return (root instanceof ShadowRoot) ? root : document.body
+                        case '~': return (root instanceof ShadowRoot) ? root : document.head
+                    }
+                default: return element.closest(scopeStatement)
             }
         }
     },
