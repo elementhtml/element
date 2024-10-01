@@ -1030,7 +1030,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, envelope = {}, flags = {}) {
             expression = expression.trim()
@@ -1077,7 +1076,6 @@ const ElementHTML = Object.defineProperties({}, {
             return result === undefined ? dft : result
         }
     },
-
 
     runTransform: {
         enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
