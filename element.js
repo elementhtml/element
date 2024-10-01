@@ -1970,8 +1970,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-    resolveUnit: {
+    resolveUnit: { // optimal
         value: async function (unitExpression, unitType) {
             if (!unitExpression) return
             if (typeof unitExpression !== 'string') {
@@ -2023,9 +2022,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
-
 
     runElementMethod: {
         value: function (statement, arg, element) {
