@@ -614,7 +614,7 @@ const ElementHTML = Object.defineProperties({}, {
             return proto === null || proto === Object.prototype || proto.constructor === Object
         }
     },
-    parse: {
+    parse: { // optimal
         enumerable: true, value: async function (input, contentType) {
             const inputIsResponse = (input instanceof Response), inputIsText = (typeof input === 'text')
             if (!(inputIsResponse || inputIsText)) return input
@@ -634,7 +634,7 @@ const ElementHTML = Object.defineProperties({}, {
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-            const contentTypeTransformer = this.resolveUnit(contentType, 'transform')
+            const contentTypeTransformer = this.resolveUnit(contentType, 'transform') ?? (inputUrlExtension ? this.resolveUnit(inputUrlExtension, 'transform') : undefined)
             if (contentTypeTransformer) return this.runTransform(contentTypeTransformer, text)
         }
     },
@@ -1958,6 +1958,9 @@ const ElementHTML = Object.defineProperties({}, {
             if (!unitExpression) return
             const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
             if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
+
+
+
             if (this.env[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression] = this.env[unitTypeCollectionName][unitExpression]
             if (this.app.resolvers[unitTypeCollectionName]) return this.app.resolvers[unitTypeCollectionName](unitExpression)
             if (this.env.resolvers[unitTypeCollectionName]) return (this.app.resolvers[unitTypeCollectionName] = this.env.resolvers[unitTypeCollectionName])(unitExpression)
