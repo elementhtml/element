@@ -729,7 +729,7 @@ const ElementHTML = Object.defineProperties({}, {
             return await Promise.all(promises)
         },
     },
-    resolveScope: {
+    resolveScope: { // optimal
         enumerable: true, value: function (scopeStatement, element) {
             element = this.app.components.natives.get(element) ?? element
             if (!scopeStatement) return element.parentElement
