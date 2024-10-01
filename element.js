@@ -616,46 +616,32 @@ const ElementHTML = Object.defineProperties({}, {
     },
     parse: {
         enumerable: true, value: async function (input, contentType) {
-            const typeCheck = (input instanceof Response) || (typeof input === 'text')
-            if (!typeCheck && (input instanceof Object)) return input
-            input = typeCheck ? input : `${input}`
+            const inputIsResponse = (input instanceof Response), inputIsText = (typeof input === 'text')
+            if (!(inputIsResponse || inputIsText)) return input
             let inputUrlExtension
-            if (!contentType) {
-                if (!contentType && (input instanceof Response)) {
-                    contentType ||= input.url.endsWith('.html') ? 'text/html' : undefined
-                    contentType ||= input.url.endsWith('.css') ? 'text/css' : undefined
-                    contentType ||= input.url.endsWith('.md') ? 'text/markdown' : undefined
-                    contentType ||= input.url.endsWith('.csv') ? 'text/csv' : undefined
-                    contentType ||= input.url.endsWith('.txt') ? 'text/plain' : undefined
-                    contentType ||= input.url.endsWith('.json') ? 'application/json' : undefined
-                    contentType ||= input.url.endsWith('.yaml') ? 'application/x-yaml' : undefined
-                    contentType ||= input.url.endsWith('.jsonl') ? 'application/x-jsonl' : undefined
-                    contentType ||= input.url.endsWith('.hjson') ? 'application/hjson' : undefined
-                    const serverContentType = input.headers.get('Content-Type')
-                    if (serverContentType !== 'application/octet-stream') contentType ||= serverContentType || undefined
-                    if (input.url.includes('.')) inputUrlExtension = input.url.split('.').pop()
-                } else if (contentType && contentType.includes('json')) {
-                    contentType = 'application/json'
-                } else if (contentType && contentType.includes('yaml')) {
-                    contentType = 'application/x-yaml'
-                } else if (contentType && contentType.includes('csv')) {
-                    contentType = 'text/csv'
+
+            if (!contentType && inputIsResponse) {
+                const serverContentType = input.headers.get('Content-Type')
+                if (serverContentType !== 'application/octet-stream') contentType = serverContentType || undefined
+                if (!contentType) {
+                    const inputUrlPathname = (new URL(input.url)).pathname, suffix = inputUrlPathname.includes('.') ? inputUrlPathname.split('.').pop() : undefined
+                    const suffixContentTypeMap = {
+                        html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json',
+                        yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
+                    }
+                    contentType = suffix ? suffixContentTypeMap[suffix] : undefined
+                    if (contentType) inputUrlExtension = suffix
                 }
-                contentType ||= 'application/json'
+                if (!contentType || (contentType === 'text/html') || (contentType === 'text/plain')) return await input.text()
             }
-            if (!contentType.includes('/')) contentType = `application/${contentType}`
-            if ((contentType === 'text/html') || (contentType === 'text/plain')) return (input instanceof Response) ? await input.text() : input
-            if (contentType.includes('application/json')) return (input instanceof Response) ? await input.json() : JSON.parse(input)
+            if (!contentType) return input
+            if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
+
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-            let hasHelper = await this.loadHelper(contentType)
-            if (hasHelper) return this.useHelper(contentType, text) ?? text
-            if (inputUrlExtension) {
-                inputUrlExtension = `.${inputUrlExtension}`
-                hasHelper = await this.loadHelper(inputUrlExtension)
-                if (hasHelper) return this.useHelper(inputUrlExtension, text) ?? text
-            }
+            const contentTypeTransformer = this.resolveUnit(contentType, 'transform')
+            if (contentTypeTransformer) return this.runTransform(contentTypeTransformer, text)
         }
     },
 
