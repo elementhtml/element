@@ -619,24 +619,18 @@ const ElementHTML = Object.defineProperties({}, {
             const inputIsResponse = (input instanceof Response), inputIsText = (typeof input === 'text')
             if (!(inputIsResponse || inputIsText)) return input
             let inputUrlExtension
-
             if (!contentType && inputIsResponse) {
                 const serverContentType = input.headers.get('Content-Type')
                 if (serverContentType !== 'application/octet-stream') contentType = serverContentType || undefined
                 if (!contentType) {
                     const inputUrlPathname = (new URL(input.url)).pathname, suffix = inputUrlPathname.includes('.') ? inputUrlPathname.split('.').pop() : undefined
-                    const suffixContentTypeMap = {
-                        html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json',
-                        yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
-                    }
-                    contentType = suffix ? suffixContentTypeMap[suffix] : undefined
+                    contentType = suffix ? this.sys.suffixContentTypeMap[suffix] : undefined
                     if (contentType) inputUrlExtension = suffix
                 }
                 if (!contentType || (contentType === 'text/html') || (contentType === 'text/plain')) return await input.text()
             }
             if (!contentType) return input
             if (contentType === 'application/json') return (input instanceof Response) ? await input.json() : JSON.parse(input)
-
             let text = ((input instanceof Response) ? await input.text() : input).trim()
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
@@ -1528,6 +1522,9 @@ const ElementHTML = Object.defineProperties({}, {
             autoResolverSuffixes: Object.freeze({
                 component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
                 transform: ['js', 'wasm', 'jsonata'], type: ['js', 'x', 'schema.json', 'json']
+            }),
+            suffixContentTypeMap: Object.freeze({
+                html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
             }),
             unitTypeCollectionChecks: Object.freeze({
                 mustBeClass: Object.freeze({ components: 'Component', facets: 'Facet' }),
