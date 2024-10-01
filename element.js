@@ -1905,7 +1905,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveImport: { //optimal
         enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
-            const { hash = '#default', origin, pathname } = this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
+            const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
             isWasm ??= pathname.endsWith('.wasm')
             const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
             return returnWholeModule ? module : module[hash.slice(1)]
@@ -2007,22 +2007,19 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (!unitSuffix) return
-
             let unit, unitModule
             if (unitUrl) {
-                const { hash, pathname } = unitUrl
                 switch (unitSuffix) {
-                    case 'js': case 'wasm':
-                        unitModule = await import(unitUrl.href)
-                        unit = hash ? unitModule[hash] : unitModule.default
+                    case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
                     case 'json':
                         unitModule = await (await fetch(unitUrl.href)).json()
-                        unit = hash ? unitModule[hash] : unitModule
                     default:
-                        unitModule = await fetch(unitUrl.href)
-                        unit = await this.parse(unitModule) ?? (await unitModule.text())
+                        if (!unitModule) unitModule = (await this.parse(unitModule = (await fetch(unitUrl.href)))) ?? (await unitModule.text())
+                        const { hash } = unitUrl
+                        if (hash) unit = (unit && typeof unit === 'object') ? unit[hash] : undefined
                 }
-                return this.app[unitType][unitExpression] = unit
+                if (!unit) return
+                return (this.app[unitTypeCollectionName][unitExpression] = unit)
             }
         }
     },
