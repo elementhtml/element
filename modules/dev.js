@@ -244,7 +244,7 @@ const module = {
                 for (const s of target) funcScope = funcScope[s]
                 if (typeof funcScope === 'function') {
                     const func = funcScope, env = { cells: this.app.cells, context: this.app.context }
-                    for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { wrapped: false }, { cells: this.flatten(this.app.cells), context: this.env.context })
+                    for (let i = 0, l = args.length; i < l; i++) args[i] = this.resolveVariable(args[i].trim(), { cells: this.flatten(this.app.cells), context: this.env.context })
                     result = func(...args)
                 } else if (funcScope === undefined) {
                     return print(`Command ${command} not correctly configured: this.${target.join('.')}() is not a valid function.`, 'error') && getFiller()

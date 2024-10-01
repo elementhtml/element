@@ -56,14 +56,14 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\{.*\}$/, {
                     name: 'variable',
                     handler: async function (container, position, envelope, value) { // optimal
-                        return this.resolveVariable(descriptor.expression, { wrapped: false }, { ...envelope, value })
+                        return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value }))
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, cells, context, fields, labels } = envelope
-                        return this.resolveVariable(descriptor.shape, { wrapped: false }, { ...envelope, value })
+                        const { descriptor } = envelope
+                        return this.resolveVariable(descriptor.shape, Object.freeze({ ...envelope, value }))
                     }
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
@@ -71,11 +71,11 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor, variables } = envelope, { anthology: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
-                            anthology = await this.resolveUnit(variables?.anthology ? this.resolveVariable(a, { wrapped, default: a }, valueEnvelope) : a, 'anthology')
+                            anthology = await this.resolveUnit(variables?.anthology ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'anthology')
                         if (!anthology) return
-                        const article = variables?.article ? this.resolveVariable(articleSignature, { wrapped }, valueEnvelope) : articleSignature
+                        const article = variables?.article ? this.resolveVariable(articleSignature, valueEnvelope, { wrapped }) : articleSignature
                         if (variables?.article && !article) return
-                        const lang = variables?.lang ? this.resolveVariable(langSignature, { wrapped }, valueEnvelope) : langSignature
+                        const lang = variables?.lang ? this.resolveVariable(langSignature, valueEnvelope, { wrapped }) : langSignature
                         return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article || 'index', valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
@@ -88,7 +88,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         let { descriptor, variables } = envelope, { transform: t } = descriptor, variablesTransform = variables?.transform, wrapped = variablesTransform ? true : undefined,
                             valueEnvelope = variablesTransform ? Object.freeze({ ...envelope, value }) : envelope,
-                            transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, { wrapped, default: t }, valueEnvelope) : t, 'transform')
+                            transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
                         if (!transform) return
                         return this.runTransform(transform, value, container, valueEnvelope)
                     },
@@ -102,7 +102,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
-                            pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, { wrapped, default: p }, valueEnvelope) : p, 'pattern')
+                            pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, valueEnvelope, { wrapped }) : p, 'pattern')
                         if (!(pattern instanceof RegExp)) return
                         if (pattern.lastIndex) pattern.lastIndex = 0
                         const match = value.match(pattern)
@@ -117,7 +117,7 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor } = envelope, { types, mode } = descriptor, promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
-                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, { wrapped }, valueEnvelope), 'type'))
+                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
                         await Promise.all(promises)
                         let pass
                         switch (mode) {
@@ -242,9 +242,9 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { api: a, action: actionSignature } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = Object.freeze({ ...envelope, value }),
-                            api = await this.resolveUnit(variables?.api ? this.resolveVariable(a, { wrapped }, valueEnvelope) : a, 'api')
+                            api = await this.resolveUnit(variables?.api ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'api')
                         if (!api) return
-                        const action = variables?.action ? this.resolveVariable(actionSignature, { wrapped }, valueEnvelope) : actionSignature
+                        const action = variables?.action ? this.resolveVariable(actionSignature, valueEnvelope, { wrapped }) : actionSignature
                         if (variables?.action && !action) return
                         return api[action](value, valueEnvelope)
                     },
@@ -257,8 +257,8 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { model: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, { wrapped, default: a }, valueEnvelope) : a, 'model'),
-                            prompt = this.resolveVariable(p, { wrapped: false, merge: true, default: `${prompt}\n${value}`.trim() }, valueEnvelope)
+                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'model'),
+                            prompt = this.resolveVariable(p || '$', valueEnvelope, { merge: true })
                         if (!model || !prompt) return
                         return model.inference(prompt, valueEnvelope)
                     },
@@ -272,9 +272,9 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) { // optimal
                         const { descriptor, variables } = envelope, wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
                         let { url, contentType } = descriptor
-                        url = this.resolveUrl(variables?.url ? this.resolveVariable(url, { wrapped }, valueEnvelope) : url)
+                        url = this.resolveUrl(variables?.url ? this.resolveVariable(url, valueEnvelope, { wrapped }) : url)
                         if (!url) return
-                        contentType = variables?.contentType ? this.resolveVariable(contentType, { wrapped }, valueEnvelope) : contentType
+                        contentType = variables?.contentType ? this.resolveVariable(contentType, valueEnvelope, { wrapped }) : contentType
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
                             case 'undefined': value = { method: 'GET' }; break
@@ -320,10 +320,10 @@ const ElementHTML = Object.defineProperties({}, {
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
                             await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
                         }
-                        else if (isPlusExpression) ms = parseInt(this.resolveVariable(expression.slice(1), { wrapped }, valueEnvelope)) || 1
+                        else if (isPlusExpression) ms = parseInt(this.resolveVariable(expression.slice(1), valueEnvelope, { wrapped })) || 1
                         else if (this.sys.regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
                         else {
-                            if (variables?.expression) expression = this.resolveVariable(expression, { wrapped }, valueEnvelope)
+                            if (variables?.expression) expression = this.resolveVariable(expression, valueEnvelope, { wrapped })
                             const expressionSplit = expression.split(':').map(s => s.trim())
                             if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
                                 ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
@@ -343,7 +343,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!this.modules.dev) return value
                         const { descriptor, variables } = envelope, { invocation } = descriptor,
                             wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
-                        $([variables?.invocation ? this.resolveVariable(invocation, { wrapped }, valueEnvelope) : invocation])
+                        $([variables?.invocation ? this.resolveVariable(invocation, valueEnvelope, { wrapped }) : invocation])
                         return value
                     }
                 }],
@@ -720,7 +720,7 @@ const ElementHTML = Object.defineProperties({}, {
                     argsList = argsList.trim().split(this.sys.regexp.commaSplitter)
                     const args = [], labels = { ...element.dataset }
                     promises.push(this.createEnvelope({ labels, value: data }).then(envelope => {
-                        for (let a of argsList) args.push(this.resolveVariable(a, { wrapped: false, default: a }, envelope))
+                        for (let a of argsList) args.push(this.resolveVariable(a, envelope))
                         element[functionName](...args)
                     }))
                 }
@@ -1032,9 +1032,13 @@ const ElementHTML = Object.defineProperties({}, {
 
 
     resolveVariable: { // optimal
-        enumerable: true, value: function (expression, flags, envelope = {}) {
-            let result, { wrapped, default: dft, spread } = (flags ?? {})
-            if (typeof expression === 'string') {
+        enumerable: true, value: function (expression, envelope = {}, flags = {}) {
+            expression = expression.trim()
+            let result, { wrapped, default: dft, spread, merge } = (flags ?? {})
+            if (!wrapped && dft === undefined) dft = expression
+            if (merge) {
+                result = expression.replace(this.sys.regexp.hasVariable, (match, varExpression) => (this.resolveVariable(varExpression, envelope) ?? match))
+            } else if (typeof expression === 'string') {
                 if (wrapped || (wrapped === undefined)) {
                     const expressionIsWrapped = this.isWrappedVariable(expression)
                     if (wrapped && !expressionIsWrapped) return expression
@@ -1057,18 +1061,18 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 else if ((e0 === '?') || ((e0 === '{') && expression.endsWith('}')) || ((e0 === '{') && expression.endsWith('}'))) {
                     result = this.resolveShape(expression)
-                    if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, { ...flags, wrapped: false }, envelope)
+                    if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, envelope, { ...flags, wrapped: false })
                 }
                 else if (((e0 === '"') && expression.endsWith('"')) || ((e0 === "'") && expression.endsWith("'"))) result = expression.slice(1, -1)
                 else if (this.sys.regexp.isNumeric.test(expression)) result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
                 else result = expression
             } else if (Array.isArray(expression)) {
                 result = []
-                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], { default: a ? dft[i] : dft }, envelope))
+                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], envelope, { default: a ? dft[i] : dft }))
             } else if (this.isPlainObject(expression)) {
                 result = {}
                 const dftIsObject = spread && this.isPlainObject(dft)
-                for (const key in expression) result[this.resolveVariable(key, {}, envelope)] = this.resolveVariable(expression[key], { default: dftIsObject ? dft[key] : dft }, envelope)
+                for (const key in expression) result[this.resolveVariable(key, envelope)] = this.resolveVariable(expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
             }
             return result === undefined ? dft : result
         }
@@ -1761,10 +1765,10 @@ const ElementHTML = Object.defineProperties({}, {
                     const { cells, context, fields, labels } = envelope
                     if (aSpread) {
                         const newA = []
-                        for (const aa of a) newA.push(this.resolveVariable(aa, { wrapped: false }, { cells, context, fields, labels, value }))
+                        for (const aa of a) newA.push(this.resolveVariable(aa, { cells, context, fields, labels, value }))
                         a = newA
                     } else {
-                        a = this.resolveVariable(a, { wrapped: false }, { cells, context, fields, labels, value })
+                        a = this.resolveVariable(a, { cells, context, fields, labels, value })
                     }
                 }
                 aSpread ? newArgs.push(...a) : newArgs.push(a)
@@ -1929,7 +1933,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return nodes
             }
             const { snippets: appSnippets } = this.app
-            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, { wrapped: true, default: snippet.slice(2, -1), }, await this.createEnvelope())
+            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, await this.createEnvelope(), { wrapped: true, default: snippet.slice(2, -1), })
             if (snippet instanceof HTMLTemplateElement) nodes.push(...snippet.content.cloneNode(true).children)
             else if ((snippet instanceof Node) || (snippet instanceof HTMLElement)) nodes.push(snippet)
             else if ((snippet instanceof NodeList) || (snippet instanceof HTMLCollection)) nodes.push(...snippet)
@@ -2021,7 +2025,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const cells = {}
                 for (const c in this.app.cells) cells[c] = this.app.cells[c].value
                 argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariable(a.trim(), { wrapped: false }, { cells, context: this.env.context, value: a.trim() })) : []
+                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariable(a.trim(), { cells, context: this.env.context, value: a.trim() })) : []
                 return element[funcName](...argsRest, ...([arg]))
             }
         }
@@ -2186,7 +2190,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (disabled) return
                             const handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) },
                                 value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
-                                    ?? (defaultExpression ? E.resolveVariable(defaultExpression, { wrapped: false }, { ...handlerEnvelope, value }) : undefined)
+                                    ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                         }, { signal: controller.signal })
                     }
@@ -2339,9 +2343,9 @@ const ElementHTML = Object.defineProperties({}, {
                         enumerable: true, writable: false,
                         value: async function (input) {
                             const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
-                            let useUrl = resolveVariable(action.url, resolveVariableFlags, envelope)
+                            let useUrl = resolveVariable(action.url, envelope, resolveVariableFlags)
                             try {
-                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, resolveVariableFlags, envelope)))).href
+                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, envelope, resolveVariableFlags)))).href
                             } catch (e) {
                                 /* raise an error here */
                             }
@@ -2351,12 +2355,12 @@ const ElementHTML = Object.defineProperties({}, {
                             for (const p in useOptions) {
                                 const optionValue = useOptions[p]
                                 switch (optionProp) {
-                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope); break
+                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags); break
                                     case 'headers':
-                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], resolveVariableFlags, envelope)
+                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], envelope, resolveVariableFlags)
                                         break
                                     default:
-                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, resolveVariableFlags, envelope)
+                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags)
                                 }
                             }
                             useOptions.body = (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) ? await preProcessor()
