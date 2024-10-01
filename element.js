@@ -1987,6 +1987,11 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.env[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression] = this.env[unitTypeCollectionName][unitExpression]
             if (this.app.resolvers[unitTypeCollectionName]) return this.app.resolvers[unitTypeCollectionName](unitExpression)
             if (this.env.resolvers[unitTypeCollectionName]) return (this.app.resolvers[unitTypeCollectionName] = this.env.resolvers[unitTypeCollectionName])(unitExpression)
+            const unitQueueJob = this.queue.get(`${unitType}:${unitExpression}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitExpression}`)
+            if (unitQueueJob) {
+                await unitQueueJob.completed()
+                if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
+            }
             let unitUrl
             switch (unitExpression[0]) {
                 case '.': case '/': unitUrl = this.resolveUrl(unitExpression, undefined, true); break
@@ -2006,7 +2011,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (!unitSuffix) return
-            let unit, unitModule
+            let unitModule
             if (unitUrl) {
                 switch (unitSuffix) {
                     case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
