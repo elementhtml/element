@@ -614,7 +614,7 @@ const ElementHTML = Object.defineProperties({}, {
             return proto === null || proto === Object.prototype || proto.constructor === Object
         }
     },
-    parse: { // optimal
+    parse: {
         enumerable: true, value: async function (input, contentType) {
             const inputIsResponse = (input instanceof Response), inputIsText = (typeof input === 'text')
             if (!(inputIsResponse || inputIsText)) return input
