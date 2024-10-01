@@ -1560,6 +1560,7 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' }),
+            unitTypeToCollectionNameMap: Object.freeze({ content: 'content', context: 'context' }),
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
         })
     },
@@ -1972,49 +1973,63 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveUnit: {
         value: async function (unitExpression, unitType) {
+            if (!unitExpression) return
+            if (typeof unitExpression !== 'string') {
+                if (typeof unitExpression !== 'object') return
+                const promises = []
+                for (const n in unitExpression) promises.push(this.resolveUnit(n, unitExpression[n]))
+                await Promise.all(promises)
+                return
+            }
             unitExpression = unitExpression.trim()
             if (!unitExpression) return
-            if (this.app[unitType][unitExpression]) return this.app[unitType][unitExpression]
-            if (this.env[unitType][unitExpression]) return this.app[unitType][unitExpression] = this.env[unitType][unitExpression]
+            const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
+            if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
+            if (this.env[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression] = this.env[unitTypeCollectionName][unitExpression]
+            if (this.app.resolvers[unitTypeCollectionName]) return this.app.resolvers[unitTypeCollectionName](unitExpression)
+            if (this.env.resolvers[unitTypeCollectionName]) return (this.app.resolvers[unitTypeCollectionName] = this.env.resolvers[unitTypeCollectionName])(unitExpression)
             let unitUrl
             switch (unitExpression[0]) {
-                case '.': case '/':
-                    unitUrl = this.resolveUrl(unitExpression, undefined, true)
-                    break
+                case '.': case '/': unitUrl = this.resolveUrl(unitExpression, undefined, true); break
                 default:
                     if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitExpression).href, undefined, true) } catch (e) { }
+                    else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitExpression}`, undefined, true)
             }
-            let unit
-            if (!unitUrl) {
-                if (typeof this.app.resolver[unitType] === 'function') return await this.app.resolver[unitType](unitExpression)
-                for (const s of this.sys.autoResolverSuffixes[unitType]) if (unitExpression.endsWith(`.${s}`) && (unitUrl = this.resolveUrl(`${unitType}/${unitExpression}`, undefined, true))) break
-            }
-            if (!unitUrl) {
-                for (const s of this.sys.autoResolverSuffixes[unitType]) {
-                    const testUrl = `${unitType}/${unitExpression}.${s}`
-                    if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
-                        unitUrl = this.resolveUrl(testUrl, undefined, true)
-                        break
-                    }
+            if (!unitUrl) return
+            let unitSuffix
+            for (const s of this.sys.autoResolverSuffixes[unitType]) {
+                if (unitUrl.patname.endsWith(`.${s}`)) { unitSuffix = s; break }
+                const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
+                if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
+                    unitUrl.pathname = testPath
+                    unitSuffix = s
+                    break
                 }
             }
+            if (!unitSuffix) return
+
+            let unit, unitModule
             if (unitUrl) {
                 const { hash, pathname } = unitUrl
-                let unitContainer
-                if (pathname.endsWith('.js') || pathname.endsWith('.wasm')) {
-                    const unitModule = await import(unitUrl.href)
-                    unit = hash ? unitModule[hash] : unitModule.default
-                } else if (pathname.endsWith('.json')) {
-                    const unitModule = await (await fetch(unitUrl.href)).json()
-                    unit = hash ? unitModule[hash] : unitModule
-                } else {
-                    const unitModule = await fetch(unitUrl.href)
-                    unit = await this.parse(unitModule) ?? (await unitModule.text())
+                switch (unitSuffix) {
+                    case 'js': case 'wasm':
+                        unitModule = await import(unitUrl.href)
+                        unit = hash ? unitModule[hash] : unitModule.default
+                    case 'json':
+                        unitModule = await (await fetch(unitUrl.href)).json()
+                        unit = hash ? unitModule[hash] : unitModule
+                    default:
+                        unitModule = await fetch(unitUrl.href)
+                        unit = await this.parse(unitModule) ?? (await unitModule.text())
                 }
                 return this.app[unitType][unitExpression] = unit
             }
         }
     },
+
+
+
+
     runElementMethod: {
         value: function (statement, arg, element) {
             let [funcName, ...argsRest] = statement.split('(')
