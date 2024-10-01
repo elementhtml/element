@@ -1033,12 +1033,11 @@ const ElementHTML = Object.defineProperties({}, {
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, envelope = {}, flags = {}) {
             expression = expression.trim()
-            let result, { wrapped, default: dft, spread, merge } = (flags ?? {})
-            if (!wrapped && dft === undefined) dft = expression
+            let result, { wrapped = false, default: dft = (!wrapped ? expression : undefined), spread, merge } = flags
             if (merge) {
                 result = expression.replace(this.sys.regexp.hasVariable, (match, varExpression) => (this.resolveVariable(varExpression, envelope) ?? match))
             } else if (typeof expression === 'string') {
-                if (wrapped || (wrapped === undefined)) {
+                if (wrapped || (wrapped === null)) {
                     const expressionIsWrapped = this.isWrappedVariable(expression)
                     if (wrapped && !expressionIsWrapped) return expression
                     wrapped ??= expressionIsWrapped
