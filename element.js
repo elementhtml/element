@@ -356,13 +356,13 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }]
             ]),
-            languages: {}, lexicon: undefined,
+            languages: {},
             libraries: {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
             },
             models: {},
-            namespaces: { e: (new URL(`./components`, import.meta.url)).href },
+            namespaces: { e: new URL(`./components`, import.meta.url) },
             patterns: {}, resolvers: {
 
             }, snippets: {},
@@ -398,7 +398,7 @@ const ElementHTML = Object.defineProperties({}, {
     ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
-            if (typeof pkg.hooks?.prePackageInstall === 'function') pkg = (await pkg.hooks.prePackageInstall.bind(this, pkg)()) ?? pkg
+            if (typeof pkg.hooks?.prePackageInstall === 'function') pkg = (await pkg.hooks.prePackageInstall(this)) ?? pkg
             const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall
             if (postPackageInstall) delete pkg.hooks.postPackageInstall
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
@@ -407,7 +407,7 @@ const ElementHTML = Object.defineProperties({}, {
                 promises.push(unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg)))
             }
             await Promise.all(promises)
-            if (typeof postPackageInstall === 'function') await postPackageInstall.bind(this, pkg)()
+            if (typeof postPackageInstall === 'function') await postPackageInstall(this)
         }
     },
     Load: { // optimal
@@ -1528,13 +1528,13 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
-            unitTypeToCollectionNameMap: Object.freeze({
+            unitTypeMap: Object.freeze({
                 api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', 'Context'], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateeway'],
                 hook: ['hooks', 'Hook'], interpreter: ['interpreters', 'Interpreter'], language: ['languages', 'Lexicon'], library: ['libraries', 'Library'], model: ['models', 'Model'],
                 namespace: ['namespaces', 'Namespace'], pattern: ['patterns', 'Pattern'], resolver: ['resolvers', 'Resolver'], snippet: ['snippets', 'Snippet'], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
-            unitCollectionNameToUnitTypeMap: Object.freeze({
+            unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', models: 'model', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
                 snippets: 'snippet', transforms: 'transform', types: 'type'
@@ -1615,32 +1615,33 @@ const ElementHTML = Object.defineProperties({}, {
     },
     attachUnitTypeCollection: { // optimal
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
-            switch (unitTypeCollectionName) {
-                case 'interpreters':
-                    if (typeof unitTypeCollection === 'function') unitTypeCollection = await unitTypeCollection(this, pkg)
-                    if (!(unitTypeCollection instanceof Map)) return
-                    let allValid = true
-                    for (const [matcher, interpreter] of unitTypeCollection) {
-                        allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
-                            && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
-                            && (!interpreter.binder || (typeof interpreter.binder === 'function'))
-                        if (!allValid) break
-                        interpreter.name = `${packageKey}-${interpreter.name}`
-                        for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
-                        Object.freeze(interpreter)
-                    }
-                    if (!allValid) return
-                    return this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
-                case 'lexicon':
-                    if (typeof unitTypeCollection === 'function' && !(unitTypeCollection.prototype instanceof this.Lexicon)) unitTypeCollection = await unitTypeCollection(this, pkg)
-                    return ((unitTypeCollection instanceof this.Lexicon)
-                        || (unitTypeCollection?.prototype instanceof this.Lexicon) || (this.isPlainObject(unitTypeCollection))) ? (this.env.lexicon = unitTypeCollection) : undefined
+            if (typeof unitTypeCollection === 'function') unitTypeCollection = await unitTypeCollection(this, pkg)
+            if (!this.env[unitTypeCollectionName]) return
+            if (unitTypeCollectionName === 'interpreters') {
+                if (!(unitTypeCollection instanceof Map)) return
+                let allValid = true
+                for (const [matcher, interpreter] of unitTypeCollection) {
+                    allValid = (matcher instanceof RegExp) && isPlainObject(interpreter)
+                        && interpreter.name && (typeof interpreter.name === 'string') && (typeof interpreter.parser === 'function') && (typeof interpreter.handler === 'function')
+                        && (!interpreter.binder || (typeof interpreter.binder === 'function'))
+                    if (!allValid) break
+                    interpreter.name = `${packageKey}-${interpreter.name}`
+                    for (const p of ['parser', 'handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+                    Object.freeze(interpreter)
+                }
+                if (!allValid) return
+                return this.env.interpreters = new Map([...this.env.interpreters, ...unitTypeCollection])
             }
-            const promises = []
-            if (!(unitTypeCollectionName in this.env) || !this.isPlainObject(unitTypeCollection)) return
+            if (!this.isPlainObject(unitTypeCollection)) return
+            const promises = [], unitType = this.sys.unitTypeCollectionNameToUnitTypeMap[unitTypeCollectionName],
+                [, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             for (const unitKey in unitTypeCollection) {
-                if (unitTypeCollectionName === 'resolvers' && !(unitKey in this.env)) continue
-                promises.push(Promise.resolve(unitTypeCollection[unitKey]).then(unit => this.attachUnit(unit, unitKey, unitTypeCollectionName, 'env', packageUrl, packageKey, pkg)))
+                promises.push(Promise.resolve(unitTypeCollection[unitKey]).then(async unit => {
+                    if ((unit instanceof unitClass) || (typeof unit === 'string')) return this.env[unitTypeCollectionName][unitKey] = unit
+                    if (typeof unit === 'function') unit = await unit(this)
+                    if ((unit instanceof unitClass) || (typeof unit === 'string')) return this.env[unitTypeCollectionName][unitKey] = unit
+                    if (this.isPlainObject(unit)) return this.env[unitTypeCollectionName][unitKey] = new unitClass(unit)
+                }))
             }
             return Promise.all(promises)
         }
