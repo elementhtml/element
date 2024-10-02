@@ -1881,9 +1881,10 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveUnit: { // optimal
         value: async function (unitExpression, unitType) {
-            if (!unitExpression) return
+            if (!unitExpression || !unitType) return
             if (typeof unitExpression !== 'string') return (typeof unitExpression === 'object') ? unitExpression : undefined
             if (!(unitExpression = unitExpression.trim())) return
+            if (unitType === 'resolver') return this.defaultResolver
             const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
             if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
             const unitQueueJob = this.queue.get(`${unitType}:${unitExpression}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitExpression}`)
@@ -1894,10 +1895,10 @@ const ElementHTML = Object.defineProperties({}, {
             const envUnit = this.env[unitTypeCollectionName][unitExpression]
             let unitResolver
             if (envUnit) {
-                if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolvers') ?? this.defaultResolver
+                if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
                 return this.app[unitTypeCollectionName][unitExpression] = unitResolver ? await unitResolver(envUnit) : envUnit
             }
-            unitResolver ??= await this.resolveUnit(unitType, 'resolvers') ?? this.defaultResolver
+            unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
             return this.app[unitTypeCollectionName][unitExpression] = await unitResolver(unitExpression)
         }
     },
