@@ -76,7 +76,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const article = variables?.article ? this.resolveVariable(articleSignature, valueEnvelope, { wrapped }) : articleSignature
                         if (variables?.article && !article) return
                         const lang = variables?.lang ? this.resolveVariable(langSignature, valueEnvelope, { wrapped }) : langSignature
-                        return anthology[lang ?? container.lang ?? document.documentElement.lang ?? 'default'](article || 'index', valueEnvelope)
+                        return anthology?.run(article, lang ?? container.lang, valueEnvelope)
+                        // return anthology[ ?? document.documentElement.lang ?? 'default'](article || 'index', valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { anthology: anthologySignature } = descriptor
@@ -89,8 +90,7 @@ const ElementHTML = Object.defineProperties({}, {
                         let { descriptor, variables } = envelope, { transform: t } = descriptor, variablesTransform = variables?.transform, wrapped = variablesTransform ? true : undefined,
                             valueEnvelope = variablesTransform ? Object.freeze({ ...envelope, value }) : envelope,
                             transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
-                        if (!transform) return
-                        return this.runTransform(transform, value, container, valueEnvelope)
+                        return transform?.run(value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
@@ -122,15 +122,15 @@ const ElementHTML = Object.defineProperties({}, {
                         let pass
                         switch (mode) {
                             case 'any':
-                                for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.checkType(name, value)))) break
+                                for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.runUnit(name, 'type', value)))) break
                                 break
                             case 'all':
-                                for (const { if: ifMode, name } of types) if (!(pass = (ifMode === (await this.checkType(name, value))))) break
+                                for (const { if: ifMode, name } of types) if (!(pass = (ifMode === (await this.runUnit(name, 'type', value))))) break
                                 break
                             case 'info':
                                 pass = true
                                 const validation = {}, promises = []
-                                for (const { name } of types) promises.push(this.checkType(name, value, true).then(r => validation[name] = r))
+                                for (const { name } of types) promises.push(this.runUnit(name, 'type', value, true).then(r => validation[name] = r))
                                 await Promise.all(promises)
                                 return { value, validation }
                         }
@@ -246,7 +246,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!api) return
                         const action = variables?.action ? this.resolveVariable(actionSignature, valueEnvelope, { wrapped }) : actionSignature
                         if (variables?.action && !action) return
-                        return api[action](value, valueEnvelope)
+                        return api.run(value, action, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
@@ -257,10 +257,10 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { model: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'model'),
-                            prompt = this.resolveVariable(p || '$', valueEnvelope, { merge: true })
-                        if (!model || !prompt) return
-                        return model.inference(prompt, valueEnvelope)
+                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'model')
+                        // prompt = this.resolveVariable(p || '$', valueEnvelope, { merge: true })
+                        if (!model) return
+                        return model.run(value, prompt, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { model: modelSignature, } = descriptor
@@ -1135,6 +1135,15 @@ const ElementHTML = Object.defineProperties({}, {
             return await expression.evaluate(data, bindings)
         }
     },
+
+    runUnit: { // optimal
+        enumerable: true, value: async function (unitKey, unitType, ...args) {
+            const unit = await this.resolveUnit(unitKey, unitType)
+            return unit?.run(...args)
+        }
+    },
+
+
     serialize: {
         enumerable: true, value: async function (input, contentType = 'application/json') {
             contentType ||= 'application/json'
@@ -1842,37 +1851,37 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     resolveUnit: { // optimal
-        value: async function (unitExpression, unitType) {
-            if (!unitExpression || !unitType) return
-            if (typeof unitExpression !== 'string') return (typeof unitExpression === 'object') ? unitExpression : undefined
-            if (!(unitExpression = unitExpression.trim())) return
+        value: async function (unitKey, unitType) {
+            if (!unitKey || !unitType) return
+            const [unitTypeCollectionName, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
+            if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
+            if (!(unitKey = unitKey.trim())) return
             if (unitType === 'resolver') return this.defaultResolver
-            const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
-            if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
-            const unitQueueJob = this.queue.get(`${unitType}:${unitExpression}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitExpression}`)
+            if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
+            const unitQueueJob = this.queue.get(`${unitType}:${unitKey}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitKey}`)
             if (unitQueueJob) {
                 await unitQueueJob.completed()
-                if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
+                if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
             }
-            const envUnit = this.env[unitTypeCollectionName][unitExpression]
+            const envUnit = this.env[unitTypeCollectionName][unitKey]
             let unitResolver
             if (envUnit) {
                 if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-                return this.app[unitTypeCollectionName][unitExpression] = unitResolver ? await unitResolver(envUnit) : envUnit
+                return this.app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
             }
             unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return this.app[unitTypeCollectionName][unitExpression] = await unitResolver(unitExpression)
+            return this.app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
         }
     },
 
     defaultResolver: { // optimal
-        enumerable: true, value: async function (unitExpression) {
+        enumerable: true, value: async function (unitKey) {
             let unitUrl
-            switch (unitExpression[0]) {
-                case '.': case '/': unitUrl = this.resolveUrl(unitExpression, undefined, true); break
+            switch (unitKey[0]) {
+                case '.': case '/': unitUrl = this.resolveUrl(unitKey, undefined, true); break
                 default:
-                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitExpression).href, undefined, true) } catch (e) { }
-                    else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitExpression}`, undefined, true)
+                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
+                    else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey}`, undefined, true)
             }
             if (!unitUrl) return
             let unitSuffix
@@ -1898,7 +1907,6 @@ const ElementHTML = Object.defineProperties({}, {
                         unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
                 }
             }
-
             return unit
         }
     },
