@@ -1971,6 +1971,21 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
+    Anthology: {
+        enumerable: true, value: class {
+            errors = { 404: '404', default: 'error' }
+            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, parser }) {
+                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, parser })
+            }
+            async run(article, lang) {
+                lang ||= (document.documentElement.lang || this.defaultLanguage)
+                if (!this.languages.has(lang)) lang = this.defaultLanguage
+                let url = `${this.base}/${lang}/${article || this.defaultArticle}.${this.suffix}`, response = await fetch(url)
+                if (!response.ok) response = await fetch(`${this.base}/${lang}/${this.errors?.[response.status] ?? this.errors?.default ?? response.status}.${this.suffix}`)
+                return this.parse(response, this.parser ?? this.format)
+            }
+        }
+    },
     API: {
         enumerable: true, value: class {
             constructor({ url, options = {}, actions = {}, processors = {} }) {
@@ -2369,21 +2384,6 @@ ElementHTML.Gateway.E = ElementHTML
 ElementHTML.API.E = ElementHTML
 ElementHTML.Language.E = ElementHTML
 Object.defineProperties(ElementHTML, {
-    Anthology: {
-        enumerable: true, value: class extends ElementHTML.API {
-            errors = { 404: '404', default: 'error' }
-            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, parser }) {
-                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, parser })
-            }
-            async run(article, lang) {
-                lang ||= (document.documentElement.lang || this.defaultLanguage)
-                if (!this.languages.has(lang)) lang = this.defaultLanguage
-                let url = `${this.base}/${lang}/${article || this.defaultArticle}.${this.suffix}`, response = await fetch(url)
-                if (!response.ok) response = await fetch(`${this.base}/${lang}/${this.errors?.[response.status] ?? this.errors?.default ?? response.status}.${this.suffix}`)
-                return this.parse(response, this.parser ?? this.format)
-            }
-        }
-    },
     Cell: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
             constructor(name, initialValue) {
