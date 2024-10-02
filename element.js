@@ -1974,10 +1974,11 @@ const ElementHTML = Object.defineProperties({}, {
     Anthology: {
         enumerable: true, value: class {
             errors = { 404: '404', default: 'error' }
-            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, parser }) {
-                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, parser })
+            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, contentType = 'text/markdown' }) {
+                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, contentType })
+                if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
             }
-            async run(article, lang) {
+            async run(article, lang, valueEnvelope) {
                 lang ||= (document.documentElement.lang || this.defaultLanguage)
                 if (!this.languages.has(lang)) lang = this.defaultLanguage
                 let url = `${this.base}/${lang}/${article || this.defaultArticle}.${this.suffix}`, response = await fetch(url)
@@ -1988,6 +1989,35 @@ const ElementHTML = Object.defineProperties({}, {
     },
     API: {
         enumerable: true, value: class {
+
+            actions = {}
+            options = { method: 'POST', headers: {} }
+            base
+            contentType
+
+            async run(value, action, valueEnvelope) {
+                action = (action ? this.actions[action] : undefined) ?? { pathname: `/${action || ''}` }
+                const options = {
+                    ...this.options, ...(action?.options ?? {}),
+                    method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
+                    headers: { ...this.options.headers, ...(action?.options?.headers ?? {}) }
+                }, merge = true, pathname = this.resolveVariable(action.pathname, valueEnvelope, { merge }),
+                    base = this.resolveVariable(this.base, valueEnvelope, { merge }), url = this.resolveUrl(pathname, base)
+                if (value === 0 || (value && typeof value !== 'string')) {
+                    const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
+                    if (contentType !== 'application/json') {
+                        options.body = await this.runUnit(contentType, 'transform', value)
+                        if (typeof options.body !== 'string') throw new Error(`No serializer for ${contentType} was found.`)
+                    }
+                }
+
+
+
+
+
+            }
+
+
             constructor({ url, options = {}, actions = {}, processors = {} }) {
                 if (!url || (typeof url !== 'string')) return
                 const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
