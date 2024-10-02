@@ -1963,6 +1963,67 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
+    API: {
+        enumerable: true, value: class {
+            constructor({ url, options = {}, actions = {}, processors = {} }) {
+                if (!url || (typeof url !== 'string')) return
+                const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
+                for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
+                ({ options, actions, processors } = objArgs);
+                for (const p of ['pre', 'post']) {
+                    let processor = processors[p], f = p === 'pre' ? serialize : parse
+                    switch (typeof processor) {
+                        case 'undefined': processor = v => v; break
+                        case 'string': processor = async v => f(v, processor); break
+                        case 'function': processor = processor.bind(this.constructor.E); break
+                        default: processor = async v => f(v)
+                    }
+                    processors[p] = processor
+                }
+                const resolveVariableFlags = { merge: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
+                for (const actionName in actions) {
+                    let action = actions[actionName]
+                    if (typeof action === 'string') actions[actionName] = action = { url: action }
+                    if (!isPlainObject(action)) continue
+                    if (!isPlainObject(action.options)) action.options = {}
+                    if (typeof action.url !== 'string') action.url ??= './'
+                    action.options.headers = { ...(options.headers ?? {}), ...(action.options.headers ?? {}) }
+                    if (isPlainObject(action.options.body) && isPlainObject(options.body)) action.options.body = { ...options.body, ...action.options.body }
+                    Object.defineProperty(this, actionName, {
+                        enumerable: true, writable: false,
+                        value: async function (input) {
+                            const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
+                            let useUrl = resolveVariable(action.url, envelope, resolveVariableFlags)
+                            try {
+                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, envelope, resolveVariableFlags)))).href
+                            } catch (e) {
+                                /* raise an error here */
+                            }
+                            useOptions.headers = { ...(useOptions.headers ?? {}) }
+                            const bodyIsObject = isPlainObject(useOptions.body)
+                            if (bodyIsObject) try { useOptions.body = JSON.parse(JSON.stringify(useOptions.body)) } catch (e) { /* raise an error here */ }
+                            for (const p in useOptions) {
+                                const optionValue = useOptions[p]
+                                switch (optionProp) {
+                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags); break
+                                    case 'headers':
+                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], envelope, resolveVariableFlags)
+                                        break
+                                    default:
+                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags)
+                                }
+                            }
+                            useOptions.body = (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) ? await preProcessor()
+                                : (bodyIsObject ? await preProcessor(useOptions.body) : undefined)
+                            if (useOptions.body === undefined) delete useOptions.body
+                            if (useOptions.body && !('method' in useOptions)) useOptions.method = 'POST'
+                            return postProcessor(await window.fetch(useUrl, useOptions))
+                        }
+                    })
+                }
+            }
+        }
+    },
     Component: {
         enumerable: true, value: class extends globalThis.HTMLElement {
             static attributes = { observed: [] }
@@ -2003,6 +2064,11 @@ const ElementHTML = Object.defineProperties({}, {
                 eventName ??= instance instanceof this.constructor.E.Component ? (instance.constructor.events?.default) : this.constructor.E.sys.defaultEventTypes[instance.tagName.toLowerCase()]
                 return super.dispatchEvent(new CustomEvent(eventName ?? 'click', { detail, bubbles, cancelable, composed }))
             }
+        }
+    },
+    Context: {
+        enumerable: true, value: class {
+
         }
     },
     Facet: { // optimal
@@ -2073,6 +2139,128 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
+    Gateway: {
+        enumerable: true, value: class {
+
+            fallbacks = []
+
+            constructor(fallbacks) {
+                if (!Array.isArray(fallbacks)) fallbacks = [fallbacks]
+                for (let fallback of fallbacks) {
+                    if (typeof fallback === 'string') fallback = { gateway: fallback }
+                    if (!this.constructor.E.isPlainObject(fallback)) continue
+                    this.fallbacks.push(fallback)
+                }
+            }
+
+        }
+    },
+    Hook: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Interpreter: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Language: {
+        enumerable: true, value: class {
+
+            attributes = []
+            patterns = []
+            config = {}
+
+            constructor({ attributes = ['data-e-lexicon-token'], patterns = [/\{\{[^}]+\}\}/], config = { default: 'default' } }) {
+                this.attributes = [...attributes]
+                this.patterns = [...patterns]
+                this.config = { ...config }
+                this.observeDOM()
+                this.replaceTokensInContent()
+            }
+
+            getLanguage() {
+                const currentLanguage = this.config.default || 'default'
+                return this.constructor.E.env.languages[currentLanguage] || {}
+            }
+
+            replaceTokensInAttributes(element) {
+                const language = this.getLanguage()
+                for (const attribute of this.attributes) {
+                    const elements = element ? [element] : document.querySelectorAll(`[${attribute}]`)
+                    for (const element of elements) element.textContent = language[element.getAttribute(attribute)] ?? element.textContent
+                }
+            }
+
+            replaceTokensInContentSingleElement(element, language) {
+                for (const pattern of this.patterns) {
+                    const matches = element.textContent.match(pattern)
+                    if (matches) {
+                        let newText = element.textContent
+                        for (const match of matches) newText = newText.replace(match, language[match.slice(2, -2).trim()] ?? match)
+                        element.textContent = newText
+                    }
+                }
+            }
+
+            replaceTokensInContent(element) {
+                const language = this.getLanguage()
+                if (element) return this.replaceTokensInContentSingleElement(element, language)
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null, false)
+                while (walker.nextNode()) this.replaceTokensInContentSingleElement(walker.currentNode, language)
+            }
+
+            observeDOM() {
+                const observer = new MutationObserver(mutations => {
+                    for (const mutation of mutations) {
+                        switch (mutation.type) {
+                            case 'childList':
+                            case 'attributes':
+                                this.replaceTokensInAttributes(mutation.target)
+                            case 'characterData':
+                                if (mutation.type !== 'attributes') this.replaceTokensInContent(mutation.target)
+                        }
+                    }
+                })
+                observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: this.attributes })
+            }
+
+        }
+    },
+    Namespace: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Pattern: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Resolver: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Snippet: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Transform: {
+        enumerable: true, value: class {
+
+        }
+    },
+    Type: {
+        enumerable: true, value: class {
+
+        }
+    },
+
+
+
     State: { // optimal
         value: class {
             name
@@ -2164,157 +2352,26 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-    ProtocolDispatcher: {
-        enumerable: true, value: class {
-
-            fallbacks = []
-
-            constructor(fallbacks) {
-                if (!Array.isArray(fallbacks)) fallbacks = [fallbacks]
-                for (let fallback of fallbacks) {
-                    if (typeof fallback === 'string') fallback = { gateway: fallback }
-                    if (!this.constructor.E.isPlainObject(fallback)) continue
-                    this.fallbacks.push(fallback)
-                }
-            }
-
-        }
-    },
-    API: {
-        enumerable: true, value: class {
-
-            constructor({ url, options = {}, actions = {}, processors = {} }) {
-                if (!url || (typeof url !== 'string')) return
-                const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
-                for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
-                ({ options, actions, processors } = objArgs);
-                for (const p of ['pre', 'post']) {
-                    let processor = processors[p], f = p === 'pre' ? serialize : parse
-                    switch (typeof processor) {
-                        case 'undefined': processor = v => v; break
-                        case 'string': processor = async v => f(v, processor); break
-                        case 'function': processor = processor.bind(this.constructor.E); break
-                        default: processor = async v => f(v)
-                    }
-                    processors[p] = processor
-                }
-                const resolveVariableFlags = { merge: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
-                for (const actionName in actions) {
-                    let action = actions[actionName]
-                    if (typeof action === 'string') actions[actionName] = action = { url: action }
-                    if (!isPlainObject(action)) continue
-                    if (!isPlainObject(action.options)) action.options = {}
-                    if (typeof action.url !== 'string') action.url ??= './'
-                    action.options.headers = { ...(options.headers ?? {}), ...(action.options.headers ?? {}) }
-                    if (isPlainObject(action.options.body) && isPlainObject(options.body)) action.options.body = { ...options.body, ...action.options.body }
-                    Object.defineProperty(this, actionName, {
-                        enumerable: true, writable: false,
-                        value: async function (input) {
-                            const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
-                            let useUrl = resolveVariable(action.url, envelope, resolveVariableFlags)
-                            try {
-                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, envelope, resolveVariableFlags)))).href
-                            } catch (e) {
-                                /* raise an error here */
-                            }
-                            useOptions.headers = { ...(useOptions.headers ?? {}) }
-                            const bodyIsObject = isPlainObject(useOptions.body)
-                            if (bodyIsObject) try { useOptions.body = JSON.parse(JSON.stringify(useOptions.body)) } catch (e) { /* raise an error here */ }
-                            for (const p in useOptions) {
-                                const optionValue = useOptions[p]
-                                switch (optionProp) {
-                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags); break
-                                    case 'headers':
-                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], envelope, resolveVariableFlags)
-                                        break
-                                    default:
-                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags)
-                                }
-                            }
-                            useOptions.body = (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) ? await preProcessor()
-                                : (bodyIsObject ? await preProcessor(useOptions.body) : undefined)
-                            if (useOptions.body === undefined) delete useOptions.body
-                            if (useOptions.body && !('method' in useOptions)) useOptions.method = 'POST'
-                            return postProcessor(await window.fetch(useUrl, useOptions))
-                        }
-                    })
-                }
-            }
-
-        }
-    },
-    Lexicon: {
-        enumerable: true, value: class {
-
-            attributes = []
-            patterns = []
-            config = {}
-
-            constructor({ attributes = ['data-e-lexicon-token'], patterns = [/\{\{[^}]+\}\}/], config = { default: 'default' } }) {
-                this.attributes = [...attributes]
-                this.patterns = [...patterns]
-                this.config = { ...config }
-                this.observeDOM()
-                this.replaceTokensInContent()
-            }
-
-            getLanguage() {
-                const currentLanguage = this.config.default || 'default'
-                return this.constructor.E.env.languages[currentLanguage] || {}
-            }
-
-            replaceTokensInAttributes(element) {
-                const language = this.getLanguage()
-                for (const attribute of this.attributes) {
-                    const elements = element ? [element] : document.querySelectorAll(`[${attribute}]`)
-                    for (const element of elements) element.textContent = language[element.getAttribute(attribute)] ?? element.textContent
-                }
-            }
-
-            replaceTokensInContentSingleElement(element, language) {
-                for (const pattern of this.patterns) {
-                    const matches = element.textContent.match(pattern)
-                    if (matches) {
-                        let newText = element.textContent
-                        for (const match of matches) newText = newText.replace(match, language[match.slice(2, -2).trim()] ?? match)
-                        element.textContent = newText
-                    }
-                }
-            }
-
-            replaceTokensInContent(element) {
-                const language = this.getLanguage()
-                if (element) return this.replaceTokensInContentSingleElement(element, language)
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null, false)
-                while (walker.nextNode()) this.replaceTokensInContentSingleElement(walker.currentNode, language)
-            }
-
-            observeDOM() {
-                const observer = new MutationObserver(mutations => {
-                    for (const mutation of mutations) {
-                        switch (mutation.type) {
-                            case 'childList':
-                            case 'attributes':
-                                this.replaceTokensInAttributes(mutation.target)
-                            case 'characterData':
-                                if (mutation.type !== 'attributes') this.replaceTokensInContent(mutation.target)
-                        }
-                    }
-                })
-                observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: this.attributes })
-            }
-
-        }
-    }
 })
 ElementHTML.Component.E = ElementHTML
 ElementHTML.Facet.E = ElementHTML
 ElementHTML.Validator.E = ElementHTML
 ElementHTML.Job.E = ElementHTML
-ElementHTML.ProtocolDispatcher.E = ElementHTML
+ElementHTML.Gateway.E = ElementHTML
 ElementHTML.API.E = ElementHTML
-ElementHTML.Lexicon.E = ElementHTML
+ElementHTML.Language.E = ElementHTML
 Object.defineProperties(ElementHTML, {
+    Anthology: {
+        enumerable: true, value: class extends ElementHTML.API {
+            constructor({ api = {}, languages = {} }) {
+                const actions = {}, processors = api.processors ?? {}
+                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './${$}' }
+                for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? `./${langCode}/\${$}` }
+                processors.post ??= 'md'
+                super({ ...api, actions, processors })
+            }
+        }
+    },
     Cell: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
             constructor(name, initialValue) {
@@ -2332,17 +2389,6 @@ Object.defineProperties(ElementHTML, {
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
                 if (name && fields) fields[name] ??= this
-            }
-        }
-    },
-    Anthology: {
-        enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, languages = {} }) {
-                const actions = {}, processors = api.processors ?? {}
-                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './${$}' }
-                for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? `./${langCode}/\${$}` }
-                processors.post ??= 'md'
-                super({ ...api, actions, processors })
             }
         }
     },
