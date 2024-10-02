@@ -1585,9 +1585,10 @@ const ElementHTML = Object.defineProperties({}, {
                 [, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             for (const unitKey in unitTypeCollection) {
                 promises.push(Promise.resolve(unitTypeCollection[unitKey]).then(async unit => {
-                    if ((unit instanceof unitClass) || (typeof unit === 'string')) return this.env[unitTypeCollectionName][unitKey] = unit
+                    if (unit instanceof unitClass) return this.env[unitTypeCollectionName][unitKey] = unit
                     if (typeof unit === 'function') unit = await unit(this)
-                    if ((unit instanceof unitClass) || (typeof unit === 'string')) return this.env[unitTypeCollectionName][unitKey] = unit
+                    if (unit instanceof unitClass) return this.env[unitTypeCollectionName][unitKey] = unit
+                    if (typeof unit === 'string') return this.env[unitTypeCollectionName][unitKey] = this.resolveUrl(unit, packageUrl)
                     if (this.isPlainObject(unit)) return this.env[unitTypeCollectionName][unitKey] = new unitClass(unit)
                 }))
             }
