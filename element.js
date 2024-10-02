@@ -1561,58 +1561,6 @@ const ElementHTML = Object.defineProperties({}, {
             globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
         }
     },
-    attachUnit: { // optimal
-        value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
-            if (!unit || (unitTypeCollectionName === 'interpreters') || (unitTypeCollectionName === 'lexicon')) return
-            const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
-            unitType = this.sys.unitCollectionNameToUnitTypeMap
-            switch (unitTypeCollectionName) {
-                case 'context': case 'languages': case 'libraries': case 'namespaces': case 'patterns': case 'snippets':
-                    if (typeof unit === 'function') unit = await unit(this, pkg)
-                    switch (unitTypeCollectionName) {
-                        case 'context':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
-                        case 'languages':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
-                        case 'libraries': case 'namespaces':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                        case 'patterns':
-                            return (unitIsString || (unit instanceof RegExp)) ? (this[scopeKey][unitTypeCollectionName][unitKey] = new RegExp(unit)) : undefined
-                        case 'snippets':
-                            if (unitIsString) {
-                                if (!this.sys.regexp.isHTML(unit)) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                                const template = document.createElement('template')
-                                template.innerHTML = unit
-                                unit = template
-                            }
-                            return (unit instanceof HTMLElement) ? (this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)) : undefined
-                    }
-                case 'components':
-                    this.env.namespaces[packageKey] ??= (new URL('../components', packageUrl)).href
-                    unitKey = `${packageKey}-${unitKey}`
-                case 'apis': case 'content': case 'facets': case 'gateways': case 'models':
-                    if (unitIsString) return this[scopeKey][unitTypeCollectionName][unitKey] = unitUrlFromPackage
-                    unit = (typeof unit === 'function') ? await unit(this, pkg) : undefined
-                    if (!unit) return
-                    if (!this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]] || (unit?.prototype instanceof this[this.sys.unitTypeCollectionToClassNameMap[unitTypeCollectionName]])) return
-                    return this[scopeKey][unitTypeCollectionName][unitKey] = Object.freeze(unit)
-                case 'hooks': case 'resolvers': case 'transforms':
-                    if (!unitIsString && (typeof unit !== 'function')) return
-                    if (!unitIsString) unit = unit.bind(this)
-                    return (unitTypeCollectionName === 'hooks') ? ((this.env.hooks[unitKey] ??= {})[packageKey] = unit) : (this[scopeKey][unitTypeCollectionName][unitKey] = unit)
-                case 'types':
-                    if (typeof unit === 'function' && !(unit.prototype instanceof this.Validator)) unit = await unit(this, pkg)
-                    switch (typeof unit) {
-                        case 'string':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = unit
-                        case 'function':
-                            return (unit.prototype instanceof this.Validator) ? (this[scopeKey][unitTypeCollectionName][unitKey] = unit) : undefined
-                        case 'object':
-                            return this[scopeKey][unitTypeCollectionName][unitKey] = this.deepFreeze(unit)
-                    }
-            }
-        }
-    },
     attachUnitTypeCollection: { // optimal
         value: async function (unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg) {
             if (typeof unitTypeCollection === 'function') unitTypeCollection = await unitTypeCollection(this, pkg)
