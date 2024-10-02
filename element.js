@@ -363,7 +363,9 @@ const ElementHTML = Object.defineProperties({}, {
             },
             models: {},
             namespaces: { e: (new URL(`./components`, import.meta.url)).href },
-            patterns: {}, resolvers: {}, snippets: {},
+            patterns: {}, resolvers: {
+
+            }, snippets: {},
             transforms: {
                 'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
             },
@@ -1525,9 +1527,18 @@ const ElementHTML = Object.defineProperties({}, {
                 html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' }),
-            unitTypeToCollectionNameMap: Object.freeze({ content: 'content', context: 'context' }),
-            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
+            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
+            unitTypeToCollectionNameMap: Object.freeze({
+                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', 'Context'], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateeway'],
+                hook: ['hooks', 'Hook'], interpreter: ['interpreters', 'Interpreter'], language: ['languages', 'Lexicon'], library: ['libraries', 'Library'], model: ['models', 'Model'],
+                namespace: ['namespaces', 'Namespace'], pattern: ['patterns', 'Pattern'], resolver: ['resolvers', 'Resolver'], snippet: ['snippets', 'Snippet'], transform: ['transforms', 'Transform'],
+                type: ['types', 'Type']
+            }),
+            unitCollectionNameToUnitTypeMap: Object.freeze({
+                apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
+                interpreters: 'interpreter', languages: 'language', libraries: 'library', models: 'model', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
+                snippets: 'snippet', transforms: 'transform', types: 'type'
+            })
         })
     },
 
@@ -1554,6 +1565,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (unit, unitKey, unitTypeCollectionName, scopeKey, packageUrl, packageKey, pkg) {
             if (!unit || (unitTypeCollectionName === 'interpreters') || (unitTypeCollectionName === 'lexicon')) return
             const unitIsString = typeof unit === 'string', unitUrlFromPackage = unitIsString ? (new URL(unit, packageUrl)).href : undefined
+            unitType = this.sys.unitCollectionNameToUnitTypeMap
             switch (unitTypeCollectionName) {
                 case 'context': case 'languages': case 'libraries': case 'namespaces': case 'patterns': case 'snippets':
                     if (typeof unit === 'function') unit = await unit(this, pkg)
@@ -1936,6 +1948,7 @@ const ElementHTML = Object.defineProperties({}, {
                         unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
                 }
             }
+
             return unit
         }
     },
