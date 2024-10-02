@@ -1529,8 +1529,8 @@ const ElementHTML = Object.defineProperties({}, {
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
             unitTypeMap: Object.freeze({
-                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', 'Context'], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateeway'],
-                hook: ['hooks', 'Hook'], interpreter: ['interpreters', 'Interpreter'], language: ['languages', 'Lexicon'], library: ['libraries', 'Library'], model: ['models', 'Model'],
+                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', 'Context'], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
+                hook: ['hooks', 'Hook'], interpreter: ['interpreters', 'Interpreter'], language: ['languages', 'Language'], library: ['libraries', 'Library'], model: ['models', 'Model'],
                 namespace: ['namespaces', 'Namespace'], pattern: ['patterns', 'Pattern'], resolver: ['resolvers', 'Resolver'], snippet: ['snippets', 'Snippet'], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
