@@ -1515,9 +1515,7 @@ const ElementHTML = Object.defineProperties({}, {
                 area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
                 param: 'value', source: 'src', track: 'src', wbr: null
             }),
-            insertPositions: Object.freeze({ after: true, append: false, before: true, prepend: false, replaceChildren: false, replaceWith: true }),
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
-            autoScopes: Object.freeze(new Set(['head', 'body', 'root', 'host', 'document', 'window', 'html', '*', '&', '@'])),
             valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
             autoResolverSuffixes: Object.freeze({
                 component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
@@ -1525,12 +1523,6 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             suffixContentTypeMap: Object.freeze({
                 html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
-            }),
-            unitTypeCollectionChecks: Object.freeze({
-                mustBeClass: Object.freeze({ components: 'Component', facets: 'Facet' }),
-                mustBeWrapped: Object.freeze(new Set(['components', 'facets'])),
-                mayBeWrapped: Object.freeze(new Set(['gateways', 'interpreters'])),
-                mustBeFunction: Object.freeze(new Set(['hooks', 'resolvers', 'transforms']))
             }),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             unitTypeCollectionToClassNameMap: Object.freeze({ apis: 'API', components: 'Component', content: 'Anthology', facets: 'Facet', gateways: 'ProtocolDispatcher', models: 'Model' }),
@@ -1890,33 +1882,28 @@ const ElementHTML = Object.defineProperties({}, {
     resolveUnit: { // optimal
         value: async function (unitExpression, unitType) {
             if (!unitExpression) return
-            if (typeof unitExpression !== 'string') {
-                if (typeof unitExpression !== 'object') return
-                const promises = []
-                for (const n in unitExpression) promises.push(this.resolveUnit(n, unitExpression[n]))
-                await Promise.all(promises)
-                return
-            }
-            unitExpression = unitExpression.trim()
-            if (!unitExpression) return
+            if (typeof unitExpression !== 'string') return (typeof unitExpression === 'object') ? unitExpression : undefined
+            if (!(unitExpression = unitExpression.trim())) return
             const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
             if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
-
-            const envUnit = this.env[unitTypeCollectionName][unitExpression]
-            if (envUnit) {
-                if (typeof envUnit === 'string') {
-
-                }
-            }
-
-            if (this.env[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression] = this.env[unitTypeCollectionName][unitExpression]
-            if (this.app.resolvers[unitTypeCollectionName]) return this.app.resolvers[unitTypeCollectionName](unitExpression)
-            if (this.env.resolvers[unitTypeCollectionName]) return (this.app.resolvers[unitTypeCollectionName] = this.env.resolvers[unitTypeCollectionName])(unitExpression)
             const unitQueueJob = this.queue.get(`${unitType}:${unitExpression}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitExpression}`)
             if (unitQueueJob) {
                 await unitQueueJob.completed()
                 if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
             }
+            const envUnit = this.env[unitTypeCollectionName][unitExpression]
+            let unitResolver
+            if (envUnit) {
+                if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolvers') ?? this.defaultResolver
+                return this.app[unitTypeCollectionName][unitExpression] = unitResolver ? await unitResolver(envUnit) : envUnit
+            }
+            unitResolver ??= await this.resolveUnit(unitType, 'resolvers') ?? this.defaultResolver
+            return this.app[unitTypeCollectionName][unitExpression] = await unitResolver(unitExpression)
+        }
+    },
+
+    defaultResolver: { // optimal
+        enumerable: true, value: async function (unitExpression) {
             let unitUrl
             switch (unitExpression[0]) {
                 case '.': case '/': unitUrl = this.resolveUrl(unitExpression, undefined, true); break
@@ -1936,7 +1923,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             if (!unitSuffix) return
-            let unitModule
+            let unitModule, unit
             if (unitUrl) {
                 switch (unitSuffix) {
                     case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
@@ -1945,13 +1932,13 @@ const ElementHTML = Object.defineProperties({}, {
                     default:
                         if (!unitModule) unitModule = (await this.parse(unitModule = (await fetch(unitUrl.href)))) ?? (await unitModule.text())
                         const { hash } = unitUrl
-                        if (hash) unit = (unit && typeof unit === 'object') ? unit[hash] : undefined
+                        unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
                 }
-                if (!unit) return
-                return (this.app[unitTypeCollectionName][unitExpression] = unit)
             }
+            return unit
         }
     },
+
 
     runFragmentAsMethod: {
         value: function (fragment, value) {
