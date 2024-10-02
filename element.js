@@ -2371,13 +2371,10 @@ ElementHTML.Language.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-
             errors = { 404: '404', default: 'error' }
-
             constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, parser }) {
                 Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, parser })
             }
-
             async run(article, lang) {
                 lang ||= (document.documentElement.lang || this.defaultLanguage)
                 if (!this.languages.has(lang)) lang = this.defaultLanguage
