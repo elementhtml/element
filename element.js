@@ -77,7 +77,6 @@ const ElementHTML = Object.defineProperties({}, {
                         if (variables?.article && !article) return
                         const lang = variables?.lang ? this.resolveVariable(langSignature, valueEnvelope, { wrapped }) : langSignature
                         return anthology?.run(article, lang ?? container.lang, valueEnvelope)
-                        // return anthology[ ?? document.documentElement.lang ?? 'default'](article || 'index', valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { anthology: anthologySignature } = descriptor
@@ -2372,12 +2371,25 @@ ElementHTML.Language.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Anthology: {
         enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, languages = {} }) {
-                const actions = {}, processors = api.processors ?? {}
-                if (!ElementHTML.isPlainObject(languages) || !Object.keys(languages).length) languages = { default: './${$}' }
-                for (const langCode in languages) actions[langCode] = { url: languages[langCode] ?? `./${langCode}/\${$}` }
-                processors.post ??= 'md'
-                super({ ...api, actions, processors })
+
+            errors = { 404: '404', default: 'error' }
+
+            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, parser }) {
+                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, suffix, parser })
+                Object.assign(this.errors, errors)
+                this.languages = new Set(languages)
+            }
+
+            async run(article, lang) {
+                lang ??= document.documentElement.lang ?? this.defaultLanguage
+                if (!this.languages.has()) lang = this.defaultLanguage
+                article ??= this.defaultArticle
+                let url = `${this.base}/${lang}/${article}.${this.suffix}`, response = await fetch(url)
+                if (response.status !== 200) {
+                    url = `${this.base}/${lang}/${this.errors?.[response.status] ?? this.errors?.default ?? response.status}.${this.suffix}`
+                    response = await fetch(url)
+                }
+                return this.parse(response, this.parser ?? this.format)
             }
         }
     },
