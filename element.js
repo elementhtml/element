@@ -1846,51 +1846,12 @@ const ElementHTML = Object.defineProperties({}, {
             this.processQueue()
         }
     },
-    renderWithSnippet: {
-        value: function (element, data, tag, insertPosition, insertSelector, id, classList, attributeMap) {
-            if (insertSelector) element = element.querySelector(insertSelector)
-            if (!element) return
-            const sort = Array.prototype.toSorted ? 'toSorted' : 'sort'
-            classList = (classList && Array.isArray(classList)) ? classList.map(s => s.trim()).filter(s => !!s)[sort]() : []
-            const attrEntries = (attributeMap && (attributeMap instanceof Object)) ? Object.entries(attributeMap) : []
-            if (this.sys.voidElementTags.has(element.tagName.toLowerCase()) && !this.sys.insertPositions[insertPosition]) insertPosition = insertPosition === 'prepend' ? 'before' : 'after'
-            let useNode
-            if (tag instanceof HTMLTemplateElement) {
-                useNode = tag.content.cloneNode(true)
-            } else if (tag instanceof HTMLElement) {
-                useNode = tag.cloneNode(true)
-            } else if (typeof tag === 'string') {
-                useNode = document.createElement(tag)
-            } else { return }
-            if (id && (typeof id === 'string') && !(Array.isArray(data))) useNode.setAttribute('id', id)
-            const buildNode = node => {
-                for (let className of classList) node.classList[(className[0] === '!') ? 'remove' : 'add']((className[0] === '!') ? className.slice(1) : className)
-                for (const [n, v] of attrEntries) node[`${((typeof v !== 'string') && (typeof v !== 'number')) ? 'toggle' : 'set'}Attribute`](n, v)
-                return node
-            }
-            let nodesToApply = []
-            if (Array.isArray(data)) {
-                for (const vv of data) if (vv) nodesToApply.push([buildNode(useNode.cloneNode(true)), vv])
-            } else if (data) { nodesToApply.push([buildNode(useNode), data]) }
-            if (!nodesToApply.length) return
-            for (const n of nodesToApply) if (n[1] && (n[1] !== true)) this.render(...n)
-            element[insertPosition](...nodesToApply.map(n => n[0] instanceof DocumentFragment ? Array.from(n[0].cloneNode(true).children) : n[0]).flat())
-        }
-    },
     resolveImport: { //optimal
         enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
             const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
             isWasm ??= pathname.endsWith('.wasm')
             const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
             return returnWholeModule ? module : module[hash.slice(1)]
-        }
-    },
-    resolvePackageItem: {
-        value: async function (item, scope) {
-            switch (scope) {
-                case 'components': case 'facets': return await item(this)
-                default: return typeof item === 'function' ? (await item(this)) : item
-            }
         }
     },
 
@@ -1925,24 +1886,6 @@ const ElementHTML = Object.defineProperties({}, {
             return nodes
         }
     },
-    resolveSnippetKey: {
-        value: function (snippetKey) {
-            if (snippetKey[0] === '`' && snippetKey.endsWith('`')) {
-                snippetKey = snippetKey.slice(1, -1)
-                switch (snippetKey[0]) {
-                    case '.': case '/': break
-                    case '~':
-                        if (snippetKey[1] === '/') snippetKey = `snippets${snippetKey.slice(1)}`
-                        break
-                    default:
-                        if (!snippetKey.startsWith('snippets/')) snippetKey = `snippets/${snippetKey}`
-                }
-                if (snippetKey.endsWith('.')) snippetKey = `${snippetKey}html`
-                if (!snippetKey.includes('.')) snippetKey = `${snippetKey}.html`
-            }
-            return snippetKey
-        }
-    },
 
     resolveUnit: { // optimal
         value: async function (unitExpression, unitType) {
@@ -1959,7 +1902,12 @@ const ElementHTML = Object.defineProperties({}, {
             const unitTypeCollectionName = this.sys.unitTypeToCollectionNameMap[unitType] ?? `${unitType}s`
             if (this.app[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression]
 
+            const envUnit = this.env[unitTypeCollectionName][unitExpression]
+            if (envUnit) {
+                if (typeof envUnit === 'string') {
 
+                }
+            }
 
             if (this.env[unitTypeCollectionName][unitExpression]) return this.app[unitTypeCollectionName][unitExpression] = this.env[unitTypeCollectionName][unitExpression]
             if (this.app.resolvers[unitTypeCollectionName]) return this.app.resolvers[unitTypeCollectionName](unitExpression)
@@ -2005,18 +1953,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    runElementMethod: {
-        value: function (statement, arg, element) {
-            let [funcName, ...argsRest] = statement.split('(')
-            if (typeof element[funcName] === 'function') {
-                const cells = {}
-                for (const c in this.app.cells) cells[c] = this.app.cells[c].value
-                argsRest = argsRest.join('(').slice(0, -1)
-                argsRest = argsRest ? argsRest.split(',').map(a => this.resolveVariable(a.trim(), { cells, context: this.env.context, value: a.trim() })) : []
-                return element[funcName](...argsRest, ...([arg]))
-            }
-        }
-    },
     runFragmentAsMethod: {
         value: function (fragment, value) {
             const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
@@ -2073,11 +2009,6 @@ const ElementHTML = Object.defineProperties({}, {
             for (const p in facetInstance.controllers) facetInstance.controllers[p].abort()
             facetInstance.controller.abort()
             facetInstance.observer.disconnect()
-        }
-    },
-    isValidTag: {
-        value: function (tag) {
-            return !(document.createElement(tag) instanceof HTMLUnknownElement)
         }
     },
     queue: { value: new Map() },

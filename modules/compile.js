@@ -172,6 +172,11 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             return this.modules.compile.facetFactory({ fieldNames, cellNames, statements, cid })
         }
     },
+    isValidTag: {
+        value: function (tag) {
+            return !(document.createElement(tag) instanceof HTMLUnknownElement)
+        }
+    },
     componentFactory: {
         value: async function (manifest, id) {
             let ComponentClass
@@ -181,7 +186,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                 if (!this.isPlainObject(manifest)) return
                 const { extends: mExtends, native: mNative, script: mScript, style: mStyle, template: mTemplate } = manifest
                 let cExtends = mExtends ? ((mNative && mExtends === mNative) ? mExtends : this.resolveUrl(mExtends)) : undefined,
-                    native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.isValidTag(mNative) ? mNative : undefined,
+                    native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.modules.compile.isValidTag(mNative) ? mNative : undefined,
                     style = mStyle && (typeof mStyle === 'string') ? mStyle : (mStyle instanceof HTMLElement ? mStyle.textContent : ''),
                     template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : (mTemplate instanceof HTMLElement ? mTemplate.innerHTML : ''),
                     script = mScript && (typeof mScript === 'string') ? mScript.replace('export default ', '').trim() : 'class extends E.Component {}',
