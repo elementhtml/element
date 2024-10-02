@@ -2048,7 +2048,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     Component: {
-        enumerable: true, value: class extends globalThis.HTMLElement {
+        enumerable: true, value: class extends HTMLElement {
             static attributes = { observed: [] }
             static shadow = { mode: 'open' }
             static events = { default: undefined }
