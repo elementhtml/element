@@ -2395,7 +2395,6 @@ const ElementHTML = Object.defineProperties({}, {
     Language: {
         enumerable: true, value: class {
             observers = new WeakMap()
-            attributes = new Set()
             constructor({ lang, matches = {}, tokens = {} }) {
                 Object.assign(this, { lang, matches, tokens })
                 this.matches.textContent ??= '[data-lang-token-text-content]'
@@ -2408,7 +2407,10 @@ const ElementHTML = Object.defineProperties({}, {
                 this.matches['@value'] ??= 'input[value][data-lang-token-attr-value]'
                 this.matches['@content'] ??= 'meta[name][content][data-lang-token-attr-content]'
                 this.matches['@label'] ??= '[label][data-lang-token-attr-label]'
-
+                const attributes = new Set()
+                for (const m in this.matches) for (const attrName of (this.matches[m].match(/(?<=\[)([^\]=]+)/g) ?? [])) attributes.add(attrName)
+                attributes.add('lang')
+                this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
                 Object.freeze(this.tokens)
             }
@@ -2426,7 +2428,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     this.applyTokens(node)
                 })
-                observer.observe(node, { subtree: true, childList: true, attributeFilter: [] })
+                observer.observe(node, { subtree: true, childList: true, attributeFilter: this.attributeFilter })
                 this.observers.set(node, observer)
                 this.applyTokens(node)
             }
