@@ -1975,23 +1975,26 @@ const ElementHTML = Object.defineProperties({}, {
     Anthology: { // optimal
         enumerable: true, value: class {
             constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', suffix = 'md', languages, contentType = 'text/markdown' }) {
-                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
-                new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                const { E } = this.constructor
+                Object.assign(this, { E, base: E.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
+                new Job(async function () { await E.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
             }
             async run(article, lang, valueEnvelope) {
+                const { E } = this
                 lang ||= (document.documentElement.lang || this.defaultLanguage)
                 if (!this.languages.has(lang)) lang = this.defaultLanguage
                 const merge = true,
-                    url = `${this.resolveVariable(this.base, valueEnvelope, { merge })}/${lang}/${article || this.resolveVariable(this.defaultArticle, valueEnvelope, { merge })}.${this.suffix}`,
+                    url = `${E.resolveVariable(this.base, valueEnvelope, { merge })}/${lang}/${article || E.resolveVariable(this.defaultArticle, valueEnvelope, { merge })}.${this.suffix}`,
                     response = await fetch(url)
-                if (response.ok) return this.parse(response, this.contentType)
+                if (response.ok) return E.parse(response, this.contentType)
             }
         }
     },
     API: { // optimal
         enumerable: true, value: class {
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
-                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
+                const { E } = this.constructor
+                Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
                 this.acceptType ??= this.contentType
                 new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
                 if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
@@ -2000,27 +2003,28 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.errorProcessor) new Job(async function () { await this.resolveUnit(this.errorProcessor, 'transformer') }, `transformer:${this.errorProcessor}`)
             }
             async run(value, action, valueEnvelope) {
-                if (this.preProcessor) value = await this.runUnit(this.preProcessor, 'transform', value)
+                const { E } = this
+                if (this.preProcessor) value = await E.runUnit(this.preProcessor, 'transform', value)
                 action = (action ? this.actions[action] : undefined) ?? { pathname: `/${action || ''}` }
                 const options = {
                     ...this.options, ...(action?.options ?? {}),
                     method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
                     headers: { ...this.options.headers, ...(action?.options?.headers ?? {}) }
-                }, merge = true, pathname = this.resolveVariable(action.pathname, valueEnvelope, { merge }),
-                    url = this.resolveUrl(pathname, this.resolveVariable(this.base, valueEnvelope, { merge }))
+                }, merge = true, pathname = E.resolveVariable(action.pathname, valueEnvelope, { merge }),
+                    url = E.resolveUrl(pathname, E.resolveVariable(this.base, valueEnvelope, { merge }))
                 if (value === 0 || (value && typeof value !== 'string')) {
                     const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
-                    options.body = await this.runUnit(contentType, 'transform', value)
+                    options.body = await E.runUnit(contentType, 'transform', value)
                     if (typeof options.body !== 'string') throw new Error(`Input value unable to be serialzed to "${contentType}".`)
                 }
                 const response = await fetch(url, options)
                 let result
                 if (response.ok) {
                     const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
-                    result = await this.runUnit(acceptType, 'transform', await response.text())
-                    if (this.postProcessor) result = await this.runUnit(this.postProcessor, 'transform', result)
+                    result = await E.runUnit(acceptType, 'transform', await response.text())
+                    if (this.postProcessor) result = await E.runUnit(this.postProcessor, 'transform', result)
                 } else if (this.errorProcessor) {
-                    result = await this.runUnit(this.errorProcessor, 'transform', response)
+                    result = await E.runUnit(this.errorProcessor, 'transform', response)
                 }
                 return result
             }
@@ -2066,11 +2070,6 @@ const ElementHTML = Object.defineProperties({}, {
                 eventName ??= instance instanceof this.constructor.E.Component ? (instance.constructor.events?.default) : this.constructor.E.sys.defaultEventTypes[instance.tagName.toLowerCase()]
                 return super.dispatchEvent(new CustomEvent(eventName ?? 'click', { detail, bubbles, cancelable, composed }))
             }
-        }
-    },
-    Context: {
-        enumerable: true, value: class {
-
         }
     },
     Facet: { // optimal
