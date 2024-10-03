@@ -2287,8 +2287,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const { unitType, unitKey } = step.entries()[0]
                         if (!this.constructor.embeddableClasses.has(stepClassName)) continue
                         this.steps.push(async (input, envelope) => {
-                            const unit = await E.resolveUnit(unitType, unitKey)
                             input = Array.isArray(input) ? input : [input, undefined]
+                            const unit = await E.resolveUnit(unitType, unitKey)
                             return unit(...input, envelope)
                         })
                     }
