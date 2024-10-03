@@ -2003,6 +2003,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.preProcessor) new Job(async function () { await this.resolveUnit(this.preProcessor, 'transformer') }, `transformer:${this.preProcessor}`)
                 if (this.postProcessor) new Job(async function () { await this.resolveUnit(this.postProcessor, 'transformer') }, `transformer:${this.postProcessor}`)
                 if (this.errorProcessor) new Job(async function () { await this.resolveUnit(this.errorProcessor, 'transformer') }, `transformer:${this.errorProcessor}`)
+                if (this.actions) Object.freeze(this.actions)
+                if (this.options) Object.freeze(this.options)
             }
             async run(value, action, valueEnvelope) {
                 const { E } = this
@@ -2158,7 +2160,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Language: {
         enumerable: true, value: class {
-            constructor({ matches: { }, tokens = {} }) {
+            constructor({ matches = {}, tokens = {} }) {
                 Object.assign(this, { matches, tokens })
                 this.matches.textContent ??= '[data-lang-token-text-content]'
                 this.matches['@title'] ??= '[title][data-lang-token-attr-title]'
@@ -2170,6 +2172,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.matches['@value'] ??= 'input[value][data-lang-token-attr-value]'
                 this.matches['@content'] ??= 'meta[name][content][data-lang-token-attr-content]'
                 this.matches['@label'] ??= '[label][data-lang-token-attr-label]'
+                Object.freeze(this.matches)
+                Object.freeze(this.tokens)
             }
         }
     },
