@@ -2217,7 +2217,7 @@ const ElementHTML = Object.defineProperties({}, {
     Type: {
         enumerable: true, value: class {
             static E
-            constructor(typeDefinition) {
+            constructor(typeDefinition, typeName) {
                 const { E } = this.constructor
                 if (!typeDefinition) return
                 switch (typeof typeDefinition) {
@@ -2236,7 +2236,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     this.typeDefinition ??= await xdr.import(typeDefinition, undefined, {}, 'json')
                                     let valid = false, errors
                                     try { valid = !!xdr.serialize(input, this.typeDefinition) } catch (e) { errors = e }
-                                    return verbose ? { input, valid, errors } : valid
+                                    return verbose ? { input, typeName, valid, errors } : valid
                                 }
                             } else {
                                 this.engine = async (input, verbose, envelope) {
@@ -2246,9 +2246,17 @@ const ElementHTML = Object.defineProperties({}, {
                                         await this.typeDefinition.deref()
                                     }
                                     const valid = this.typeDefinition.validate(input)
-                                    return verbose ? { input, valid, errors: valid ? undefined : this.typeDefinition.errors(input) } : valid
+                                    return verbose ? { input, typeName, valid, errors: valid ? undefined : this.typeDefinition.errors(input) } : valid
                                 }
                             }
+                        }
+                    case 'string':
+                        this.engine = async (input, verbose, envelope) => {
+                            const xdr = await E.resolveUnit('xdr', 'library')
+                            this.typeDefinition ??= await xdr.factory(typeDefinition, typeName)
+                            let valid = false, errors
+                            try { valid = !!xdr.serialize(input, this.typeDefinition) } catch (e) { errors = e }
+                            return verbose ? { input, typeName, valid, errors } : valid
                         }
                 }
             }
