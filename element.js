@@ -1539,7 +1539,7 @@ const ElementHTML = Object.defineProperties({}, {
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
             unitTypeMap: Object.freeze({
                 api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
-                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', Object], library: ['libraries', Object], model: ['models', 'Model'],
+                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], model: ['models', 'Model'],
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
@@ -1974,6 +1974,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     Anthology: { // optimal
         enumerable: true, value: class {
+            static E
             constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', suffix = 'md', languages, contentType = 'text/markdown' }) {
                 const { E } = this.constructor
                 Object.assign(this, { E, base: E.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
@@ -1992,6 +1993,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     API: { // optimal
         enumerable: true, value: class {
+            static E
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
                 const { E } = this.constructor
                 Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
@@ -2032,6 +2034,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Component: {
         enumerable: true, value: class extends HTMLElement {
+            static E
             static attributes = { observed: [] }
             static shadow = { mode: 'open' }
             static events = { default: undefined }
@@ -2142,9 +2145,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Gateway: {
         enumerable: true, value: class {
-
             fallbacks = []
-
             constructor(fallbacks) {
                 if (!Array.isArray(fallbacks)) fallbacks = [fallbacks]
                 for (let fallback of fallbacks) {
@@ -2153,80 +2154,23 @@ const ElementHTML = Object.defineProperties({}, {
                     this.fallbacks.push(fallback)
                 }
             }
-
-        }
-    },
-    Hook: {
-        enumerable: true, value: class {
-
-        }
-    },
-    Interpreter: {
-        enumerable: true, value: class {
-
         }
     },
     Language: {
         enumerable: true, value: class {
-
-            attributes = []
-            patterns = []
-            config = {}
-
-            constructor({ attributes = ['data-e-lexicon-token'], patterns = [/\{\{[^}]+\}\}/], config = { default: 'default' } }) {
-                this.attributes = [...attributes]
-                this.patterns = [...patterns]
-                this.config = { ...config }
-                this.observeDOM()
-                this.replaceTokensInContent()
+            constructor({ matches: { }, tokens = {} }) {
+                Object.assign(this, { matches, tokens })
+                this.matches.textContent ??= '[data-lang-token-text-content]'
+                this.matches['@title'] ??= '[title][data-lang-token-attr-title]'
+                this.matches['@alt'] ??= 'img[alt][data-lang-token-attr-alt]'
+                this.matches['@placeholder'] ??= 'input[placeholder][data-lang-token-attr-placeholder]'
+                this.matches['@aria-label'] ??= '[aria-label][data-lang-token-attr-aria-label]'
+                this.matches['@aria-labelledby'] ??= '[aria-labelledby][data-lang-token-attr-aria-labelledby]'
+                this.matches['@aria-describedby'] ??= '[aria-describedby][data-lang-token-attr-aria-describedby]'
+                this.matches['@value'] ??= 'input[value][data-lang-token-attr-value]'
+                this.matches['@content'] ??= 'meta[name][content][data-lang-token-attr-content]'
+                this.matches['@label'] ??= '[label][data-lang-token-attr-label]'
             }
-
-            getLanguage() {
-                const currentLanguage = this.config.default || 'default'
-                return this.constructor.E.env.languages[currentLanguage] || {}
-            }
-
-            replaceTokensInAttributes(element) {
-                const language = this.getLanguage()
-                for (const attribute of this.attributes) {
-                    const elements = element ? [element] : document.querySelectorAll(`[${attribute}]`)
-                    for (const element of elements) element.textContent = language[element.getAttribute(attribute)] ?? element.textContent
-                }
-            }
-
-            replaceTokensInContentSingleElement(element, language) {
-                for (const pattern of this.patterns) {
-                    const matches = element.textContent.match(pattern)
-                    if (matches) {
-                        let newText = element.textContent
-                        for (const match of matches) newText = newText.replace(match, language[match.slice(2, -2).trim()] ?? match)
-                        element.textContent = newText
-                    }
-                }
-            }
-
-            replaceTokensInContent(element) {
-                const language = this.getLanguage()
-                if (element) return this.replaceTokensInContentSingleElement(element, language)
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null, false)
-                while (walker.nextNode()) this.replaceTokensInContentSingleElement(walker.currentNode, language)
-            }
-
-            observeDOM() {
-                const observer = new MutationObserver(mutations => {
-                    for (const mutation of mutations) {
-                        switch (mutation.type) {
-                            case 'childList':
-                            case 'attributes':
-                                this.replaceTokensInAttributes(mutation.target)
-                            case 'characterData':
-                                if (mutation.type !== 'attributes') this.replaceTokensInContent(mutation.target)
-                        }
-                    }
-                })
-                observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true, attributeFilter: this.attributes })
-            }
-
         }
     },
     Namespace: {
