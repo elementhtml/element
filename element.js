@@ -2230,16 +2230,30 @@ const ElementHTML = Object.defineProperties({}, {
                                 return verbose ? validation : valid
                             }
                         } else {
-                            if (!this.isPlainObject(typeDefinition)) return // TO DO HERE
+                            if (!this.isPlainObject(typeDefinition)) return
                             if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                                await this.loadHelper('xdr')
-                                typeDefinition = await this.useHelper('xdr', 'import', typeDefinition, undefined, {}, 'json')
-                                isXDR = true
+                                this.engine = async (input, verbose, envelope) => {
+                                    const xdr = await E.resolveUnit('xdr', 'library')
+                                    this.typeDefinition ??= await xdr.import(typeDefinition, undefined, {}, 'json')
+                                    let valid, errors
+                                    try {
+                                        valid = !!xdr.serialize(input, this.typeDefinition)
+                                    } catch (e) {
+                                        let valid = false
+                                        errors = e
+                                    }
+                                    return verbose ? { input, valid, errors } : valid
+                                }
                             } else {
-                                await this.loadHelper('application/schema+json')
-                                typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
-                                await typeDefinition.deref()
-                                isJSONSchema = true
+                                this.engine = async (input, verbose, envelope) {
+                                    const jsonSchema = await E.resolveUnit('schema.json', 'library')
+                                    if (!this.typeDefinition) {
+                                        this.typeDefinition = new jsonSchema(typeDefinition)
+                                        await this.typeDefinition.deref()
+                                    }
+                                    const valid = this.typeDefinition.validate(input)
+                                    return verbose ? { input, valid, errors: valid ? undefined : this.typeDefinition.errors(input) } : valid
+                                }
                             }
                         }
                 }
