@@ -1988,13 +1988,17 @@ const ElementHTML = Object.defineProperties({}, {
     },
     API: {
         enumerable: true, value: class {
-            constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType }) {
-                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType })
+            constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
+                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor })
                 this.acceptType ??= this.contentType
                 if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
                 if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
+                if (this.preProcessor) new Job(async function () { await this.resolveUnit(this.preProcessor, 'transformer') }, `transformer:${this.preProcessor}`)
+                if (this.postProcessor) new Job(async function () { await this.resolveUnit(this.postProcessor, 'transformer') }, `transformer:${this.postProcessor}`)
+                if (this.errorProcessor) new Job(async function () { await this.resolveUnit(this.errorProcessor, 'transformer') }, `transformer:${this.errorProcessor}`)
             }
             async run(value, action, valueEnvelope) {
+                if (this.preProcessor) value = await this.runUnit(this.preProcessor, 'transform', value)
                 action = (action ? this.actions[action] : undefined) ?? { pathname: `/${action || ''}` }
                 const options = {
                     ...this.options, ...(action?.options ?? {}),
@@ -2012,9 +2016,11 @@ const ElementHTML = Object.defineProperties({}, {
                 if (response.ok) {
                     const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
                     result = await this.runUnit(acceptType, 'transform', await response.text())
-                    if (result === undefined) throw new Error(`Response unable to be serialzed to "${acceptType}".`)
-                    return result
+                    if (this.postProcessor) result = await this.runUnit(this.postProcessor, 'transform', result)
+                } else if (this.errorProcessor) {
+                    result = await this.runUnit(this.errorProcessor, 'transform', response)
                 }
+                return result
             }
         }
     },
