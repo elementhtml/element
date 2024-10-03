@@ -2217,7 +2217,6 @@ const ElementHTML = Object.defineProperties({}, {
     Type: {
         enumerable: true, value: class {
             static E
-
             constructor(typeDefinition) {
                 const { E } = this.constructor
                 if (!typeDefinition) return
@@ -2235,13 +2234,8 @@ const ElementHTML = Object.defineProperties({}, {
                                 this.engine = async (input, verbose, envelope) => {
                                     const xdr = await E.resolveUnit('xdr', 'library')
                                     this.typeDefinition ??= await xdr.import(typeDefinition, undefined, {}, 'json')
-                                    let valid, errors
-                                    try {
-                                        valid = !!xdr.serialize(input, this.typeDefinition)
-                                    } catch (e) {
-                                        let valid = false
-                                        errors = e
-                                    }
+                                    let valid = false, errors
+                                    try { valid = !!xdr.serialize(input, this.typeDefinition) } catch (e) { errors = e }
                                     return verbose ? { input, valid, errors } : valid
                                 }
                             } else {
@@ -2257,108 +2251,15 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                 }
-
             }
-
-            run(input, verbose, valueEnvelope) {
-
+            run(input, verbose, envelope) {
+                return this.engine(input, verbose, envelope)
             }
-
         }
     },
 
 
 
-    checkType: {
-        enumerable: true, value: async function (typeName, value, validate) {
-            if (!(typeName = typeName.trim())) return
-            if (!this.app.types[typeName]) {
-                let typeDefinition = this.env.types[typeName] ?? typeName
-                if (!typeDefinition) return
-                if (typeof typeDefinition === 'string') {
-                    let isUrl
-                    switch (typeDefinition[0]) {
-                        case '`':
-                            typeDefinition = typeDefinition.slice(1, -1).trim()
-                        case '.': case '/':
-                            isUrl = true
-                            break
-                        default:
-                            typeDefinition = typeDefinition.trim()
-                            if (typeDefinition.includes('://')) try { isUrl = !!new URL(typeDefinition) } catch (e) { }
-                            isUrl ??= !((typeDefinition[0] === '{') || typeDefinition.includes(';'))
-                            if (isUrl) typeDefinition = `types/${typeDefinition}`
-                    }
-                    if (isUrl) {
-                        const typeSuffixes = ['js', 'wasm', 'schema.json', 'json', 'x']
-                        let isType = {}, t, hasSuffix
-                        for (t of typeSuffixes) if (hasSuffix ||= isType[t] = typeDefinition.endsWith(`.${t}`)) break
-                        if (!hasSuffix) for (t of typeSuffixes) if (isType[t] = (await fetch(`${typeDefinition}.${t}`, { method: 'HEAD' })).ok) break
-                        switch (t) {
-                            case 'js': case 'wasm':
-                                typeDefinition = (await this.getExports(this.resolveUrl(`${typeDefinition}.${t}`))).default
-                                break
-                            case 'schema.json': case 'json':
-                                typeDefinition = await (await fetch(this.resolveUrl(`${typeDefinition}.${t}`))).json()
-                                break
-                            default:
-                                typeDefinition = await (await fetch(this.resolveUrl(t ? `${typeDefinition}.${t}` : typeDefinition))).text()
-                        }
-                    }
-                }
-                let isXDR, isJSONSchema
-                switch (typeof typeDefinition) {
-                    case 'function':
-                        this.app.types[typeName] = typeDefinition.bind(this)
-                        break
-                    case 'object':
-                        if (!this.isPlainObject(typeDefinition)) return
-                        if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                            await this.loadHelper('xdr')
-                            typeDefinition = await this.useHelper('xdr', 'import', typeDefinition, undefined, {}, 'json')
-                            isXDR = true
-                        } else {
-                            await this.loadHelper('application/schema+json')
-                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
-                            await typeDefinition.deref()
-                            isJSONSchema = true
-                        }
-                        break
-                    case 'string':
-                        if (typeDefinition[0] === '{') {
-                            try { typeDefinition = JSON.parse(typeDefinition) } catch (e) { return }
-                            await this.loadHelper('application/schema+json')
-                            typeDefinition = new this.app.libraries['application/schema+json'](typeDefinition)
-                            await typeDefinition.deref()
-                            isJSONSchema = true
-                        } else {
-                            await this.loadHelper('xdr')
-                            typeDefinition = await this.useHelper('xdr', 'factory', typeDefinition, typeName)
-                            isXDR = true
-                        }
-                        break
-                }
-                if (isXDR) {
-                    this.app.types[typeName] = (function (value, validate) {
-                        try {
-                            let valid = !!this.app.libraries.xdr.serialize(value, typeDefinition)
-                            return validate ? { value, typeName, valid, errors: undefined } : valid
-                        } catch (e) {
-                            let valid = false
-                            return validate ? { value, typeName, valid, errors: e } : valid
-                        }
-                    }).bind(this)
-                } else if (isJSONSchema) {
-                    this.app.types[typeName] = (function (value, validate) {
-                        const valid = typeDefinition.validate(value)
-                        return validate ? { value, typeName, valid, errors: valid ? undefined : typeDefinition.errors(value) } : valid
-                    }).bind(this)
-                }
-            }
-            if (!this.app.types[typeName]) return
-            return this.app.types[typeName](value, validate)
-        }
-    },
 
 
 
