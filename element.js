@@ -2007,7 +2007,7 @@ const ElementHTML = Object.defineProperties({}, {
                     method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
                     headers: { ...this.options.headers, ...(action?.options?.headers ?? {}) }
                 }, merge = true, pathname = this.resolveVariable(action.pathname, valueEnvelope, { merge }),
-                    base = this.resolveVariable(this.base, valueEnvelope, { merge }), url = this.resolveUrl(pathname, base)
+                    url = this.resolveUrl(pathname, this.resolveVariable(this.base, valueEnvelope, { merge }))
                 if (value === 0 || (value && typeof value !== 'string')) {
                     const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
                     options.body = await this.runUnit(contentType, 'transform', value)
