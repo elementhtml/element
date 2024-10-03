@@ -2276,11 +2276,11 @@ const ElementHTML = Object.defineProperties({}, {
                             return (typeof func === 'function') ? func(input, valueEnvelope) : func
                         })
                     }
-                    else if (typeof step === 'string') {
+                    else if (typeof step === 'string') { //MORE TO DO HERE
                         this.steps.push(`(${step.trim()})`)
                         new Job(async function () { await E.resolveUnit('jsonata', 'library') }, `library:jsonata`)
                     }
-                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) {
+                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) { // AND HERE
                         const { unitType, unitKey } = step.entries()[0]
                         if (!this.constructor.embeddableClasses.has(stepClassName)) continue
                         this.steps.push([stepClassName, unitKey])
@@ -2289,14 +2289,13 @@ const ElementHTML = Object.defineProperties({}, {
                     index++
                 }
             }
-
             async run(input, valueEnvelope) {
                 for (const step of this.steps) {
-
+                    if (input === undefined) break
+                    input = await step(input, valueEnvelope)
                 }
-
+                return input
             }
-
         }
     },
     Type: {
