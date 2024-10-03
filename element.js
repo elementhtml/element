@@ -1973,28 +1973,26 @@ const ElementHTML = Object.defineProperties({}, {
 
     Anthology: {
         enumerable: true, value: class {
-            errors = { 404: '404', default: 'error' }
-            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', errors, suffix = 'md', languages, contentType = 'text/markdown' }) {
-                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, errors: Object.assign(this.errors, errors), languages: new Set(languages), suffix, contentType })
+            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', suffix = 'md', languages, contentType = 'text/markdown' }) {
+                Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
                 if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
             }
             async run(article, lang, valueEnvelope) {
                 lang ||= (document.documentElement.lang || this.defaultLanguage)
                 if (!this.languages.has(lang)) lang = this.defaultLanguage
                 let url = `${this.base}/${lang}/${article || this.defaultArticle}.${this.suffix}`, response = await fetch(url)
-                if (!response.ok) response = await fetch(`${this.base}/${lang}/${this.errors?.[response.status] ?? this.errors?.default ?? response.status}.${this.suffix}`)
-                return this.parse(response, this.parser ?? this.format)
+                if (response.ok) return this.parse(response, this.contentType)
             }
         }
     },
     API: {
         enumerable: true, value: class {
-
-            actions = {}
-            options = { method: 'POST', headers: {} }
-            base
-            contentType
-
+            constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType }) {
+                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType })
+                this.acceptType ??= this.contentType
+                if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
+            }
             async run(value, action, valueEnvelope) {
                 action = (action ? this.actions[action] : undefined) ?? { pathname: `/${action || ''}` }
                 const options = {
@@ -2005,74 +2003,16 @@ const ElementHTML = Object.defineProperties({}, {
                     base = this.resolveVariable(this.base, valueEnvelope, { merge }), url = this.resolveUrl(pathname, base)
                 if (value === 0 || (value && typeof value !== 'string')) {
                     const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
-                    if (contentType !== 'application/json') {
-                        options.body = await this.runUnit(contentType, 'transform', value)
-                        if (typeof options.body !== 'string') throw new Error(`No serializer for ${contentType} was found.`)
-                    }
+                    options.body = await this.runUnit(contentType, 'transform', value)
+                    if (typeof options.body !== 'string') throw new Error(`Input value unable to be serialzed to "${contentType}".`)
                 }
-
-
-
-
-
-            }
-
-
-            constructor({ url, options = {}, actions = {}, processors = {} }) {
-                if (!url || (typeof url !== 'string')) return
-                const { isPlainObject, resolveUrl, resolveVariable, parse, serialize, flatten, env, app } = this.constructor.E, objArgs = { options, actions, processors }
-                for (const argName in objArgs) if (!isPlainObject(objArgs[argName])) { objArgs[argName] = {} };
-                ({ options, actions, processors } = objArgs);
-                for (const p of ['pre', 'post']) {
-                    let processor = processors[p], f = p === 'pre' ? serialize : parse
-                    switch (typeof processor) {
-                        case 'undefined': processor = v => v; break
-                        case 'string': processor = async v => f(v, processor); break
-                        case 'function': processor = processor.bind(this.constructor.E); break
-                        default: processor = async v => f(v)
-                    }
-                    processors[p] = processor
-                }
-                const resolveVariableFlags = { merge: true }, resolveVariableEnvelope = { context: env.context }, { pre: preProcessor, post: postProcessor } = processors
-                for (const actionName in actions) {
-                    let action = actions[actionName]
-                    if (typeof action === 'string') actions[actionName] = action = { url: action }
-                    if (!isPlainObject(action)) continue
-                    if (!isPlainObject(action.options)) action.options = {}
-                    if (typeof action.url !== 'string') action.url ??= './'
-                    action.options.headers = { ...(options.headers ?? {}), ...(action.options.headers ?? {}) }
-                    if (isPlainObject(action.options.body) && isPlainObject(options.body)) action.options.body = { ...options.body, ...action.options.body }
-                    Object.defineProperty(this, actionName, {
-                        enumerable: true, writable: false,
-                        value: async function (input) {
-                            const cells = flatten(app.cells), envelope = { ...resolveVariableEnvelope, cells, value: input }, useOptions = { ...action.options }
-                            let useUrl = resolveVariable(action.url, envelope, resolveVariableFlags)
-                            try {
-                                useUrl = (new URL(useUrl, resolveUrl(resolveVariable(url, envelope, resolveVariableFlags)))).href
-                            } catch (e) {
-                                /* raise an error here */
-                            }
-                            useOptions.headers = { ...(useOptions.headers ?? {}) }
-                            const bodyIsObject = isPlainObject(useOptions.body)
-                            if (bodyIsObject) try { useOptions.body = JSON.parse(JSON.stringify(useOptions.body)) } catch (e) { /* raise an error here */ }
-                            for (const p in useOptions) {
-                                const optionValue = useOptions[p]
-                                switch (optionProp) {
-                                    case 'body': if (bodyIsObject || Array.isArray(optionValue)) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags); break
-                                    case 'headers':
-                                        for (const h in optionValue) optionValue[h] = resolveVariable(optionValue[h], envelope, resolveVariableFlags)
-                                        break
-                                    default:
-                                        if (typeof optionValue === 'string' && optionValue.startsWith('$')) useOptions[p] = resolveVariable(optionValue, envelope, resolveVariableFlags)
-                                }
-                            }
-                            useOptions.body = (!('body' in useOptions) && (useOptions.method === 'POST' || useOptions.method === 'PUT')) ? await preProcessor()
-                                : (bodyIsObject ? await preProcessor(useOptions.body) : undefined)
-                            if (useOptions.body === undefined) delete useOptions.body
-                            if (useOptions.body && !('method' in useOptions)) useOptions.method = 'POST'
-                            return postProcessor(await window.fetch(useUrl, useOptions))
-                        }
-                    })
+                const response = await fetch(url, options)
+                let result
+                if (response.ok) {
+                    const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
+                    result = await this.runUnit(acceptType, 'transform', response)
+                    if (result === undefined) throw new Error(`Response unable to be serialzed to "${acceptType}".`)
+                    return result
                 }
             }
         }
