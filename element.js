@@ -1966,7 +1966,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
-    Anthology: {
+    Anthology: { // optimal
         enumerable: true, value: class {
             static E
             constructor({ engine = {} }) {
@@ -2224,7 +2224,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     Model: { // optimal
         enumerable: true, value: class {
             static E
@@ -2256,6 +2255,47 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: {
         enumerable: true, value: class {
             static E
+            static embeddableUnitTypes = new Set('api', 'anthology', 'model')
+            constructor(stepChain) {
+                const { E } = this.constructor
+                if (!Array.isArray(stepChain)) stepChain = [stepChain]
+                this.steps = []
+                this.promisesResults = []
+                let index = 0
+                for (const step of stepChain) {
+                    if (!step) continue
+                    else if (typeof step === 'function') this.steps.push(step.bind(E))
+                    else if (step instanceof Promise) {
+                        this.steps.push(async (input, valueEnvelope) => {
+                            if (this.promisesResults[index]) {
+                                const stepResult = await step
+                                if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
+                                this.promisesResults[index] = stepResult
+                            }
+                            const func = this.promisesResults[index]
+                            return (typeof func === 'function') ? func(input, valueEnvelope) : func
+                        })
+                    }
+                    else if (typeof step === 'string') {
+                        this.steps.push(`(${step.trim()})`)
+                        new Job(async function () { await E.resolveUnit('jsonata', 'library') }, `library:jsonata`)
+                    }
+                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) {
+                        const { unitType, unitKey } = step.entries()[0]
+                        if (!this.constructor.embeddableClasses.has(stepClassName)) continue
+                        this.steps.push([stepClassName, unitKey])
+                        new Job(async function () { await E.resolveUnit(unitType, unitKey) }, `${unitType}:${unitKey}`)
+                    }
+                    index++
+                }
+            }
+
+            async run(input, valueEnvelope) {
+                for (const step of this.steps) {
+
+                }
+
+            }
 
         }
     },
