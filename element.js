@@ -1505,7 +1505,7 @@ const ElementHTML = Object.defineProperties({}, {
             regexp: Object.freeze({
                 attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/,
                 constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
-                directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/,
+                directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, extractAttributes: /(?<=\[)([^\]=]+)/g,
                 gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
@@ -2141,6 +2141,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Gateway: {
         enumerable: true, value: class {
+            static E
             fallbacks = []
             constructor(fallbacks) {
                 if (!Array.isArray(fallbacks)) fallbacks = [fallbacks]
@@ -2154,8 +2155,10 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Language: {
         enumerable: true, value: class {
+            static E
             observers = new WeakMap()
             constructor({ lang, matches = {}, tokens = {} }) {
+                const { E } = this.constructor
                 Object.assign(this, { lang, matches, tokens })
                 this.matches.textContent ??= '[data-lang-token-text-content]'
                 this.matches['@title'] ??= '[data-lang-token-attr-title][title]'
@@ -2167,66 +2170,80 @@ const ElementHTML = Object.defineProperties({}, {
                 this.matches['@value'] ??= 'input[data-lang-token-attr-value][value]'
                 this.matches['@content'] ??= 'meta[name][data-lang-token-attr-content][content]'
                 this.matches['@label'] ??= '[data-lang-token-attr-label][label]'
-                const attributes = new Set(), selectors = {}
+                const attributes = new Set(['lang']), selectors = {}
                 for (const key in this.matches) {
-                    const attributePair = this.matches[key].match(/(?<=\[)([^\]=]+)/g), isAttr = key[0] === '@'
-                    if (!attributePair.length || (isAttr && (attributePair.length < 2))) {
-                        delete this.matches[key]
-                        continue
-                    }
+                    const attributePair = this.matches[key].match(E.sys.regexp.extractAttributes), isAttr = key[0] === '@'
+                    if (!attributePair.length || (isAttr && (attributePair.length < 2))) { delete this.matches[key]; continue }
                     for (const attrName of attributePair) attributes.add(attrName)
                     const selObj = { key, [isAttr ? 'target' : 'token']: attributePair.pop() }
                     if (isAttr) selObj.token = attributePair.pop()
-                    selectors[this.matches[k]] = Object.freeze(selObj)
+                    selectors[this.matches[key]] = Object.freeze(selObj)
                 }
                 this.selectors = Object.freeze(selectors)
-                attributes.add('lang')
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
                 Object.freeze(this.tokens)
             }
-
             applyTokens(node) {
                 const nodeIsElement = node instanceof HTMLElement
+                if (nodeIsElement && (node.closest('[lang]')?.getAttribute('lang') !== this.lang)) return
+                else if (node.shadowRoot && (node.host.getAttribute('lang') !== this.lang)) return
+                const { selectors } = this
                 for (const selector in selectors) {
-                    const nodeList = Array.from(node.querySelectorAll(selector))
+                    const nodeList = Array.from(node.querySelectorAll(selector)), { key, token, target } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
-                    const { key, token, target } = selectors[selector]
-                    for (const n of nodeList) {
-                        const tokenValue = n.getAttribute(token) || ''
-                        target ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
-                    }
+                    for (const n of nodeList) target ? n.setAttribute(target, n.getAttribute(token)) : (n[key] = n.getAttribute(token))
                 }
             }
-
             supportLanguage(node) {
                 const observer = new MutationObserver((mutations) => {
                     for (const mutation of mutations) {
-                        if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.hasAttribute('lang')) this.supportLanguage(addedNode)
+                        if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.hasAttribute('lang') && (addedNode.getAttribute('lang') === this.lang)) this.supportLanguage(addedNode)
                         this.applyTokens(mutation.target)
                     }
                 })
                 observer.observe(node, { subtree: true, childList: true, attributeFilter: this.attributeFilter })
                 this.observers.set(node, observer)
                 this.applyTokens(node)
-                if (this.shadowRoot) this.supportLanguage(this.shadowRoot)
+                if (node.shadowRoot) this.supportLanguage(node.shadowRoot)
             }
-
             run() {
                 const langSelector = `[lang|="${this.lang}"]`, nodes = Array.from(document.querySelectorAll(langSelector))
                 if (document.documentElement.matches(langSelector)) nodes.push(document.documentElement)
                 for (const node of nodes) this.supportLanguage(node)
             }
-
         }
     },
+
+    Model: { // UP TO HERE!!!
+        enumerable: true, value: class extends ElementHTML.API {
+            constructor({ api = {}, prompts = {}, promptConfig = {} }) {
+                if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
+                const actions = {}, { key = 'prompt', mapper } = promptConfig, hasPromptMapper = typeof mapper === 'function'
+                for (const promptName in prompts) {
+                    const body = prompts[promptName]
+                    switch (typeof body) {
+                        case 'string': body = { [key]: body }
+                        default:
+                            if (!ElementHTML.isPlainObject(body)) continue
+                    }
+                    if (hasPromptMapper) body = mapper(body)
+                    actions[promptName] = { body }
+                }
+                super({ ...api, actions })
+            }
+        }
+    },
+
     Transform: {
         enumerable: true, value: class {
+            static E
 
         }
     },
     Type: {
         enumerable: true, value: class {
+            static E
 
         }
     },
@@ -2235,6 +2252,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     State: { // optimal
         value: class {
+            static E
             name
             type
             value
@@ -2261,6 +2279,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Validator: { // optimal
         enumerable: true, value: class {
+            static E
 
             constructor(obj) {
                 if (!obj || (typeof obj !== 'object')) return
@@ -2277,11 +2296,12 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Job: { // optimal
         enumerable: true, value: class {
+            static E
             running = false
-            static cancelJob(id) { return this.E.queue.delete(id) }
-            static isRunning(id) { return this.E.queue.get(id)?.running }
-            static getJobFunction(id) { return this.E.queue.get(id)?.jobFunction }
-            static getJobRunner(id) { return this.E.queue.get(id)?.runner }
+            static cancelJob(id) { return this.constructor.E.queue.delete(id) }
+            static isRunning(id) { return this.constructor.E.queue.get(id)?.running }
+            static getJobFunction(id) { return this.constructor.E.queue.get(id)?.jobFunction }
+            static getJobRunner(id) { return this.constructor.E.queue.get(id)?.runner }
             constructor(jobFunction, id) {
                 const { E } = this.constructor, { queue } = E
                 if (typeof jobFunction !== 'function') return
@@ -2334,29 +2354,9 @@ Object.defineProperties(ElementHTML, {
                 if (name && fields) fields[name] ??= this
             }
         }
-    },
-    Model: {
-        enumerable: true, value: class extends ElementHTML.API {
-            constructor({ api = {}, prompts = {}, promptConfig = {} }) {
-                if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
-                const actions = {}, { key = 'prompt', mapper } = promptConfig, hasPromptMapper = typeof mapper === 'function'
-                for (const promptName in prompts) {
-                    const body = prompts[promptName]
-                    switch (typeof body) {
-                        case 'string': body = { [key]: body }
-                        default:
-                            if (!ElementHTML.isPlainObject(body)) continue
-                    }
-                    if (hasPromptMapper) body = mapper(body)
-                    actions[promptName] = { body }
-                }
-                super({ ...api, actions })
-            }
-        }
     }
 })
-for (const className of ['API', 'Anthology', 'Cell', 'Component', 'Facet', 'Field', 'Gateway', 'Job', 'Language', 'Model', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
-
+for (const className of ['API', 'Anthology', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
     ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)
