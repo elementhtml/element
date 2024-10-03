@@ -1989,7 +1989,7 @@ const ElementHTML = Object.defineProperties({}, {
     API: {
         enumerable: true, value: class {
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
-                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor })
+                Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
                 this.acceptType ??= this.contentType
                 if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
                 if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
