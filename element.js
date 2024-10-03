@@ -2239,7 +2239,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     return verbose ? { input, typeName, valid, errors } : valid
                                 }
                             } else {
-                                this.engine = async (input, verbose, envelope) {
+                                this.engine = async (input, verbose, envelope) => {
                                     const jsonSchema = await E.resolveUnit('schema.json', 'library')
                                     if (!this.typeDefinition) {
                                         this.typeDefinition = new jsonSchema(typeDefinition)
