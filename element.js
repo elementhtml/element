@@ -365,7 +365,7 @@ const ElementHTML = Object.defineProperties({}, {
             patterns: {}, resolvers: {
 
             }, snippets: {},
-            transforms: {
+            transforms: { // TODO: wrap as this.Transform class instances
                 'application/json': function (inputValue) { try { return JSON.stringify(inputValue) } catch (e) { } },
                 'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
             },
@@ -953,92 +953,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    runTransform: {
-        enumerable: true, value: async function (transform, data = {}, element = undefined, variableMap = {}) {
-            if (transform) transform = transform.trim()
-            const transformKey = transform
-            let expression, helperAlias
-            if (this.app.transforms[transformKey] === true) {
-                let waitCount = 0
-                while ((waitCount <= 100) && (this.app.transforms[transformKey] === true)) await new Promise(r => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(r, { timeout: 100 }) : setTimeout(r, 100))
-            }
-            if (this.app.transforms[transformKey] === true) delete this.app.transforms[transformKey]
-            if (!this.app.transforms[transformKey]) {
-                this.app.transforms[transformKey] = true
-                resolveBackticks: {
-                    if (transformKey[0] === '`') {
-                        if (transformKey.endsWith(')`') && transformKey.includes('(')) return this.runFragmentAsMethod(transformKey.slice(1, -1), data)
-                        if (this.env.transforms[transformKey]) {
-                            [transform, expression] = [transformKey, this.env.transforms[transformKey]]
-                            break resolveBackticks
-                        }
-                        let transformUrl = transformKey.slice(1, -1).trim(), functionName = 'default', isJSONata, isJS, isWASM
-                        const usesSubFunction = transformUrl.includes('|'), isRemote = transformUrl.includes('://'),
-                            isJsOrWasm = usesSubFunction || (isJS = transformUrl.endsWith('.js')) || (isWASM = transformUrl.endsWith('.wasm'))
-                        if (usesSubFunction) [transformUrl, functionName] = transformUrl.split('|')
-                        if (isRemote) {
-                            transformUrl = this.resolveUrl(transformUrl);
-                            [transform, expression] = isJsOrWasm ? [transform, (await this.getExports(transformUrl))[functionName]]
-                                : [await fetch(transformUrl).then(r => r.text()), undefined]
-                            break resolveBackticks
-                        }
-                        if (!this.sys.regexp.isLocalUrl.test(transformUrl)) transformUrl = `transforms/${transformUrl}`
-                        if (isJsOrWasm) {
-                            isJS ??= transformUrl.endsWith('.js')
-                            isWASM ??= transformUrl.endsWith('.wasm')
-                        } else {
-                            isJSONata = transformUrl.endsWith('.jsonata')
-                        }
-                        if (isJS || isWASM || isJSONata) {
-                            transformUrl = this.resolveUrl(transformUrl);
-                            [transform, expression] = isJsOrWasm ? [transform, (await this.getExports(transformUrl))[functionName]]
-                                : [await fetch(transformUrl).then(r => r.text()), undefined]
-                            break resolveBackticks
-                        }
-                        let checkURL = this.resolveUrl(`${transformUrl}.js`)
-                        isJS = (await fetch(checkURL, { method: 'HEAD' })).ok
-                        if (isJS) {
-                            [transform, expression] = [transform, (await this.getExports(checkURL))[functionName]]
-                            break resolveBackticks
-                        }
-                        checkURL = this.resolveUrl(`${transformUrl}.wasm`)
-                        isWASM = (await fetch(checkURL, { method: 'HEAD' })).ok
-                        if (isWASM) {
-                            [transform, expression] = [transform, (await this.getExports(checkURL))[functionName]]
-                            break resolveBackticks
-                        }
-                        checkURL = this.resolveUrl(`${transformUrl}.jsonata`)
-                        [transform, expression] = [await fetch(checkURL).then(r => r.text()), undefined]
-                        break resolveBackticks
-                    }
-                }
-                if (!transform) {
-                    delete this.app.transforms[transformKey]
-                    return
-                }
-                expression ||= this.env.transforms[transformKey]
-                if (!expression) expression = this.useHelper(await this.loadHelper('application/x-jsonata'), transform)
-                this.app.transforms[transformKey] = [transform, expression]
-            } else {
-                if (transformKey[0] === '`') [transform, expression] = this.app.transforms[transformKey]
-                if (!transform) return
-            }
-            expression ||= this.app.transforms[transformKey][1]
-            const bindings = {}, isFunc = typeof expression === 'function'
-            if (element) {
-                if (isFunc || transform.includes('$find(')) bindings.find = qs => qs ? this.flatten(this.resolveScopedSelector(qs, element) ?? {}) : this.flatten(element)
-                if (isFunc || transform.includes('$this')) bindings.this = this.flatten(element)
-                if (isFunc || transform.includes('$root')) bindings.root = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode())
-                if (isFunc || transform.includes('$host')) bindings.host = this.flatten((this.app.components.natives.get(element) ?? element).getRootNode().host)
-                if (isFunc || transform.includes('$document')) bindings.document = { ...this.flatten(document.documentElement), ...this.flatten(document) }
-            }
-            for (const [k, v] of Object.entries(variableMap)) if (isFunc || transform.includes(`$${k}`)) bindings[k] = typeof v === 'function' ? v : this.flatten(v)
-            if (isFunc) return await expression(data, bindings)
-            // const helperAliases = (this.env.options['application/x-jsonata']?.helpers ?? {})
-            // for (const a in helperAliases) if (this.app.helpers[helperAlias = helperAliases[a]] && transform.includes(`$${a}(`)) await this.loadHelper(helperAlias)
-            return await expression.evaluate(data, bindings)
-        }
-    },
 
     runUnit: { // optimal
         enumerable: true, value: async function (unitKey, unitType, ...args) {
@@ -1593,28 +1507,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    mergeArgs: {
-        value: function (args, value, envelope = {}) {
-            const newArgs = []
-            for (let a of (args ?? [])) {
-                const aSpread = a.startsWith('...')
-                if (aSpread) a = a.slice(3)
-                if (aSpread && !Array.isArray(a)) a = [a]
-                if (value !== undefined) {
-                    const { cells, context, fields, labels } = envelope
-                    if (aSpread) {
-                        const newA = []
-                        for (const aa of a) newA.push(this.resolveVariable(aa, { cells, context, fields, labels, value }))
-                        a = newA
-                    } else {
-                        a = this.resolveVariable(a, { cells, context, fields, labels, value })
-                    }
-                }
-                aSpread ? newArgs.push(...a) : newArgs.push(a)
-            }
-            return newArgs
-        }
-    },
 
     mountElement: { // optimal
         value: async function (element) {
@@ -1816,14 +1708,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
-    runFragmentAsMethod: {
-        value: function (fragment, value) {
-            const [methodName, argsList] = fragment.slice(0, -1).split('(').map((s, i) => i ? s.split(',').map(ss => ss.trim()) : s.trim()),
-                valuePrototype = value?.constructor?.prototype
-            if (valuePrototype && (typeof value[methodName] === 'function')) return value[methodName](...this.mergeArgs(argsList, value))
-            return
-        }
-    },
     runHook: { // optimal
         enumerable: true, value: async function (hookName) {
             if (!this.app.hooks[hookName]) {
@@ -2266,13 +2150,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
-
-
-
-
-
 
     State: { // optimal
         value: class {
