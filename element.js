@@ -418,12 +418,6 @@ const ElementHTML = Object.defineProperties({}, {
                 set: interpretersProxyError, delete: interpretersProxyError, clear: interpretersProxyError,
                 get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
             }))
-            if (Object.keys(this.env.languages).length) {
-                if (this.env.lexicon?.prototype instanceof this.Lexicon) this.env.lexicon = new this.env.lexicon()
-                else if (this.isPlainObject(this.env.lexicon)) this.env.lexicon = new this.env.lexicon(this.env.lexicon)
-                else this.env.lexicon = new this.Lexicon()
-            }
-            else delete this.env.lexicon
             Object.freeze(this.env)
             Object.freeze(this.app)
             for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
@@ -431,12 +425,252 @@ const ElementHTML = Object.defineProperties({}, {
                 this.runHook(eventName)
             })
             this.mountElement(document.documentElement).then(async () => {
+                // Langugage support here
+                if (this.env.languages && Object.keys(this.env.languages).length > 0) await this.loadLanguageSupport()
                 this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 await this.runHook('load')
                 new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100)).then(() => this.processQueue())
             })
         }
     },
+
+
+
+
+    applyLanguage: {
+        enumerable: true, value: async function () {
+
+        }
+    },
+
+
+    loadLanguageSupport: {
+        enumerable: true, value: async function () {
+
+            // Function to select the appropriate Language instance based on lang attribute
+            const selectLanguage = (langValue) => {
+                const langParts = langValue.toLowerCase().split('-');
+                while (langParts.length > 0) {
+                    const key = langParts.join('-');
+                    if (this.env.languages[key]) {
+                        return this.env.languages[key];
+                    }
+                    langParts.pop(); // Fallback by removing the last subtag
+                }
+                return null; // No matching Language instance found
+            };
+
+            // Function to apply language tokens to an element based on its Language instance
+            const applyLanguageTokens = (element, languageInstance) => {
+                const { matches, tokens } = languageInstance;
+
+                // Iterate over each match selector and perform substitutions
+                for (const [key, selector] of Object.entries(matches)) {
+                    const matchedElements = element.querySelectorAll(selector);
+                    matchedElements.forEach((el) => {
+                        switch (key) {
+                            case 'textContent':
+                                if (tokens.textContent) {
+                                    el.textContent = tokens.textContent;
+                                }
+                                break;
+                            case '@title':
+                                if (tokens['@title']) {
+                                    el.setAttribute('title', tokens['@title']);
+                                }
+                                break;
+                            case '@alt':
+                                if (tokens['@alt']) {
+                                    el.setAttribute('alt', tokens['@alt']);
+                                }
+                                break;
+                            case '@placeholder':
+                                if (tokens['@placeholder']) {
+                                    el.setAttribute('placeholder', tokens['@placeholder']);
+                                }
+                                break;
+                            case '@aria-label':
+                                if (tokens['@aria-label']) {
+                                    el.setAttribute('aria-label', tokens['@aria-label']);
+                                }
+                                break;
+                            case '@aria-labelledby':
+                                if (tokens['@aria-labelledby']) {
+                                    el.setAttribute('aria-labelledby', tokens['@aria-labelledby']);
+                                }
+                                break;
+                            case '@aria-describedby':
+                                if (tokens['@aria-describedby']) {
+                                    el.setAttribute('aria-describedby', tokens['@aria-describedby']);
+                                }
+                                break;
+                            case '@value':
+                                if (tokens['@value']) {
+                                    el.setAttribute('value', tokens['@value']);
+                                }
+                                break;
+                            case '@content':
+                                if (tokens['@content']) {
+                                    el.setAttribute('content', tokens['@content']);
+                                }
+                                break;
+                            case '@label':
+                                if (tokens['@label']) {
+                                    el.setAttribute('label', tokens['@label']);
+                                }
+                                break;
+                            default:
+                                // Handle any additional cases if necessary
+                                break;
+                        }
+                    });
+                }
+            };
+
+            // Function to process elements with lang attributes
+            const processLanguageElements = (root) => {
+                const elements = root.querySelectorAll('[lang]');
+                elements.forEach((el) => {
+                    const lang = el.getAttribute('lang');
+                    const languageInstance = selectLanguage(lang);
+                    if (languageInstance) {
+                        applyLanguageTokens(el, languageInstance);
+                    }
+                });
+            };
+
+            // Initial processing of existing elements with lang attributes
+            processLanguageElements(document);
+
+            // Function to traverse and process shadow DOMs
+            const traverseShadowDOM = (node) => {
+                if (node.shadowRoot) {
+                    processLanguageElements(node.shadowRoot);
+                    // Recursively traverse nested shadow roots
+                    node.shadowRoot.querySelectorAll('*').forEach(traverseShadowDOM);
+                }
+            };
+
+            // Traverse existing shadow DOMs
+            document.querySelectorAll('*').forEach(traverseShadowDOM);
+
+            // Set up MutationObserver to monitor changes in the DOM
+            const observer = new MutationObserver((mutationsList) => {
+                for (const mutation of mutationsList) {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                // Process the newly added element and its descendants
+                                if (node.hasAttribute('lang')) {
+                                    const lang = node.getAttribute('lang');
+                                    const languageInstance = selectLanguage(lang);
+                                    if (languageInstance) {
+                                        applyLanguageTokens(node, languageInstance);
+                                    }
+                                }
+                                node.querySelectorAll('[lang]').forEach((el) => {
+                                    const lang = el.getAttribute('lang');
+                                    const languageInstance = selectLanguage(lang);
+                                    if (languageInstance) {
+                                        applyLanguageTokens(el, languageInstance);
+                                    }
+                                });
+
+                                // If the added node has a shadowRoot, traverse it
+                                traverseShadowDOM(node);
+                            }
+                        });
+                    } else if (mutation.type === 'attributes' && mutation.attributeName === 'lang') {
+                        const el = mutation.target;
+                        const lang = el.getAttribute('lang');
+                        const languageInstance = selectLanguage(lang);
+                        if (languageInstance) {
+                            applyLanguageTokens(el, languageInstance);
+                        }
+                    }
+                }
+            });
+
+            // Start observing the document for changes
+            observer.observe(document, {
+                attributes: true,
+                childList: true,
+                subtree: true,
+                attributeFilter: ['lang']
+            });
+
+            // Optional: Observe existing shadow DOMs for dynamic changes
+            const observeShadowDOMs = (root) => {
+                const shadowObservers = [];
+                const elements = root.querySelectorAll('*');
+                elements.forEach((el) => {
+                    if (el.shadowRoot) {
+                        const shadowObserver = new MutationObserver((mutations) => {
+                            mutations.forEach((mutation) => {
+                                if (mutation.type === 'childList') {
+                                    mutation.addedNodes.forEach((node) => {
+                                        if (node.nodeType === Node.ELEMENT_NODE) {
+                                            if (node.hasAttribute('lang')) {
+                                                const lang = node.getAttribute('lang');
+                                                const languageInstance = selectLanguage(lang);
+                                                if (languageInstance) {
+                                                    applyLanguageTokens(node, languageInstance);
+                                                }
+                                            }
+                                            node.querySelectorAll('[lang]').forEach((el) => {
+                                                const lang = el.getAttribute('lang');
+                                                const languageInstance = selectLanguage(lang);
+                                                if (languageInstance) {
+                                                    applyLanguageTokens(el, languageInstance);
+                                                }
+                                            });
+                                        }
+                                    });
+                                } else if (mutation.type === 'attributes' && mutation.attributeName === 'lang') {
+                                    const el = mutation.target;
+                                    const lang = el.getAttribute('lang');
+                                    const languageInstance = selectLanguage(lang);
+                                    if (languageInstance) {
+                                        applyLanguageTokens(el, languageInstance);
+                                    }
+                                }
+                            });
+                        });
+
+                        shadowObserver.observe(el.shadowRoot, {
+                            attributes: true,
+                            childList: true,
+                            subtree: true,
+                            attributeFilter: ['lang']
+                        });
+
+                        shadowObservers.push(shadowObserver);
+                        // Recursively observe nested shadow roots
+                        observeShadowDOMs(el.shadowRoot);
+                    }
+                });
+                return shadowObservers;
+            };
+
+            // Start observing existing shadow DOMs
+            const initialShadowObservers = [];
+            document.querySelectorAll('*').forEach((el) => {
+                if (el.shadowRoot) {
+                    initialShadowObservers.push(...observeShadowDOMs(el.shadowRoot));
+                }
+            });
+
+            // Freeze the observer to prevent further modifications
+            Object.freeze(observer);
+            initialShadowObservers.forEach(Object.freeze);
+
+
+        }
+    },
+
+
+
+
 
 
 
@@ -2160,8 +2394,10 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Language: {
         enumerable: true, value: class {
-            constructor({ matches = {}, tokens = {} }) {
-                Object.assign(this, { matches, tokens })
+            observers = new WeakMap()
+            attributes = new Set()
+            constructor({ lang, matches = {}, tokens = {} }) {
+                Object.assign(this, { lang, matches, tokens })
                 this.matches.textContent ??= '[data-lang-token-text-content]'
                 this.matches['@title'] ??= '[title][data-lang-token-attr-title]'
                 this.matches['@alt'] ??= 'img[alt][data-lang-token-attr-alt]'
@@ -2172,9 +2408,35 @@ const ElementHTML = Object.defineProperties({}, {
                 this.matches['@value'] ??= 'input[value][data-lang-token-attr-value]'
                 this.matches['@content'] ??= 'meta[name][content][data-lang-token-attr-content]'
                 this.matches['@label'] ??= '[label][data-lang-token-attr-label]'
+
                 Object.freeze(this.matches)
                 Object.freeze(this.tokens)
             }
+
+            applyTokens(node) {
+
+
+            }
+
+            supportLanguage(node) {
+                const observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.hasAttribute('lang')) this.supportLanguage(addedNode)
+                        this.applyTokens(mutation.target)
+                    }
+                    this.applyTokens(node)
+                })
+                observer.observe(node, { subtree: true, childList: true, attributeFilter: [] })
+                this.observers.set(node, observer)
+                this.applyTokens(node)
+            }
+
+            run() {
+                const langSelector = `[lang|="${this.lang}"]`, nodes = Array.from(document.querySelectorAll(langSelector))
+                if (document.documentElement.matches(langSelector)) nodes.push(document.documentElement)
+                for (const node of nodes) this.supportLanguage(node)
+            }
+
         }
     },
     Transform: {
