@@ -1966,27 +1966,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
-    Anthology: { // optimal
-        enumerable: true, value: class {
-            static E
-            constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', suffix = 'md', languages, contentType = 'text/markdown' }) {
-                const { E } = this.constructor
-                Object.assign(this, { E, base: E.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
-                new Job(async function () { await E.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
-            }
-            async run(article, lang, valueEnvelope) {
-                const { E } = this
-                lang ||= (document.documentElement.lang || this.defaultLanguage)
-                if (!this.languages.has(lang)) lang = this.defaultLanguage
-                const merge = true,
-                    url = `${E.resolveVariable(this.base, valueEnvelope, { merge })}/${lang}/${article || E.resolveVariable(this.defaultArticle, valueEnvelope, { merge })}.${this.suffix}`,
-                    response = await fetch(url)
-                if (response.ok) return E.parse(response, this.contentType)
-            }
-        }
-    },
-
-
     Anthology: {
         enumerable: true, value: class {
             static E
@@ -2013,9 +1992,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
-
     API: { // optimal
         enumerable: true, value: class {
             static E
