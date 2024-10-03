@@ -366,6 +366,7 @@ const ElementHTML = Object.defineProperties({}, {
 
             }, snippets: {},
             transforms: {
+                'application/json': function (inputValue) { try { return JSON.stringify(inputValue) } catch (e) { } },
                 'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
             },
             types: {}
@@ -2010,7 +2011,7 @@ const ElementHTML = Object.defineProperties({}, {
                 let result
                 if (response.ok) {
                     const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
-                    result = await this.runUnit(acceptType, 'transform', response)
+                    result = await this.runUnit(acceptType, 'transform', await response.text())
                     if (result === undefined) throw new Error(`Response unable to be serialzed to "${acceptType}".`)
                     return result
                 }
