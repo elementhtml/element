@@ -2250,6 +2250,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                             }
                         }
+                        break
                     case 'string':
                         this.engine = async (input, verbose, envelope) => {
                             const xdr = await E.resolveUnit('xdr', 'library')
