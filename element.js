@@ -2003,7 +2003,7 @@ const ElementHTML = Object.defineProperties({}, {
             async run(value, action, valueEnvelope) {
                 const { E } = this
                 if (this.preProcessor) value = await E.runUnit(this.preProcessor, 'transform', value)
-                action = (action ? this.actions[action] : undefined) ?? { pathname: `/${action || ''}` }
+                action = (action ? this.actions[action] : undefined) ?? { pathname: `/${('pathname' in this.options) ? (this.options.pathname || '') : (action || '')}` }
                 const options = {
                     ...this.options, ...(action?.options ?? {}),
                     method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
@@ -2216,22 +2216,24 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     Model: { // UP TO HERE!!!
-        enumerable: true, value: class extends ElementHTML.API {
+        enumerable: true, value: class {
+            static E
+
             constructor({ api = {}, prompts = {}, promptConfig = {} }) {
-                if (!ElementHTML.isPlainObject(prompts) || !Object.keys(prompts).length) prompts = { default: '${$}' }
-                const actions = {}, { key = 'prompt', mapper } = promptConfig, hasPromptMapper = typeof mapper === 'function'
-                for (const promptName in prompts) {
-                    const body = prompts[promptName]
-                    switch (typeof body) {
-                        case 'string': body = { [key]: body }
-                        default:
-                            if (!ElementHTML.isPlainObject(body)) continue
-                    }
-                    if (hasPromptMapper) body = mapper(body)
-                    actions[promptName] = { body }
+                if (!api) return
+                const { E } = this.constructor
+                switch (typeof api) {
+                    case 'function': this.api = api.bind(this); break
+                    case 'string': this.api = async input => (await (this.engine ??= await E.resolveUnit(api, 'api')).run(input)); break
+                    case 'object': this.api = async input => (await (this.engine ??= new E.API(api)).run(input)); break
                 }
-                super({ ...api, actions })
+
             }
+
+            async run(value, prompt, valueEnvelope) {
+
+            }
+
         }
     },
 
