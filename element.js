@@ -2219,19 +2219,26 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
 
-            constructor({ api = {}, prompts = {}, promptConfig = {} }) {
-                if (!api) return
+            constructor({ engine = {}, prompts = {} }) {
+                if (!engine) return
                 const { E } = this.constructor
-                switch (typeof api) {
-                    case 'function': this.api = api.bind(this); break
-                    case 'string': this.api = async input => (await (this.engine ??= await E.resolveUnit(api, 'api')).run(input)); break
-                    case 'object': this.api = async input => (await (this.engine ??= new E.API(api)).run(input)); break
+                switch (typeof engine) {
+                    case 'function': this.engine = engine.bind(this); break
+                    case 'string': this.engine = async input => (await (this.api ??= await E.resolveUnit(engine, 'api')).run(input)); break
+                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
+                    default: return
                 }
-
+                if (E.isPlainObject(prompts)) this.prompts = prompts
             }
 
             async run(value, prompt, valueEnvelope) {
-
+                const { E } = this.constructor
+                let input
+                if (typeof value === 'string') {
+                    const promptTemplate = prompt ? (this.prompts[prompt] ?? '$') : '$'
+                    input = E.resolveVariable(promptTemplate, { ...valueEnvelope, value }, { merge: true })
+                } else input = value
+                return this.engine(input, undefined, valueEnvelope)
             }
 
         }
