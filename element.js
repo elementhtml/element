@@ -2398,17 +2398,28 @@ const ElementHTML = Object.defineProperties({}, {
             constructor({ lang, matches = {}, tokens = {} }) {
                 Object.assign(this, { lang, matches, tokens })
                 this.matches.textContent ??= '[data-lang-token-text-content]'
-                this.matches['@title'] ??= '[title][data-lang-token-attr-title]'
-                this.matches['@alt'] ??= 'img[alt][data-lang-token-attr-alt]'
-                this.matches['@placeholder'] ??= 'input[placeholder][data-lang-token-attr-placeholder]'
-                this.matches['@aria-label'] ??= '[aria-label][data-lang-token-attr-aria-label]'
-                this.matches['@aria-labelledby'] ??= '[aria-labelledby][data-lang-token-attr-aria-labelledby]'
-                this.matches['@aria-describedby'] ??= '[aria-describedby][data-lang-token-attr-aria-describedby]'
-                this.matches['@value'] ??= 'input[value][data-lang-token-attr-value]'
-                this.matches['@content'] ??= 'meta[name][content][data-lang-token-attr-content]'
-                this.matches['@label'] ??= '[label][data-lang-token-attr-label]'
-                const attributes = new Set()
-                for (const m in this.matches) for (const attrName of (this.matches[m].match(/(?<=\[)([^\]=]+)/g) ?? [])) attributes.add(attrName)
+                this.matches['@title'] ??= '[data-lang-token-attr-title][title]'
+                this.matches['@alt'] ??= 'img[data-lang-token-attr-alt][alt]'
+                this.matches['@placeholder'] ??= 'input[data-lang-token-attr-placeholder][placeholder]'
+                this.matches['@aria-label'] ??= '[data-lang-token-attr-aria-label][aria-label]'
+                this.matches['@aria-labelledby'] ??= '[data-lang-token-attr-aria-labelledby][aria-labelledby]'
+                this.matches['@aria-describedby'] ??= '[data-lang-token-attr-aria-describedby][aria-describedby]'
+                this.matches['@value'] ??= 'input[data-lang-token-attr-value][value]'
+                this.matches['@content'] ??= 'meta[name][data-lang-token-attr-content][content]'
+                this.matches['@label'] ??= '[data-lang-token-attr-label][label]'
+                const attributes = new Set(), selectors = {}
+                for (const key in this.matches) {
+                    const attributePair = this.matches[key].match(/(?<=\[)([^\]=]+)/g), isAttr = key[0] === '@'
+                    if (!attributePair.length || (isAttr && (attributePair.length < 2))) {
+                        delete this.matches[key]
+                        continue
+                    }
+                    for (const attrName of attributePair) attributes.add(attrName)
+                    const selObj = { key, [isAttr ? 'target' : 'token']: attributePair.pop() }
+                    if (isAttr) selObj.token = attributePair.pop()
+                    selectors[this.matches[k]] = Object.freeze(selObj)
+                }
+                this.selectors = Object.freeze(selectors)
                 attributes.add('lang')
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
@@ -2416,8 +2427,16 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             applyTokens(node) {
-
-
+                const nodeIsElement = node instanceof HTMLElement
+                for (const selector in selectors) {
+                    const nodeList = Array.from(node.querySelectorAll(selector))
+                    if (nodeIsElement && node.matches(selector)) nodeList.push(node)
+                    const { key, token, target } = selectors[selector]
+                    for (const n of nodeList) {
+                        const tokenValue = n.getAttribute(token) || ''
+                        target ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
+                    }
+                }
             }
 
             supportLanguage(node) {
@@ -2426,11 +2445,11 @@ const ElementHTML = Object.defineProperties({}, {
                         if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.hasAttribute('lang')) this.supportLanguage(addedNode)
                         this.applyTokens(mutation.target)
                     }
-                    this.applyTokens(node)
                 })
                 observer.observe(node, { subtree: true, childList: true, attributeFilter: this.attributeFilter })
                 this.observers.set(node, observer)
                 this.applyTokens(node)
+                if (this.shadowRoot) this.supportLanguage(this.shadowRoot)
             }
 
             run() {
