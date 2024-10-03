@@ -2255,36 +2255,42 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: {
         enumerable: true, value: class {
             static E
-            static embeddableUnitTypes = new Set('api', 'anthology', 'model')
+            static embeddableUnitTypes = new Set('api', 'anthology', 'model', 'library')
             constructor(stepChain) {
                 const { E } = this.constructor
                 if (!Array.isArray(stepChain)) stepChain = [stepChain]
                 this.steps = []
-                this.promisesResults = []
+                this.stepIntermediates = []
                 let index = 0
                 for (const step of stepChain) {
                     if (!step) continue
                     else if (typeof step === 'function') this.steps.push(step.bind(E))
                     else if (step instanceof Promise) {
                         this.steps.push(async (input, valueEnvelope) => {
-                            if (this.promisesResults[index]) {
+                            if (!this.stepIntermediates[index]) {
                                 const stepResult = await step
                                 if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
-                                this.promisesResults[index] = stepResult
+                                this.stepIntermediates[index] = stepResult
                             }
-                            const func = this.promisesResults[index]
+                            const func = this.stepIntermediates[index]
                             return (typeof func === 'function') ? func(input, valueEnvelope) : func
                         })
                     }
-                    else if (typeof step === 'string') { //MORE TO DO HERE
-                        this.steps.push(`(${step.trim()})`)
-                        new Job(async function () { await E.resolveUnit('jsonata', 'library') }, `library:jsonata`)
+                    else if (typeof step === 'string') {
+                        this.steps.push(async (input, envelope) => {
+                            const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
+                                expression = this.stepIntermediates[index] ??= jsonata(`(${step.trim()})`)
+                            return expression.evaluate(input, { envelope })
+                        })
                     }
-                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) { // AND HERE
+                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) {
                         const { unitType, unitKey } = step.entries()[0]
                         if (!this.constructor.embeddableClasses.has(stepClassName)) continue
-                        this.steps.push([stepClassName, unitKey])
-                        new Job(async function () { await E.resolveUnit(unitType, unitKey) }, `${unitType}:${unitKey}`)
+                        this.steps.push(async (input, envelope) => {
+                            const unit = await E.resolveUnit(unitType, unitKey)
+                            input = Array.isArray(input) ? input : [input, undefined]
+                            return unit(...input, envelope)
+                        })
                     }
                     index++
                 }
