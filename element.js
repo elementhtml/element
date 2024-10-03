@@ -2177,26 +2177,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Namespace: {
-        enumerable: true, value: class {
-
-        }
-    },
-    Pattern: {
-        enumerable: true, value: class {
-
-        }
-    },
-    Resolver: {
-        enumerable: true, value: class {
-
-        }
-    },
-    Snippet: {
-        enumerable: true, value: class {
-
-        }
-    },
     Transform: {
         enumerable: true, value: class {
 
@@ -2254,17 +2234,11 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Job: { // optimal
         enumerable: true, value: class {
-
-            id
-            jobFunction
-            runner
             running = false
-
             static cancelJob(id) { return this.E.queue.delete(id) }
             static isRunning(id) { return this.E.queue.get(id)?.running }
             static getJobFunction(id) { return this.E.queue.get(id)?.jobFunction }
             static getJobRunner(id) { return this.E.queue.get(id)?.runner }
-
             constructor(jobFunction, id) {
                 const { E } = this.constructor, { queue } = E
                 if (typeof jobFunction !== 'function') return
@@ -2273,9 +2247,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.jobFunction = jobFunction
                 queue.set(this.id, this)
             }
-
             cancel() { this.constructor.E.queue.delete(this.id) }
-
             complete(deadline = 1000) {
                 const { E } = this.constructor, { queue } = E
                 if (!queue.has(this.id)) return
@@ -2290,25 +2262,15 @@ const ElementHTML = Object.defineProperties({}, {
                     res(!queue.has(this.id))
                 }))
             }
-
             async run() { if (!this.running) return this.runner() }
-
             async runner() {
                 if (this.running) return
                 this.running = true
                 try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
             }
-
         }
     },
 })
-ElementHTML.Component.E = ElementHTML
-ElementHTML.Facet.E = ElementHTML
-ElementHTML.Validator.E = ElementHTML
-ElementHTML.Job.E = ElementHTML
-ElementHTML.Gateway.E = ElementHTML
-ElementHTML.API.E = ElementHTML
-ElementHTML.Language.E = ElementHTML
 Object.defineProperties(ElementHTML, {
     Cell: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
@@ -2350,6 +2312,7 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
+for (const className of ['API', 'Anthology', 'Cell', 'Component', 'Facet', 'Field', 'Gateway', 'Job', 'Language', 'Model', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
 
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
