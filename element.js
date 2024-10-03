@@ -1986,7 +1986,10 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E } = this.constructor
                 if (typeof slug === 'string') {
                     slug = E.resolveVariable(slug, valueEnvelope, { merge: true })
-                    if (lang && typeof lang === 'string') slug = `${lang}/${slug}`
+                    if (lang && typeof lang === 'string') {
+                        lang = E.resolveVariable(lang, valueEnvelope, { merge: true })
+                        slug = `${lang}/${slug}`
+                    }
                 }
                 return this.engine.name?.startsWith('bound ') ? this.engine(slug, valueEnvelope) : this.engine(undefined, slug, valueEnvelope)
             }
