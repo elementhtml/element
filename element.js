@@ -1972,26 +1972,28 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
-    Anthology: {
+    Anthology: { // optimal
         enumerable: true, value: class {
             constructor({ base = '.', defaultArticle = 'index', defaultLanguage = '', suffix = 'md', languages, contentType = 'text/markdown' }) {
                 Object.assign(this, { base: this.resolveUrl(base), defaultArticle, defaultLanguage, languages: new Set(languages), suffix, contentType })
-                if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
             }
             async run(article, lang, valueEnvelope) {
                 lang ||= (document.documentElement.lang || this.defaultLanguage)
                 if (!this.languages.has(lang)) lang = this.defaultLanguage
-                let url = `${this.base}/${lang}/${article || this.defaultArticle}.${this.suffix}`, response = await fetch(url)
+                const merge = true,
+                    url = `${this.resolveVariable(this.base, valueEnvelope, { merge })}/${lang}/${article || this.resolveVariable(this.defaultArticle, valueEnvelope, { merge })}.${this.suffix}`,
+                    response = await fetch(url)
                 if (response.ok) return this.parse(response, this.contentType)
             }
         }
     },
-    API: {
+    API: { // optimal
         enumerable: true, value: class {
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
                 Object.assign(this, { base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
                 this.acceptType ??= this.contentType
-                if (this.contentType) new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
                 if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
                 if (this.preProcessor) new Job(async function () { await this.resolveUnit(this.preProcessor, 'transformer') }, `transformer:${this.preProcessor}`)
                 if (this.postProcessor) new Job(async function () { await this.resolveUnit(this.postProcessor, 'transformer') }, `transformer:${this.postProcessor}`)
