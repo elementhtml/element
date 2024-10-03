@@ -1985,6 +1985,37 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+    Anthology: {
+        enumerable: true, value: class {
+            static E
+            constructor({ engine = {} }) {
+                if (!engine) return
+                const { E } = this.constructor
+                switch (typeof engine) {
+                    case 'function': this.engine = engine.bind(this); break
+                    case 'string':
+                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
+                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
+                        break
+                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
+                    default: return
+                }
+            }
+            async run(slug, lang, valueEnvelope) {
+                const { E } = this.constructor
+                if (typeof slug === 'string') {
+                    slug = E.resolveVariable(slug, valueEnvelope, { merge: true })
+                    if (lang && typeof lang === 'string') slug = `${lang}/${slug}`
+                }
+                return this.engine.name?.startsWith('bound ') ? this.engine(slug, valueEnvelope) : this.engine(undefined, slug, valueEnvelope)
+            }
+        }
+    },
+
+
+
     API: { // optimal
         enumerable: true, value: class {
             static E
@@ -2215,10 +2246,9 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Model: {
+    Model: { // optimal
         enumerable: true, value: class {
             static E
-
             constructor({ engine = {}, prompts = {} }) {
                 if (!engine) return
                 const { E } = this.constructor
@@ -2233,7 +2263,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (E.isPlainObject(prompts)) this.prompts = prompts
             }
-
             async run(input, prompt, valueEnvelope) {
                 const { E } = this.constructor
                 if (typeof input === 'string') {
@@ -2242,7 +2271,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return this.engine(input, undefined, valueEnvelope)
             }
-
         }
     },
 
