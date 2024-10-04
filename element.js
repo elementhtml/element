@@ -4,7 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: {
         enumerable: true, value: {
-            apis: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
+            ais: {}, apis: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
@@ -69,18 +69,18 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) { // optimal
-                        const { descriptor, variables } = envelope, { anthology: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables ? true : undefined,
+                        const { descriptor, variables } = envelope, { collection: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
-                            anthology = await this.resolveUnit(variables?.anthology ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'anthology')
-                        if (!anthology) return
+                            collection = await this.resolveUnit(variables?.collection ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'collection')
+                        if (!collection) return
                         const article = variables?.article ? this.resolveVariable(articleSignature, valueEnvelope, { wrapped }) : articleSignature
                         if (variables?.article && !article) return
                         const lang = variables?.lang ? this.resolveVariable(langSignature, valueEnvelope, { wrapped }) : langSignature
-                        return anthology?.run(article, lang ?? container.lang, valueEnvelope)
+                        return collection?.run(article, lang ?? container.lang, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, variables } = envelope, { anthology: anthologySignature } = descriptor
-                        if (!variables?.anthology) new Job(async function () { await this.resolveUnit(anthologySignature, 'anthology') }, `anthology:${anthologySignature}`)
+                        const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
+                        if (!variables?.collection) new Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -360,11 +360,9 @@ const ElementHTML = Object.defineProperties({}, {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
             },
-            ais: {},
+            models: {},
             namespaces: { e: new URL(`./components`, import.meta.url) },
-            patterns: {}, resolvers: {
-
-            }, snippets: {},
+            patterns: {}, resolvers: {}, snippets: {},
             transforms: { // TODO: wrap as this.Transform class instances
                 'application/json': function (inputValue) { try { return JSON.stringify(inputValue) } catch (e) { } },
                 'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
@@ -1356,7 +1354,7 @@ const ElementHTML = Object.defineProperties({}, {
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
             unitTypeMap: Object.freeze({
-                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
+                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Collection'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
                 hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], ai: ['ais', 'AI'],
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
@@ -1760,35 +1758,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
-    Anthology: { // optimal
-        enumerable: true, value: class {
-            static E
-            constructor({ engine = {} }) {
-                if (!engine) return
-                const { E } = this.constructor
-                switch (typeof engine) {
-                    case 'function': this.engine = engine.bind(this); break
-                    case 'string':
-                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
-                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
-                        break
-                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
-                    default: return
-                }
-            }
-            async run(slug, lang, valueEnvelope) {
-                const { E } = this.constructor
-                if (typeof slug === 'string') {
-                    slug = E.resolveVariable(slug, valueEnvelope, { merge: true })
-                    if (lang && typeof lang === 'string') {
-                        lang = E.resolveVariable(lang, valueEnvelope, { merge: true })
-                        slug = `${lang}/${slug}`
-                    }
-                }
-                return this.engine.name?.startsWith('bound ') ? this.engine(slug, valueEnvelope) : this.engine(undefined, slug, valueEnvelope)
-            }
-        }
-    },
     API: { // optimal
         enumerable: true, value: class {
             static E
@@ -1829,6 +1798,35 @@ const ElementHTML = Object.defineProperties({}, {
                     result = await E.runUnit(this.errorProcessor, 'transform', response)
                 }
                 return result
+            }
+        }
+    },
+    Collection: { // optimal
+        enumerable: true, value: class {
+            static E
+            constructor({ engine = {} }) {
+                if (!engine) return
+                const { E } = this.constructor
+                switch (typeof engine) {
+                    case 'function': this.engine = engine.bind(this); break
+                    case 'string':
+                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
+                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
+                        break
+                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
+                    default: return
+                }
+            }
+            async run(slug, lang, valueEnvelope) {
+                const { E } = this.constructor
+                if (typeof slug === 'string') {
+                    slug = E.resolveVariable(slug, valueEnvelope, { merge: true })
+                    if (lang && typeof lang === 'string') {
+                        lang = E.resolveVariable(lang, valueEnvelope, { merge: true })
+                        slug = `${lang}/${slug}`
+                    }
+                }
+                return this.engine.name?.startsWith('bound ') ? this.engine(slug, valueEnvelope) : this.engine(undefined, slug, valueEnvelope)
             }
         }
     },
@@ -2049,7 +2047,7 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: {
         enumerable: true, value: class {
             static E
-            static embeddableUnitTypes = new Set('api', 'anthology', 'ai', 'library')
+            static embeddableUnitTypes = new Set('api', 'collection', 'ai', 'library')
             constructor(stepChain) {
                 const { E } = this.constructor
                 if (!Array.isArray(stepChain)) stepChain = [stepChain]
@@ -2257,7 +2255,7 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
-for (const className of ['API', 'Anthology', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
+for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
     ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)

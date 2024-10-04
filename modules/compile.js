@@ -362,8 +362,8 @@ ${scriptBody.join('{')}`
                 return { verbose: expression === '$?' }
             },
             content: function (expression) { // optimal
-                const [anthology, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { anthology, article, lang }
+                const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { collection, article, lang }
             },
             pattern: function (expression) { // optimal
                 expression = expression.slice(1, -1)
