@@ -1758,6 +1758,33 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
+    AI: { // optimal
+        enumerable: true, value: class {
+            static E
+            constructor({ engine = {}, prompts = {} }) {
+                if (!engine) return
+                const { E } = this.constructor
+                switch (typeof engine) {
+                    case 'function': this.engine = engine.bind(this); break
+                    case 'string':
+                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
+                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
+                        break
+                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
+                    default: return
+                }
+                if (E.isPlainObject(prompts)) this.prompts = prompts
+            }
+            async run(input, prompt, valueEnvelope) {
+                const { E } = this.constructor
+                if (typeof input === 'string') {
+                    const promptTemplate = prompt ? (this.prompts[prompt] ?? '$') : '$'
+                    input = E.resolveVariable(promptTemplate, { ...valueEnvelope, value }, { merge: true })
+                }
+                return this.engine(input, undefined, valueEnvelope)
+            }
+        }
+    },
     API: { // optimal
         enumerable: true, value: class {
             static E
@@ -2013,33 +2040,6 @@ const ElementHTML = Object.defineProperties({}, {
                 const langSelector = `[lang|="${this.lang}"]`, nodes = Array.from(document.querySelectorAll(langSelector))
                 if (document.documentElement.matches(langSelector)) nodes.push(document.documentElement)
                 for (const node of nodes) this.supportLanguage(node)
-            }
-        }
-    },
-    AI: { // optimal
-        enumerable: true, value: class {
-            static E
-            constructor({ engine = {}, prompts = {} }) {
-                if (!engine) return
-                const { E } = this.constructor
-                switch (typeof engine) {
-                    case 'function': this.engine = engine.bind(this); break
-                    case 'string':
-                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
-                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
-                        break
-                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
-                    default: return
-                }
-                if (E.isPlainObject(prompts)) this.prompts = prompts
-            }
-            async run(input, prompt, valueEnvelope) {
-                const { E } = this.constructor
-                if (typeof input === 'string') {
-                    const promptTemplate = prompt ? (this.prompts[prompt] ?? '$') : '$'
-                    input = E.resolveVariable(promptTemplate, { ...valueEnvelope, value }, { merge: true })
-                }
-                return this.engine(input, undefined, valueEnvelope)
             }
         }
     },
