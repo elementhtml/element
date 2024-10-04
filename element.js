@@ -1758,36 +1758,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
-
-    Model: { // optimal
-        enumerable: true, value: class {
-            static E
-            constructor({ inference, library, load, name, options = {} }) {
-                const { E } = this.constructor
-                if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
-                this.inference = inference.bind(this)
-                this.name = name ?? E.generateUuid()
-                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
-            }
-            async load(library, load, options) {
-                const { E } = this.constructor
-                if (this.loaded) return true
-                this.library ??= await E.resolveUnit(library, 'library')
-                if (!this.library) return
-                this.options = options ?? {}
-                this.loader ??= load.bind(this)
-                if (!this.loader) return
-                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
-                return this.loaded
-            }
-            async run(input) {
-                const { E } = this.constructor
-                if (!this.loaded) await E.Job.waitComplete(`model:${this.name}`, Infinity)
-                return this.inference(input, this.engine, this.options.inference ?? {})
-            }
-        }
-    },
-
     AI: { // optimal
         enumerable: true, value: class {
             static E
@@ -2110,6 +2080,34 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
+    Model: { // optimal
+        enumerable: true, value: class {
+            static E
+            constructor({ inference, library, load, name, options = {} }) {
+                const { E } = this.constructor
+                if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
+                this.inference = inference.bind(this)
+                this.name = name ?? E.generateUuid()
+                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
+            }
+            async load(library, load, options) {
+                const { E } = this.constructor
+                if (this.loaded) return true
+                this.library ??= await E.resolveUnit(library, 'library')
+                if (!this.library) return
+                this.options = options ?? {}
+                this.loader ??= load.bind(this)
+                if (!this.loader) return
+                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
+                return this.loaded
+            }
+            async run(input) {
+                const { E } = this.constructor
+                if (!this.loaded) await E.Job.waitComplete(`model:${this.name}`, Infinity)
+                return this.inference(input, this.engine, this.options.inference ?? {})
+            }
+        }
+    },
     Transform: {
         enumerable: true, value: class {
             static E
