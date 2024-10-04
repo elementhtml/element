@@ -1777,7 +1777,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.options = options ?? {}
                 this.loader ??= load.bind(this)
                 if (!this.loader) return
-                this.loaded = !!(this.engine = (await this.loader(this.library, (this.options.load ?? {}))))
+                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
                 return this.loaded
             }
             async run(input) {
