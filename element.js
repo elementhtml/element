@@ -1758,6 +1758,28 @@ const ElementHTML = Object.defineProperties({}, {
     },
     queue: { value: new Map() },
 
+
+    Model: {
+        enumerable: true, value: class {
+            static E
+            constructor({ inference, library, load, name, options = {} }) {
+                if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
+                this.name = name ?? E.generateUuid()
+                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
+                this.inference = inference.bind(this)
+            }
+            async load(library, load, options) {
+                if (this.loaded) return true
+                this.library ??= await E.resolveUnit(library, 'library')
+                if (!this.library) return
+                this.loader ??= load.bind(this)
+                this.loaded = !!(await this.loader(this.library, (options?.load ?? {})))
+                return this.loaded
+            }
+            async run(input) { return this.inference(input) }
+        }
+    },
+
     AI: { // optimal
         enumerable: true, value: class {
             static E
