@@ -1761,7 +1761,7 @@ const ElementHTML = Object.defineProperties({}, {
     AI: { // optimal
         enumerable: true, value: class {
             static E
-            constructor({ api = {}, promptTemplates = {} }) {
+            constructor({ api, model, promptTemplates = {} }) {
                 if (!api) return
                 const { E } = this.constructor
                 switch (typeof api) {
@@ -1773,8 +1773,10 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'object': this.apiWrapper = async (input, envelope) => (await (this.api ??= new E.API(api)).run(input)); break
                     default: return
                 }
-                if (E.isPlainObject(promptTemplates)) this.promptTemplates = promptTemplates
+                if (model) {
 
+                }
+                if (E.isPlainObject(promptTemplates)) this.promptTemplates = promptTemplates
                 this.engine ??= this.apiWrapper
             }
             async run(input, promptTemplateKey, envelope) {
