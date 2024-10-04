@@ -2037,53 +2037,61 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             observers = new WeakMap()
-            constructor({ matches = {}, mode = 'text', name }) {
+            constructor({ matches = {}, mode, name, scopeSelector, namespace }) {
                 const { E } = this.constructor
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches)) return
                 name = name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase()
-                mode = mode.trim().toLowerCase()
-                Object.assign(this, { matches, mode, name })
-                switch (mode) {
-                    case 'audio':
-                        for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted',
-                            'preload', 'src']) this.matches[`@${a}`] ??= `audio[data-${name}-attr-${a}][${a}]`
-                        break
-                    case 'css':
-                        this.matches.textContent ??= `style[data-${name}-text-content]`
-                        this.matches['@style'] ??= `[data-${name}-attr-style][style]`
-                        this.matches['@href'] ??= `link[rel="stylesheet"][data-${name}-attr-href][href]`
-                        for (const a of ['blocking', 'media', 'nonce', 'title']) this.matches[`@${a}`] ??= `style[data-${name}-attr-${a}][${a}]`
-                        break
-                    case 'html': this.matches.innerHTML ??= `[data-${name}-innerhtml]`; break
-                    case 'image':
-                        for (const a of ['alt', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height',
-                            'src', 'width']) this.matches[`@${a}`] ??= `img[data-${name}-attr-${a}][${a}]`
-                        this.matches['@poster'] ??= `video[data-${name}-attr-poster][poster]`
-                        break
-                    case 'js':
-                        this.matches.textContent ??= `script[type="application/javascript"][data-${name}-text-content]`
-                        for (const a of ['async', 'attributionsrc', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'nonce',
-                            'referrerpolicy', 'src', 'type']) this.matches[`@${a}`] ??= `script[data-${name}-attr-${a}][${a}]`
-                        break
-                    case 'text/element': this.matches.textContent ??= `script[type="text/element"][data-${name}-text-content]`; break
-                    case 'video':
-                        for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disablepictureinpicture', 'disableremoateplayback', 'height', 'loop', 'muted',
-                            'playsinline', 'poster', 'preload', 'src', 'width']) this.matches[`@${a}`] ??= `audio[data-${name}-attr-${a}][${a}]`
-                        break
-                    default:
-                        this.matches.textContent ??= `[data-${name}-text-content]`
-                        this.matches['@title'] ??= `[data-${name}-attr-title][title]`
-                        this.matches['@alt'] ??= `img[data-${name}-attr-alt][alt]`
-                        this.matches['@placeholder'] ??= `input[data-${name}-attr-placeholder][placeholder]`
-                        this.matches['@aria-label'] ??= `[data-${name}-attr-aria-label][aria-label]`
-                        this.matches['@aria-labelledby'] ??= `[data-${name}-attr-aria-labelledby][aria-labelledby]`
-                        this.matches['@aria-describedby'] ??= `[data-${name}-attr-aria-describedby][aria-describedby]`
-                        this.matches['@value'] ??= `input[data-${name}-attr-value][value]`
-                        this.matches['@content'] ??= `meta[name][data-${name}-attr-content][content]`
-                        this.matches['@label'] ??= `[data-${name}-attr-label][label]`
+                mode = mode ? mode.trim().toLowerCase() : name
+                Object.assign(this, { matches, mode, name, scopeSelector })
+                const attributes = new Set()
+                if (mode) {
+                    this.namespace = namespace ? namespace.trim().toLowerCase() : `${mode}-${name}`
+                    namespace = this.namespace
+                    switch (mode) {
+                        case 'audio':
+                            for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted',
+                                'preload', 'src']) this.matches[`@${a}`] ??= `audio[data-${namespace}-attr-${a}][${a}]`
+                            break
+                        case 'css':
+                            this.matches.textContent ??= `style[data-${namespace}-text-content]`
+                            this.matches['@style'] ??= `[data-${namespace}-attr-style][style]`
+                            this.matches['@href'] ??= `link[rel="stylesheet"][data-${namespace}-attr-href][href]`
+                            for (const a of ['blocking', 'media', 'nonce', 'title']) this.matches[`@${a}`] ??= `style[data-${namespace}-attr-${a}][${a}]`
+                            break
+                        case 'html': this.matches.innerHTML ??= `[data-${namespace}-innerhtml]`; break
+                        case 'image':
+                            for (const a of ['alt', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height',
+                                'src', 'width']) this.matches[`@${a}`] ??= `img[data-${namespace}-attr-${a}][${a}]`
+                            this.matches['@poster'] ??= `video[data-${namespace}-attr-poster][poster]`
+                            break
+                        case 'js':
+                            this.matches.textContent ??= `script[type="application/javascript"][data-${namespace}-text-content]`
+                            for (const a of ['async', 'attributionsrc', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'nonce',
+                                'referrerpolicy', 'src', 'type']) this.matches[`@${a}`] ??= `script[data-${namespace}-attr-${a}][${a}]`
+                            break
+                        case 'text/element': this.matches.textContent ??= `script[type="text/element"][data-${namespace}-text-content]`; break
+                        case 'video':
+                            for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disablepictureinpicture', 'disableremoateplayback', 'height', 'loop', 'muted',
+                                'playsinline', 'poster', 'preload', 'src', 'width']) this.matches[`@${a}`] ??= `video[data-${namespace}-attr-${a}][${a}]`
+                            break
+                        case 'lang':
+                            attributes.add('lang')
+                            this.scopeSelector ??= `[lang|="${this.name}"]`
+                        case 'text':
+                            this.matches.textContent ??= `[data-${namespace}-text-content]`
+                            this.matches['@title'] ??= `[data-${namespace}-attr-title][title]`
+                            this.matches['@alt'] ??= `img[data-${namespace}-attr-alt][alt]`
+                            this.matches['@placeholder'] ??= `input[data-${namespace}-attr-placeholder][placeholder]`
+                            this.matches['@aria-label'] ??= `[data-${namespace}-attr-aria-label][aria-label]`
+                            this.matches['@aria-labelledby'] ??= `[data-${namespace}-attr-aria-labelledby][aria-labelledby]`
+                            this.matches['@aria-describedby'] ??= `[data-${namespace}-attr-aria-describedby][aria-describedby]`
+                            this.matches['@value'] ??= `input[data-${namespace}-attr-value][value]`
+                            this.matches['@content'] ??= `meta[name][data-${namespace}-attr-content][content]`
+                            this.matches['@label'] ??= `[data-${namespace}-attr-label][label]`
+                    }
                 }
-                const attributes = new Set(), selectors = {}
-                if (mode === 'lang') attributes.add('lang')
+                if (!Object.keys(this.matches).length) return
+                const selectors = {}
                 for (const key in this.matches) {
                     const attributePair = this.matches[key].match(E.sys.regexp.extractAttributes), isAttr = key[0] === '@'
                     if (!attributePair.length || (isAttr && (attributePair.length < 2))) { delete this.matches[key]; continue }
