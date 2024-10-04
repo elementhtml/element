@@ -2037,10 +2037,10 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             observers = new WeakMap()
-            constructor({ matches = {}, mode, name, scope = {}, namespace, labels = {}, defaultValue = '' }) {
+            constructor({ engine, matches = {}, mode, name, scope = {}, namespace, labels = {}, defaultValue = '' }) {
                 const { E } = this.constructor
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
-                name = name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase()
+                name = (name && typeof name === 'string') ? name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
                 if (scope && !(E.isPlainObject(scope))) return
                 Object.assign(this, {
@@ -2123,7 +2123,7 @@ const ElementHTML = Object.defineProperties({}, {
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
                     for (const n of nodeList) {
                         const token = n.getAttribute(tokenAttr), nodeEnvelope = { ...envelope, fields: { ...n.dataset } }
-                        promises.push(this.host.run(token, name, nodeEnvelope).then(tokenValue => {
+                        promises.push(this.engine.run(token, name, nodeEnvelope).then(tokenValue => {
                             tokenValue ??= defaultValue
                             targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
                         }))
