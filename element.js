@@ -1428,7 +1428,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     createEnvelope: { // optimal
-        enumerable: true, value: async function (baseObj = {}) {
+        enumerable: true, value: function (baseObj = {}) {
             if (!this.isPlainObject(baseObj)) baseObj = { value: baseObj }
             return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: this.env.context })
         }
@@ -2037,12 +2037,15 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             observers = new WeakMap()
-            constructor({ matches = {}, mode, name, scopeSelector, namespace }) {
+            constructor({ matches = {}, mode, name, scopeSelector, namespace, labels = {}, defaultValue = '' }) {
                 const { E } = this.constructor
-                if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches)) return
+                if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
                 name = name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase()
                 mode = mode ? mode.trim().toLowerCase() : name
-                Object.assign(this, { matches, mode, name, scopeSelector })
+                Object.assign(this, {
+                    matches, mode, name, scopeSelector, labels: Object.freeze(labels),
+                    defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '')
+                })
                 const attributes = new Set()
                 if (mode) {
                     this.namespace = namespace ? namespace.trim().toLowerCase() : `${mode}-${name}`
@@ -2104,33 +2107,47 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            applyTokens(node) {
-                const nodeIsElement = node instanceof HTMLElement
-                if (nodeIsElement && (node.closest('[lang]')?.getAttribute('lang') !== this.lang)) return
-                else if (node.shadowRoot && (node.host.getAttribute('lang') !== this.lang)) return
-                const { selectors } = this
-                for (const selector in selectors) {
-                    const nodeList = Array.from(node.querySelectorAll(selector)), { key, token, target } = selectors[selector]
-                    if (nodeIsElement && node.matches(selector)) nodeList.push(node)
-                    for (const n of nodeList) target ? n.setAttribute(target, n.getAttribute(token)) : (n[key] = n.getAttribute(token))
+            apply(node) {
+                const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement
+                if (this.mode === 'lang') {
+                    if (nodeIsElement && (node.closest('[lang]')?.getAttribute('lang') !== this.name)) return
+                    else if (node.shadowRoot && (node.host.getAttribute('lang') !== this.name)) return
                 }
+                const { selectors, name, defaultValue } = this, promises = [], envelope = Object.freeze(E.createEnvelope({ labels: this.labels }))
+                for (const selector in selectors) {
+                    const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
+                    if (nodeIsElement && node.matches(selector)) nodeList.push(node)
+                    for (const n of nodeList) {
+                        const token = n.getAttribute(tokenAttr), nodeEnvelope = { ...envelope, fields: { ...n.dataset } }
+                        promises.push(this.host.run(token, name, nodeEnvelope).then(tokenValue => {
+                            tokenValue ??= defaultValue
+                            targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
+                        }))
+                    }
+                }
+                return Promise.all(promises)
             }
-            supportLanguage(node) {
-                const observer = new MutationObserver((mutations) => {
+            support(node) {
+                const { E } = this.constructor, observer = new MutationObserver((mutations) => {
+                    const { scopeSelector } = this
                     for (const mutation of mutations) {
-                        if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.hasAttribute('lang') && (addedNode.getAttribute('lang') === this.lang)) this.supportLanguage(addedNode)
-                        this.applyTokens(mutation.target)
+                        if (scopeSelector) if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.matches(scopeSelector)) this.support(addedNode)
+                        this.apply(mutation.target)
                     }
                 })
                 observer.observe(node, { subtree: true, childList: true, attributeFilter: this.attributeFilter })
                 this.observers.set(node, observer)
-                this.applyTokens(node)
-                if (node.shadowRoot) this.supportLanguage(node.shadowRoot)
+                this.apply(node)
+                if (node.shadowRoot) this.support(node.shadowRoot)
             }
             run() {
-                const langSelector = `[lang|="${this.lang}"]`, nodes = Array.from(document.querySelectorAll(langSelector))
-                if (document.documentElement.matches(langSelector)) nodes.push(document.documentElement)
-                for (const node of nodes) this.supportLanguage(node)
+                const { E } = this.constructor, { scopeSelector } = this
+                let nodes
+                if (scopeSelector) {
+                    nodes = Array.from(document.querySelectorAll(scopeSelector))
+                    if (document.documentElement.matches(scopeSelector)) nodes.push(document.documentElement)
+                } else nodes = Array.from(document.getElementsByTagName('*'))
+                for (const node of nodes) this.support(node)
             }
         }
     },
