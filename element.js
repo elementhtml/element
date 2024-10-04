@@ -2018,23 +2018,68 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+
+
     Language: {
         enumerable: true, value: class {
             static E
-            observers = new WeakMap()
-            constructor({ lang, matches = {}, tokens = {} }) {
+            constructor({ lang, tokens = {}, defaultValue = '' }) {
                 const { E } = this.constructor
-                Object.assign(this, { lang, matches, tokens })
-                this.matches.textContent ??= '[data-lang-token-text-content]'
-                this.matches['@title'] ??= '[data-lang-token-attr-title][title]'
-                this.matches['@alt'] ??= 'img[data-lang-token-attr-alt][alt]'
-                this.matches['@placeholder'] ??= 'input[data-lang-token-attr-placeholder][placeholder]'
-                this.matches['@aria-label'] ??= '[data-lang-token-attr-aria-label][aria-label]'
-                this.matches['@aria-labelledby'] ??= '[data-lang-token-attr-aria-labelledby][aria-labelledby]'
-                this.matches['@aria-describedby'] ??= '[data-lang-token-attr-aria-describedby][aria-describedby]'
-                this.matches['@value'] ??= 'input[data-lang-token-attr-value][value]'
-                this.matches['@content'] ??= 'meta[name][data-lang-token-attr-content][content]'
-                this.matches['@label'] ??= '[data-lang-token-attr-label][label]'
+                Object.assign(this, { lang, tokens, defaultValue })
+                Object.freeze(this.tokens)
+            }
+            async run(token) { return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue) }
+        }
+    },
+    Renderer: {
+        enumerable: true, value: class {
+            static E
+            observers = new WeakMap()
+            constructor({ matches = {}, mode = 'text', name }) {
+                const { E } = this.constructor
+                Object.assign(this, { matches, name: name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() })
+                name = this.name
+                switch (mode) {
+                    case 'audio':
+                        for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted',
+                            'preload', 'src']) this.matches[`@${a}`] ??= `audio[data-${name}-attr-${a}][${a}]`
+                        break
+                    case 'css':
+                        this.matches.textContent ??= `style[data-${name}-text-content]`
+                        this.matches['@style'] ??= `[data-${name}-attr-style][style]`
+                        this.matches['@href'] ??= `link[rel="stylesheet"][data-${name}-attr-href][href]`
+                        for (const a of ['blocking', 'media', 'nonce', 'title']) this.matches[`@${a}`] ??= `style[data-${name}-attr-${a}][${a}]`
+                        break
+                    case 'html': this.matches.innerHTML ??= `[data-${name}-innerhtml]`; break
+                    case 'image':
+                        for (const a of ['alt', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height',
+                            'src', 'width']) this.matches[`@${a}`] ??= `img[data-${name}-attr-${a}][${a}]`
+                        this.matches['@poster'] ??= `video[data-${name}-attr-poster][poster]`
+                        break
+                    case 'js':
+                        this.matches.textContent ??= `script[type="application/javascript"][data-${name}-text-content]`
+                        for (const a of ['async', 'attributionsrc', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'nonce',
+                            'referrerpolicy', 'src', 'type']) this.matches[`@${a}`] ??= `script[data-${name}-attr-${a}][${a}]`
+                        break
+                    case 'text/element': this.matches.textContent ??= `script[type="text/element"][data-${name}-text-content]`; break
+                    case 'video':
+                        for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disablepictureinpicture', 'disableremoateplayback', 'height', 'loop', 'muted',
+                            'playsinline', 'poster', 'preload', 'src', 'width']) this.matches[`@${a}`] ??= `audio[data-${name}-attr-${a}][${a}]`
+                        break
+                    default:
+                        this.matches.textContent ??= `[data-${name}-text-content]`
+                        this.matches['@title'] ??= `[data-${name}-attr-title][title]`
+                        this.matches['@alt'] ??= `img[data-${name}-attr-alt][alt]`
+                        this.matches['@placeholder'] ??= `input[data-${name}-attr-placeholder][placeholder]`
+                        this.matches['@aria-label'] ??= `[data-${name}-attr-aria-label][aria-label]`
+                        this.matches['@aria-labelledby'] ??= `[data-${name}-attr-aria-labelledby][aria-labelledby]`
+                        this.matches['@aria-describedby'] ??= `[data-${name}-attr-aria-describedby][aria-describedby]`
+                        this.matches['@value'] ??= `input[data-${name}-attr-value][value]`
+                        this.matches['@content'] ??= `meta[name][data-${name}-attr-content][content]`
+                        this.matches['@label'] ??= `[data-${name}-attr-label][label]`
+                }
                 const attributes = new Set(['lang']), selectors = {}
                 for (const key in this.matches) {
                     const attributePair = this.matches[key].match(E.sys.regexp.extractAttributes), isAttr = key[0] === '@'
@@ -2079,6 +2124,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+
 
     Model: { // optimal
         enumerable: true, value: class {
