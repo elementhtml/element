@@ -1769,12 +1769,12 @@ const ElementHTML = Object.defineProperties({}, {
                     switch (typeof model) {
                         case 'function': this.modelWrapper = model.bind(this); break
                         case 'string':
-                            this.modelWrapper = async (input, envelope) => (await (this.model ??= await E.resolveUnit(model, 'model')).run(input))
+                            this.modelWrapper = async input => (await (this.model ??= await E.resolveUnit(model, 'model')).run(input))
                             new E.Job(async function () { await E.resolveUnit(model, 'model') }, `model:${model}`)
                             break
                         case 'object':
-                            if (model instanceof E.Model) this.modelWrapper = async (input, envelope) => (await (this.model ??= model).run(input))
-                            else if (E.isPlainObject(model)) this.modelWrapper = async (input, envelope) => (await (this.model ??= new E.Model(model)).run(input))
+                            if (model instanceof E.Model) this.modelWrapper = async input => (await (this.model ??= model).run(input))
+                            else if (E.isPlainObject(model)) this.modelWrapper = async input => (await (this.model ??= new E.Model(model)).run(input))
                     }
                     if (!this.modelWrapper) return
                     this.engine = this.modelWrapper
@@ -1782,24 +1782,25 @@ const ElementHTML = Object.defineProperties({}, {
                     switch (typeof api) {
                         case 'function': this.apiWrapper = api.bind(this); break
                         case 'string':
-                            this.apiWrapper = async (input, envelope) => (await (this.api ??= await E.resolveUnit(api, 'api')).run(input))
+                            this.apiWrapper = async input => (await (this.api ??= await E.resolveUnit(api, 'api')).run(input))
                             new E.Job(async function () { await E.resolveUnit(api, 'api') }, `api:${api}`)
                             break
                         case 'object':
-                            if (api instanceof E.API) this.apiWrapper = async (input, envelope) => (await (this.api ??= api).run(input))
-                            else if (E.isPlainObject(api)) this.apiWrapper = async (input, envelope) => (await (this.api ??= new E.API(api)).run(input))
+                            if (api instanceof E.API) this.apiWrapper = async input => (await (this.api ??= api).run(input))
+                            else if (E.isPlainObject(api)) this.apiWrapper = async input => (await (this.api ??= new E.API(api)).run(input))
                     }
                     if (!this.apiWrapper) return
                     this.engine = this.apiWrapper
                 }
             }
             async run(input, promptTemplateKey, envelope) {
+                if (!this.engine) return
                 const { E } = this.constructor
                 if (typeof input === 'string') {
                     const promptTemplate = promptTemplateKey ? (this.promptTemplates[promptTemplateKey] ?? '$') : '$'
                     input = E.resolveVariable(promptTemplate, { ...envelope, value: input }, { merge: true })
                 }
-                return this.engine(input, envelope)
+                return this.engine(input)
             }
         }
     },
