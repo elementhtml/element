@@ -2036,9 +2036,20 @@ const ElementHTML = Object.defineProperties({}, {
     Renderer: {
         enumerable: true, value: class {
             static E
+            static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language'])
             observers = new WeakMap()
             constructor({ engine, matches = {}, mode, name, scope = {}, namespace, labels = {}, defaultValue = '' }) {
-                const { E } = this.constructor
+                const { E, validEngineClasses } = this.constructor
+                if (!engine) return
+                switch (typeof engine) {
+                    case 'string': this.engine = engine; break
+                    case 'object':
+                        const validEngine = false
+                        for (const n of validEngineClasses.keys()) if (validEngine ||= (engine instanceof E[n])) break
+                        if (!validEngine) return
+                        break
+                    default: return
+                }
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
                 name = (name && typeof name === 'string') ? name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
@@ -2145,7 +2156,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (node.shadowRoot) this.support(node.shadowRoot)
             }
             run() {
-                const { E } = this.constructor, { scopeSelector } = this
+                const { E, validEngineClasses } = this.constructor, { scopeSelector } = this
                 let nodes
                 if (scopeSelector) {
                     nodes = Array.from(document.querySelectorAll(scopeSelector))
