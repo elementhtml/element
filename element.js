@@ -2037,13 +2037,14 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             observers = new WeakMap()
-            constructor({ matches = {}, mode, name, scopeSelector, namespace, labels = {}, defaultValue = '' }) {
+            constructor({ matches = {}, mode, name, scope = {}, namespace, labels = {}, defaultValue = '' }) {
                 const { E } = this.constructor
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
                 name = name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase()
                 mode = mode ? mode.trim().toLowerCase() : name
+                if (scope && !(E.isPlainObject(scope))) return
                 Object.assign(this, {
-                    matches, mode, name, scopeSelector, labels: Object.freeze(labels),
+                    matches, mode, name, scope: Object.freeze(scope), labels: Object.freeze(labels),
                     defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '')
                 })
                 const attributes = new Set()
@@ -2079,7 +2080,10 @@ const ElementHTML = Object.defineProperties({}, {
                             break
                         case 'lang':
                             attributes.add('lang')
-                            this.scopeSelector ??= `[lang|="${this.name}"]`
+                            this.scope ??= {}
+                            this.scope.matches ??= `[lang|="${this.name}"]`
+                            this.scope.not ??= `[lang]:not([lang|="${this.name}"])`
+                            this.scope.closest ??= `[lang]`
                         case 'text':
                             this.matches.textContent ??= `[data-${namespace}-text-content]`
                             this.matches['@title'] ??= `[data-${namespace}-attr-title][title]`
@@ -2109,9 +2113,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
             apply(node) {
                 const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement
-                if (this.mode === 'lang') {
-                    if (nodeIsElement && (node.closest('[lang]')?.getAttribute('lang') !== this.name)) return
-                    else if (node.shadowRoot && (node.host.getAttribute('lang') !== this.name)) return
+                if (this.scope) {
+                    if (nodeIsElement && (node.closest(this.scope.closest)?.matches(this.scope.not))) return
+                    else if (node.shadowRoot && (node.host.matches(this.scope.not))) return
                 }
                 const { selectors, name, defaultValue } = this, promises = [], envelope = Object.freeze(E.createEnvelope({ labels: this.labels }))
                 for (const selector in selectors) {
