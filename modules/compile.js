@@ -348,8 +348,8 @@ ${scriptBody.join('{')}`
     parsers: {
         value: {
             ai: function (expression) { // optimal
-                const [model, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { model, prompt }
+                const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                return { ai, prompt }
             },
             api: function (expression) { // optimal
                 const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)

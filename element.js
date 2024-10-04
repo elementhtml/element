@@ -255,15 +255,15 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { model: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            model = await this.resolveUnit(variables?.model ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'model')
+                        const { descriptor, variables } = envelope, { ai: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
+                            ai = await this.resolveUnit(variables?.ai ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'ai')
                         // prompt = this.resolveVariable(p || '$', valueEnvelope, { merge: true })
-                        if (!model) return
-                        return model.run(value, prompt, valueEnvelope)
+                        if (!ai) return
+                        return ai.run(value, prompt, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
-                        const { descriptor, variables } = envelope, { model: modelSignature, } = descriptor
-                        if (!variables?.model) new Job(async function () { await this.resolveUnit(modelSignature, 'model') }, `model:${modelSignature}`)
+                        const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
+                        if (!variables?.ai) new Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
                     }
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
@@ -360,7 +360,7 @@ const ElementHTML = Object.defineProperties({}, {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
                 'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
             },
-            models: {},
+            ais: {},
             namespaces: { e: new URL(`./components`, import.meta.url) },
             patterns: {}, resolvers: {
 
@@ -1357,13 +1357,13 @@ const ElementHTML = Object.defineProperties({}, {
             windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
             unitTypeMap: Object.freeze({
                 api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Anthology'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
-                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], model: ['models', 'Model'],
+                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], ai: ['ais', 'AI'],
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
-                interpreters: 'interpreter', languages: 'language', libraries: 'library', models: 'model', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
+                interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
                 snippets: 'snippet', transforms: 'transform', types: 'type'
             })
         })
@@ -2018,7 +2018,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Model: { // optimal
+    AI: { // optimal
         enumerable: true, value: class {
             static E
             constructor({ engine = {}, prompts = {} }) {
@@ -2049,7 +2049,7 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: {
         enumerable: true, value: class {
             static E
-            static embeddableUnitTypes = new Set('api', 'anthology', 'model', 'library')
+            static embeddableUnitTypes = new Set('api', 'anthology', 'ai', 'library')
             constructor(stepChain) {
                 const { E } = this.constructor
                 if (!Array.isArray(stepChain)) stepChain = [stepChain]
