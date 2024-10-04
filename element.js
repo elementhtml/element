@@ -2155,8 +2155,16 @@ const ElementHTML = Object.defineProperties({}, {
                 this.apply(node)
                 if (node.shadowRoot) this.support(node.shadowRoot)
             }
-            run() {
-                const { E, validEngineClasses } = this.constructor, { scopeSelector } = this
+            async run() {
+                const { E, validEngineClasses } = this.constructor, { scopeSelector, engine } = this
+                if (!engine) return
+                if (typeof engine === 'string') {
+                    const [engineType, engineName] = engine.split(/\s*\|\s*/)
+                    this.engine = await E.resolveUnit(engineName, engineType)
+                    const validEngine = false
+                    for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
+                    if (!validEngine) return
+                }
                 let nodes
                 if (scopeSelector) {
                     nodes = Array.from(document.querySelectorAll(scopeSelector))
