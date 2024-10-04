@@ -2039,8 +2039,10 @@ const ElementHTML = Object.defineProperties({}, {
             observers = new WeakMap()
             constructor({ matches = {}, mode = 'text', name }) {
                 const { E } = this.constructor
-                Object.assign(this, { matches, name: name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() })
-                name = this.name
+                if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches)) return
+                name = name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase()
+                mode = mode.trim().toLowerCase()
+                Object.assign(this, { matches, mode, name })
                 switch (mode) {
                     case 'audio':
                         for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted',
@@ -2080,7 +2082,8 @@ const ElementHTML = Object.defineProperties({}, {
                         this.matches['@content'] ??= `meta[name][data-${name}-attr-content][content]`
                         this.matches['@label'] ??= `[data-${name}-attr-label][label]`
                 }
-                const attributes = new Set(['lang']), selectors = {}
+                const attributes = new Set(), selectors = {}
+                if (mode === 'lang') attributes.add('lang')
                 for (const key in this.matches) {
                     const attributePair = this.matches[key].match(E.sys.regexp.extractAttributes), isAttr = key[0] === '@'
                     if (!attributePair.length || (isAttr && (attributePair.length < 2))) { delete this.matches[key]; continue }
@@ -2092,7 +2095,6 @@ const ElementHTML = Object.defineProperties({}, {
                 this.selectors = Object.freeze(selectors)
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
-                Object.freeze(this.tokens)
             }
             applyTokens(node) {
                 const nodeIsElement = node instanceof HTMLElement
