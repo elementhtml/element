@@ -1759,7 +1759,7 @@ const ElementHTML = Object.defineProperties({}, {
     queue: { value: new Map() },
 
 
-    Model: {
+    Model: { // optimal
         enumerable: true, value: class {
             static E
             constructor({ inference, library, load, name, options = {} }) {
@@ -1806,9 +1806,8 @@ const ElementHTML = Object.defineProperties({}, {
                             if (model instanceof E.Model) this.modelWrapper = async input => (await (this.model ??= model).run(input))
                             else if (E.isPlainObject(model)) this.modelWrapper = async input => (await (this.model ??= new E.Model(model)).run(input))
                     }
-                    if (!this.modelWrapper) return
-                    this.engine = this.modelWrapper
-                } else if (api) {
+                }
+                if (api) {
                     switch (typeof api) {
                         case 'function': this.apiWrapper = api.bind(this); break
                         case 'string':
@@ -1819,8 +1818,10 @@ const ElementHTML = Object.defineProperties({}, {
                             if (api instanceof E.API) this.apiWrapper = async input => (await (this.api ??= api).run(input))
                             else if (E.isPlainObject(api)) this.apiWrapper = async input => (await (this.api ??= new E.API(api)).run(input))
                     }
-                    if (!this.apiWrapper) return
-                    this.engine = this.apiWrapper
+                }
+                this.engine = async input => {
+                    const wrapper = this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper)
+                    return wrapper(input)
                 }
             }
             async run(input, promptTemplateKey, envelope) {
