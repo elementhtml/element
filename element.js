@@ -1831,29 +1831,45 @@ const ElementHTML = Object.defineProperties({}, {
     Collection: { // optimal
         enumerable: true, value: class {
             static E
-            constructor({ engine = {} }) {
-                if (!engine) return
+            constructor({ api = {}, ai = {} }) {
                 const { E } = this.constructor
-                switch (typeof engine) {
-                    case 'function': this.engine = engine.bind(this); break
+                switch (typeof api) {
+                    case 'function': this.apiWrapper = api.bind(this); break
                     case 'string':
-                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
-                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
+                        const [apiName, apiAction] = api.split(E.sys.regexp.pipeSplitterAndTrim)
+                        this.apiWrapper = async (slug, envelope) => (await (this.api ??= await E.resolveUnit(apiName, 'api')).run(slug, apiAction, envelope))
+                        new E.Job(async function () { await E.resolveUnit(apiName, 'api') }, `api:${apiName}`)
                         break
-                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
-                    default: return
+                    default:
+                        if (E.isPlainObject(api)) {
+                            api.contentType ??= 'text/markdown'
+                            api.base ??= './content'
+                            this.apiWrapper = async (slug, envelope) => (await (this.api ??= new E.API(api)).run(undefined, slug, envelope))
+                        }
                 }
+                if (!this.apiWrapper) return
+                if (ai) {
+                    switch (typeof ai) {
+                        case 'function': this.aiWrapper = ai.bind(this); break
+                        case 'string':
+                            const [aiName, aiPrompt] = ai.split(E.sys.regexp.pipeSplitterAndTrim)
+                            this.aiWrapper = async (prompt) => (await (this.ai ??= await E.resolveUnit(aiName, 'ai')).run(prompt, aiPrompt, envelope))
+                            new E.Job(async function () { await E.resolveUnit(aiName, 'ai') }, `ai:${aiName}`)
+                            break
+                        default:
+                            if (E.isPlainObject(ai)) this.aiWrapper = async (prompt) => (await (this.api ??= new E.AI(engine)).run(prompt, undefined, envelope))
+                    }
+                    this.engine = async (slug, envelope) => { return this.aiWrapper(E.resolveVariable(await this.api(slug, envelope), envelope, { merge: true })) }
+                }
+                this.engine ??= this.apiWrapper
             }
-            async run(slug, lang, valueEnvelope) {
+            async run(slug, lang, envelope) {
                 const { E } = this.constructor
                 if (typeof slug === 'string') {
-                    slug = E.resolveVariable(slug, valueEnvelope, { merge: true })
-                    if (lang && typeof lang === 'string') {
-                        lang = E.resolveVariable(lang, valueEnvelope, { merge: true })
-                        slug = `${lang}/${slug}`
-                    }
+                    slug = E.resolveVariable(slug, envelope, { merge: true })
+                    if (lang && typeof lang === 'string') slug = `${E.resolveVariable(lang, envelope, { merge: true })}/${slug}`
                 }
-                return this.engine.name?.startsWith('bound ') ? this.engine(slug, valueEnvelope) : this.engine(undefined, slug, valueEnvelope)
+                return this.engine(slug, envelope)
             }
         }
     },
