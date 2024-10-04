@@ -1761,27 +1761,29 @@ const ElementHTML = Object.defineProperties({}, {
     AI: { // optimal
         enumerable: true, value: class {
             static E
-            constructor({ engine = {}, prompts = {} }) {
-                if (!engine) return
+            constructor({ api = {}, promptTemplates = {} }) {
+                if (!api) return
                 const { E } = this.constructor
-                switch (typeof engine) {
-                    case 'function': this.engine = engine.bind(this); break
+                switch (typeof api) {
+                    case 'function': this.apiWrapper = api.bind(this); break
                     case 'string':
-                        this.engine = async input => (await (this.api ??= await E.resolveUnit(this.engine, 'api')).run(input))
-                        new Job(async function () { await E.resolveUnit(this.engine, 'api') }, `api:${this.engine}`)
+                        this.apiWrapper = async (input, envelope) => (await (this.api ??= await E.resolveUnit(api, 'api')).run(input))
+                        new Job(async function () { await E.resolveUnit(api, 'api') }, `api:${api}`)
                         break
-                    case 'object': this.engine = async input => (await (this.api ??= new E.API(engine)).run(input)); break
+                    case 'object': this.apiWrapper = async (input, envelope) => (await (this.api ??= new E.API(api)).run(input)); break
                     default: return
                 }
-                if (E.isPlainObject(prompts)) this.prompts = prompts
+                if (E.isPlainObject(promptTemplates)) this.promptTemplates = promptTemplates
+
+                this.engine ??= this.apiWrapper
             }
-            async run(input, prompt, valueEnvelope) {
+            async run(input, promptTemplateKey, envelope) {
                 const { E } = this.constructor
                 if (typeof input === 'string') {
-                    const promptTemplate = prompt ? (this.prompts[prompt] ?? '$') : '$'
-                    input = E.resolveVariable(promptTemplate, { ...valueEnvelope, value }, { merge: true })
+                    const promptTemplate = promptTemplateKey ? (this.promptTemplates[promptTemplateKey] ?? '$') : '$'
+                    input = E.resolveVariable(promptTemplate, { ...envelope, value: input }, { merge: true })
                 }
-                return this.engine(input, undefined, valueEnvelope)
+                return this.engine(input, envelope)
             }
         }
     },
