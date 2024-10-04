@@ -1859,7 +1859,7 @@ const ElementHTML = Object.defineProperties({}, {
                         default:
                             if (E.isPlainObject(ai)) this.aiWrapper = async (prompt) => (await (this.api ??= new E.AI(engine)).run(prompt, undefined, envelope))
                     }
-                    this.engine = async (slug, envelope) => { return this.aiWrapper(E.resolveVariable(await this.api(slug, envelope), envelope, { merge: true })) }
+                    if (this.aiWrapper) this.engine = async (slug, envelope) => { return this.aiWrapper(E.resolveVariable(await this.apiWrapper(slug, envelope), envelope, { merge: true })) }
                 }
                 this.engine ??= this.apiWrapper
             }
