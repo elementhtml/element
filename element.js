@@ -2042,6 +2042,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (virtual && !virtual.engine) return
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
                 if (!typeof virtual.base !== 'string') delete virtual.base
+                if (!(typeof defaultTokenValue === 'string' || defaultTokenValue === true)) defaultTokenValue = ''
                 Object.assign(this, { defaultTokenValue, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
                     const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
