@@ -2018,6 +2018,47 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    Job: { // optimal
+        enumerable: true, value: class {
+            static E
+            running = false
+            static cancelJob(id) { return this.constructor.E.queue.delete(id) }
+            static isComplete(id) { return !this.constructor.E.queue.get(id) }
+            static isRunning(id) { return this.constructor.E.queue.get(id)?.running }
+            static getJobFunction(id) { return this.constructor.E.queue.get(id)?.jobFunction }
+            static getJobRunner(id) { return this.constructor.E.queue.get(id)?.runner }
+            static waitComplete(id, deadline = 1000) {
+                const { E } = this, { queue } = E
+                if (!queue.has(id)) return
+                const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
+                deadline = now + deadline
+                let beforeDeadline = (now < deadline)
+                return new Promise((async res => {
+                    while (beforeDeadline && queue.has(id)) {
+                        await new Promise(resolve => timeoutFunc(resolve, timeoutArg))
+                        beforeDeadline = (Date.now() < deadline)
+                    }
+                    res(!queue.has(id))
+                }))
+            }
+            constructor(jobFunction, id) {
+                const { E } = this.constructor, { queue } = E
+                if (typeof jobFunction !== 'function') return
+                this.id = id ?? E.generateUuid()
+                if (queue.get(this.id)) return
+                this.jobFunction = jobFunction
+                queue.set(this.id, this)
+            }
+            cancel() { this.constructor.E.queue.delete(this.id) }
+            complete() { return this.constructor.waitComplete(this.id) }
+            async run() { if (!this.running) return this.runner() }
+            async runner() {
+                if (this.running) return
+                this.running = true
+                try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
+            }
+        }
+    },
     Language: { // optimal
         enumerable: true, value: class {
             static E
@@ -2087,6 +2128,34 @@ const ElementHTML = Object.defineProperties({}, {
                     return langTokens[token] ?? defaultResult
                 }
                 return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: base, to: langCode }, engineIntent, envelope)
+            }
+        }
+    },
+    Model: { // optimal
+        enumerable: true, value: class {
+            static E
+            constructor({ inference, library, load, name, options = {} }) {
+                const { E } = this.constructor
+                if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
+                this.inference = inference.bind(this)
+                this.name = name ?? E.generateUuid()
+                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
+            }
+            async load(library, load, options) {
+                const { E } = this.constructor
+                if (this.loaded) return true
+                this.library ??= await E.resolveUnit(library, 'library')
+                if (!this.library) return
+                this.options = options ?? {}
+                this.loader ??= load.bind(this)
+                if (!this.loader) return
+                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
+                return this.loaded
+            }
+            async run(input) {
+                const { E } = this.constructor
+                if (!this.loaded) await E.Job.waitComplete(`model:${this.name}`, Infinity)
+                return this.inference(input, this.engine, this.options.inference ?? {})
             }
         }
     },
@@ -2221,34 +2290,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (document.documentElement.matches(scopeSelector)) nodes.push(document.documentElement)
                 } else nodes = Array.from(document.getElementsByTagName('*'))
                 for (const node of nodes) this.support(node)
-            }
-        }
-    },
-    Model: { // optimal
-        enumerable: true, value: class {
-            static E
-            constructor({ inference, library, load, name, options = {} }) {
-                const { E } = this.constructor
-                if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
-                this.inference = inference.bind(this)
-                this.name = name ?? E.generateUuid()
-                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
-            }
-            async load(library, load, options) {
-                const { E } = this.constructor
-                if (this.loaded) return true
-                this.library ??= await E.resolveUnit(library, 'library')
-                if (!this.library) return
-                this.options = options ?? {}
-                this.loader ??= load.bind(this)
-                if (!this.loader) return
-                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
-                return this.loaded
-            }
-            async run(input) {
-                const { E } = this.constructor
-                if (!this.loaded) await E.Job.waitComplete(`model:${this.name}`, Infinity)
-                return this.inference(input, this.engine, this.options.inference ?? {})
             }
         }
     },
@@ -2396,47 +2437,6 @@ const ElementHTML = Object.defineProperties({}, {
                     if (!valid && !verbose) return false
                 }
                 return verbose ? validationResults : true
-            }
-        }
-    },
-    Job: { // optimal
-        enumerable: true, value: class {
-            static E
-            running = false
-            static cancelJob(id) { return this.constructor.E.queue.delete(id) }
-            static isComplete(id) { return !this.constructor.E.queue.get(id) }
-            static isRunning(id) { return this.constructor.E.queue.get(id)?.running }
-            static getJobFunction(id) { return this.constructor.E.queue.get(id)?.jobFunction }
-            static getJobRunner(id) { return this.constructor.E.queue.get(id)?.runner }
-            static waitComplete(id, deadline = 1000) {
-                const { E } = this, { queue } = E
-                if (!queue.has(id)) return
-                const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
-                deadline = now + deadline
-                let beforeDeadline = (now < deadline)
-                return new Promise((async res => {
-                    while (beforeDeadline && queue.has(id)) {
-                        await new Promise(resolve => timeoutFunc(resolve, timeoutArg))
-                        beforeDeadline = (Date.now() < deadline)
-                    }
-                    res(!queue.has(id))
-                }))
-            }
-            constructor(jobFunction, id) {
-                const { E } = this.constructor, { queue } = E
-                if (typeof jobFunction !== 'function') return
-                this.id = id ?? E.generateUuid()
-                if (queue.get(this.id)) return
-                this.jobFunction = jobFunction
-                queue.set(this.id, this)
-            }
-            cancel() { this.constructor.E.queue.delete(this.id) }
-            complete() { return this.constructor.waitComplete(this.id) }
-            async run() { if (!this.running) return this.runner() }
-            async runner() {
-                if (this.running) return
-                this.running = true
-                try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
             }
         }
     },
