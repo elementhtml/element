@@ -2070,17 +2070,21 @@ const ElementHTML = Object.defineProperties({}, {
                     promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
                 return Promise.all(promises)
             }
-            async run(token, lang, envelope) {
-                if (!(token in this.tokens)) return (this.defaultValue === 'true' ? token : this.defaultValue)
-                if (!(this.allowVirtual && lang)) return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
-                const { E } = this.constructor, { virtual } = this
-                this.virtual[lang] ??= {}
-                if (preloadVirtual) {
-                    await Promise.resolve(this.preload(lang))
-                    return this.virtual[lang][token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+            async run(token, langCode, envelope) {
+                const defaultResult = (this.defaultValue === 'true' ? token : this.defaultValue)
+                if (!(token in this.tokens)) return defaultResult
+                if (!(this.virtual && lang)) return this.tokens[token] ?? defaultResult
+                if (!langCode) return
+                const { E } = this.constructor, { virtual } = this, { engine, engineSub } = virtual
+                if (!engine) return
+                virtual[langCode] ??= {}
+                const langTokens = virtual[langCode]
+                if (token in langTokens) return langTokens[token] ?? defaultResult
+                if (virtual.preload) {
+                    await Promise.resolve(this.preload(langCode))
+                    return langTokens[token] ?? defaultResult
                 }
-                if (!this.engine) return
-                return this.virtual[lang][token] ??= await this.engine.run({ from: { token: this.tokens[token], lang: this.lang }, to: { lang } }, undefined, envelope)
+                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: this.langCode, to: langCode }, engineSub, envelope)
             }
         }
     },
