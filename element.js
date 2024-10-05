@@ -1820,7 +1820,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
-            async run(value, action, valueEnvelope) {
+            async run(value, action, envelope) {
                 const { E } = this
                 if (this.preProcessor) value = await E.runUnit(this.preProcessor, 'transform', value)
                 action = (action ? this.actions[action] : undefined) ?? { pathname: `/${('pathname' in this.options) ? (this.options.pathname || '') : (action || '')}` }
@@ -1828,8 +1828,8 @@ const ElementHTML = Object.defineProperties({}, {
                     ...this.options, ...(action?.options ?? {}),
                     method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
                     headers: { ...this.options.headers, ...(action?.options?.headers ?? {}) }
-                }, merge = true, pathname = E.resolveVariable(action.pathname, valueEnvelope, { merge }),
-                    url = E.resolveUrl(pathname, E.resolveVariable(this.base, valueEnvelope, { merge }))
+                }, merge = true, pathname = E.resolveVariable(action.pathname, envelope, { merge }),
+                    url = E.resolveUrl(pathname, E.resolveVariable(this.base, envelope, { merge }))
                 if (value === 0 || (value && typeof value !== 'string')) {
                     const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
                     options.body = await E.runUnit(contentType, 'transform', value)
@@ -2266,14 +2266,14 @@ const ElementHTML = Object.defineProperties({}, {
                     if (typeof stepKey !== 'string') stepKey = `${stepKey}`
                     else if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
                     else if (stepValue instanceof Promise) {
-                        this.steps.set(stepKey, async (input, valueEnvelope) => {
+                        this.steps.set(stepKey, async (input, envelope) => {
                             if (!this.stepIntermediates.has(stepKey)) {
                                 const stepResult = await stepValue
                                 if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
                                 this.stepIntermediates.set(stepKey, stepResult)
                             }
                             const func = this.stepIntermediates.get(stepKey)
-                            return (typeof func === 'function') ? func(input, valueEnvelope) : func
+                            return (typeof func === 'function') ? func(input, envelope) : func
                         })
                     }
                     else if (typeof stepValue === 'string') {
@@ -2296,11 +2296,11 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            async run(input, stepKey, valueEnvelope) {
+            async run(input, stepKey, envelope) {
                 const { E } = this.constructor
-                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, valueEnvelope)
+                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, envelope)
                 let useSteps = stepKey.includes(':') ? E.sliceAndStep(stepKey, this.steps.values()) : this.steps.values()
-                for (const step of useSteps) if ((input = await step.call(E, input, valueEnvelope)) === undefined) break
+                for (const step of useSteps) if ((input = await step.call(E, input, envelope)) === undefined) break
                 return input
             }
         }
