@@ -2041,7 +2041,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (virtual && !virtual.engine) return
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
-                if (!typeof virtual.base !== 'string') delete virtual.base
+                if (typeof virtual.base !== 'string') delete virtual.base
                 if (!(typeof defaultTokenValue === 'string' || defaultTokenValue === true)) defaultTokenValue = ''
                 Object.assign(this, { defaultTokenValue, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
@@ -2066,7 +2066,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = E.createEnvelope(), promises = []
+                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = E.createEnvelope(this.envelope ?? {}), promises = []
                 if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputBase, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
                     promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputBase, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
@@ -2078,8 +2078,12 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
                 const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang, base } = virtual
                 if (!(langCode && engine)) return
+                const [baseLangCode,] = langCode.split('-')
                 lang[langCode] ??= {}
-                const langTokens = lang[langCode]
+                let langTokens = lang[langCode]
+                if (token in langTokens) return langTokens[token] ?? defaultResult
+                lang[baseLangCode] ??= {}
+                langTokens = lang[baseLangCode]
                 if (token in langTokens) return langTokens[token] ?? defaultResult
                 if (virtual.preload) {
                     await Promise.resolve(this.preload(langCode))
@@ -2093,9 +2097,9 @@ const ElementHTML = Object.defineProperties({}, {
     Renderer: {
         enumerable: true, value: class {
             static E
-            static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language'])
+            static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language', 'Transform'])
             observers = new WeakMap()
-            constructor({ engine, matches = {}, mode, scopeSelector, name, namespace, labels = {}, defaultValue = '' }) {
+            constructor({ engine, matches = {}, mode, scopeSelector, name, namespace, labels = {}, defaultValue = '', envelope }) {
                 const { E, validEngineClasses } = this.constructor
                 if (!engine) return
                 switch (typeof engine) {
@@ -2107,7 +2111,7 @@ const ElementHTML = Object.defineProperties({}, {
                         break
                     default: return
                 }
-                if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
+                if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels) || !E.isPlainObject(envelope)) return
                 name = (name && typeof name === 'string') ? name.replaceAll(E.sys.regexp.notAlphaNumeric, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
                 if (!mode && !Object.keys(this.matches).length) return
@@ -2175,14 +2179,15 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            apply(node) { // scope
+            apply(node) {
                 const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement, { selectors, name, defaultValue, mode } = this, promises = [],
-                    modeIsLang = mode === 'lang', envelope = Object.freeze(E.createEnvelope({ labels: this.labels }))
+                    modeIsLang = mode === 'lang', envelope = Object.freeze(E.createEnvelope(this.envelope ?? {}))
                 for (const selector in selectors) {
                     const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
                     for (const n of nodeList) {
-                        const token = n.getAttribute(tokenAttr), nodeEnvelope = { ...envelope, fields: { ...n.dataset } }
+                        const fields = {}
+                        const nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
                         promises.push(this.engine.run(token, modeIsLang ? n.closest('[lang]').getAttribute('lang') : name, nodeEnvelope).then(tokenValue => {
                             tokenValue ??= defaultValue
                             targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
@@ -2298,7 +2303,7 @@ const ElementHTML = Object.defineProperties({}, {
                     index++
                 }
             }
-            async run(input, valueEnvelope) {
+            async run(input, stepKey, valueEnvelope) {
                 for (const step of this.steps) {
                     if (input === undefined) break
                     input = await step(input, valueEnvelope)
