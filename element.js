@@ -2257,13 +2257,13 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static embeddableUnitTypes = new Set('api', 'collection', 'ai', 'library')
             constructor(stepChain) {
-                const { E } = this.constructor, isMap = (stepChain instanceof Map)
+                const { E } = this.constructor, isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
                 if (!stepChain && !Array.isArray(stepChain)) stepChain = [stepChain]
                 this.steps = new Map()
                 this.stepIntermediates = new Map()
                 for (let [stepKey, stepValue] of stepChain.entries()) {
                     if (!stepValue) continue
-                    if (!isMap) stepKey = `${stepKey}`
+                    if (typeof stepKey !== 'string') stepKey = `${stepKey}`
                     else if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
                     else if (stepValue instanceof Promise) {
                         this.steps.set(stepKey, async (input, valueEnvelope) => {
@@ -2295,14 +2295,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             async run(input, stepKey, valueEnvelope) {
-                if (stepKey) {
-                    const stepFunc = this.steps.get(stepKey)
-                    return stepFunc ? (await step(input, valueEnvelope)) : undefined
-                }
-                for (const [stepKey, stepValue] of this.steps) {
-                    if (input === undefined) break
-                    input = await stepValue(input, valueEnvelope)
-                }
+                const { E } = this.constructor
+                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, valueEnvelope)
+                let useSteps = stepKey.includes(':') ? E.sliceAndStep(stepKey, this.steps.values()) : this.steps.values()
+                for (const step of useSteps) if ((input = await step.call(E, input, valueEnvelope)) === undefined) break
                 return input
             }
         }
