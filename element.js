@@ -2095,7 +2095,7 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language'])
             observers = new WeakMap()
-            constructor({ engine, matches = {}, mode, name, scope = {}, namespace, labels = {}, defaultValue = '' }) {
+            constructor({ engine, matches = {}, mode, scopeSelector, name, namespace, labels = {}, defaultValue = '' }) {
                 const { E, validEngineClasses } = this.constructor
                 if (!engine) return
                 switch (typeof engine) {
@@ -2110,10 +2110,10 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
                 name = (name && typeof name === 'string') ? name.replaceAll(E.sys.regexp.notAlphaNumeric, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
-                if (scope && !(E.isPlainObject(scope))) return
                 if (!mode && !Object.keys(this.matches).length) return
+                if (typeof scopeSelector !== 'string') scopeSelector = undefined
                 Object.assign(this, {
-                    matches, mode, name, scope: Object.freeze(scope), labels: Object.freeze(labels),
+                    matches, mode, name, labels: Object.freeze(labels), scopeSelector,
                     defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '')
                 })
                 const attributes = new Set()
@@ -2149,10 +2149,6 @@ const ElementHTML = Object.defineProperties({}, {
                             break
                         case 'lang':
                             attributes.add('lang')
-                            this.scope ??= {}
-                            this.scope.matches ??= `[lang|="${this.name}"]`
-                            this.scope.not ??= `[lang]:not([lang|="${this.name}"])`
-                            this.scope.closest ??= `[lang]`
                         case 'text':
                             this.matches.textContent ??= `[data-${namespace}-text-content]`
                             this.matches['@title'] ??= `[data-${namespace}-attr-title][title]`
@@ -2179,19 +2175,15 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            apply(node) {
-                const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement
-                if (this.scope) {
-                    if (nodeIsElement && (node.closest(this.scope.closest)?.matches(this.scope.not))) return
-                    else if (node.shadowRoot && (node.host.matches(this.scope.not))) return
-                }
-                const { selectors, name, defaultValue } = this, promises = [], envelope = Object.freeze(E.createEnvelope({ labels: this.labels }))
+            apply(node) { // scope
+                const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement, { selectors, name, defaultValue, mode } = this, promises = [],
+                    modeIsLang = mode === 'lang', envelope = Object.freeze(E.createEnvelope({ labels: this.labels }))
                 for (const selector in selectors) {
                     const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
                     for (const n of nodeList) {
                         const token = n.getAttribute(tokenAttr), nodeEnvelope = { ...envelope, fields: { ...n.dataset } }
-                        promises.push(this.engine.run(token, name, nodeEnvelope).then(tokenValue => {
+                        promises.push(this.engine.run(token, modeIsLang ? n.closest('[lang]').getAttribute('lang') : name, nodeEnvelope).then(tokenValue => {
                             tokenValue ??= defaultValue
                             targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
                         }))
