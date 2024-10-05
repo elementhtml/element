@@ -2026,7 +2026,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API'])
-            constructor({ defaultValue = '', lang, tokens = {}, virtual = {} }) {
+            constructor({ defaultValue = '', langCode, tokens = {}, virtual = {} }) {
                 const { E } = this.constructor
                 if (!E.isPlainObject(tokens)) return
                 if (!E.isPlainObject(virtual)) virtual = undefined
@@ -2040,7 +2040,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (virtual && !virtual.engine) return
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
-                Object.assign(this, { defaultValue, lang, tokens: Object.freeze(tokens), virtual })
+                Object.assign(this, { defaultValue, langCode, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
                     const [engineType, engineNamePlusSub] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
                         [engineName, engineSub] = engineNamePlusSub.split(E.sys.regexp.pipeSplitter),
@@ -2055,21 +2055,25 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (virtual) if (Array.isArray(virtual.preload)) this.preload()
             }
-            async preload(lang) {
-                const { virtual } = this
-                if (!virtual?.engine) return
+            saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
+            async preload(langCode) {
+                const { E } = this.constructor, { virtual = {}, saveVirtual, tokens } = this
+                if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
                 virtual.lang ??= {}
+                const { engine, engineSub, preload, lang } = virtual
+                const engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope()
+                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 const promises = []
-                if (lang) return (virtual.lang[lang] ??= virtual.engine.run({ from: { token: this.tokens[token], lang: this.lang }, to: { lang } }, lang, envelope).then(virtualTokens => virtual.lang[virtualLangCode] = Object.freeze(virtualTokens)))
-                for (const virtualLangCode of virtual.preload)
-                    promises.push(virtual.lang[virtualLangCode] ??= virtual.engine.run({ from: { tokens: this.tokens, lang: this.lang }, to: { lang: virtualLangCode } }, undefined, envelope).then(virtualTokens => virtual.lang[virtualLangCode] = Object.freeze(virtualTokens)))
+                if (Array.isArray(preload)) for (const preloadLangCode of preload)
+                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
                 return Promise.all(promises)
             }
             async run(token, lang, envelope) {
                 if (!(token in this.tokens)) return (this.defaultValue === 'true' ? token : this.defaultValue)
                 if (!(this.allowVirtual && lang)) return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+                const { E } = this.constructor, { virtual } = this
                 this.virtual[lang] ??= {}
                 if (preloadVirtual) {
                     await Promise.resolve(this.preload(lang))
