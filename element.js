@@ -2255,7 +2255,7 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: {
         enumerable: true, value: class {
             static E
-            static embeddableUnitTypes = new Set('api', 'collection', 'ai', 'library')
+            static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
             constructor(stepChain) {
                 const { E } = this.constructor, isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
                 if (!stepChain && !Array.isArray(stepChain)) stepChain = [stepChain]
