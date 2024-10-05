@@ -2025,12 +2025,24 @@ const ElementHTML = Object.defineProperties({}, {
     Language: {
         enumerable: true, value: class {
             static E
-            constructor({ lang, tokens = {}, defaultValue = '' }) {
+            static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language'])
+            constructor({ lang, tokens = {}, defaultValue = '', allowVirtual, engine, preloadVirtual }) {
                 const { E } = this.constructor
-                Object.assign(this, { lang, tokens, defaultValue })
+                switch (typeof engine) {
+                    case 'string': this.engine = engine; break
+                    case 'object':
+                        const validEngine = false
+                        for (const n of validEngineClasses.keys()) if (validEngine ||= (engine instanceof E[n])) break
+                        if (!validEngine) return
+                        break
+                    default: return
+                }
+                Object.assign(this, { lang, tokens, defaultValue, allowVirtual: !!allowVirtual, engine, preloadVirtual })
                 Object.freeze(this.tokens)
             }
-            async run(token) { return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue) }
+            async run(token, lang, envelope) {
+                return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+            }
         }
     },
     Renderer: {
