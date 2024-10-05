@@ -2072,7 +2072,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return Promise.all(promises)
             }
             async run(token, langCode, envelope) {
-                const defaultResult = (this.defaultTokenValue === 'true' ? token : this.defaultTokenValue)
+                const defaultResult = (this.defaultTokenValue === true ? token : this.defaultTokenValue)
                 if (!(token in this.tokens)) return defaultResult
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
                 const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang, base } = virtual
