@@ -2043,7 +2043,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (allowVirtual && !engine) return
                 Object.assign(this, { lang, tokens, defaultValue, allowVirtual: !!allowVirtual, engine, preloadVirtual })
                 if (this.tokens) Object.freeze(this.tokens)
-                if (allowVirtual) if (Array.isArray(preloadVirtual)) this.preload()
                 if (typeof engine === 'string') {
                     const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter),
                         loadEngineJob = new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
@@ -2054,6 +2053,7 @@ const ElementHTML = Object.defineProperties({}, {
                         this.engine = engine
                     })
                 }
+                if (allowVirtual) if (Array.isArray(preloadVirtual)) this.preload()
             }
             async preload() {
                 if (!this.engine) return
