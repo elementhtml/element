@@ -2026,7 +2026,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API'])
-            constructor({ defaultValue = '', langCode, tokens = {}, virtual = {}, envelope }) {
+            constructor({ defaultValue = '', tokens = {}, virtual = {}, envelope }) {
                 const { E } = this.constructor
                 if (!E.isPlainObject(tokens)) return
                 if (!E.isPlainObject(virtual)) virtual = undefined
@@ -2041,7 +2041,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (virtual && !virtual.engine) return
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
-                Object.assign(this, { defaultValue, langCode, tokens: Object.freeze(tokens), virtual })
+                if (!typeof virtual.base !== 'string') delete virtual.base
+                Object.assign(this, { defaultValue, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
                     const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
                         [engineName, engineIntent] = engineNamePlusIntent.split(E.sys.regexp.pipeSplitter),
@@ -2064,17 +2065,17 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineIntent, preload, lang } = virtual, engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope(), promises = []
-                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
+                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = E.createEnvelope(), promises = []
+                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputBase, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
-                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
+                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputBase, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
                 return Promise.all(promises)
             }
             async run(token, langCode, envelope) {
                 const defaultResult = (this.defaultValue === 'true' ? token : this.defaultValue)
                 if (!(token in this.tokens)) return defaultResult
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
-                const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang } = virtual
+                const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang, base } = virtual
                 if (!(langCode && engine)) return
                 lang[langCode] ??= {}
                 const langTokens = lang[langCode]
@@ -2084,7 +2085,7 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(langTokens)
                     return langTokens[token] ?? defaultResult
                 }
-                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: this.langCode, to: langCode }, engineIntent, envelope)
+                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: base, to: langCode }, engineIntent, envelope)
             }
         }
     },
