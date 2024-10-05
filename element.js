@@ -2054,6 +2054,7 @@ const ElementHTML = Object.defineProperties({}, {
                 name = (name && typeof name === 'string') ? name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
                 if (scope && !(E.isPlainObject(scope))) return
+                if (!mode && !Object.keys(this.matches).length) return
                 Object.assign(this, {
                     matches, mode, name, scope: Object.freeze(scope), labels: Object.freeze(labels),
                     defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '')
@@ -2108,7 +2109,6 @@ const ElementHTML = Object.defineProperties({}, {
                             this.matches['@label'] ??= `[data-${namespace}-attr-label][label]`
                     }
                 }
-                if (!Object.keys(this.matches).length) return
                 const selectors = {}
                 for (const key in this.matches) {
                     const attributePair = this.matches[key].match(E.sys.regexp.extractAttributes), isAttr = key[0] === '@'
@@ -2159,7 +2159,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E, validEngineClasses } = this.constructor, { scopeSelector, engine } = this
                 if (!engine) return
                 if (typeof engine === 'string') {
-                    const [engineType, engineName] = engine.split(/\s*\|\s*/)
+                    const [engineType, engineName] = engine.trim().split(/\s*\:\s*/)
                     this.engine = await E.resolveUnit(engineName, engineType)
                     const validEngine = false
                     for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
