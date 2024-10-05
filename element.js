@@ -1325,14 +1325,14 @@ const ElementHTML = Object.defineProperties({}, {
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
             regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/,
+                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/,
                 constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
                 directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, extractAttributes: /(?<=\[)([^\]=]+)/g,
                 gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
-                nothing: /^(.)/,
+                nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, protocolSplitter: /\:\/\/(.+)/, dash: /-/g, xy: /[xy]/g,
                 isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
                 selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
@@ -2051,7 +2051,7 @@ const ElementHTML = Object.defineProperties({}, {
                     default: return
                 }
                 if ((typeof mode !== 'string') || (!(name && (typeof name === 'string'))) || !E.isPlainObject(matches) || !E.isPlainObject(labels)) return
-                name = (name && typeof name === 'string') ? name.replaceAll(/[^a-zA-Z0-9]/, '').toLowerCase() : E.generateUuid(true)
+                name = (name && typeof name === 'string') ? name.replaceAll(E.sys.regexp.notAlphaNumeric, '').toLowerCase() : E.generateUuid(true)
                 mode = mode ? mode.trim().toLowerCase() : name
                 if (scope && !(E.isPlainObject(scope))) return
                 if (!mode && !Object.keys(this.matches).length) return
@@ -2159,7 +2159,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E, validEngineClasses } = this.constructor, { scopeSelector, engine } = this
                 if (!engine) return
                 if (typeof engine === 'string') {
-                    const [engineType, engineName] = engine.trim().split(/\s*\:\s*/)
+                    const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter)
                     this.engine = await E.resolveUnit(engineName, engineType)
                     const validEngine = false
                     for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
