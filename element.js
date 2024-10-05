@@ -2026,10 +2026,11 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API'])
-            constructor({ defaultValue = '', langCode, tokens = {}, virtual = {} }) {
+            constructor({ defaultValue = '', langCode, tokens = {}, virtual = {}, envelope }) {
                 const { E } = this.constructor
                 if (!E.isPlainObject(tokens)) return
                 if (!E.isPlainObject(virtual)) virtual = undefined
+                if (!E.isPlainObject(envelope)) envelope = undefined
                 switch (typeof virtual.engine) {
                     case 'string': break
                     case 'object':
@@ -2051,9 +2052,11 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!validEngine) return
                         virtual.engine = engine
                         if (engineSub != null) virtual.engineSub = engineSub || true
+                        virtual.lang ??= {}
+                        Object.freeze(virtual)
                     })
                 }
-                if (virtual) if (Array.isArray(virtual.preload)) this.preload()
+                if (virtual && Array.isArray(virtual.preload)) this.preload()
             }
             saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
             async preload(langCode) {
@@ -2061,7 +2064,6 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                virtual.lang ??= {}
                 const { engine, engineSub, preload, lang } = virtual
                 const engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope()
                 if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
