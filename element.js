@@ -2284,11 +2284,13 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     }
                     else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
-                        const { unitType, unitKey } = stepValue.entries()[0]
+                        const { unitType, unitNamePlusIntent } = stepValue.entries()[0], [unitName, unitIntent] = unitNamePlusIntent.split(E.sys.regexp.pipeSplitter),
+                            stepClassName = (E.sys.unitTypeMap[unitType] ?? [])[1]
                         if (!this.constructor.embeddableClasses.has(stepClassName)) continue
                         this.steps.set(stepKey, async (input, envelope) => {
                             input = Array.isArray(input) ? input : [input, undefined]
                             const unit = await E.resolveUnit(unitType, unitKey)
+                            if (!unit) return
                             return unit(...input, envelope)
                         })
                     }
