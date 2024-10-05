@@ -2018,11 +2018,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
-
-
-    Language: {
+    Language: { // optimal
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API'])
@@ -2094,7 +2090,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Renderer: {
+    Renderer: { // optimal
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language', 'Transform'])
@@ -2228,10 +2224,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-
-
-
     Model: { // optimal
         enumerable: true, value: class {
             static E
@@ -2265,48 +2257,51 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static embeddableUnitTypes = new Set('api', 'collection', 'ai', 'library')
             constructor(stepChain) {
-                const { E } = this.constructor
-                if (!Array.isArray(stepChain)) stepChain = [stepChain]
-                this.steps = []
-                this.stepIntermediates = []
-                let index = 0
-                for (const step of stepChain) {
-                    if (!step) continue
-                    else if (typeof step === 'function') this.steps.push(step.bind(E))
-                    else if (step instanceof Promise) {
-                        this.steps.push(async (input, valueEnvelope) => {
-                            if (!this.stepIntermediates[index]) {
-                                const stepResult = await step
+                const { E } = this.constructor, isMap = (stepChain instanceof Map)
+                if (!stepChain && !Array.isArray(stepChain)) stepChain = [stepChain]
+                this.steps = new Map()
+                this.stepIntermediates = new Map()
+                for (let [stepKey, stepValue] of stepChain.entries()) {
+                    if (!stepValue) continue
+                    if (!isMap) stepKey = `${stepKey}`
+                    else if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
+                    else if (stepValue instanceof Promise) {
+                        this.steps.set(stepKey, async (input, valueEnvelope) => {
+                            if (!this.stepIntermediates.has(stepKey)) {
+                                const stepResult = await stepValue
                                 if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
-                                this.stepIntermediates[index] = stepResult
+                                this.stepIntermediates.set(stepKey, stepResult)
                             }
-                            const func = this.stepIntermediates[index]
+                            const func = this.stepIntermediates.get(stepKey)
                             return (typeof func === 'function') ? func(input, valueEnvelope) : func
                         })
                     }
-                    else if (typeof step === 'string') {
-                        this.steps.push(async (input, envelope) => {
+                    else if (typeof stepValue === 'string') {
+                        this.steps.set(stepKey, async (input, envelope) => {
                             const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
-                                expression = this.stepIntermediates[index] ??= jsonata(`(${step.trim()})`)
+                                expression = this.stepIntermediates.get(stepKey) ?? this.stepIntermediates.set(stepKey, jsonata(`(${step.trim()})`)).get(stepKey)
                             return expression.evaluate(input, { envelope })
                         })
                     }
-                    else if (this.isPlainObject(step) && (Object.keys(step).length === 1)) {
-                        const { unitType, unitKey } = step.entries()[0]
+                    else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
+                        const { unitType, unitKey } = stepValue.entries()[0]
                         if (!this.constructor.embeddableClasses.has(stepClassName)) continue
-                        this.steps.push(async (input, envelope) => {
+                        this.steps.set(stepKey, async (input, envelope) => {
                             input = Array.isArray(input) ? input : [input, undefined]
                             const unit = await E.resolveUnit(unitType, unitKey)
                             return unit(...input, envelope)
                         })
                     }
-                    index++
                 }
             }
             async run(input, stepKey, valueEnvelope) {
-                for (const step of this.steps) {
+                if (stepKey) {
+                    const stepFunc = this.steps.get(stepKey)
+                    return stepFunc ? (await step(input, valueEnvelope)) : undefined
+                }
+                for (const [stepKey, stepValue] of this.steps) {
                     if (input === undefined) break
-                    input = await step(input, valueEnvelope)
+                    input = await stepValue(input, valueEnvelope)
                 }
                 return input
             }
