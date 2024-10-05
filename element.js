@@ -2055,18 +2055,27 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (allowVirtual) if (Array.isArray(preloadVirtual)) this.preload()
             }
-            async preload() {
+            async preload(lang) {
                 if (!this.engine) return
                 this.virtual = {}
                 if (!this.engine instanceof Promise) await this.engine
                 const promises = []
+                if (lang) return (this.virtual[lang] ??= this.engine.run(this.tokens, lang, envelope).then(virtualTokens => this.virtual[virtualLangCode] = Object.freeze(virtualTokens)))
                 for (const virtualLangCode of preloadVirtual)
-                    promises.push(this.virtual[virtualLangCode] = this.engine.run(this.tokens, virtualLangCode, envelope).then(virtualTokens => this.virtual[virtualLangCode] = Object.freeze(virtualTokens)))
+                    promises.push(this.virtual[virtualLangCode] ??= this.engine.run(this.tokens, virtualLangCode, envelope).then(virtualTokens => this.virtual[virtualLangCode] = Object.freeze(virtualTokens)))
                 return Promise.all(promises)
             }
 
             async run(token, lang, envelope) {
-                return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+                if (!(token in this.tokens)) return (this.defaultValue === 'true' ? token : this.defaultValue)
+                if (!(this.allowVirtual && lang)) return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+                this.virtual[lang] ??= {}
+                if (preloadVirtual) {
+                    await Promise.resolve(this.preload(lang))
+                    return this.virtual[lang][token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
+                }
+                if (!this.engine) return
+                return this.virtual[lang][token] ??= await this.engine.run(token, lang, envelope)
             }
         }
     },
