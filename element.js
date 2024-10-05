@@ -2064,10 +2064,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineSub, preload, lang } = virtual
-                const engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope()
+                const { engine, engineSub, preload, lang } = virtual, engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope(), promises = []
                 if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
-                const promises = []
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
                     promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
                 return Promise.all(promises)
@@ -2075,15 +2073,15 @@ const ElementHTML = Object.defineProperties({}, {
             async run(token, langCode, envelope) {
                 const defaultResult = (this.defaultValue === 'true' ? token : this.defaultValue)
                 if (!(token in this.tokens)) return defaultResult
-                if (!(this.virtual && lang)) return this.tokens[token] ?? defaultResult
-                if (!langCode) return
-                const { E } = this.constructor, { virtual } = this, { engine, engineSub } = virtual
-                if (!engine) return
-                virtual[langCode] ??= {}
-                const langTokens = virtual[langCode]
+                if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
+                const { E } = this.constructor, { virtual } = this, { engine, engineSub, lang } = virtual
+                if (!(langCode && engine)) return
+                lang[langCode] ??= {}
+                const langTokens = lang[langCode]
                 if (token in langTokens) return langTokens[token] ?? defaultResult
                 if (virtual.preload) {
                     await Promise.resolve(this.preload(langCode))
+                    Object.freeze(langTokens)
                     return langTokens[token] ?? defaultResult
                 }
                 return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: this.langCode, to: langCode }, engineSub, envelope)
