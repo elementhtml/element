@@ -2188,7 +2188,7 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const n of nodeList) {
                         const fields = {}
                         const nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
-                        promises.push(this.engine.run(token, modeIsLang ? n.closest('[lang]').getAttribute('lang') : name, nodeEnvelope).then(tokenValue => {
+                        promises.push(this.engine.run(token, modeIsLang ? (n.closest('[lang]').getAttribute('lang') || undefined) : name, nodeEnvelope).then(tokenValue => {
                             tokenValue ??= defaultValue
                             targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
                         }))
