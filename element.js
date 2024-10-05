@@ -2252,7 +2252,34 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Transform: {
+    State: { // optimal
+        value: class {
+            static E
+            name
+            type
+            value
+            eventTarget = new EventTarget()
+            get() { return this.value }
+            set(value, labelMode) {
+                let isSame = this.value === value
+                if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
+                if (isSame) {
+                    if (labelMode === 'force') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                    return this
+                }
+                this.value = value
+                if (labelMode !== 'silent') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
+                return this
+            }
+            constructor(name, initialValue) {
+                this.name = name
+                this.value = initialValue
+            }
+            valueOf() { return this.value }
+            toJSON() { return this.valueOf() }
+        }
+    },
+    Transform: { // optimal
         enumerable: true, value: class {
             static E
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
@@ -2305,7 +2332,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Type: {
+    Type: { // optimal
         enumerable: true, value: class {
             static E
             constructor(typeDefinition, typeName) {
@@ -2316,7 +2343,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'object':
                         if (typeDefinition instanceof E.Validator) {
                             this.engine = async (input, verbose, envelope) => {
-                                const [valid, validation = {}] = await typeDefinition.test(input, verbose, envelope)
+                                const [valid, validation = {}] = await typeDefinition.constructor.run.call(typeDefinition, input, verbose, envelope)
                                 return verbose ? validation : valid
                             }
                         } else {
@@ -2357,48 +2384,18 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
-    State: { // optimal
-        value: class {
-            static E
-            name
-            type
-            value
-            eventTarget = new EventTarget()
-            get() { return this.value }
-            set(value, labelMode) {
-                let isSame = this.value === value
-                if (!isSame) try { isSame = JSON.stringify(this.value) === JSON.stringify(value) } catch (e) { }
-                if (isSame) {
-                    if (labelMode === 'force') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                    return this
-                }
-                this.value = value
-                if (labelMode !== 'silent') this.eventTarget.dispatchEvent(new CustomEvent('change', { detail: value }))
-                return this
-            }
-            constructor(name, initialValue) {
-                this.name = name
-                this.value = initialValue
-            }
-            valueOf() { return this.value }
-            toJSON() { return this.valueOf() }
-        }
-    },
-    Validator: { // TODO: make this such that a type is an instance of Validator
+    Validator: { // optimal
         enumerable: true, value: class {
             static E
-
-            constructor(obj) {
-                if (!obj || (typeof obj !== 'object')) return
-                for (const p in obj) if (typeof this[p] === 'function') Object.defineProperty(this, p, { enumerable: true, writable: false, value: this[p](obj[p]) })
-            }
-
-            valueOf() {
-                return
-                let valid
-                for (const k in this) if (!(valid = (this[k] === true))) break
-                return valid
+            static async run(input, verbose, envelope) {
+                const instance = this instanceof this.constructor ? this : new this(), validationResults = {}
+                let valid = true
+                for (const key of Object.keys(instance)) if (typeof instance[key] === 'function') {
+                    validationResults[key] = await instance[key](input, envelope)
+                    valid = validationResults[key] === true
+                    if (!valid && !verbose) return false
+                }
+                return verbose ? validationResults : true
             }
         }
     },
