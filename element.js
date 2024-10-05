@@ -2043,8 +2043,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
                 Object.assign(this, { defaultValue, langCode, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
-                    const [engineType, engineNamePlusSub] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
-                        [engineName, engineIntent] = engineNamePlusSub.split(E.sys.regexp.pipeSplitter),
+                    const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
+                        [engineName, engineIntent] = engineNamePlusIntent.split(E.sys.regexp.pipeSplitter),
                         loadEngineJob = new E.Job(async function () { await await E.resolveUnit(engineName, engineType) }, `${engineType}:${engineName}`)
                     virtual.engine = loadEngineJob.complete.then(async () => {
                         const engine = await E.resolveUnit(engineName, engineType), validEngine = false
