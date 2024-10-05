@@ -2044,14 +2044,14 @@ const ElementHTML = Object.defineProperties({}, {
                 Object.assign(this, { defaultValue, langCode, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
                     const [engineType, engineNamePlusSub] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
-                        [engineName, engineSub] = engineNamePlusSub.split(E.sys.regexp.pipeSplitter),
+                        [engineName, engineIntent] = engineNamePlusSub.split(E.sys.regexp.pipeSplitter),
                         loadEngineJob = new E.Job(async function () { await await E.resolveUnit(engineName, engineType) }, `${engineType}:${engineName}`)
                     virtual.engine = loadEngineJob.complete.then(async () => {
                         const engine = await E.resolveUnit(engineName, engineType), validEngine = false
                         for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
                         if (!validEngine) return
                         virtual.engine = engine
-                        if (engineSub != null) virtual.engineSub = engineSub || true
+                        if (engineIntent != null) virtual.engineIntent = engineIntent || true
                         virtual.lang ??= {}
                         Object.freeze(virtual)
                     })
@@ -2064,17 +2064,17 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineSub, preload, lang } = virtual, engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope(), promises = []
-                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
+                const { engine, engineIntent, preload, lang } = virtual, engineInputFrom = { from: this.langCode, tokens }, envelope = E.createEnvelope(), promises = []
+                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputFrom, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
-                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineSub, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
+                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputFrom, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
                 return Promise.all(promises)
             }
             async run(token, langCode, envelope) {
                 const defaultResult = (this.defaultValue === 'true' ? token : this.defaultValue)
                 if (!(token in this.tokens)) return defaultResult
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
-                const { E } = this.constructor, { virtual } = this, { engine, engineSub, lang } = virtual
+                const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang } = virtual
                 if (!(langCode && engine)) return
                 lang[langCode] ??= {}
                 const langTokens = lang[langCode]
@@ -2084,7 +2084,7 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(langTokens)
                     return langTokens[token] ?? defaultResult
                 }
-                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: this.langCode, to: langCode }, engineSub, envelope)
+                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: this.langCode, to: langCode }, engineIntent, envelope)
             }
         }
     },
