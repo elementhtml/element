@@ -2026,7 +2026,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static validEngineClasses = new Set(['AI', 'API'])
-            constructor({ defaultValue = '', tokens = {}, virtual = {}, envelope }) {
+            constructor({ defaultTokenValue = '', tokens = {}, virtual = {}, envelope }) {
                 const { E } = this.constructor
                 if (!E.isPlainObject(tokens)) return
                 if (!E.isPlainObject(virtual)) virtual = undefined
@@ -2042,7 +2042,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (virtual && !virtual.engine) return
                 if (!(Array.isArray(virtual.preload) || virtual.preload === true)) delete virtual.preload
                 if (!typeof virtual.base !== 'string') delete virtual.base
-                Object.assign(this, { defaultValue, tokens: Object.freeze(tokens), virtual })
+                Object.assign(this, { defaultTokenValue, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
                     const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
                         [engineName, engineIntent] = engineNamePlusIntent.split(E.sys.regexp.pipeSplitter),
@@ -2072,7 +2072,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return Promise.all(promises)
             }
             async run(token, langCode, envelope) {
-                const defaultResult = (this.defaultValue === 'true' ? token : this.defaultValue)
+                const defaultResult = (this.defaultTokenValue === 'true' ? token : this.defaultTokenValue)
                 if (!(token in this.tokens)) return defaultResult
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
                 const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang, base } = virtual
