@@ -2033,13 +2033,38 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'object':
                         const validEngine = false
                         for (const n of validEngineClasses.keys()) if (validEngine ||= (engine instanceof E[n])) break
-                        if (!validEngine) return
-                        break
-                    default: return
+                        if (validEngine) break
+                    default: engine = undefined
                 }
+                if (!(Array.isArray(preloadVirtual) || preloadVirtual === true)) preloadVirtual = undefined
+                if (!E.isPlainObject(tokens)) tokens = undefined
+                if (!(tokens || engine)) return
+                if (!tokens) [allowVirtual, preloadVirtual] = [true, undefined]
+                if (allowVirtual && !engine) return
                 Object.assign(this, { lang, tokens, defaultValue, allowVirtual: !!allowVirtual, engine, preloadVirtual })
-                Object.freeze(this.tokens)
+                if (this.tokens) Object.freeze(this.tokens)
+                if (allowVirtual) if (Array.isArray(preloadVirtual)) this.preload()
+                if (typeof engine === 'string') {
+                    const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter),
+                        loadEngineJob = new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
+                    this.engine = loadEngineJob.complete.then(async () => {
+                        const engine = await E.resolveUnit(engineName, engineType), validEngine = false
+                        for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
+                        if (!validEngine) return
+                        this.engine = engine
+                    })
+                }
             }
+            async preload() {
+                if (!this.engine) return
+                this.virtual = {}
+                if (!this.engine instanceof Promise) await this.engine
+                const promises = []
+                for (const virtualLangCode of preloadVirtual)
+                    promises.push(this.virtual[virtualLangCode] = this.engine.run(this.tokens, virtualLangCode, envelope).then(virtualTokens => this.virtual[virtualLangCode] = Object.freeze(virtualTokens)))
+                return Promise.all(promises)
+            }
+
             async run(token, lang, envelope) {
                 return this.tokens[token] ?? (this.defaultValue === 'true' ? token : this.defaultValue)
             }
