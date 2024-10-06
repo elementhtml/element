@@ -368,11 +368,12 @@ const ElementHTML = Object.defineProperties({}, {
 
                 },
                 'text/x-xdr': (E) => {
-                    return async (input) => {
-                        const xdr = await E.resolveUnit('xdr', 'library')
-
-
-                    }
+                    return new E.transform(async (input, envelope) => {
+                        if (!input || (typeof input !== 'string')) return
+                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response } = state, { url: baseURI } = response, { pathname } = new URL(baseURI),
+                            name = pathname.split('/').pop().replace('.x', '').trim()
+                        return XDR.factory(input, name, { baseURI, name })
+                    })
                 },
                 'xdr': 'xdr', 'text/markdown': 'md'
             },
@@ -2378,10 +2379,12 @@ const ElementHTML = Object.defineProperties({}, {
                 this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})
             }
             async run(input, stepKey, envelope) {
-                const { E } = this.constructor
-                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, envelope)
+                const { E } = this.constructor, state = { ...this.pipelineState, ...(envelope.state ?? {}) }
+                for (const k of state) if (E.isWrappedVariable(k)) state[k] = E.resolveVariable(state[k], envelope, { wrapped: true })
+                const pipelineEnvelope = Object.freeze({ ...envelope, state })
+                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, pipelineEnvelope)
                 let useSteps = stepKey.includes(':') ? E.sliceAndStep(stepKey, this.steps.values()) : this.steps.values()
-                for (const step of useSteps) if ((input = await step.call(E, input, envelope)) === undefined) break
+                for (const step of useSteps) if ((input = await step.call(E, input, pipelineEnvelope)) === undefined) break
                 return input
             }
         }
