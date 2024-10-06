@@ -364,10 +364,17 @@ const ElementHTML = Object.defineProperties({}, {
             patterns: {}, renderers: {}, resolvers: {}, snippets: {},
             transforms: {
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })),
+                'application/x-xdr': (E) => {
+
+                },
+                'text/x-xdr': (E) => {
+                    return async (input) => {
+                        const xdr = await E.resolveUnit('xdr', 'library')
 
 
-
-                'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
+                    }
+                },
+                'xdr': 'xdr', 'text/markdown': 'md'
             },
             types: {}
         }
@@ -541,7 +548,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
             if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
             const contentTypeTransformer = this.resolveUnit(contentType, 'transform') ?? (inputUrlExtension ? this.resolveUnit(inputUrlExtension, 'transform') : undefined)
-            if (contentTypeTransformer) return this.runTransform(contentTypeTransformer, text)
+            if (contentTypeTransformer) return contentTypeTransformer.run(text)
         }
     },
 
@@ -2328,7 +2335,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
-            constructor(stepChain) {
+            constructor(stepChain, pipelineState = {}) {
                 if (!stepChain) return
                 const { E } = this.constructor, isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
                 if (!isMap && !Array.isArray(stepChain)) stepChain = [stepChain]
@@ -2368,6 +2375,7 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     }
                 }
+                this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})
             }
             async run(input, stepKey, envelope) {
                 const { E } = this.constructor
