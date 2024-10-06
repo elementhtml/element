@@ -2,13 +2,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '2.0.0' }, // optimal
 
-    env: {
+    env: { // optimal
         enumerable: true, value: {
             ais: {}, apis: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope, { expression } = descriptor
                         let result
                         if (expression in this.sys.locationKeyMap) {
@@ -42,33 +42,33 @@ const ElementHTML = Object.defineProperties({}, {
                         result.path = result.pathname.replace(this.sys.regexp.leadingSlash, '')
                         return result
                     },
-                    binder: async function (container, position, envelope) { // optimal
+                    binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
                         if (signal) window.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     }
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         return envelope.descriptor.value
                     }
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value }))
                     }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope
                         return this.resolveVariable(descriptor.shape, Object.freeze({ ...envelope, value }))
                     }
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { collection: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
                             collection = await this.resolveUnit(variables?.collection ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'collection')
@@ -85,7 +85,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         let { descriptor, variables } = envelope, { transform: t } = descriptor, variablesTransform = variables?.transform, wrapped = variablesTransform ? true : undefined,
                             valueEnvelope = variablesTransform ? Object.freeze({ ...envelope, value }) : envelope,
                             transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
@@ -98,7 +98,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = variables ? true : undefined,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
                             pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, valueEnvelope, { wrapped }) : p, 'pattern')
@@ -114,7 +114,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope, { types, mode } = descriptor, promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
                         for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
                         await Promise.all(promises)
@@ -142,7 +142,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\(.*\)$/, {
                     name: 'selector',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope, { scope, selector } = descriptor
                         if (value != undefined) {
                             const target = this.resolveSelector(selector, scope)
@@ -151,7 +151,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return value
                     },
-                    binder: async function (container, position, envelope) { // optimal
+                    binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
                             scope = this.resolveScope(scopeStatement, container)
                         if (!scope) return {}
@@ -192,7 +192,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
                         if (value == undefined) return getReturnValue()
                         switch (shape) {
@@ -201,7 +201,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case 'object': if (value instanceof Object) for (const k in value) if (value[k] !== undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
                         }
                     },
-                    binder: async function (container, position, envelope) { // optimal
+                    binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal, shape } = descriptor, items = []
                         let { target } = descriptor, getReturnValue
                         switch (shape) {
@@ -267,7 +267,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
                         let { url, contentType } = descriptor
                         url = this.resolveUrl(variables?.url ? this.resolveVariable(url, valueEnvelope, { wrapped }) : url)
@@ -307,7 +307,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         const { descriptor, labels, fields, cells, context, variables } = envelope, { expression } = descriptor, isPlusExpression = (expression[0] === '+'),
                             wrapped = (variables || isPlusExpression) ? true : undefined, valueEnvelope = (variables || isPlusExpression) ? Object.freeze({ ...envelope, value }) : undefined,
                             done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
@@ -337,7 +337,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\`[^`]+\`$/, {
                     name: 'command',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         if (!this.modules.dev) return value
                         const { descriptor, variables } = envelope, { invocation } = descriptor,
                             wrapped = variables ? true : undefined, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
@@ -347,7 +347,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\??$/, {
                     name: 'console',
-                    handler: async function (container, position, envelope, value) { // optimal
+                    handler: async function (container, position, envelope, value) {
                         if (!this.modules.dev) return value;
                         (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
                         return value
@@ -371,8 +371,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    expose: { enumerable: true, writable: true, value: false }, // optimal
-
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
@@ -390,7 +388,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: { //optimal
         enumerable: true, value: function (name) {
-            this.expose = !!(window[name || 'E'] ??= this)
+            this.app.expose = !!(window[name || 'E'] ??= this)
         }
     },
     ImportPackage: { // optimal
