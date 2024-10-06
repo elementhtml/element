@@ -807,16 +807,12 @@ const ElementHTML = Object.defineProperties({}, {
             return result === undefined ? dft : result
         }
     },
-
-
     runUnit: { // optimal
         enumerable: true, value: async function (unitKey, unitType, ...args) {
             const unit = await this.resolveUnit(unitKey, unitType)
             return unit?.run(...args)
         }
     },
-
-
     serialize: {
         enumerable: true, value: async function (input, contentType = 'application/json') {
             contentType ||= 'application/json'
@@ -840,7 +836,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     toKebabCase: {
         enumerable: true, value: function (str) {
-            return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z])([A-Z][a-z])/g, '$1-$2').toLowerCase()
+            return str.replace(this.sys.regexp.lowerCaseThenUpper, '$1-$2').replace(this.sys.regexp.upperCaseThenAlpha, '$1-$2').toLowerCase()
         }
     },
 
@@ -1186,6 +1182,7 @@ const ElementHTML = Object.defineProperties({}, {
                 constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
                 directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, extractAttributes: /(?<=\[)([^\]=]+)/g,
                 gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                lowerCaseThenUpper = /([a-z0-9])([A-Z])/g, upperCaseThenAlpha = /([A-Z])([A-Z][a-z])/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
