@@ -363,7 +363,8 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: { e: new URL(`./components`, import.meta.url) },
             patterns: {}, renderers: {}, resolvers: {}, snippets: {},
             transforms: {
-                'application/json': function (input) { try { return JSON.stringify(input) } catch (e) { } },
+                'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })),
+
 
 
                 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
@@ -1662,6 +1663,7 @@ const ElementHTML = Object.defineProperties({}, {
             let unitResolver
             if (envUnit) {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
+                else if (envUnit instanceof Promise) envUnit = await envUnit
                 else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
                 return this.app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
             }
@@ -2327,8 +2329,9 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
             constructor(stepChain) {
+                if (!stepChain) return
                 const { E } = this.constructor, isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
-                if (!stepChain && !Array.isArray(stepChain)) stepChain = [stepChain]
+                if (!isMap && !Array.isArray(stepChain)) stepChain = [stepChain]
                 this.steps = new Map()
                 this.stepIntermediates = new Map()
                 for (let [stepKey, stepValue] of stepChain.entries()) {
