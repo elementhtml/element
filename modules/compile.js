@@ -333,19 +333,6 @@ ${scriptBody.join('{')}`
         }
     },
     globalNamespace: { value: globalNamespace },
-    toBase32: {
-        value: function (buffer) {
-            const alphabet = 'abcdefghijklmnopqrstuvwxyz234567', size = buffer.length
-            let [bits, value, output] = [0, 0, '']
-            for (let i = 0; i < size; i++) {
-                value = (value << 8) | buffer[i]
-                bits += 8
-                while (bits >= 5) output += alphabet[(value >>> (bits -= 5)) & 31]
-            }
-            if (bits > 0) output += alphabet[(value << (5 - bits)) & 31]
-            return output
-        }
-    },
     parsers: {
         value: {
             ai: function (expression) { // optimal
