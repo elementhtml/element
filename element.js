@@ -257,7 +257,6 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, { ai: m, prompt: p } = descriptor, wrapped = variables ? true : undefined, valueEnvelope = Object.freeze({ ...envelope, value }),
                             ai = await this.resolveUnit(variables?.ai ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'ai')
-                        // prompt = this.resolveVariable(p || '$', valueEnvelope, { merge: true })
                         if (!ai) return
                         return ai.run(value, prompt, valueEnvelope)
                     },
