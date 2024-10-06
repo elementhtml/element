@@ -922,6 +922,10 @@ const ElementHTML = Object.defineProperties({}, {
     modules: { enumerable: true, value: {} },
     sys: {
         value: Object.freeze({
+            autoResolverSuffixes: Object.freeze({
+                component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
+                transform: ['js', 'wasm', 'jsonata'], type: ['js', 'x', 'schema.json', 'json']
+            }),
             color: {
                 calculateLuminance: function (color) {
                     const [r, g, b] = this.sys.color.toArray(color)
@@ -958,6 +962,10 @@ const ElementHTML = Object.defineProperties({}, {
                     return includeAlpha ? [r, g, b, a] : [r, g, b]
                 }
             },
+            defaultEventTypes: Object.freeze({
+                audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
+                meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
+            }),
             elementMappers: {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
                 $attributes: function (el, p, w, v, options = {}) {
@@ -1170,6 +1178,17 @@ const ElementHTML = Object.defineProperties({}, {
                     return
                 },
             },
+            impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
+            locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
+            queue: new Map(),
+            regexp: Object.freeze({
+                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
+                isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
+                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
+                isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
+                selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
+            }),
             selector: Object.freeze({
                 clauseOpeners: {
                     '[': true,
@@ -1236,45 +1255,26 @@ const ElementHTML = Object.defineProperties({}, {
                     '': function (n, cp) { return n.getAttribute(cp) },
                 }
             }),
-            defaultEventTypes: Object.freeze({
-                audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
-                meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
-            }),
-            regexp: Object.freeze({
-                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
-                lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
-                isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
-                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
-                isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
-                selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
-            }),
-            voidElementTags: Object.freeze({
-                area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
-                param: 'value', source: 'src', track: 'src', wbr: null
-            }),
-            impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
-            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
-            autoResolverSuffixes: Object.freeze({
-                component: ['html'], gateway: ['js', 'wasm'], helper: ['js', 'wasm'], snippet: ['html'], syntax: ['js', 'wasm'],
-                transform: ['js', 'wasm', 'jsonata'], type: ['js', 'x', 'schema.json', 'json']
-            }),
             suffixContentTypeMap: Object.freeze({
                 html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
-            }),
-            locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow'],
-            unitTypeMap: Object.freeze({
-                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Collection'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
-                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], ai: ['ais', 'AI'],
-                namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
-                type: ['types', 'Type']
             }),
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
                 snippets: 'snippet', transforms: 'transform', types: 'type'
             }),
-            queue: new Map()
+            unitTypeMap: Object.freeze({
+                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Collection'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
+                hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], ai: ['ais', 'AI'],
+                namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
+                type: ['types', 'Type']
+            }),
+            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
+            voidElementTags: Object.freeze({
+                area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
+                param: 'value', source: 'src', track: 'src', wbr: null
+            }),
+            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
         })
     },
 
@@ -1374,13 +1374,6 @@ const ElementHTML = Object.defineProperties({}, {
             return unit
         }
     },
-    installModule: { // optimal
-        value: async function (moduleName) {
-            const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
-            for (const p in module) if (typeof module[p].value === 'function') (module[p].value = module[p].value.bind(this))
-            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
-        }
-    },
     installGateway: { // optimal
         value: async function (protocol) {
             if (!protocol) return
@@ -1429,6 +1422,13 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 return this.app.gateways[protocol]
             }
+        }
+    },
+    installModule: { // optimal
+        value: async function (moduleName) {
+            const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
+            for (const p in module) if (typeof module[p].value === 'function') (module[p].value = module[p].value.bind(this))
+            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
         }
     },
     mountElement: { // optimal
