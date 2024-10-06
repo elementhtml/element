@@ -1191,9 +1191,7 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             selector: Object.freeze({
                 clauseOpeners: {
-                    '[': true,
-                    '#': true,
-                    '.': true,
+                    '[': true, '#': true, '.': true,
                     '@': function (n, c) { return n.getAttribute('name') === c },
                     '^': function (n, c) { return n.getAttribute('itemprop') === c },
                     '$': function (n, c) { return n.value === c }
@@ -1531,134 +1529,100 @@ const ElementHTML = Object.defineProperties({}, {
         value: function (input) {
             const parseInput = (input) => {
                 if (typeof input !== 'string') return input
-                if (input.startsWith('[')) {
-                    return parseArray(input);
-                } else if (input.startsWith('?')) {
-                    return parseQuerystring(input);
-                } else if (input.startsWith('{')) {
-                    return parseObject(input);
-                }
+                if (input.startsWith('[')) return parseArray(input)
+                else if (input.startsWith('?')) return parseQuerystring(input)
+                else if (input.startsWith('{')) return parseObject(input)
                 return input
             }, parseArray = (input) => {
-                input = input.slice(1, -1); // Strip the []
-                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}']);
-                return entries.map(entry => parseInput(entry.trim()));
+                input = input.slice(1, -1)
+                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}'])
+                return entries.map(entry => parseInput(entry.trim()))
             }, parseQuerystring = (input) => {
-                input = input.slice(1); // Strip the ?
-                const result = {};
-                const entries = splitIgnoringNesting(input, '&', ['"', "'"]);
+                input = input.slice(1)
+                const result = {}, entries = splitIgnoringNesting(input, '&', ['"', "'"])
                 for (const entry of entries) {
-                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, '=', ['"', "'"]);
-                    let key = rawKey.trim();
-                    let value = rawValue !== undefined ? rawValue.trim() : undefined;
-
-                    if (value === undefined) {
-                        [key, value] = handleImplicitValue(key);
-                    }
-
-                    result[key] = value;
+                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, '=', ['"', "'"])
+                    let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
+                    if (value === undefined) [key, value] = handleImplicitValue(key)
+                    result[key] = value
                 }
-                return result;
+                return result
             }, parseObject = (input) => {
-                input = input.slice(1, -1); // Strip the {}
-                const result = {};
-                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}']);
+                input = input.slice(1, -1)
+                const result = {}, entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}'])
                 for (const entry of entries) {
                     const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, ':', ['"', "'", '[', ']', '{', '}']);
-                    let key = rawKey.trim();
-                    let value = rawValue !== undefined ? rawValue.trim() : undefined;
-
-                    if (value === undefined) {
-                        [key, value] = handleImplicitValue(key);
-                    } else {
-                        value = parseInput(value);
-                    }
-
-                    result[key] = value;
+                    let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
+                    if (value === undefined) [key, value] = handleImplicitValue(key)
+                    else value = parseInput(value)
+                    result[key] = value
                 }
-                return result;
+                return result
             }, splitIgnoringNesting = (input, delimiter, nesters) => {
-                const result = [];
-                let current = '';
-                let depth = 0;
-                let inQuote = null;
-
+                const result = []
+                let current = '', depth = 0, inQuote = null
                 for (let i = 0; i < input.length; i++) {
-                    const char = input[i];
-
+                    const char = input[i]
                     if (inQuote) {
-                        current += char;
-                        if (char === inQuote) inQuote = null; // Close quote
+                        current += char
+                        if (char === inQuote) inQuote = null
                     } else {
                         if (char === '"' || char === "'") {
-                            inQuote = char; // Open quote
-                            current += char;
+                            inQuote = char
+                            current += char
                         } else if (nesters.includes(char)) {
-                            depth += 1;
-                            current += char;
+                            depth += 1
+                            current += char
                         } else if (nesters.includes(getMatchingCloser(char))) {
-                            depth -= 1;
-                            current += char;
+                            depth -= 1
+                            current += char
                         } else if (char === delimiter && depth === 0) {
-                            result.push(current.trim());
-                            current = '';
-                        } else {
-                            current += char;
-                        }
+                            result.push(current.trim())
+                            current = ''
+                        } else current += char
                     }
                 }
-
-                if (current) result.push(current.trim());
-
-                return result;
+                if (current) result.push(current.trim())
+                return result
             }, splitByFirstIgnoringNesting = (input, delimiter, nesters) => {
-                let current = '';
-                let depth = 0;
-                let inQuote = null;
-
+                let current = '', depth = 0, inQuote = null
                 for (let i = 0; i < input.length; i++) {
-                    const char = input[i];
-
+                    const char = input[i]
                     if (inQuote) {
-                        current += char;
-                        if (char === inQuote) inQuote = null; // Close quote
+                        current += char
+                        if (char === inQuote) inQuote = null
                     } else {
                         if (char === '"' || char === "'") {
-                            inQuote = char; // Open quote
-                            current += char;
+                            inQuote = char
+                            current += char
                         } else if (nesters.includes(char)) {
-                            depth += 1;
-                            current += char;
+                            depth += 1
+                            current += char
                         } else if (nesters.includes(getMatchingCloser(char))) {
-                            depth -= 1;
-                            current += char;
+                            depth -= 1
+                            current += char
                         } else if (char === delimiter && depth === 0) {
-                            const rest = input.slice(i + 1);
-                            return [current.trim(), rest.trim()];
-                        } else {
-                            current += char;
-                        }
+                            const rest = input.slice(i + 1)
+                            return [current.trim(), rest.trim()]
+                        } else current += char
                     }
                 }
-
-                return [current.trim()];
+                return [current.trim()]
             }, handleImplicitValue = (key) => {
-                if (key.endsWith('.')) return [key.slice(0, -1), true];
-                if (key.endsWith('!')) return [key.slice(0, -1), false];
-                if (key.endsWith('-')) return [key.slice(0, -1), null];
-                if (key.endsWith('?')) return [key.slice(0, -1), undefined];
-                return [key, key]; // Implicitly set value to the key itself
+                if (key.endsWith('.')) return [key.slice(0, -1), true]
+                if (key.endsWith('!')) return [key.slice(0, -1), false]
+                if (key.endsWith('-')) return [key.slice(0, -1), null]
+                if (key.endsWith('?')) return [key.slice(0, -1), undefined]
+                return [key, key]
             }, getMatchingCloser = (char) => {
-                if (char === '[') return ']';
-                if (char === '{') return '}';
-                return null;
+                if (char === '[') return ']'
+                if (char === '{') return '}'
+                return null
             }, skipWhitespace = (input, i) => {
-                while (i < input.length && /\s/.test(input[i])) i++;
-                return i;
+                while (i < input.length && /\s/.test(input[i])) i++
+                return i
             }
-
             return parseInput(input)
-
         }
     },
     resolveSnippet: { // should not be needed, should be able to be replaced by resolveUnit(name, 'snippet')
