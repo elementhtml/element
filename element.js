@@ -388,7 +388,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Expose: { //optimal
         enumerable: true, value: function (name) {
-            this.app.expose = !!(window[name || 'E'] ??= this)
+            window[name || 'E'] ??= this
         }
     },
     ImportPackage: { // optimal
@@ -417,11 +417,11 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(this.env)
             Object.freeze(this.app)
             for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
-                this.app.eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
+                this.app._eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                 this.runHook(eventName)
             })
             this.mountElement(document.documentElement).then(async () => {
-                this.app.eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+                this.app._eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
                 await this.runHook('load')
                 new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100)).then(() => this.processQueue())
             })
@@ -547,7 +547,7 @@ const ElementHTML = Object.defineProperties({}, {
     render: { // optimal
         enumerable: true, value: async function (element, data) {
             if (!(element instanceof HTMLElement)) return
-            element = this.app.components.natives.get(element) ?? element
+            element = this.app._components.natives.get(element) ?? element
             const tag = element.tagName.toLowerCase()
             switch (data) {
                 case null: case undefined:
@@ -614,7 +614,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScope: { // optimal
         enumerable: true, value: function (scopeStatement, element) {
-            element = this.app.components.natives.get(element) ?? element
+            element = this.app._components.natives.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             switch (scopeStatement) {
                 case 'head': return document.head
@@ -636,7 +636,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: { // optimal
         enumerable: true, value: function (scopedSelector, element) {
-            if (element) element = this.app.components.natives.get(element) ?? element
+            if (element) element = this.app._components.natives.get(element) ?? element
             if (this.sys.impliedScopes[scopedSelector]) return element ? this.resolveScope(this.sys.impliedScopes[scopedSelector], element) : { scope: this.sys.impliedScopes[scopedSelector] }
             if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
@@ -841,17 +841,12 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     app: {
-        value: Object.defineProperties({
-            compile: undefined, components: { classes: {}, natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() }, dev: undefined,
-            expose: undefined, facets: {}, gateways: {}, helpers: {}, hooks: {},
-            interpreters: { matchers: new Map(), parsers: {}, binders: {}, handlers: {} }, namespaces: {},
-            options: {}, patterns: {}, resolvers: {}, snippets: {}, transforms: {}, types: {}
-        }, {
-            cells: { value: {} },
-            eventTarget: { value: new EventTarget() },
-            facetInstances: { value: new WeakMap() },
-            libraries: { value: {} },
-            observers: { value: new WeakMap() }
+        value: Object.defineProperties({}, {
+            cells: { enumerable: true, value: {} },
+            _components: { value: { natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() } },
+            _eventTarget: { value: new EventTarget() },
+            _facetInstances: { value: new WeakMap() },
+            _observers: { value: new WeakMap() }
         })
     },
     modules: { enumerable: true, value: {} },
@@ -947,7 +942,7 @@ const ElementHTML = Object.defineProperties({}, {
                 '<>': '$html',
                 $tag: (el, p, w, v = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
                 $parent: function (el, p, w, v) {
-                    el = this.app.components.natives.get(el) ?? el
+                    el = this.app._components.natives.get(el) ?? el
                     return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
                 },
                 '^': '$parent',
@@ -1182,7 +1177,7 @@ const ElementHTML = Object.defineProperties({}, {
                 constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
                 directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, extractAttributes: /(?<=\[)([^\]=]+)/g,
                 gatewayUrlTemplateMergeField: /{([^}]+)}/g,
-                lowerCaseThenUpper = /([a-z0-9])([A-Z])/g, upperCaseThenAlpha = /([A-Z])([A-Z][a-z])/g,
+                lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g,
                 hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
                 isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
                 isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
@@ -1226,18 +1221,18 @@ const ElementHTML = Object.defineProperties({}, {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
                 ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components.classes[id] = this.env.components[id] ?? (await this.modules.compile?.component(id))
-            for (const subspaceName of (this.app.components.classes[id].subspaces)) {
+            this.app.components[id] = this.env.components[id] ?? (await this.modules.compile?.component(id))
+            for (const subspaceName of (this.app.components[id].subspaces)) {
                 let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
-                this.app.namespaces[virtualSubspaceName] = this.app.components.classes[id][subspaceName]
-                this.app.components.classes[id].template.innerHTML = this.app.components.classes[id].template.innerHTML
+                this.app.namespaces[virtualSubspaceName] = this.app.components[id][subspaceName]
+                this.app.components[id].template.innerHTML = this.app.components[id].template.innerHTML
                     .replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`).replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`)
                     .replace(new RegExp(` is='${subspaceName}-`, 'g'), ` is='${virtualSubspaceName}-`).replace(new RegExp(` is="${subspaceName}-`, 'g'), ` is="${virtualSubspaceName}-`)
                     .replace(new RegExp(` is=${subspaceName}-`, 'g'), ` is=${virtualSubspaceName}-`)
-                this.app.components.classes[id].style.textContext = this.app.components.classes[id].style.textContext
+                this.app.components[id].style.textContext = this.app.components[id].style.textContext
                     .replace(new RegExp(`${subspaceName}-`, 'g'), `${virtualSubspaceName}-`)
             }
-            globalThis.customElements.define(tag, this.app.components.classes[id], undefined)
+            globalThis.customElements.define(tag, this.app.components[id], undefined)
         }
     },
     attachUnitTypeCollection: { // optimal
@@ -1332,7 +1327,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
                 if (auto) {
                     const urlAttributes = ['href', 'src']
-                    this.app.observers.set(this.app.gateways[protocol], new MutationObserver(records => {
+                    this.app._observers.set(this.app.gateways[protocol], new MutationObserver(records => {
                         for (const { type, target, attributeName, addedNodes } of records) {
                             if (type !== 'attributes' && type !== 'childList') continue
                             const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
@@ -1353,7 +1348,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     }))
-                    this.app.observers.get(this.app.gateways[protocol]).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
+                    this.app._observers.get(this.app.gateways[protocol]).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
                 }
                 return this.app.gateways[protocol]
             }
@@ -1368,10 +1363,10 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(customTag, element)
                 const isAttr = element.getAttribute('is')
                 if (isAttr) {
-                    const componentInstance = this.app.components.virtuals.set(element, document.createElement(isAttr)).get(element)
+                    const componentInstance = this.app._components.virtuals.set(element, document.createElement(isAttr)).get(element)
                     for (const a of element.attributes) componentInstance.setAttribute(a.name, a.value)
                     if (element.innerHTML != undefined) componentInstance.innerHTML = element.innerHTML
-                    this.app.components.natives.set(componentInstance, element)
+                    this.app._components.natives.set(componentInstance, element)
                     if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
                     if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
                         const observer = new MutationObserver(mutations => {
@@ -1389,7 +1384,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         })
                         observer.observe(element, { childList: true, subtree: false, attributes: true, attributeOldValue: true, characterData: true })
-                        this.app.components.bindings.set(element, observer)
+                        this.app._components.bindings.set(element, observer)
                     }
                 }
                 const root = (element.shadowRoot || (element === document.documentElement)) ? (element.shadowRoot ?? element) : undefined
@@ -1401,7 +1396,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     })
                     observer.observe(root, { subtree: true, childList: true })
-                    this.app.observers.set(root, observer)
+                    this.app._observers.set(root, observer)
                 }
             }
             const promises = []
@@ -1437,7 +1432,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (!(FacetClass?.prototype instanceof this.Facet)) return
             if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
             const facetInstance = new FacetClass()
-            this.app.facetInstances.set(facetContainer, facetInstance)
+            this.app._facetInstances.set(facetContainer, facetInstance)
             const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
                 context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
             for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
@@ -1742,7 +1737,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     unmountFacet: { // optimal
         value: function (facetContainer) {
-            const facetInstance = this.app.facetInstances.get(facetContainer)
+            const facetInstance = this.app._facetInstances.get(facetContainer)
             for (const p in facetInstance.controllers) facetInstance.controllers[p].abort()
             facetInstance.controller.abort()
             facetInstance.observer.disconnect()
@@ -1913,7 +1908,7 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return this.E.flatten(this) }
             toJSON() { return this.valueOf() }
             dispatchEvent(event) {
-                let virtualElement = this.constructor.E.app.components.virtuals.get(this), nativeElement = this.constructor.E.app.components.natives.get(this)
+                let virtualElement = this.constructor.E.app._components.virtuals.get(this), nativeElement = this.constructor.E.app._components.natives.get(this)
                 let eventName = event.type === 'default' ? undefined : event.type
                 const isPair = (virtualElement || nativeElement), { detail, bubbles, cancelable, composed } = event
                 if (isPair) {
@@ -2451,7 +2446,7 @@ Object.defineProperties(ElementHTML, {
     Field: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
             constructor(facetInstanceOrContainer, name, initialValue) {
-                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app.facetInstances.get(facetInstanceOrContainer).fields : undefined)
+                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app._facetInstances.get(facetInstanceOrContainer).fields : undefined)
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
                 if (name && fields) fields[name] ??= this
@@ -2459,7 +2454,9 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
-for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) ElementHTML[className].E = ElementHTML
+const { app, sys } = ElementHTML
+for (const k in ElementHTML.env) Object.defineProperty(app, k, { configurable: false, enumerable: true, writable: false, value: {} })
+for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) Object.defineProperty(ElementHTML[className], 'E', { configurable: false, writable: false, value: ElementHTML })
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
     ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)

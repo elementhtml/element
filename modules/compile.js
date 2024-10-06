@@ -34,13 +34,13 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                 extendsId = undefined
             } else if (extendsId in nativeElementsMap) {
                 native = extendsId
-                extendsClass = this.app.components.classes[extendsId] = this.Component
-                extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
+                extendsClass = this.app.components[extendsId] = this.Component
+                extendsStatement = `export default class ${className} extends E.app.components['${extendsId}'] {`
             } else {
                 if (extendsId) {
                     extendsId = this.resolveUrl(new URL(extendsId, id))
-                    extendsClass = this.app.components.classes[extendsId] = this.env.components[extendsId] ?? (await this.modules.compile.component(extendsId))
-                    extendsStatement = `export default class ${className} extends E.app.components.classes['${extendsId}'] {`
+                    extendsClass = this.app.components[extendsId] = this.env.components[extendsId] ?? (await this.modules.compile.component(extendsId))
+                    extendsStatement = `export default class ${className} extends E.app.components['${extendsId}'] {`
                 }
                 style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
                 if (template.content.querySelector('template[slot], template[data-target]')) {
@@ -277,7 +277,7 @@ ${scriptBody.join('{')}`
         value: function (expression, typeDefault = 'cell', element) {
             const parseOnly = !(element instanceof HTMLElement)
             let group, shape
-            if (!parseOnly) element = this.app.components.virtuals.get(element) ?? element
+            if (!parseOnly) element = this.app._components.virtuals.get(element) ?? element
             const canonicalizeName = (name) => {
                 let type
                 switch (name[0]) {
