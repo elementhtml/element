@@ -361,10 +361,12 @@ const ElementHTML = Object.defineProperties({}, {
             },
             models: {},
             namespaces: { e: new URL(`./components`, import.meta.url) },
-            patterns: {}, resolvers: {}, snippets: {},
-            transforms: { // TODO: wrap as this.Transform class instances
-                'application/json': function (inputValue) { try { return JSON.stringify(inputValue) } catch (e) { } },
-                'application/schema+json': 'schema.json', 'application/x-jsonata': 'jsonata', 'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
+            patterns: {}, renderers: {}, resolvers: {}, snippets: {},
+            transforms: {
+                'application/json': function (input) { try { return JSON.stringify(input) } catch (e) { } },
+
+
+                'form': 'form', 'xdr': 'xdr', 'text/markdown': 'md'
             },
             types: {}
         }
