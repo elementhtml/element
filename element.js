@@ -429,6 +429,21 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
 
+    createEnvelope: { // optimal
+        enumerable: true, value: function (baseObj = {}) {
+            if (!this.isPlainObject(baseObj)) baseObj = { value: baseObj }
+            return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: this.env.context })
+        }
+    },
+    deepFreeze: { //optimal
+        enumerable: true, value: function (obj, copy) {
+            if (!Array.isArray(obj) && !this.isPlainObject(obj)) return obj
+            if (copy) obj = JSON.parse(JSON.stringify(obj))
+            const isArray = Array.isArray(obj), keys = isArray ? obj : Object.keys(obj)
+            for (const item of keys) this.deepFreeze(isArray ? item : obj[item])
+            return Object.freeze(obj)
+        }
+    },
     flatten: { //optimal
         enumerable: true, value: function (value, event) {
             if (value == undefined) return null
@@ -501,6 +516,12 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function (noDashes) {
             if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
             return (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
+        }
+    },
+    getCustomTag: { // optimal
+        enumerable: true, value: function (element) {
+            let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
+            return tag.includes('-') ? tag : undefined
         }
     },
     isFacetContainer: { // optimal
@@ -611,6 +632,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
             return await Promise.all(promises)
         },
+    },
+    resolveImport: { //optimal
+        enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
+            const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
+            isWasm ??= pathname.endsWith('.wasm')
+            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
+            return returnWholeModule ? module : module[hash.slice(1)]
+        }
     },
     resolveScope: { // optimal
         enumerable: true, value: function (scopeStatement, element) {
@@ -731,6 +760,31 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    resolveUnit: { // optimal
+        enumerable: true, value: async function (unitKey, unitType) {
+            if (!unitKey || !unitType) return
+            const [unitTypeCollectionName, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
+            if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
+            if (!(unitKey = unitKey.trim())) return
+            if (unitType === 'resolver') return this.defaultResolver
+            if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
+            const unitQueueJob = this.sys.queue.get(`${unitType}:${unitKey}`) ?? this.sys.queue.get(`${unitTypeCollectionName}:${unitKey}`)
+            if (unitQueueJob) {
+                await unitQueueJob.completed()
+                if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
+            }
+            const envUnit = this.env[unitTypeCollectionName][unitKey]
+            let unitResolver
+            if (envUnit) {
+                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
+                else if (envUnit instanceof Promise) envUnit = await envUnit
+                else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
+                return this.app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
+            }
+            unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
+            return this.app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
+        }
+    },
     resolveUrl: { // optimal
         enumerable: true, value: function (value, base, raw) {
             if (typeof value !== 'string') return value
@@ -805,6 +859,24 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const key in expression) result[this.resolveVariable(key, envelope)] = this.resolveVariable(expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
             }
             return result === undefined ? dft : result
+        }
+    },
+    runHook: { // should be able to be replaced with runUnit(name, 'hook')
+        enumerable: true, value: async function (hookName) {
+            if (!this.app.hooks[hookName]) {
+                if (!this.env.hooks[hookName]) return
+                this.app.hooks[hookName] = {}
+                const promises = []
+                for (const packageKey in this.env.hooks[hookName]) {
+                    let hookFunction = this.env.hooks[hookName][packageKey]
+                    if (typeof hookFunction === 'string') promises.push(this.resolveUnit(hookFunction, 'hook').then(hookFunction => { if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction }))
+                    if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction
+                }
+                await Promise.all(promises)
+            }
+            if (!this.app.hooks[hookName]) return
+            const envelope = this.createEnvelope()
+            for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
         }
     },
     runUnit: { // optimal
@@ -1201,7 +1273,8 @@ const ElementHTML = Object.defineProperties({}, {
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
                 snippets: 'snippet', transforms: 'transform', types: 'type'
-            })
+            }),
+            queue: new Map()
         })
     },
 
@@ -1265,25 +1338,40 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
-    createEnvelope: { // optimal
-        enumerable: true, value: function (baseObj = {}) {
-            if (!this.isPlainObject(baseObj)) baseObj = { value: baseObj }
-            return Object.freeze({ ...baseObj, cells: Object.freeze(this.flatten(this.app.cells)), context: this.env.context })
-        }
-    },
-    deepFreeze: { //optimal
-        value: function (obj, copy) {
-            if (!Array.isArray(obj) && !this.isPlainObject(obj)) return obj
-            if (copy) obj = JSON.parse(JSON.stringify(obj))
-            const isArray = Array.isArray(obj), keys = isArray ? obj : Object.keys(obj)
-            for (const item of keys) this.deepFreeze(isArray ? item : obj[item])
-            return Object.freeze(obj)
-        }
-    },
-    getCustomTag: { // optimal
-        value: function (element) {
-            let tag = (element instanceof HTMLElement) ? (element.getAttribute('is') || element.tagName).toLowerCase() : `${element}`.toLowerCase()
-            return tag.includes('-') ? tag : undefined
+    defaultResolver: { // optimal
+        value: async function (unitKey) {
+            let unitUrl
+            switch (unitKey[0]) {
+                case '.': case '/': unitUrl = this.resolveUrl(unitKey, undefined, true); break
+                default:
+                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
+                    else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey}`, undefined, true)
+            }
+            if (!unitUrl) return
+            let unitSuffix
+            for (const s of this.sys.autoResolverSuffixes[unitType]) {
+                if (unitUrl.patname.endsWith(`.${s}`)) { unitSuffix = s; break }
+                const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
+                if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
+                    unitUrl.pathname = testPath
+                    unitSuffix = s
+                    break
+                }
+            }
+            if (!unitSuffix) return
+            let unitModule, unit
+            if (unitUrl) {
+                switch (unitSuffix) {
+                    case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
+                    case 'json':
+                        unitModule = await (await fetch(unitUrl.href)).json()
+                    default:
+                        if (!unitModule) unitModule = (await this.parse(unitModule = (await fetch(unitUrl.href)))) ?? (await unitModule.text())
+                        const { hash } = unitUrl
+                        unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
+                }
+            }
+            return unit
         }
     },
     installModule: { // optimal
@@ -1343,7 +1431,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     mountElement: { // optimal
         value: async function (element) {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
@@ -1394,7 +1481,6 @@ const ElementHTML = Object.defineProperties({}, {
             return Promise.all(promises)
         }
     },
-
     mountFacet: { // optimal
         value: async function (facetContainer) {
             let { type } = facetContainer, FacetClass, facetCid
@@ -1436,20 +1522,11 @@ const ElementHTML = Object.defineProperties({}, {
     },
     processQueue: { // optimal
         value: async function () {
-            for (const job of this.queue.values()) job.run()
+            for (const job of this.sys.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
     },
-    resolveImport: { //optimal
-        enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
-            const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
-            isWasm ??= pathname.endsWith('.wasm')
-            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
-            return returnWholeModule ? module : module[hash.slice(1)]
-        }
-    },
-
     resolveShape: {
         value: function (input) {
             const parseInput = (input) => {
@@ -1584,9 +1661,7 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
     },
-
-
-    resolveSnippet: {
+    resolveSnippet: { // should not be needed, should be able to be replaced by resolveUnit(name, 'snippet')
         value: async function (snippet) {
             const nodes = []
             if (Array.isArray(snippet)) {
@@ -1615,89 +1690,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             return nodes
-        }
-    },
-
-    resolveUnit: { // optimal
-        value: async function (unitKey, unitType) {
-            if (!unitKey || !unitType) return
-            const [unitTypeCollectionName, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
-            if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
-            if (!(unitKey = unitKey.trim())) return
-            if (unitType === 'resolver') return this.defaultResolver
-            if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
-            const unitQueueJob = this.queue.get(`${unitType}:${unitKey}`) ?? this.queue.get(`${unitTypeCollectionName}:${unitKey}`)
-            if (unitQueueJob) {
-                await unitQueueJob.completed()
-                if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
-            }
-            const envUnit = this.env[unitTypeCollectionName][unitKey]
-            let unitResolver
-            if (envUnit) {
-                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
-                else if (envUnit instanceof Promise) envUnit = await envUnit
-                else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-                return this.app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
-            }
-            unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return this.app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
-        }
-    },
-
-    defaultResolver: { // optimal
-        enumerable: true, value: async function (unitKey) {
-            let unitUrl
-            switch (unitKey[0]) {
-                case '.': case '/': unitUrl = this.resolveUrl(unitKey, undefined, true); break
-                default:
-                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
-                    else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey}`, undefined, true)
-            }
-            if (!unitUrl) return
-            let unitSuffix
-            for (const s of this.sys.autoResolverSuffixes[unitType]) {
-                if (unitUrl.patname.endsWith(`.${s}`)) { unitSuffix = s; break }
-                const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
-                if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
-                    unitUrl.pathname = testPath
-                    unitSuffix = s
-                    break
-                }
-            }
-            if (!unitSuffix) return
-            let unitModule, unit
-            if (unitUrl) {
-                switch (unitSuffix) {
-                    case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
-                    case 'json':
-                        unitModule = await (await fetch(unitUrl.href)).json()
-                    default:
-                        if (!unitModule) unitModule = (await this.parse(unitModule = (await fetch(unitUrl.href)))) ?? (await unitModule.text())
-                        const { hash } = unitUrl
-                        unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
-                }
-            }
-            return unit
-        }
-    },
-
-
-    runHook: { // optimal
-        enumerable: true, value: async function (hookName) {
-            if (!this.app.hooks[hookName]) {
-                if (!this.env.hooks[hookName]) return
-                this.app.hooks[hookName] = {}
-                const promises = []
-                for (const packageKey in this.env.hooks[hookName]) {
-                    let hookFunction = this.env.hooks[hookName][packageKey]
-                    if (typeof hookFunction === 'string') promises.push(this.resolveUnit(hookFunction, 'hook').then(hookFunction => { if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction }))
-                    if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction
-                }
-                await Promise.all(promises)
-            }
-            if (!this.app.hooks[hookName]) return
-            const envelope = this.createEnvelope()
-            for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
         }
     },
     sliceAndStep: { // optimal
@@ -1732,7 +1724,6 @@ const ElementHTML = Object.defineProperties({}, {
             facetInstance.observer.disconnect()
         }
     },
-    queue: { value: new Map() },
 
     AI: { // optimal
         enumerable: true, value: class {
@@ -1998,13 +1989,13 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             running = false
-            static cancelJob(id) { return this.constructor.E.queue.delete(id) }
-            static isComplete(id) { return !this.constructor.E.queue.get(id) }
-            static isRunning(id) { return this.constructor.E.queue.get(id)?.running }
-            static getJobFunction(id) { return this.constructor.E.queue.get(id)?.jobFunction }
-            static getJobRunner(id) { return this.constructor.E.queue.get(id)?.runner }
+            static cancelJob(id) { return this.constructor.E.sys.queue.delete(id) }
+            static isComplete(id) { return !this.constructor.E.sys.queue.get(id) }
+            static isRunning(id) { return this.constructor.E.sys.queue.get(id)?.running }
+            static getJobFunction(id) { return this.constructor.E.sys.queue.get(id)?.jobFunction }
+            static getJobRunner(id) { return this.constructor.E.sys.queue.get(id)?.runner }
             static waitComplete(id, deadline = 1000) {
-                const { E } = this, { queue } = E
+                const { E } = this, { sys } = E, { queue } = sys
                 if (!queue.has(id)) return
                 const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
                 deadline = now + deadline
@@ -2018,14 +2009,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }))
             }
             constructor(jobFunction, id) {
-                const { E } = this.constructor, { queue } = E
+                const { E } = this.constructor, { sys } = E, { queue } = sys
                 if (typeof jobFunction !== 'function') return
                 this.id = id ?? E.generateUuid()
                 if (queue.get(this.id)) return
                 this.jobFunction = jobFunction
                 queue.set(this.id, this)
             }
-            cancel() { this.constructor.E.queue.delete(this.id) }
+            cancel() { this.constructor.E.sys.queue.delete(this.id) }
             complete() { return this.constructor.waitComplete(this.id) }
             async run() { if (!this.running) return this.runner() }
             async runner() {
