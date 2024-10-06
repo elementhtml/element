@@ -2404,8 +2404,6 @@ for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.select
     ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)
 for (const f in ElementHTML.sys.elementMappers) ElementHTML.sys.elementMappers[f] = typeof ElementHTML.sys.elementMappers[f] === 'string'
     ? (ElementHTML.sys.elementMappers[f] = ElementHTML.sys.elementMappers[ElementHTML.sys.elementMappers[f]].bind(ElementHTML)) : ElementHTML.sys.elementMappers[f].bind(ElementHTML)
-
-// optimal
 const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
 await Promise.all(promises)
