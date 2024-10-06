@@ -2182,8 +2182,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
                     for (const n of nodeList) {
-                        const fields = {}
-                        const nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
+                        const fields = {}, nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
                         promises.push(this.engine.run(token, modeIsLang ? (n.closest('[lang]').getAttribute('lang') || undefined) : name, nodeEnvelope).then(tokenValue => {
                             tokenValue ??= defaultValue
                             targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
@@ -2209,9 +2208,8 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E, validEngineClasses } = this.constructor, { scopeSelector, engine } = this
                 if (!engine) return
                 if (typeof engine === 'string') {
-                    const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter)
+                    const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter), validEngine = false
                     this.engine = await E.resolveUnit(engineName, engineType)
-                    const validEngine = false
                     for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
                     if (!validEngine) return
                 }
@@ -2415,11 +2413,9 @@ if (initializationParameters.has('packages')) {
     let imports = {}
     const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports }, importPromises = new Map(), packageList = []
     for (let s of initializationParameters.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
-    if (importmapElement) {
-        try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
-    } else if (initializationParameters.get('packages')) {
-        for (const p of packageList) imports[p] = `./packages/${p}.js`
-    } else {
+    if (importmapElement) try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
+    else if (initializationParameters.get('packages')) for (const p of packageList) imports[p] = `./packages/${p}.js`
+    else {
         imports.main = './packages/main.js'
         packageList.push('main')
     }
@@ -2434,5 +2430,4 @@ if (initializationParameters.has('packages')) {
     for (const [url, imp] of importPromises) await ElementHTML.ImportPackage(await imp.promise, url, imp.key)
 }
 if (initializationParameters.has('load')) await ElementHTML.Load()
-
 export { ElementHTML }
