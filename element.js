@@ -366,43 +366,37 @@ const ElementHTML = Object.defineProperties({}, {
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })),
                 'application/x-xdr': (E) => {
                     return new E.transform(async (input, envelope) => {
-                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response } = state, { headers = {} } = (response ?? {})
-                        let entry, baseURI, name, namespace, includes
-                        entry = headers['x-entry'] ?? state.entry
-                        baseURI = headers['x-options-baseuri'] ?? state.options?.baseURI
-                        name = headers['x-options-name'] ?? state.options?.name
-                        namespace = headers['x-options-namespace'] ?? state.options?.namespace
-                        includes = headers['x-options-includes'] ?? state.options?.includes
-                        if (response && (!entry || !baseURI || !name)) {
-                            const { url } = response, { pathname, href } = new URL(url), filename = pathname.split('/').pop().replace('.x', '').trim()
-                            baseURI ??= href
-                            entry ??= filename
-                            name ??= filename
+                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response = {} } = state
+                        let xTypeHeader = state.type ?? response?.headers?.['x-type'], typeDef
+                        if (xTypeHeader) {
+                            const { url, headers = {} } = response
+                            let options = { baseURI: 'baseuri', name: 'name', namespace: 'namespace', includes: 'includes' }
+                            for (const k in options) options[k] = state[k] ?? headers[`x-options-${k}`]
+                            let entry = state.entry ?? headers['x-entry'] ?? E.resolveUrl(url, undefined, true).pathname.split('/').pop().replace('.x', '').trim()
+                            typeDef = await XDR.factory(E.resolveUrl(xTypeHeader, url), entry, options)
                         }
-                        if (includes) includes = await resolveUnit(includes, 'library')
-                        return XDR.factory(input, entry, { baseURI, name, namespace, includes })
+                        return XDR.parse(input, typeDef)
                     })
                 },
                 'text/x-xdr': (E) => {
                     return new E.transform(async (input, envelope) => {
-                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response } = state, { headers = {} } = (response ?? {})
-                        let entry, baseURI, name, namespace, includes
-                        entry = headers['x-entry'] ?? state.entry
-                        baseURI = headers['x-options-baseuri'] ?? state.options?.baseURI
-                        name = headers['x-options-name'] ?? state.options?.name
-                        namespace = headers['x-options-namespace'] ?? state.options?.namespace
-                        includes = headers['x-options-includes'] ?? state.options?.includes
-                        if (response && (!entry || !baseURI || !name)) {
-                            const { url } = response, { pathname, href } = new URL(url), filename = pathname.split('/').pop().replace('.x', '').trim()
-                            baseURI ??= href
+                        if (typeof input !== 'string') return
+                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response = {} } = state, { headers = {} } = response
+                        let options = { baseURI: 'baseuri', name: 'name', namespace: 'namespace', includes: 'includes' }
+                        for (const k in options) options[k] = state[k] ?? headers[`x-options-${k}`]
+                        let entry = state.entry ?? headers['x-entry']
+                        if (response.url && (!entry || !options.baseURI || !options.name)) {
+                            const { url } = response, { pathname, href } = E.resolveUrl(url, undefined, true), filename = pathname.split('/').pop().replace('.x', '').trim()
+                            options.baseURI ??= href
                             entry ??= filename
-                            name ??= filename
+                            options.name ??= filename
                         }
-                        if (includes) includes = await resolveUnit(includes, 'library')
-                        return XDR.factory(input, entry, { baseURI, name, namespace, includes })
+                        if (options.includes) options.includes = await E.resolveUnit(options.includes, 'library')
+                        return XDR.factory(input, entry, options)
                     })
                 },
                 'text/markdown': 'md'
+                // (new URL('./transforms/xdr.js', import.meta.url)).href
             },
             types: {}
         }
