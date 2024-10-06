@@ -366,12 +366,21 @@ const ElementHTML = Object.defineProperties({}, {
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })),
                 'application/x-xdr': (E) => {
                     return new E.transform(async (input, envelope) => {
-                        if (!input || (typeof input !== 'string')) return
-                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response } = state
-
-                        const { url: baseURI } = response, { pathname } = new URL(baseURI),
-                            name = pathname.split('/').pop().replace('.x', '').trim()
-                        return XDR.parse(input, XDR.types[name])
+                        const XDR = await E.resolveUnit('xdr', 'library'), { state } = envelope, { response } = state, { headers = {} } = (response ?? {})
+                        let entry, baseURI, name, namespace, includes
+                        entry = headers['x-entry'] ?? state.entry
+                        baseURI = headers['x-options-baseuri'] ?? state.options?.baseURI
+                        name = headers['x-options-name'] ?? state.options?.name
+                        namespace = headers['x-options-namespace'] ?? state.options?.namespace
+                        includes = headers['x-options-includes'] ?? state.options?.includes
+                        if (response && (!entry || !baseURI || !name)) {
+                            const { url } = response, { pathname, href } = new URL(url), filename = pathname.split('/').pop().replace('.x', '').trim()
+                            baseURI ??= href
+                            entry ??= filename
+                            name ??= filename
+                        }
+                        if (includes) includes = await resolveUnit(includes, 'library')
+                        return XDR.factory(input, entry, { baseURI, name, namespace, includes })
                     })
                 },
                 'text/x-xdr': (E) => {
