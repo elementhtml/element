@@ -17,6 +17,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     }
 }, regexp = {
     defaultValue: /\s+\?\?\s+(.+)\s*$/, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
+    directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g,
 }, module = {
     component: {
         enumerable: true, value: async function (id) {
@@ -84,13 +85,13 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames },
                 { dev } = this.modules, { interpreters } = this.env, { regexp: sysRegexp } = this.sys
             let statementIndex = -1
-            for (let directive of directives.split(sysRegexp.splitter)) {
+            for (let directive of directives.split(regexp.splitter)) {
                 statementIndex++
                 let stepIndex = -1, handle, handleMatch
-                if (handleMatch = directive.match(sysRegexp.directiveHandleMatch)) [, handle, directive] = handleMatch
+                if (handleMatch = directive.match(regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
                 directive = directive.trim()
                 const statement = { handle, index: statementIndex, labels: new Set(), steps: [] }
-                for (const segment of directive.split(sysRegexp.segmenter)) {
+                for (const segment of directive.split(regexp.segmenter)) {
                     if (!segment) continue
                     stepIndex++
                     let handlerExpression = segment, label, defaultExpression
@@ -224,10 +225,10 @@ ${scriptBody.join('{')}`
             directives = directives.trim()
             if (!directives) return 'null'
             const canonicalizedDirectivesMap = {}, canonicalizedDirectives = [], { regexp: sysRegexp } = this.sys, { digest } = this.modules.compile
-            for (let directive of directives.split(sysRegexp.splitter)) {
+            for (let directive of directives.split(regexp.splitter)) {
                 directive = directive.trim()
                 if (!directive || directive.startsWith('|* ')) continue
-                directive = directive.replace(sysRegexp.segmenter, ' >> ')
+                directive = directive.replace(regexp.segmenter, ' >> ')
                 if (!directive) continue
                 canonicalizedDirectivesMap[await digest(directive)] = directive
             }

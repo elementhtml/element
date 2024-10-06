@@ -1,3 +1,5 @@
+const regexp = { htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g }
+
 export default (E) => {
     return new E.transform(async (text, envelope) => {
         const lib = E.app.libraries['text/markdown']
@@ -20,8 +22,8 @@ export default (E) => {
             lib.use(plugin)
             lib.set({ html: true })
         }
-        const htmlBlocks = (text.match(E.sys.regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
-            htmlSpans = (text.match(E.sys.regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
+        const htmlBlocks = (text.match(regexp.htmlBlocks) ?? []).map(b => [crypto.randomUUID(), b]),
+            htmlSpans = (text.match(regexp.htmlSpans) ?? []).map(b => [crypto.randomUUID(), b])
         for (const [blockId, blockString] of htmlBlocks) text = text.replace(blockString, `<div id="${blockId}"></div>`)
         for (const [spanId, spanString] of htmlSpans) text = text.replace(spanString, `<span id="${spanId}"></span>`)
         text = lib.render(text)

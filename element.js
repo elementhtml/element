@@ -844,15 +844,12 @@ const ElementHTML = Object.defineProperties({}, {
         value: Object.defineProperties({}, {
             cells: { enumerable: true, value: {} },
             _components: { value: { natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() } },
-            _eventTarget: { value: new EventTarget() },
-            _facetInstances: { value: new WeakMap() },
-            _observers: { value: new WeakMap() }
+            _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _observers: { value: new WeakMap() }
         })
     },
     modules: { enumerable: true, value: {} },
     sys: {
         value: Object.freeze({
-
             color: {
                 calculateLuminance: function (color) {
                     const [r, g, b] = this.sys.color.toArray(color)
@@ -1167,25 +1164,17 @@ const ElementHTML = Object.defineProperties({}, {
                     '': function (n, cp) { return n.getAttribute(cp) },
                 }
             }),
-
             defaultEventTypes: Object.freeze({
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
             regexp: Object.freeze({
-                attrMatch: /\[[a-zA-Z0-9\-\= ]+\]/g, classMatch: /(\.[a-zA-Z0-9\-]+)+/g, commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/,
-                constructorFunction: /constructor\s*\(.*?\)\s*{[^}]*}/s, dashUnderscoreSpace: /[-_\s]+(.)?/g,
-                directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, extractAttributes: /(?<=\[)([^\]=]+)/g,
-                gatewayUrlTemplateMergeField: /{([^}]+)}/g,
-                lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g,
-                hasVariable: /\$\{(.*?)\}/g, htmlBlocks: /<html>\n+.*\n+<\/html>/g, htmlSpans: /<html>.*<\/html>/g, idMatch: /(\#[a-zA-Z0-9\-]+)+/g,
-                isDataUrl: /data:([\w/\-\.]+);/, isFormString: /^\w+=.+&.*$/, isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/,
-                isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, isTag: /(<([^>]+)>)/gi, jsonataHelpers: /\$([a-zA-Z0-9_]+)\(/g, leadingSlash: /^\/+/,
-                nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
-                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, protocolSplitter: /\:\/\/(.+)/, dash: /-/g, xy: /[xy]/g,
-                isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/, isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/,
-                selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/, selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/,
-                spaceSplitter: /\s+/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g, tagMatch: /^[a-z0-9\-]+/g, isLocalUrl: /^(\.\.\/|\.\/|\/)/
+                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
+                isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
+                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
+                isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
+                selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
             voidElementTags: Object.freeze({
                 area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
