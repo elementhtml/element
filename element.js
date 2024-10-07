@@ -321,7 +321,7 @@ const ElementHTML = Object.defineProperties({}, {
             languages: {},
             libraries: {
                 jsonata: 'https://cdn.jsdelivr.net/npm/jsonata@2.0.5/+esm', md: 'https://cdn.jsdelivr.net/npm/remarkable@2.0.1/+esm#Remarkable',
-                'schema.json': 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
+                schema: 'https://cdn.jsdelivr.net/gh/nuxodin/jema.js@1.2.0/schema.min.js#Schema', xdr: 'https://cdn.jsdelivr.net/gh/cloudouble/simple-xdr/xdr.min.js'
             },
             models: {},
             namespaces: { e: new URL(`./components`, import.meta.url) },
@@ -2301,7 +2301,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 }
                             } else {
                                 this.engine = async (input, verbose, envelope) => {
-                                    const jsonSchema = await E.resolveUnit('schema.json', 'library')
+                                    const jsonSchema = await E.resolveUnit('schema', 'library')
                                     if (!this.typeDefinition) {
                                         this.typeDefinition = new jsonSchema(typeDefinition)
                                         await this.typeDefinition.deref()
