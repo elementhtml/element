@@ -338,8 +338,8 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function () {
             const { modules } = this
             return this.installModule('compile').then(() => {
-                const { compile } = modules
-                for (const [, interpreter] of this.env.interpreters) interpreter.parser = compile.parsers[interpreter.name].bind(this)
+                const { compile } = modules, { parsers } = compile
+                for (const [, interpreter] of this.env.interpreters) interpreter.parser = parsers[interpreter.name].bind(this)
                 Object.defineProperty(window, compile.globalNamespace, { value: this })
             })
         }
