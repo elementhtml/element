@@ -298,7 +298,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     createEnvelope: { // optimal
         enumerable: true, value: function (value = {}) {
-            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: Object.freeze(this.flatten(this.app.cells)), context: this.env.context })
+            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: this.flatten(this.app.cells), context: this.env.context })
         }
     },
     deepFreeze: { //optimal
