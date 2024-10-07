@@ -273,22 +273,22 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^_.*_$/, {
                     name: 'wait',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, labels, fields, cells, context, variables } = envelope, { expression } = descriptor, isPlusExpression = (expression[0] === '+'),
-                            wrapped = (variables || isPlusExpression) && true, valueEnvelope = (variables || isPlusExpression) ? Object.freeze({ ...envelope, value }) : undefined,
-                            done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now()
+                        const { descriptor, variables } = envelope, { expression } = descriptor, isPlus = (expression[0] === '+'), { sys, resolveVariable } = this,
+                            vOrIsPlus = (variables || isPlus), wrapped = vOrIsPlus && true, valueEnvelope = vOrIsPlus && Object.freeze({ ...envelope, value }),
+                            done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now(), { regex } = sys
                         let ms = 0
-                        if (expression === 'frame') await new Promise(resolve => globalThis.requestAnimationFrame(resolve))
+                        if (expression === 'frame') await new Promise(resolve => window.requestAnimationFrame(resolve))
                         else if (expression.startsWith('idle')) {
                             let timeout = expression.split(':')[0]
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
-                            await new Promise(resolve => globalThis.requestIdleCallback ? globalThis.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
+                            await new Promise(resolve => window.requestIdleCallback ? window.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
                         }
-                        else if (isPlusExpression) ms = parseInt(this.resolveVariable(expression.slice(1), valueEnvelope, { wrapped })) || 1
-                        else if (this.sys.regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
+                        else if (isPlus) ms = parseInt(resolveVariable(expression.slice(1), valueEnvelope, { wrapped })) || 1
+                        else if (regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
                         else {
-                            if (variables?.expression) expression = this.resolveVariable(expression, valueEnvelope, { wrapped })
+                            if (variables?.expression) expression = resolveVariable(expression, valueEnvelope, { wrapped })
                             const expressionSplit = expression.split(':').map(s => s.trim())
-                            if ((expressionSplit.length === 3) && expressionSplit.every(s => this.sys.regexp.isNumeric.test(s))) {
+                            if ((expressionSplit.length === 3) && expressionSplit.every(s => regexp.isNumeric.test(s))) {
                                 ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
                                 if (ms < 0) ms = (ms + (1000 * 3600 * 24))
                                 ms = ms - now
@@ -305,7 +305,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         if (!this.modules.dev) return value
                         const { descriptor, variables } = envelope, { invocation } = descriptor,
-                            wrapped = variables && true, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
+                            wrapped = variables && true, valueEnvelope = variables && Object.freeze({ ...envelope, value })
                         $([variables?.invocation ? this.resolveVariable(invocation, valueEnvelope, { wrapped }) : invocation])
                         return value
                     }
@@ -313,9 +313,8 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\$\??$/, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) {
-                        if (!this.modules.dev) return value;
-                        (envelope.descriptor.verbose === true) ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))
-                        return value
+                        if (!this.modules.dev) return value
+                        return (envelope.descriptor.verbose === true ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
                     }
                 }]
             ]),
