@@ -273,7 +273,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^_.*_$/, {
                     name: 'wait',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { expression } = descriptor, isPlus = (expression[0] === '+'), { sys, resolveVariable } = this,
+                        const { descriptor, variables } = envelope, { expression } = descriptor, isPlus = (expression[0] === '+'), { sys } = this,
                             vOrIsPlus = (variables || isPlus), wrapped = vOrIsPlus && true, valueEnvelope = vOrIsPlus && Object.freeze({ ...envelope, value }),
                             done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now(), { regex } = sys
                         let ms = 0
@@ -283,10 +283,10 @@ const ElementHTML = Object.defineProperties({}, {
                             timeout = timeout ? (parseInt(timeout) || 1) : 1
                             await new Promise(resolve => window.requestIdleCallback ? window.requestIdleCallback(resolve, { timeout }) : setTimeout(resolve, timeout))
                         }
-                        else if (isPlus) ms = parseInt(resolveVariable(expression.slice(1), valueEnvelope, { wrapped })) || 1
+                        else if (isPlus) ms = parseInt(this.resolveVariable(expression.slice(1), valueEnvelope, { wrapped })) || 1
                         else if (regexp.isNumeric.test(expression)) ms = (parseInt(expression) || 1) - now
                         else {
-                            if (variables?.expression) expression = resolveVariable(expression, valueEnvelope, { wrapped })
+                            if (variables?.expression) expression = this.resolveVariable(expression, valueEnvelope, { wrapped })
                             const expressionSplit = expression.split(':').map(s => s.trim())
                             if ((expressionSplit.length === 3) && expressionSplit.every(s => regexp.isNumeric.test(s))) {
                                 ms = Date.parse(`${(new Date()).toISOString().split('T')[0]}T${expression}Z`)
@@ -337,18 +337,17 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             const { modules } = this
-            return this.installModule('compile').then(() => {
-                const { compile } = modules, { parsers } = compile
+            return this.installModule('compile').then(({ parsers, globalNamespace }) => {
                 for (const [, interpreter] of this.env.interpreters) interpreter.parser = parsers[interpreter.name].bind(this)
-                Object.defineProperty(window, compile.globalNamespace, { value: this })
+                Object.defineProperty(window, globalNamespace, { value: this })
             })
         }
     },
     Dev: { //optimal
         enumerable: true, value: function () {
             const { isPlainObject, modules } = this
-            return this.installModule('dev').then(() => {
-                for (const [p, v = dev[p]] of Object.getOwnPropertyNames(modules.dev)) if (isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
+            return this.installModule('dev').then(dev => {
+                for (const [p, v = dev[p]] of Object.getOwnPropertyNames(dev)) if (isPlainObject.call(this, v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
             }).then(() => modules.dev.console.welcome())
         }
     },
@@ -361,11 +360,11 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.prePackageInstall === 'function') pkg = (await pkg.hooks.prePackageInstall(this)) ?? pkg
-            const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall, { env, resolveImport, resolveUrl } = this
+            const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall, { env } = this
             if (postPackageInstall) delete pkg.hooks.postPackageInstall
             for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in env) {
                 let unitTypeCollection = (typeof pkg[unitTypeCollectionName] === 'string')
-                    ? resolveImport(resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
+                    ? this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
                 promises.push(unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg)))
             }
             await Promise.all(promises)
@@ -1393,7 +1392,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: async function (moduleName) {
             const { module } = (await import((new URL(`modules/${moduleName}.js`, import.meta.url)).href))
             for (const p in module) if (typeof module[p].value === 'function') (module[p].value = module[p].value.bind(this))
-            Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })
+            return Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })[moduleName]
         }
     },
     mountElement: { // optimal
