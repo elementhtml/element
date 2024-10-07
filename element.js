@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
                             return location[locationKey].slice(1) || undefined
                         }
                         if (expression !== ':') return
-                        if (value !== undefined) return (await this.resolveFragment('env/interpreters/router'))(value)
+                        if (value !== undefined) (await this.resolveFragment('env/interpreters/router'))(value)
                         result = {}
                         for (const k in location) if (typeof location[k] !== 'function') result[k] = location[k]
                         result.ancestorOrigins = Array.from(result.ancestorOrigins)
