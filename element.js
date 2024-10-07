@@ -898,7 +898,7 @@ const ElementHTML = Object.defineProperties({}, {
         value: Object.defineProperties({}, {
             cells: { enumerable: true, value: {} },
             _components: { value: { natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() } },
-            _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _observers: { value: new WeakMap() }
+            _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _fragments: { value: {} }, _observers: { value: new WeakMap() }
         })
     },
     modules: { enumerable: true, value: {} },
