@@ -17,7 +17,7 @@ const ElementHTML = Object.defineProperties({}, {
                             return location[locationKey].slice(1) || undefined
                         }
                         if (expression !== ':') return
-                        if (value !== undefined) return await (await import(import.meta.resolve('./fragments/env/interpreters/router.js'))).default(value)
+                        if (value !== undefined) return (await this.resolveFragment('env/interpreters/router'))(value)
                         result = {}
                         for (const k in location) if (typeof location[k] !== 'function') result[k] = location[k]
                         result.ancestorOrigins = Array.from(result.ancestorOrigins)
@@ -1505,6 +1505,11 @@ const ElementHTML = Object.defineProperties({}, {
             for (const job of this.sys.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
+        }
+    },
+    resolveFragment: {
+        value: async function (fragmentKey) {
+            return (this.app._fragments[fragmentKey] ??= await import(import.meta.resolve(`./fragments/${fragmentKey}.js`)).default)
         }
     },
     resolveShape: {
