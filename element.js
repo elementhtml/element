@@ -68,9 +68,9 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) {
-                        let { descriptor, variables } = envelope, { transform: t } = descriptor, variablesTransform = variables?.transform, wrapped = variablesTransform && true,
-                            valueEnvelope = variablesTransform ? Object.freeze({ ...envelope, value }) : envelope,
-                            transform = await this.resolveUnit(variablesTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
+                        let { descriptor, variables } = envelope, { transform: t } = descriptor, vTransform = variables?.transform, wrapped = vTransform && true,
+                            valueEnvelope = vTransform ? Object.freeze({ ...envelope, value }) : envelope,
+                            transform = await this.resolveUnit(vTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
                         return transform?.run(value, container, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
