@@ -374,21 +374,22 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Load: { // optimal
         enumerable: true, value: async function (rootElement = undefined) {
-            for (const [, interpreter] of this.env.interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
+            const { env, app, sys, runHook } = this, { interpreters } = env, { _eventTarget } = app
+            for (const [, interpreter] of interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
             const interpretersProxyError = () => { throw new Error('Interpreters are read-only at runtime.') }
-            this.env.interpreters = Object.freeze(new Proxy(this.env.interpreters, {
+            env.interpreters = Object.freeze(new Proxy(interpreters, {
                 set: interpretersProxyError, delete: interpretersProxyError, clear: interpretersProxyError,
                 get: (target, prop) => (typeof target[prop] === 'function') ? target[prop].bind(target) : Reflect.get(target, prop)
             }))
-            Object.freeze(this.env)
-            Object.freeze(this.app)
-            for (const eventName of this.sys.windowEvents) window.addEventListener(eventName, event => {
-                this.app._eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
-                this.runHook(eventName)
+            Object.freeze(env)
+            Object.freeze(app)
+            for (const eventName of sys.windowEvents) window.addEventListener(eventName, event => {
+                _eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
+                runHook.call(this, eventName)
             })
             this.mountElement(document.documentElement).then(async () => {
-                this.app._eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-                await this.runHook('load')
+                _eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
+                await runHook.call(this, 'load')
                 new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100)).then(() => this.processQueue())
             })
         }
