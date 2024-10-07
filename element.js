@@ -31,15 +31,11 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
-                    handler: async function (container, position, envelope, value) {
-                        return envelope.descriptor.value
-                    }
+                    handler: async function (container, position, envelope, value) { return envelope.descriptor.value }
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (container, position, envelope, value) {
-                        return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value }))
-                    }
+                    handler: async function (container, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
@@ -351,11 +347,7 @@ const ElementHTML = Object.defineProperties({}, {
             }).then(() => modules.dev.console.welcome())
         }
     },
-    Expose: { //optimal
-        enumerable: true, value: function (name) {
-            window[name || 'E'] ??= this
-        }
-    },
+    Expose: { enumerable: true, value: function (name) { window[name || 'E'] ??= this } }, // optimal
     ImportPackage: { // optimal
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
@@ -393,7 +385,6 @@ const ElementHTML = Object.defineProperties({}, {
             })
         }
     },
-
 
     createEnvelope: { // optimal
         enumerable: true, value: function (baseObj = {}) {
