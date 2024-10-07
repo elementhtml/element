@@ -217,9 +217,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/request', envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/request', envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { contentType } = descriptor
                         if (!variables?.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
@@ -227,25 +225,17 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/wait', container, position, envelope, value)
-                    }
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/wait', container, position, envelope, value) }
                 }],
                 [/^\$\`[^`]+\`$/, {
                     name: 'command',
-                    handler: async function (container, position, envelope, value) {
-                        if (!this.modules.dev) return value
-                        const { descriptor, variables } = envelope, { invocation } = descriptor,
-                            wrapped = variables && true, valueEnvelope = variables && Object.freeze({ ...envelope, value })
-                        $([variables?.invocation ? this.resolveVariable(invocation, valueEnvelope, { wrapped }) : invocation])
-                        return value
-                    }
+                    handler: async function (container, position, envelope, value) { return this.modules.dev ? (await this.runFragment('env/interpreters/command', envelope, value)) : value }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) {
-                        if (!this.modules.dev) return value
-                        return (envelope.descriptor.verbose === true ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value
+                        return this.modules.dev
+                            ? ((envelope.descriptor.verbose === true ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value) : value
                     }
                 }]
             ]),
