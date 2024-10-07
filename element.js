@@ -85,9 +85,9 @@ const ElementHTML = Object.defineProperties({}, {
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
                             pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, valueEnvelope, { wrapped }) : p, 'pattern')
                         if (!(pattern instanceof RegExp)) return
-                        if (pattern.lastIndex) pattern.lastIndex = 0
-                        const match = value.match(pattern)
-                        return match?.groups ? Object.fromEntries(Object.entries(match.groups)) : (match ? match[1] : undefined)
+                        pattern.lastIndex &&= 0
+                        const match = value.match(pattern), groups = match?.groups
+                        return groups ? Object.fromEntries(Object.entries(groups)) : (match ? match[1] : undefined)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
