@@ -210,8 +210,8 @@ const ElementHTML = Object.defineProperties({}, {
                         const { descriptor, variables } = envelope, { api: a, action: actionSignature } = descriptor, wrapped = variables && true,
                             valueEnvelope = Object.freeze({ ...envelope, value }), api = await this.resolveUnit(variables?.api ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'api')
                         if (!api) return
-                        const action = variables?.action ? this.resolveVariable(actionSignature, valueEnvelope, { wrapped }) : actionSignature
-                        if (variables?.action && !action) return
+                        const vAction = variables?.action, action = vAction ? this.resolveVariable(actionSignature, valueEnvelope, { wrapped }) : actionSignature
+                        if (vAction && !action) return
                         return api.run(value, action, valueEnvelope)
                     },
                     binder: async function (container, position, envelope) {
@@ -237,8 +237,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (container, position, envelope, value) {
                         const { descriptor, variables } = envelope, wrapped = variables && true, valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined
                         let { url, contentType } = descriptor
-                        url = this.resolveUrl(variables?.url ? this.resolveVariable(url, valueEnvelope, { wrapped }) : url)
-                        if (!url) return
+                        if (!(url = this.resolveUrl(variables?.url ? this.resolveVariable(url, valueEnvelope, { wrapped }) : url))) return
                         contentType = variables?.contentType ? this.resolveVariable(contentType, valueEnvelope, { wrapped }) : contentType
                         if (value === null) value = { method: 'HEAD' }
                         switch (typeof value) {
@@ -246,8 +245,7 @@ const ElementHTML = Object.defineProperties({}, {
                             case 'boolean': value = { method: value ? 'GET' : 'DELETE' }; break
                             case 'bigint': value = value.toString(); break
                             case 'number':
-                                value = { method: 'POST', headers: new Headers(), body: JSON.stringify(value) }
-                                value.headers.append('Content-Type', 'application/json')
+                                value = { method: 'POST', headers: new Headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(value) }
                                 break
                             case 'string':
                                 value = { method: 'POST', headers: new Headers(), body: value }
