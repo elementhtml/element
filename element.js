@@ -175,24 +175,23 @@ const ElementHTML = Object.defineProperties({}, {
                         let { target } = descriptor, getReturnValue
                         switch (shape) {
                             case 'single':
-                                target[target.type] = target.type === 'field' ? (new this.Field(container, target.name)) : (new this.Cell(target.name))
-                                getReturnValue = () => target[target.type].get()
+                                const { type, name } = target
+                                target[type] = type === 'field' ? (new this.Field(container, name)) : (new this.Cell(name))
+                                getReturnValue = () => target[type].get()
                                 items.push(target)
                                 break
                             case 'array':
                                 for (const t of target) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
-                                getReturnValue = () => {
-                                    const r = []
-                                    for (const t of target) if ((r[r.length] = t[t.type].get()) === undefined) return
+                                getReturnValue = (r = [], l) => {
+                                    for (const t of target) if ((r[l ??= r.length] = t[t.type].get()) === undefined) return
                                     return r
                                 }
                                 break
                             case 'object':
                                 if (Array.isArray(target)) target = Object.fromEntries(target)
                                 for (const t of Object.values(target)) (items[items.length = t])[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
-                                getReturnValue = () => {
-                                    const r = {}
-                                    for (const k in target) if ((r[k] = target[k][target[k].type].get()) === undefined) return
+                                getReturnValue = (r = {}, tk) => {
+                                    for (const k in target) if ((r[k] = (tk = target[k])[tk.type].get()) === undefined) return
                                     return r
                                 }
                         }
