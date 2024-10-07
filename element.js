@@ -97,12 +97,11 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\|.*\|$/, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { types, mode } = descriptor, promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
+                        const { descriptor } = envelope, { types, mode } = descriptor, info = mode === 'info', promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
                         for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
                         await Promise.all(promises)
-                        let pass
-                        if (mode === 'info') {
-                            pass = true
+                        let pass = info
+                        if (info) {
                             const validation = {}, promises = []
                             for (const { name } of types) promises.push(this.runUnit(name, 'type', value, true).then(r => validation[name] = r))
                             await Promise.all(promises)
