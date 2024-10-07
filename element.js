@@ -127,17 +127,17 @@ const ElementHTML = Object.defineProperties({}, {
                         const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
                             scope = this.resolveScope(scopeStatement, container), { sys } = this, { defaultEventTypes } = sys
                         if (!scope) return {}
-                        const lastIndexOfBang = selectorStatement.lastIndexOf('!')
+                        const bangIndex = selectorStatement.lastIndexOf('!')
                         let selector = selectorStatement.trim(), eventList
-                        if (lastIndexOfBang > selector.lastIndexOf(']') && lastIndexOfBang > selector.lastIndexOf(')') && lastIndexOfBang > selector.lastIndexOf('"') && lastIndexOfBang > selector.lastIndexOf("'"))
-                            [selector, eventList] = [selector.slice(0, lastIndexOfBang).trim(), selector.slice(lastIndexOfBang + 1).trim()]
+                        if ((bangIndex > selector.lastIndexOf(']')) && (bangIndex > selector.lastIndexOf(')')) && (bangIndex > selector.lastIndexOf('"')) && (bangIndex > selector.lastIndexOf("'")))
+                            [selector, eventList] = [selector.slice(0, bangIndex).trim(), selector.slice(bangIndex + 1).trim()]
                         if (eventList) eventList = eventList.split(sys.regexp.commaSplitter).filter(Boolean)
                         else if (container.dataset.facetCid) {
                             const [statementIndex, stepIndex] = position.split('-')
                             if (!this.app.facets[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
                         for (let eventName of eventList ?? Array.from(new Set(Object.values(defaultEventTypes).concat(['click'])))) {
-                            const eventNameSlice3 = eventName.slice(-3), keepDefault = eventNameSlice3.includes('+'), exactMatch = eventNameSlice3.includes('='), once = eventNameSlice3.includes('-')
+                            const enSlice3 = eventName.slice(-3), keepDefault = enSlice3.includes('+'), exactMatch = enSlice3.includes('='), once = enSlice3.includes('-')
                             for (const [v, r] of [[keepDefault, '+'], [exactMatch, '='], [once, '-']]) if (v) eventName = eventName.replace(r, '')
                             scope.addEventListener(eventName, event => {
                                 let targetElement
@@ -189,7 +189,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 break
                             case 'object':
                                 if (Array.isArray(target)) target = Object.fromEntries(target)
-                                for (const t of Object.values(target)) (items[items.length = t])[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
+                                for (const t of Object.values(target)) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
                                 getReturnValue = (r = {}, tk) => {
                                     for (const k in target) if ((r[k] = (tk = target[k])[tk.type].get()) === undefined) return
                                     return r
