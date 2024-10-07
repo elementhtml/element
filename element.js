@@ -336,9 +336,10 @@ const ElementHTML = Object.defineProperties({}, {
 
     Compile: { //optimal
         enumerable: true, value: function () {
+            const { modules } = this
             return this.installModule('compile').then(() => {
-                const { modules, env } = this, { compile } = modules
-                for (const [, interpreter] of env.interpreters) interpreter.parser = compile.parsers[interpreter.name].bind(this)
+                const { compile } = modules
+                for (const [, interpreter] of this.env.interpreters) interpreter.parser = compile.parsers[interpreter.name].bind(this)
                 Object.defineProperty(window, compile.globalNamespace, { value: this })
             })
         }
@@ -347,8 +348,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: function () {
             const { isPlainObject, modules } = this
             return this.installModule('dev').then(() => {
-                const { getOwnPropertyNames } = Object
-                for (const [p, v = dev[p]] of getOwnPropertyNames(modules.dev)) if (isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
+                for (const [p, v = dev[p]] of Object.getOwnPropertyNames(modules.dev)) if (isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
             }).then(() => modules.dev.console.welcome())
         }
     },
