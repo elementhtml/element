@@ -327,9 +327,8 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: { e: new URL(`./components`, import.meta.url) },
             patterns: {}, renderers: {}, resolvers: {}, snippets: {},
             transforms: {
-                'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })),
-                'application/x-xdr': (new URL('./transforms/xdr.js#application', import.meta.url)).href, 'text/x-xdr': (new URL('./transforms/xdr.js#text', import.meta.url)).href,
-                'text/markdown': 'md'
+                'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })), 'text/markdown': import.meta.resolve('./transforms/md.js'),
+                'application/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#application`, 'text/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#text`,
             },
             types: {}
         }
