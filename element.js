@@ -125,19 +125,18 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
-                            scope = this.resolveScope(scopeStatement, container)
+                            scope = this.resolveScope(scopeStatement, container), { sys } = this, { defaultEventTypes } = sys
                         if (!scope) return {}
                         const lastIndexOfBang = selectorStatement.lastIndexOf('!')
                         let selector = selectorStatement.trim(), eventList
                         if (lastIndexOfBang > selector.lastIndexOf(']') && lastIndexOfBang > selector.lastIndexOf(')') && lastIndexOfBang > selector.lastIndexOf('"') && lastIndexOfBang > selector.lastIndexOf("'"))
                             [selector, eventList] = [selector.slice(0, lastIndexOfBang).trim(), selector.slice(lastIndexOfBang + 1).trim()]
-                        if (eventList) eventList = eventList.split(this.sys.regexp.commaSplitter).filter(Boolean)
+                        if (eventList) eventList = eventList.split(sys.regexp.commaSplitter).filter(Boolean)
                         else if (container.dataset.facetCid) {
                             const [statementIndex, stepIndex] = position.split('-')
                             if (!this.app.facets[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
-                        const eventNames = eventList ?? Array.from(new Set(Object.values(this.sys.defaultEventTypes).concat(['click'])))
-                        for (let eventName of eventNames) {
+                        for (let eventName of eventList ?? Array.from(new Set(Object.values(defaultEventTypes).concat(['click'])))) {
                             const eventNameSlice3 = eventName.slice(-3), keepDefault = eventNameSlice3.includes('+'), exactMatch = eventNameSlice3.includes('='), once = eventNameSlice3.includes('-')
                             for (const [v, r] of [[keepDefault, '+'], [exactMatch, '='], [once, '-']]) if (v) eventName = eventName.replace(r, '')
                             scope.addEventListener(eventName, event => {
@@ -147,14 +146,12 @@ const ElementHTML = Object.defineProperties({}, {
                                     if (!targetElement || (Array.isArray(targetElement) && !targetElement.length)) return
                                 } else if (selector[0] === '$') {
                                     if (selector.length === 1) return
-                                    const catchallSelector = this.buildCatchallSelector(selector)
                                     targetElement = exactMatch ? event.target : event.target.closest(selector)
-                                    if (!targetElement.matches(catchallSelector)) return
+                                    if (!targetElement.matches(this.buildCatchallSelector(selector))) return
                                 } else if (selector && exactMatch && !event.target.matches(selector)) return
                                 targetElement ??= (exactMatch ? event.target : event.target.closest(selector))
                                 if (!targetElement) return
-                                const tagDefaultEventType = targetElement.constructor.events?.default ?? this.sys.defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'
-                                if (!eventList && (event.type !== tagDefaultEventType)) return
+                                if (!eventList && (event.type !== (targetElement.constructor.events?.default ?? defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'))) return
                                 if (!keepDefault) event.preventDefault()
                                 container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
                             }, { signal, once })
