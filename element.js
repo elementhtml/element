@@ -337,16 +337,19 @@ const ElementHTML = Object.defineProperties({}, {
     Compile: { //optimal
         enumerable: true, value: function () {
             return this.installModule('compile').then(() => {
-                for (const [, interpreter] of this.env.interpreters) interpreter.parser = this.modules.compile.parsers[interpreter.name].bind(this)
-                Object.defineProperty(globalThis, this.modules.compile.globalNamespace, { value: this })
+                const { modules, env } = this, { compile } = modules
+                for (const [, interpreter] of env.interpreters) interpreter.parser = compile.parsers[interpreter.name].bind(this)
+                Object.defineProperty(window, compile.globalNamespace, { value: this })
             })
         }
     },
     Dev: { //optimal
         enumerable: true, value: function () {
+            const { isPlainObject, modules } = this
             return this.installModule('dev').then(() => {
-                for (const [p, v = this.modules.dev[p]] of Object.getOwnPropertyNames(this.modules.dev)) if (this.isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
-            }).then(() => this.modules.dev.console.welcome())
+                const { getOwnPropertyNames } = Object
+                for (const [p, v = dev[p]] of getOwnPropertyNames(modules.dev)) if (isPlainObject(v)) for (const [pp, vv = v[pp]] in v) if (typeof vv === 'function') v[pp] = vv.bind(this)
+            }).then(() => modules.dev.console.welcome())
         }
     },
     Expose: { //optimal
@@ -358,11 +361,11 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (pkg, packageUrl, packageKey) {
             if (!this.isPlainObject(pkg)) return
             if (typeof pkg.hooks?.prePackageInstall === 'function') pkg = (await pkg.hooks.prePackageInstall(this)) ?? pkg
-            const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall
+            const promises = [], postPackageInstall = pkg.hooks?.postPackageInstall, { env, resolveImport, resolveUrl } = this
             if (postPackageInstall) delete pkg.hooks.postPackageInstall
-            for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in this.env) {
+            for (const unitTypeCollectionName in pkg) if (unitTypeCollectionName in env) {
                 let unitTypeCollection = (typeof pkg[unitTypeCollectionName] === 'string')
-                    ? this.resolveImport(this.resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
+                    ? resolveImport(resolveUrl(pkg[unitTypeCollectionName], packageUrl), true) : Promise.resolve(pkg[unitTypeCollectionName])
                 promises.push(unitTypeCollection.then(unitTypeCollection => this.attachUnitTypeCollection(unitTypeCollection, unitTypeCollectionName, packageUrl, packageKey, pkg)))
             }
             await Promise.all(promises)
