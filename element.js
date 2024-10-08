@@ -370,79 +370,11 @@ const ElementHTML = Object.defineProperties({}, {
     },
     isWrappedVariable: { enumerable: true, value: function (expression) { return ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}'))) } }, // optimal
     parse: { enumerable: true, value: async function (input, contentType) { return this.runFragment('parse', input, contentType) } }, // optimal
-    render: { // optimal
-        enumerable: true, value: async function (element, data) {
-            if (!(element instanceof HTMLElement)) return
-            element = this.app._components.natives.get(element) ?? element
-            const tag = element.tagName.toLowerCase()
-            switch (data) {
-                case null: case undefined:
-                    for (const p of ['checked', 'selected']) if (p in element) return element[p] = false
-                    if ('value' in element) return element.value = ''
-                    if (tag in this.sys.voidElementTags) return element.removeAttribute(this.sys.voidElementTags[tag])
-                    return element.textContent = ''
-                case true: case false:
-                    for (const p of ['checked', 'selected', 'value']) if (p in element) return element[p] = data
-                    if (tag in this.sys.voidElementTags) return element.toggleAttribute(this.sys.voidElementTags[tag])
-                    return element.textContent = data
-            }
-            if (typeof data !== 'object') {
-                for (const p of ['checked', 'selected']) if (p in element) return element[p] = !!data
-                if ('value' in element) return element.value = data
-                if (tag in this.sys.voidElementTags) return element.setAttribute(this.sys.voidElementTags[tag], data)
-                return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
-            }
-            const { mappers } = this.sys
-            const promises = []
-            for (const p in data) {
-                if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
-                if (p.startsWith('::')) {
-                    const position = p.slice(2)
-                    if (typeof element[position] !== 'function') continue
-                    let snippets = data[p]
-                    if (!snippets) { element[position](snippets); continue }
-                    if (!Array.isArray(snippets)) if (this.isPlainObject(snippets)) {
-                        for (const snippetKey in snippets) promises.push(this.resolveSnippet(snippetKey).then(s => this.render(s, snippets[snippetKey])).then(s => element[position](...s)))
-                        continue
-                    } else snippets = [snippets]
-                    if (!snippets.length) { element[position](); continue }
-                    promises.push(this.resolveSnippet(snippets).then(s => element[position](...s)))
-                    continue
-                }
-                const pFlag = p[0]
-                if (pFlag === '&') {
-                    let child = this.resolveScopedSelector(p, element)
-                    if (!child) continue
-                    if (!Array.isArray(child)) { this.render(child, data[p]); continue }
-                    const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
-                    for (const c of child) promises.push(this.render(c, useArray ? useArray.shift() : data[p]))
-                }
-                else if (pFlag in mappers) mappers[pFlag](element, p.slice(1).trim(), true, data[p])
-                else if ((pFlag === '[') && p.endsWith(']')) mappers.$form(element, p.slice(1, -1).trim(), true, data[p])
-                else if ((pFlag === '{') && p.endsWith('}')) mappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
-                else if (typeof element[p] === 'function') element[p](data[p])
-                else if (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')) {
-                    let [functionName, argsList] = p.slice(0, -1).split('(')
-                    functionName = functionName.trim()
-                    argsList ||= '$'
-                    if (typeof element[functionName] !== 'function') continue
-                    argsList = argsList.trim().split(this.sys.regexp.commaSplitter)
-                    const args = [], labels = { ...element.dataset }
-                    promises.push(this.createEnvelope({ labels, value: data }).then(envelope => {
-                        for (let a of argsList) args.push(this.resolveVariable(a, envelope))
-                        element[functionName](...args)
-                    }))
-                }
-                else element[p] = data[p]
-            }
-            return await Promise.all(promises)
-        },
-    },
+    render: { enumerable: true, value: async function (element, data) { return this.runFragment('render', element, data) } }, // optimal
     resolveImport: { //optimal
         enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
-            const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`
-            isWasm ??= pathname.endsWith('.wasm')
-            const module = isWasm ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
+            const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`,
+                module = (isWasm ?? pathname.endsWith('.wasm')) ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
             return returnWholeModule ? module : module[hash.slice(1)]
         }
     },
@@ -565,7 +497,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    resolveUnit: { // optimal
+    resolveUnit: { // optimal - but put in feature to handle an array of unitKeys of the same unitType
         enumerable: true, value: async function (unitKey, unitType) {
             if (!unitKey || !unitType) return
             const [unitTypeCollectionName, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
@@ -1444,37 +1376,6 @@ const ElementHTML = Object.defineProperties({}, {
                 return i
             }
             return parseInput(input)
-        }
-    },
-    resolveSnippet: { // should not be needed, should be able to be replaced by resolveUnit(name, 'snippet')
-        value: async function (snippet) {
-            const nodes = []
-            if (Array.isArray(snippet)) {
-                let promises = []
-                for (const s of snippet) promises.push(this.resolveSnippet(s))
-                promises = await Promise.all(promises)
-                for (const p of promises) nodes.push(...p)
-                return nodes
-            }
-            const { snippets: appSnippets } = this.app
-            if (typeof snippet === 'string' && snippet[0] === '$') snippet = this.resolveVariable(snippet, await this.createEnvelope(), { wrapped: true, default: snippet.slice(2, -1), })
-            if (snippet instanceof HTMLTemplateElement) nodes.push(...snippet.content.cloneNode(true).children)
-            else if ((snippet instanceof Node) || (snippet instanceof HTMLElement)) nodes.push(snippet)
-            else if ((snippet instanceof NodeList) || (snippet instanceof HTMLCollection)) nodes.push(...snippet)
-            else if (typeof snippet === 'string') {
-                if (appSnippets[snippet]) nodes.push(...appSnippets[snippet].content.cloneNode(true).children)
-                else if (this.env.snippets[snippet]) nodes.push(...(appSnippets[snippet] = this.env.snippets[snippet]).content.cloneNode(true).children)
-                else if (snippet[0] === '`' && snippet.endsWith('`')) {
-                    const resolvedSnippet = await this.resolveUnit(snippet.slice(1, -1).trim(), 'snippet')
-                    if (resolvedSnippet instanceof HTMLTemplateElement) nodes.push(...(appSnippets[snippet] = resolvedSnippet).content.cloneNode(true).children)
-                }
-                else {
-                    const template = document.createElement('template')
-                    template.innerHTML = snippet
-                    nodes.push(...template.content.cloneNode(true).children)
-                }
-            }
-            return nodes
         }
     },
     sliceAndStep: { // optimal
