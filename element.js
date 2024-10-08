@@ -553,16 +553,13 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     serialize: { enumerable: true, value: async function (input, contentType = 'application/json') { return this.runFragment('serialize', input, contentType) } }, // optimal
-    toCamelCase: {
+    toCamelCase: { // optimal
         enumerable: true, value: function (str) {
-            return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())
+            const { dashUnderscoreSpace, nothing } = this.sys.regexp
+            return str.replace(dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(nothing, (c) => c.toLowerCase())
         }
     },
-    toKebabCase: {
-        enumerable: true, value: function (str) {
-            return str.replace(this.sys.regexp.lowerCaseThenUpper, '$1-$2').replace(this.sys.regexp.upperCaseThenAlpha, '$1-$2').toLowerCase()
-        }
-    },
+    toKebabCase: { enumerable: true, value: function (str) { return str.replace(this.sys.regexp.lowerCaseThenUpper, '$1-$2').replace(this.sys.regexp.upperCaseThenAlpha, '$1-$2').toLowerCase() } }, // optimal
 
     app: {
         value: Object.defineProperties({}, {
