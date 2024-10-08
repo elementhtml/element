@@ -938,17 +938,13 @@ const ElementHTML = Object.defineProperties({}, {
                             else if (E.isPlainObject(api)) this.apiWrapper = async input => (await (this.api ??= new E.API(api)).run(input))
                     }
                 }
-                this.engine = async input => {
-                    const wrapper = this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper)
-                    return wrapper(input)
-                }
+                this.engine = async input => ((this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper))(input))
             }
             async run(input, promptTemplateKey, envelope) {
                 if (!this.engine) return
-                const { E } = this.constructor
                 if (typeof input === 'string') {
                     const promptTemplate = promptTemplateKey ? (this.promptTemplates[promptTemplateKey] ?? '$') : '$'
-                    input = E.resolveVariable(promptTemplate, { ...envelope, value: input }, { merge: true })
+                    input = this.constructor.E.resolveVariable(promptTemplate, { ...envelope, value: input }, { merge: true })
                 }
                 return this.engine(input)
             }
@@ -958,14 +954,11 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
-                const { E } = this.constructor
-                Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
+                Object.assign(this, { E: this.constructor.E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
                 this.acceptType ??= this.contentType
                 new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
                 if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
-                if (this.preProcessor) new Job(async function () { await this.resolveUnit(this.preProcessor, 'transformer') }, `transformer:${this.preProcessor}`)
-                if (this.postProcessor) new Job(async function () { await this.resolveUnit(this.postProcessor, 'transformer') }, `transformer:${this.postProcessor}`)
-                if (this.errorProcessor) new Job(async function () { await this.resolveUnit(this.errorProcessor, 'transformer') }, `transformer:${this.errorProcessor}`)
+                for (const p of ['preProcessor', 'postProcessor', 'errorProcessor']) if (this[p]) new Job(async function () { await this.resolveUnit(this[p], 'transformer') }, `transformer:${this[p]}`)
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
@@ -982,7 +975,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (value === 0 || (value && typeof value !== 'string')) {
                     const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
                     options.body = await E.runUnit(contentType, 'transform', value)
-                    if (typeof options.body !== 'string') throw new Error(`Input value unable to be serialzed to "${contentType}".`)
+                    if (typeof options.body !== 'string') throw new Error(`Input value unable to be serialized to "${contentType}".`)
                 }
                 const response = await fetch(url, options)
                 let result
@@ -990,9 +983,7 @@ const ElementHTML = Object.defineProperties({}, {
                     const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
                     result = await E.runUnit(acceptType, 'transform', await response.text())
                     if (this.postProcessor) result = await E.runUnit(this.postProcessor, 'transform', result)
-                } else if (this.errorProcessor) {
-                    result = await E.runUnit(this.errorProcessor, 'transform', response)
-                }
+                } else if (this.errorProcessor) result = await E.runUnit(this.errorProcessor, 'transform', response)
                 return result
             }
         }
