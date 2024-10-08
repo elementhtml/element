@@ -1271,16 +1271,14 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             constructor({ inference, library, load, name, options = {} }) {
-                const { E } = this.constructor
                 if (!((library && (typeof library === 'string')) && (typeof load === 'function') && (typeof inference === 'function'))) return
                 this.inference = inference.bind(this)
-                this.name = name ?? E.generateUuid()
-                new E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
+                this.name = name ?? this.constructor.E.generateUuid()
+                new this.constructor.E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
             }
             async load(library, load, options) {
-                const { E } = this.constructor
                 if (this.loaded) return true
-                this.library ??= await E.resolveUnit(library, 'library')
+                this.library ??= await this.constructor.E.resolveUnit(library, 'library')
                 if (!this.library) return
                 this.options = options ?? {}
                 this.loader ??= load.bind(this)
@@ -1289,8 +1287,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return this.loaded
             }
             async run(input) {
-                const { E } = this.constructor
-                if (!this.loaded) await E.Job.waitComplete(`model:${this.name}`, Infinity)
+                if (!this.loaded) await this.constructor.E.Job.waitComplete(`model:${this.name}`, Infinity)
                 return this.inference(input, this.engine, this.options.inference ?? {})
             }
         }
@@ -1317,18 +1314,14 @@ const ElementHTML = Object.defineProperties({}, {
                 mode = mode ? mode.trim().toLowerCase() : name
                 if (!mode && !Object.keys(this.matches).length) return
                 if (typeof scopeSelector !== 'string') scopeSelector = undefined
-                Object.assign(this, {
-                    matches, mode, name, labels: Object.freeze(labels), scopeSelector,
-                    defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '')
-                })
-                const attributes = new Set()
+                Object.assign(this, { matches, mode, name, labels: Object.freeze(labels), scopeSelector, defaultValue: typeof defaultValue === 'string' ? defaultValue : (defaultValue != null ? `${defaultValue}` : '') })
+                const attributes = new Set(), audioVideoAttrs = ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted', 'preload', 'src']
                 if (mode) {
                     this.namespace = namespace ? namespace.trim().toLowerCase() : `${mode}-${name}`
                     namespace = this.namespace
                     switch (mode) {
                         case 'audio':
-                            for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disableremoateplayback', 'loop', 'muted',
-                                'preload', 'src']) this.matches[`@${a}`] ??= `audio[data-${namespace}-attr-${a}][${a}]`
+                            for (const a of audioVideoAttrs) this.matches[`@${a}`] ??= `audio[data-${namespace}-attr-${a}][${a}]`
                             break
                         case 'css':
                             this.matches.textContent ??= `style[data-${namespace}-text-content]`
@@ -1338,33 +1331,24 @@ const ElementHTML = Object.defineProperties({}, {
                             break
                         case 'html': this.matches.innerHTML ??= `[data-${namespace}-innerhtml]`; break
                         case 'image':
-                            for (const a of ['alt', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height',
-                                'src', 'width']) this.matches[`@${a}`] ??= `img[data-${namespace}-attr-${a}][${a}]`
+                            for (const a of ['alt', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'height', 'src', 'width']) this.matches[`@${a}`] ??= `img[data-${namespace}-attr-${a}][${a}]`
                             this.matches['@poster'] ??= `video[data-${namespace}-attr-poster][poster]`
                             break
                         case 'js':
                             this.matches.textContent ??= `script[type="application/javascript"][data-${namespace}-text-content]`
-                            for (const a of ['async', 'attributionsrc', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'nonce',
-                                'referrerpolicy', 'src', 'type']) this.matches[`@${a}`] ??= `script[data-${namespace}-attr-${a}][${a}]`
+                            for (const a of ['async', 'attributionsrc', 'blocking', 'crossorigin', 'defer', 'fetchpriority', 'integrity', 'nomodule', 'nonce', 'referrerpolicy', 'src', 'type']) this.matches[`@${a}`] ??= `script[data-${namespace}-attr-${a}][${a}]`
                             break
                         case 'text/element': this.matches.textContent ??= `script[type="text/element"][data-${namespace}-text-content]`; break
                         case 'video':
-                            for (const a of ['autoplay', 'controls', 'controlslist', 'crossorigin', 'disablepictureinpicture', 'disableremoateplayback', 'height', 'loop', 'muted',
-                                'playsinline', 'poster', 'preload', 'src', 'width']) this.matches[`@${a}`] ??= `video[data-${namespace}-attr-${a}][${a}]`
+                            for (const a of [...audioVideoAttrs, 'disablepictureinpicture', 'height', 'playsinline', 'poster', 'width']) this.matches[`@${a}`] ??= `video[data-${namespace}-attr-${a}][${a}]`
                             break
                         case 'lang':
                             attributes.add('lang')
                         case 'text':
                             this.matches.textContent ??= `[data-${namespace}-text-content]`
-                            this.matches['@title'] ??= `[data-${namespace}-attr-title][title]`
-                            this.matches['@alt'] ??= `img[data-${namespace}-attr-alt][alt]`
-                            this.matches['@placeholder'] ??= `input[data-${namespace}-attr-placeholder][placeholder]`
-                            this.matches['@aria-label'] ??= `[data-${namespace}-attr-aria-label][aria-label]`
-                            this.matches['@aria-labelledby'] ??= `[data-${namespace}-attr-aria-labelledby][aria-labelledby]`
-                            this.matches['@aria-describedby'] ??= `[data-${namespace}-attr-aria-describedby][aria-describedby]`
+                            for (const a of ['alt', 'label', 'placeholder', 'title', 'aria-label', 'aria-labelledby', 'aria-describedbd']) this.matches[`@${a}`] ??= `[data-${namespace}-attr-${a}][${a}]`
                             this.matches['@value'] ??= `input[data-${namespace}-attr-value][value]`
                             this.matches['@content'] ??= `meta[name][data-${namespace}-attr-content][content]`
-                            this.matches['@label'] ??= `[data-${namespace}-attr-label][label]`
                     }
                 }
                 const selectors = {}
@@ -1387,17 +1371,16 @@ const ElementHTML = Object.defineProperties({}, {
                     const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
                     for (const n of nodeList) {
-                        const fields = {}, nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
+                        const nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
                         promises.push(this.engine.run(token, modeIsLang ? (n.closest('[lang]').getAttribute('lang') || undefined) : name, nodeEnvelope).then(tokenValue => {
-                            tokenValue ??= defaultValue
-                            targetAttr ? n.setAttribute(target, tokenValue) : (n[key] = tokenValue)
+                            targetAttr ? n.setAttribute(target, tokenValue ?? defaultValue) : (n[key] = (tokenValue ?? defaultValue))
                         }))
                     }
                 }
                 return Promise.all(promises)
             }
             support(node) {
-                const { E } = this.constructor, observer = new MutationObserver((mutations) => {
+                const observer = new MutationObserver((mutations) => {
                     const { scopeSelector } = this
                     for (const mutation of mutations) {
                         if (scopeSelector) if (mutation.type === 'childList') for (const addedNode of mutation.addedNodes) if (addedNode.matches(scopeSelector)) this.support(addedNode)
