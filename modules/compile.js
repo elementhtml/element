@@ -129,7 +129,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
                     for (const [matcher, interpreter] of interpreters) {
                         const { parser, name } = interpreter
                         if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                            signature = { name, interpreter: matcher.toString(), descriptor: parser(handlerExpression) ?? {}, variables: {} }
+                            signature = { name, interpreter: matcher.toString(), descriptor: (await parser(handlerExpression)) ?? {}, variables: {} }
                             if (name === 'state') {
                                 const { target, shape } = signature.descriptor
                                 switch (shape) {
@@ -335,54 +335,54 @@ ${scriptBody.join('{')}`
     globalNamespace: { value: globalNamespace },
     parsers: {
         value: {
-            ai: function (expression) { // optimal
+            ai: async function (expression) { // optimal
                 const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { ai, prompt }
             },
-            api: function (expression) { // optimal
+            api: async function (expression) { // optimal
                 const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { api, action }
             },
-            command: function (expression) { // optimal
+            command: async function (expression) { // optimal
                 return { invocation: expression.slice(2, -1).trim() }
             },
-            console: function (expression) { // optimal
+            console: async function (expression) { // optimal
                 return { verbose: expression === '$?' }
             },
-            content: function (expression) { // optimal
+            content: async function (expression) { // optimal
                 const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { collection, article, lang }
             },
-            pattern: function (expression) { // optimal
+            pattern: async function (expression) { // optimal
                 expression = expression.slice(1, -1)
                 expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
                 expression.replaceAll('\\ ', ' ')
                 return { pattern: expression }
             },
-            request: function (expression) { // optimal
+            request: async function (expression) { // optimal
                 const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
                 return { url, contentType }
             },
-            router: function (expression) { // optimal
+            router: async function (expression) { // optimal
                 return { expression, signal: expression === '#' }
             },
-            selector: function (expression) { // optimal
-                return { signal: true, ...this.resolveScopedSelector(expression.slice(2, -1)) }
+            selector: async function (expression) { // optimal
+                return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) }
             },
-            shape: function (expression) { // optimal
+            shape: async function (expression) { // optimal
                 return { shape: this.resolveShape(expression) }
             },
-            state: function (expression) { // optimal
+            state: async function (expression) { // optimal
                 expression = expression.trim()
                 const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                 expression = expression.slice(1).trim()
                 const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
                 return { signal: true, target, shape }
             },
-            transform: function (expression) { // optimal
+            transform: async function (expression) { // optimal
                 return { transform: expression.slice(1, -1).trim() }
             },
-            type: function (expression) { // optimal
+            type: async function (expression) { // optimal
                 let mode = 'any', types = []
                 expression = expression.slice(1, -1).trim()
                 switch (expression[0]) {
@@ -399,13 +399,13 @@ ${scriptBody.join('{')}`
                 }
                 return { types, mode }
             },
-            value: function (expression) { // optimal
+            value: async function (expression) { // optimal
                 return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) }
             },
-            variable: function (expression) { // optimal
+            variable: async function (expression) { // optimal
                 return { expression: expression.slice(2, -1).trim() }
             },
-            wait: function (expression) { // optimal
+            wait: async function (expression) { // optimal
                 return { expression: expression.slice(1, -1).trim() }
             }
         }
