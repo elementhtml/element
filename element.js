@@ -322,13 +322,13 @@ const ElementHTML = Object.defineProperties({}, {
                 case Blob: return { size: value.size, type: value.type }
                 case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
                 case DataTransferItem: return { kind: value.kind, type: value.type }
-                case FileList: case DataTransferItemList: case Array:
-                    result = []
-                    for (const f of value) result.push(this.flatten(f))
-                    return result
                 case DataTransfer:
                     result = { dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types }
                     Object.defineProperties(result, { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
+                    return result
+                case FileList: case DataTransferItemList: case Array:
+                    result = []
+                    for (const f of value) result.push(this.flatten(f))
                     return result
                 case FormData: return Object.fromEntries(value.entries())
                 case Response:
@@ -338,37 +338,30 @@ const ElementHTML = Object.defineProperties({}, {
                         headers: { enumerable: true, get: () => Object.fromEntries(value.headers.entries()) }
                     })
                     return result
-                case Object:
+                default:
                     if (typeof value.valueOf === 'function') return value.valueOf()
-                    result = {}
-                    for (const k in value) result[k] = this.flatten(value[k])
-                    return result
-            }
-            if (Array.isArray(value)) {
-                result = []
-                for (const v of value) result.push(this.flatten(v))
-                return result
-            } else if ((value instanceof Event) || this.isPlainObject(value)) {
-                result = {}
-                for (const k in value) result[k] = this.flatten(value[k])
-                return result
+                    else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
+                        result = {}
+                        for (const k in value) result[k] = this.flatten(value[k])
+                        return result
+                    }
             }
             if (value instanceof HTMLElement) {
                 result = new Proxy({}, {
                     get(target, prop, receiver) {
-                        const { elementMappers } = this.sys
-                        if (prop in elementMappers) return elementMappers(value)
+                        const { mappers } = this.sys
+                        if (prop in mappers) return mappers(value)
                         const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in elementMappers) return elementMappers(value, propMain)
-                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, propMain.slice(0, -1))
+                        if (propFlag in mappers) return mappers(value, propMain)
+                        if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1))
                         return this.flatten(value[prop])
                     },
                     has(target, key) {
-                        const { elementMappers } = this.sys
-                        if (prop in elementMappers) return elementMappers(value, prop) !== undefined
+                        const { mappers } = this.sys
+                        if (prop in mappers) return mappers(value, prop) !== undefined
                         const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in elementMappers) return elementMappers(value, propMain) !== undefined
-                        if ((propFlag === '[') && propMain.endsWith(']')) return elementMappers.$form(value, propMain.slice(0, -1)) !== undefined
+                        if (propFlag in mappers) return mappers(value, propMain) !== undefined
+                        if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1)) !== undefined
                         return value[prop] !== undefined
                     }
                 })
@@ -452,10 +445,10 @@ const ElementHTML = Object.defineProperties({}, {
                 if (tag in this.sys.voidElementTags) return element.setAttribute(this.sys.voidElementTags[tag], data)
                 return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
             }
-            const { elementMappers } = this.sys
+            const { mappers } = this.sys
             const promises = []
             for (const p in data) {
-                if (p in elementMappers) { elementMappers[p](element, undefined, true, data[p]); continue }
+                if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
                 if (p.startsWith('::')) {
                     const position = p.slice(2)
                     if (typeof element[position] !== 'function') continue
@@ -477,9 +470,9 @@ const ElementHTML = Object.defineProperties({}, {
                     const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
                     for (const c of child) promises.push(this.render(c, useArray ? useArray.shift() : data[p]))
                 }
-                else if (pFlag in elementMappers) elementMappers[pFlag](element, p.slice(1).trim(), true, data[p])
-                else if ((pFlag === '[') && p.endsWith(']')) elementMappers.$form(element, p.slice(1, -1).trim(), true, data[p])
-                else if ((pFlag === '{') && p.endsWith('}')) elementMappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
+                else if (pFlag in mappers) mappers[pFlag](element, p.slice(1).trim(), true, data[p])
+                else if ((pFlag === '[') && p.endsWith(']')) mappers.$form(element, p.slice(1, -1).trim(), true, data[p])
+                else if ((pFlag === '{') && p.endsWith('}')) mappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
                 else if (typeof element[p] === 'function') element[p](data[p])
                 else if (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')) {
                     let [functionName, argsList] = p.slice(0, -1).split('(')
@@ -831,7 +824,7 @@ const ElementHTML = Object.defineProperties({}, {
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
-            elementMappers: {
+            mappers: {
                 '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
                 $attributes: function (el, p, w, v, options = {}) {
                     if (!(el && (el instanceof HTMLElement))) return
@@ -865,14 +858,14 @@ const ElementHTML = Object.defineProperties({}, {
                         v[`${filter}${k}`] = v[k]
                         delete v[k]
                     }
-                    return this.sys.elementMappers.$attributes(el, p, w, v, { defaultAttribute, filter })
+                    return this.sys.mappers.$attributes(el, p, w, v, { defaultAttribute, filter })
                 },
                 '$': '$data',
-                $aria: function (el, p, w, v) { return this.sys.elementMappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
+                $aria: function (el, p, w, v) { return this.sys.mappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
                 '*': '$aria',
-                $style: function (el, p, w, v) { return this.sys.elementMappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+                $style: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '%': '$style',
-                $computed: function (el, p, w, v) { return this.sys.elementMappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+                $computed: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
                 '&': '$computed',
                 $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
                 '.': '$inner',
@@ -895,10 +888,10 @@ const ElementHTML = Object.defineProperties({}, {
                     const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
                     switch (tagName.toLowerCase()) {
                         case 'form': case 'fieldset':
-                            if (p) return this.sys.elementMappers.$form(el.querySelector(`[name="${p}"]`), w, v)
+                            if (p) return this.sys.mappers.$form(el.querySelector(`[name="${p}"]`), w, v)
                             if (!vIsObject) return
                             const r = {}
-                            for (const fieldName in v) r[fieldName] = this.sys.elementMappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
+                            for (const fieldName in v) r[fieldName] = this.sys.mappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
                             return r
                         default:
                             const { type, name } = el
@@ -932,7 +925,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!propElement) return
                         return w ? this.render(propElement, v) : this.flatten(propElement)
                     }
-                    if (w) if (this.isPlainObject(v)) for (const k in v) this.sys.elementMappers.$microdata(el, w, v[k], k)
+                    if (w) if (this.isPlainObject(v)) for (const k in v) this.sys.mappers.$microdata(el, w, v[k], k)
                     if (w) return
                     const r = {}
                     for (const propElement of el.querySelectorAll('[itemprop]')) r[propElement.getAttribute('itemprop')] = this.flatten(propElement)
@@ -2272,8 +2265,8 @@ for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', '
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
     ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)
-for (const f in ElementHTML.sys.elementMappers) ElementHTML.sys.elementMappers[f] = typeof ElementHTML.sys.elementMappers[f] === 'string'
-    ? (ElementHTML.sys.elementMappers[f] = ElementHTML.sys.elementMappers[ElementHTML.sys.elementMappers[f]].bind(ElementHTML)) : ElementHTML.sys.elementMappers[f].bind(ElementHTML)
+for (const f in ElementHTML.sys.mappers) ElementHTML.sys.mappers[f] = typeof ElementHTML.sys.mappers[f] === 'string'
+    ? (ElementHTML.sys.mappers[f] = ElementHTML.sys.mappers[ElementHTML.sys.mappers[f]].bind(ElementHTML)) : ElementHTML.sys.mappers[f].bind(ElementHTML)
 const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
 await Promise.all(promises)
