@@ -493,9 +493,10 @@ const ElementHTML = Object.defineProperties({}, {
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, envelope = {}, flags = {}) {
             expression = expression.trim()
+            const { sys, resolveVariable } = this, { regexp, valueAliases } = sys
             let result, { wrapped = false, default: dft = (!wrapped ? expression : undefined), spread, merge } = flags
             if (merge) {
-                result = expression.replace(this.sys.regexp.hasVariable, (match, varExpression) => (this.resolveVariable(varExpression, envelope) ?? match))
+                result = expression.replace(regexp.hasVariable, (match, varExpression) => (resolveVariable.call(this, varExpression, envelope) ?? match))
             } else if (typeof expression === 'string') {
                 if (wrapped || (wrapped === null)) {
                     const expressionIsWrapped = this.isWrappedVariable(expression)
@@ -505,7 +506,7 @@ const ElementHTML = Object.defineProperties({}, {
                 expression = expression.trim()
                 if (wrapped) expression = expression.slice(2, -1).trim()
                 const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
-                if (expression in this.sys.valueAliases) result = this.sys.valueAliases[expression]
+                if (expression in valueAliases) result = valueAliases[expression]
                 else if (expression === '$') result = 'value' in envelope ? value : expression
                 else if ((e0 === '$') || (e0 === '@') || (e0 === '#') || (e0 === '~')) {
                     const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
@@ -519,18 +520,18 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 else if ((e0 === '?') || ((e0 === '{') && expression.endsWith('}')) || ((e0 === '{') && expression.endsWith('}'))) {
                     result = this.resolveShape(expression)
-                    if (context || cells || fields || labels || ('value' in envelope)) result = this.resolveVariable(expression, envelope, { ...flags, wrapped: false })
+                    if (context || cells || fields || labels || ('value' in envelope)) result = resolveVariable.call(this, expression, envelope, { ...flags, wrapped: false })
                 }
                 else if (((e0 === '"') && expression.endsWith('"')) || ((e0 === "'") && expression.endsWith("'"))) result = expression.slice(1, -1)
-                else if (this.sys.regexp.isNumeric.test(expression)) result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
+                else if (regexp.isNumeric.test(expression)) result = expression % 1 === 0 ? parseInt(expression, 10) : parseFloat(expression)
                 else result = expression
             } else if (Array.isArray(expression)) {
                 result = []
-                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(this.resolveVariable(expression[i], envelope, { default: a ? dft[i] : dft }))
+                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(resolveVariable.call(this, expression[i], envelope, { default: a ? dft[i] : dft }))
             } else if (this.isPlainObject(expression)) {
                 result = {}
                 const dftIsObject = spread && this.isPlainObject(dft)
-                for (const key in expression) result[this.resolveVariable(key, envelope)] = this.resolveVariable(expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
+                for (const key in expression) result[resolveVariable.call(this, key, envelope)] = resolveVariable.call(this, expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
             }
             return result === undefined ? dft : result
         }
