@@ -383,8 +383,7 @@ const ElementHTML = Object.defineProperties({}, {
             element = this.app._components.nativesFromVirtuals.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             switch (scopeStatement) {
-                case 'head': return document.head
-                case 'body': return document.body
+                case 'body': case 'head': return document[scopeStatement]
                 case 'root': return element.getRootNode()
                 case 'host': return element.getRootNode().host ?? document.documentElement
                 case 'document': case 'html': return document.documentElement
@@ -402,12 +401,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: { // optimal
         enumerable: true, value: function (scopedSelector, element) {
+            const { impliedScopes, regexp } = this.sys
             if (element) element = this.app._components.nativesFromVirtuals.get(element) ?? element
-            if (this.sys.impliedScopes[scopedSelector]) return element ? this.resolveScope(this.sys.impliedScopes[scopedSelector], element) : { scope: this.sys.impliedScopes[scopedSelector] }
-            if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
+            if (impliedScopes[scopedSelector]) return element ? this.resolveScope(impliedScopes[scopedSelector], element) : { scope: impliedScopes[scopedSelector] }
+            if (impliedScopes[scopedSelector[0]]) scopedSelector = `${impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
-            if (this.sys.regexp.pipeSplitter.test(scopedSelector)) {
-                const [scopeStatement, selectorStatement] = scopedSelector.split(this.sys.regexp.pipeSplitter, 2).map(s => s.trim())
+            if (regexp.pipeSplitter.test(scopedSelector)) {
+                const [scopeStatement, selectorStatement] = scopedSelector.split(regexp.pipeSplitter, 2).map(s => s.trim())
                 if (!element) return { scope: scopeStatement, selector: selectorStatement }
                 scope = this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
