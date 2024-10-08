@@ -284,7 +284,7 @@ const ElementHTML = Object.defineProperties({}, {
             }))
             Object.freeze(env)
             Object.freeze(app)
-            for (const eventName of sys.windowEvents) window.addEventListener(eventName, event => {
+            for (const eventName of ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']) window.addEventListener(eventName, event => {
                 _eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
                 runUnit.call(this, eventName, 'hook')
             })
@@ -571,7 +571,7 @@ const ElementHTML = Object.defineProperties({}, {
     modules: { enumerable: true, value: {} },
     sys: {
         value: Object.freeze({
-            autoResolverSuffixes: Object.freeze({
+            autoResolverSuffixes: Object.freeze({ // once
                 component: ['html'], gateway: ['wasm'], helper: ['wasm'], snippet: ['html'], syntax: ['wasm'],
                 transform: ['wasm', 'jsonata'], type: ['x', 'schema.json', 'json']
             }),
@@ -590,7 +590,7 @@ const ElementHTML = Object.defineProperties({}, {
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
-            suffixContentTypeMap: Object.freeze({
+            suffixContentTypeMap: Object.freeze({ // once
                 html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
             }),
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
@@ -605,11 +605,10 @@ const ElementHTML = Object.defineProperties({}, {
                 type: ['types', 'Type']
             }),
             valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
-            voidElementTags: Object.freeze({
+            voidElementTags: Object.freeze({ // once
                 area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
                 param: 'value', source: 'src', track: 'src', wbr: null
-            }),
-            windowEvents: ['beforeinstallprompt', 'beforeunload', 'appinstalled', 'offline', 'online', 'visibilitychange', 'pagehide', 'pageshow']
+            })
         })
     },
 
