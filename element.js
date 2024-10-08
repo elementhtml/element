@@ -1048,11 +1048,12 @@ const ElementHTML = Object.defineProperties({}, {
             static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
             constructor() {
                 super()
+                const { style, template, shadow } = this.constructor
                 try {
-                    if (this.constructor.style || this.constructor.template) {
-                        const shadowRoot = this.attachShadow(this.constructor.shadow)
-                        if (this.constructor.style) shadowRoot.append(this.constructor.style.cloneNode(true))
-                        if (this.constructor.template) shadowRoot.append(...this.constructor.template.content.cloneNode(true).children)
+                    if (style || template) {
+                        const shadowRoot = this.attachShadow(shadow)
+                        if (style) shadowRoot.append(style.cloneNode(true))
+                        if (template) shadowRoot.append(...template.content.cloneNode(true).children)
                     }
                 } catch (e) { }
             }
@@ -1060,18 +1061,17 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return this.E.flatten(this) } // this has to change to be a syncronous manual flattening at this point
             toJSON() { return this.valueOf() }
             dispatchEvent(event) {
-                let virtualElement = this.constructor.E.app._components.virtualsFromNatives.get(this), nativeElement = this.constructor.E.app._components.nativesFromVirtuals.get(this)
-                let eventName = event.type === 'default' ? undefined : event.type
-                const isPair = (virtualElement || nativeElement), { detail, bubbles, cancelable, composed } = event
-                if (isPair) {
+                const eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed }, { E } = this.constructor, defaultEventTypes = E.sys
+                let virtualElement = E.app._components.virtualsFromNatives.get(this), nativeElement = E.app._components.nativesFromVirtuals.get(this),
+                    eventName = event.type === 'default' ? undefined : event.type
+                if (virtualElement || nativeElement) {
                     virtualElement ??= this
                     nativeElement ??= this
-                    eventName ??= virtualElement.constructor.events?.default ?? this.constructor.E.sys.defaultEventTypes[nativeElement.tagName.toLowerCase()] ?? 'click'
-                    return virtualElement.dispatchEvent(new CustomEvent(eventName, { detail, bubbles, cancelable, composed }))
-                        && nativeElement.dispatchEvent(new CustomEvent(eventName, { detail, bubbles, cancelable, composed }))
+                    eventName ??= virtualElement.constructor.events?.default ?? defaultEventTypes[nativeElement.tagName.toLowerCase()] ?? 'click'
+                    return virtualElement.dispatchEvent(new CustomEvent(eventName, eventProps)) && nativeElement.dispatchEvent(new CustomEvent(eventName, eventProps))
                 }
-                eventName ??= instance instanceof this.constructor.E.Component ? (instance.constructor.events?.default) : this.constructor.E.sys.defaultEventTypes[instance.tagName.toLowerCase()]
-                return super.dispatchEvent(new CustomEvent(eventName ?? 'click', { detail, bubbles, cancelable, composed }))
+                eventName ??= instance instanceof E.Component ? (instance.constructor.events?.default) : defaultEventTypes[instance.tagName.toLowerCase()]
+                return super.dispatchEvent(new CustomEvent(eventName ?? 'click', eventProps))
             }
         }
     },
