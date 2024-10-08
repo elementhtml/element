@@ -711,7 +711,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     installModule: { // optimal
         value: async function (moduleName) {
-            const { module } = await import(import.meta.resolve(`modules/${moduleName}.js`))
+            const { module } = await import(import.meta.resolve(`./modules/${moduleName}.js`))
             for (const p in module) if (typeof module[p].value === 'function') (module[p].value = module[p].value.bind(this))
             return Object.defineProperty(this.modules, moduleName, { enumerable: true, value: Object.freeze(Object.defineProperties({}, module)) })[moduleName]
         }
