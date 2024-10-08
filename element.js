@@ -235,7 +235,7 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) {
                         return this.modules.dev
-                            ? ((envelope.descriptor.verbose === true ? (console.log(this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value) : value
+                            ? ((envelope.descriptor.verbose === true ? (console.log(await this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value) : value
                     }
                 }]
             ]),
@@ -297,8 +297,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
 
     createEnvelope: { // optimal
-        enumerable: true, value: function (value = {}) {
-            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: this.flatten(this.app.cells), context: this.env.context })
+        enumerable: true, value: async function (value = {}) {
+            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: await this.flatten(this.app.cells), context: this.env.context })
         }
     },
     deepFreeze: { //optimal
@@ -310,7 +310,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     flatten: { //optimal
-        enumerable: true, value: function (value, event) {
+        enumerable: true, value: async function (value, event) {
             if (value == undefined) return null
             switch (typeof value) {
                 case 'string': case 'number': case 'boolean': return value
@@ -326,7 +326,7 @@ const ElementHTML = Object.defineProperties({}, {
                 case FileList: case DataTransferItemList: case Array:
                     let a = []
                     for (const f of value) a.push(this.flatten(f))
-                    return a
+                    return Promise.all(a)
                 case FormData: return Object.fromEntries(value.entries())
                 case Response:
                     return Object.defineProperties({ ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }, {
@@ -336,14 +336,15 @@ const ElementHTML = Object.defineProperties({}, {
                 default:
                     if (typeof value.valueOf === 'function') return value.valueOf()
                     else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
-                        let obj = {}
-                        for (const k in value) obj[k] = this.flatten(value[k])
-                        return obj
+                        let obj = {}, promises = []
+                        for (const k in value) promises.push(this.flatten(value[k]).then(v => obj[k] = v))
+                        return Promise.all(promises).then(() => obj)
                     }
             }
+            if (value instanceof this.Component) return value.valueOf()
             if (value instanceof HTMLElement) {
-                const { mappers } = this.sys
-                return new Proxy({}, { get: (target, prop) => this.processElementMapper(value, prop, mappers), has: (target, prop) => this.processElementMapper(value, prop, mappers, true) })
+                const { processElementMapper } = await this.runFragment('sys/mappers')
+                return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, prop, mappers), has: (target, prop) => processElementMapper.call(value, prop, mappers, true) })
             }
             for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
         }
@@ -574,258 +575,10 @@ const ElementHTML = Object.defineProperties({}, {
                 component: ['html'], gateway: ['wasm'], helper: ['wasm'], snippet: ['html'], syntax: ['wasm'],
                 transform: ['wasm', 'jsonata'], type: ['x', 'schema.json', 'json']
             }),
-            color: {
-                calculateLuminance: function (color) {
-                    const [r, g, b] = this.sys.color.toArray(color)
-                    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-                },
-                canonicalize: function (color, includeAlpha) {
-                    if ((includeAlpha && color.startsWith('rgba(')) || (!includeAlpha && color.startsWith('rgb('))) return color
-                    const oldHeadColor = document.head.style.getPropertyValue('color')
-                    document.head.style.setProperty('color', color)
-                    let computedColor = window.getComputedStyle(document.head).getPropertyValue('color')
-                    document.head.style.setProperty('color', oldHeadColor)
-                    const colorArray = this.sys.color.toArray(computedColor, includeAlpha)
-                    return includeAlpha ? `rgba(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]}, ${colorArray[4]})` : `rgb(${colorArray[1]}, ${colorArray[2]}, ${colorArray[3]})`
-                },
-                rgbToHsl: function (r, g, b) {
-                    r /= 255, g /= 255, b /= 255;
-                    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
-                    let h, s, l = (max + min) / 2
-                    if (max === min) return [0, 0, l * 100]
-                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-                    switch (max) {
-                        case r: h = (g - b) / d + (g < b ? 6 : 0); break
-                        case g: h = (b - r) / d + 2; break
-                        case b: h = (r - g) / d + 4; break
-                    }
-                    h /= 6
-                    return [h * 360, s * 100, l * 100]
-                },
-                toArray: function (color, includeAlpha) {
-                    if (Array.isArray(color)) return color
-                    if (!color.startsWith('rgb')) color = this.sys.color.canonicalize(color)
-                    const useRx = color.startsWith('rgba') ? this.sys.regexp.isRgba : this.sys.regexp.isRbg,
-                        [, r, g, b, a = 1] = color.match(useRx) ?? [, 0, 0, 0, (includeAlpha ? 0 : 1)]
-                    return includeAlpha ? [r, g, b, a] : [r, g, b]
-                }
-            },
             defaultEventTypes: Object.freeze({
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
-            mappers: {
-                '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-                $attributes: function (el, p, w, v, options = {}) {
-                    if (!(el && (el instanceof HTMLElement))) return
-                    const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', toggle = 'toggleAttribute', filter } = options,
-                        target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
-                    p &&= this.toKebabCase(p)
-                    if (writable) {
-                        if (p) return target[v == null ? remove : ((!style && (typeof v === 'boolean')) ? toggle : set)](p, v)
-                        const vIsObject = typeof v === 'object'
-                        if (vIsObject) for (const k in v) target[v[k] == null ? remove : ((!style && (typeof v[k] === 'boolean')) ? toggle : set)](this.toKebabCase(k), v[k])
-                        if (vIsObject || style) return
-                        p ||= defaultAttribute
-                        return target[(typeof v === 'boolean') ? toggle : set](p, v)
-                    }
-                    if (p) return target[get](p)
-                    const r = {}, iterator = style ? target : el.attributes
-                    if (iterator.length) for (let i = 0, k, l = iterator.length; i < l; i++) {
-                        k = iterator[i]
-                        if (filter && !k.startsWith(filter)) continue
-                        r[k] = target[get](k)
-                        if (!style && (r[k] === '')) r[k] = true
-                    }
-                    return r
-                },
-                '@': '$attributes',
-                $data: function (el, p, w, v, options = {}) {
-                    const { filter = 'data-', defaultAttribute = 'data-value' } = options
-                    if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
-                    if (p && !p.startsWith(filter)) p = `${filter}${p}`
-                    if (v && typeof v === 'object') for (const k in v) if (k && !k.startsWith(filter)) {
-                        v[`${filter}${k}`] = v[k]
-                        delete v[k]
-                    }
-                    return this.sys.mappers.$attributes(el, p, w, v, { defaultAttribute, filter })
-                },
-                '$': '$data',
-                $aria: function (el, p, w, v) { return this.sys.mappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
-                '*': '$aria',
-                $style: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
-                '%': '$style',
-                $computed: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
-                '&': '$computed',
-                $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
-                '.': '$inner',
-                $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
-                '..': '$content',
-                $text: (el, w, v) => w ? (el.innerText = v) : el.innerText,
-                '...': '$text',
-                $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
-                '<>': '$html',
-                $tag: (el, p, w, v = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-                $parent: function (el, p, w, v) {
-                    el = this.app._components.nativesFromVirtuals.get(el) ?? el
-                    return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
-                },
-                '^': '$parent',
-                $event: function (el, p, w, v, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
-                '!': '$event',
-                $form: (el, p, w, v) => {
-                    if (!(el instanceof HTMLElement)) return
-                    const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
-                    switch (tagName.toLowerCase()) {
-                        case 'form': case 'fieldset':
-                            if (p) return this.sys.mappers.$form(el.querySelector(`[name="${p}"]`), w, v)
-                            if (!vIsObject) return
-                            const r = {}
-                            for (const fieldName in v) r[fieldName] = this.sys.mappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
-                            return r
-                        default:
-                            const { type, name } = el
-                            switch (type) {
-                                case undefined: return
-                                case 'checkbox': case 'radio':
-                                    const inputs = el.closest('form,fieldset').querySelectorAll(`[name="${name}"][type=${type}]`)
-                                    if (!inputs) return
-                                    const isCheckbox = type === 'checkbox', isRadio = !isCheckbox
-                                    if (w) {
-                                        const vIsArray = Array.isArray(v), useV = vIsObject ? v : (vIsArray ? {} : { [v]: true })
-                                        if (vIsArray) for (const f of v) useV[f] = true
-                                        for (const c of inputs) if ((c.checked = !!useV[c.value]) && isRadio) return
-                                        return
-                                    }
-                                    const r = isCheckbox ? [] : undefined
-                                    if (isRadio) for (const f of inputs) if (f.checked) return f.value
-                                    if (isRadio) return
-                                    for (const f of inputs) if (f.checked) r.push(f.value)
-                                    return r
-                                default:
-                                    return w ? (el.value = v) : el.value
-                            }
-                    }
-                },
-                '[]': '$form',
-                $microdata: function (el, p, w, v) {
-                    if (!((el instanceof HTMLElement) && el.hasAttribute('itemscope'))) return
-                    if (p) {
-                        const propElement = el.querySelector(`[itemprop="${p}"]`)
-                        if (!propElement) return
-                        return w ? this.render(propElement, v) : this.flatten(propElement)
-                    }
-                    if (w) if (this.isPlainObject(v)) for (const k in v) this.sys.mappers.$microdata(el, w, v[k], k)
-                    if (w) return
-                    const r = {}
-                    for (const propElement of el.querySelectorAll('[itemprop]')) r[propElement.getAttribute('itemprop')] = this.flatten(propElement)
-                    return r
-                },
-                '{}': '$microdata',
-                $options: function (el, w, v) {
-                    if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLDataListElement))) return
-                    if (w) {
-                        const optionElements = []
-                        if (v && (typeof v === 'object')) {
-                            const vIsArray = Array.isArray(v), optionsMap = vIsArray ? {} : v
-                            if (vIsArray) for (const f of v) optionsMap[f] = f
-                            for (const k in optionsMap) {
-                                const optionElement = document.createElement('option')
-                                if (!vIsArray) optionElement.setAttribute('value', k)
-                                optionElement.textContent = optionsMap[k]
-                                optionElements.push(optionElement)
-                            }
-                        }
-                        return el.replaceChildren(...optionElements)
-                    }
-                    const rObj = {}, rArr = []
-                    let isMap
-                    for (const optionElement of el.children) {
-                        isMap ||= optionElement.hasAttribute('value')
-                        const optionText = optionElement.textContent.trim(), optionValue = optionElement.getAttribute('value') || optionText
-                        rObj[optionValue] = optionText
-                        if (!isMap) rArr.push(optionText)
-                    }
-                    return isMap ? rObj : rArr
-                },
-                $table: function (el, p, w, v) {
-                    if (!(el instanceof HTMLTableElement || el instanceof HTMLTableSectionElement)) return
-                    if (w) {
-                        if (!Array.isArray(v)) return
-                        if (el instanceof HTMLTableElement) {
-                            if (v.length === 0) return
-                            const headers = Object.keys(v[0])
-                            if (headers.length === 0) return
-                            let thead = el.querySelector('thead')
-                            if (!thead) {
-                                thead = document.createElement('thead')
-                                el.prepend(thead)
-                            }
-                            const headerRow = document.createElement('tr'), ths = []
-                            for (const header of headers) {
-                                const th = document.createElement('th')
-                                th.textContent = header
-                                ths.push(th)
-                            }
-                            headerRow.replaceChildren(...ths)
-                            thead.replaceChildren(headerRow)
-                            let tbody = el.querySelector('tbody')
-                            if (!tbody) {
-                                tbody = document.createElement('tbody')
-                                el.appendChild(tbody)
-                            }
-                            const rows = []
-                            for (const item of v) {
-                                const tr = document.createElement('tr'), tds = []
-                                for (const header of headers) {
-                                    const td = document.createElement('td')
-                                    td.textContent = item[header] !== undefined ? item[header] : ''
-                                    tds.push(td)
-                                }
-                                tr.replaceChildren(...tds)
-                                rows.push(tr)
-                            }
-                            tbody.replaceChildren(...rows)
-                        } else if (el instanceof HTMLTableSectionElement && el.tagName.toLowerCase() === 'tbody') {
-                            const rows = []
-                            for (const rowData of v) {
-                                const tr = document.createElement('tr'), tds = []
-                                for (const cellData of rowData) {
-                                    const td = document.createElement('td')
-                                    td.textContent = cellData
-                                    tds.push(td)
-                                }
-                                tr.replaceChildren(...tds)
-                                rows.push(tr)
-                            }
-                            el.replaceChildren(...rows)
-                        }
-                        return
-                    }
-                    if (el instanceof HTMLTableElement) {
-                        const thead = el.querySelector('thead'), tbody = el.querySelector('tbody')
-                        if (!thead || !tbody) return []
-                        const headers = [], rows = []
-                        for (const th of thead.querySelectorAll('th')) headers.push(th.textContent.trim())
-                        for (const tr of tbody.querySelectorAll('tr')) {
-                            const cells = tr.querySelectorAll('td'), rowObj = {}
-                            let index = -1
-                            for (const header of headers) rowObj[header] = this.flatten(cells[++index])
-                            rows.push(rowObj)
-                        }
-                        return rows
-                    } else if (el instanceof HTMLTableSectionElement && el.tagName.toLowerCase() === 'tbody') {
-                        const rows = []
-                        for (const tr of el.querySelectorAll('tr')) {
-                            const row = []
-                            for (const td of tr.querySelectorAll('td')) row.push(this.flatten(td))
-                            rows.push(row)
-                        }
-                        return rows
-                    }
-                    return
-                },
-            },
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
             localOnlyUnitTypes: new Set(['hook']),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
@@ -834,73 +587,8 @@ const ElementHTML = Object.defineProperties({}, {
                 commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
                 isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
-                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, isRgb: /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/,
-                isRgba: /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
+                pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
-            }),
-            selector: Object.freeze({
-                clauseOpeners: {
-                    '[': true, '#': true, '.': true,
-                    '@': function (n, c) { return n.getAttribute('name') === c },
-                    '^': function (n, c) { return n.getAttribute('itemprop') === c },
-                    '$': function (n, c) { return n.value === c }
-                },
-                combinators: {
-                    '>': function (sc) { return Array.from(sc.chilren()) },
-                    '+': function (sc) { return sc.nextElementSibling() ?? [] },
-                    '~': function (sc) {
-                        const siblings = []
-                        let sibling = sc.nextElementSibling
-                        while (sibling) {
-                            siblings.push(sibling)
-                            sibling = sibling.nextElementSibling
-                        }
-                        return siblings
-                    },
-                    '||': function (sc) {
-                        const colgroup = sc.closest('colgroup'), colElements = Array.from(colgroup.children), table = sc.closest('table'), matchedCells = []
-                        let totalColumns = 0, colStart = 0, colEnd = 0;
-                        for (const col of colElements) {
-                            const span = parseInt(col.getAttribute('span') || '1', 10), colIsSc = col === sc
-                            if (colIsSc) colStart = totalColumns
-                            totalColumns += span
-                            if (colIsSc) colEnd = totalColumns - 1
-                        }
-                        for (const row of table.querySelectorAll('tr')) {
-                            let currentColumn = 0
-                            for (const cell of row.children) {
-                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10), cellStart = currentColumn, cellEnd = currentColumn + colspan - 1
-                                if ((cellStart >= colStart && cellStart <= colEnd) || (cellEnd >= colStart && cellEnd <= colEnd)) matchedCells.push(cell);
-                                currentColumn += colspan
-                            }
-                        }
-                        return matchedCells
-                    },
-                    '': function (sc) { return Array.from(sc.querySelectorAll('*')) }
-                },
-                comparators: {
-                    '~=': function (iv, rv, f, p) { return iv === rv || iv.split(this.sys.regexp.spaceSplitter).includes(rv) },
-                    '|=': function (iv, rv, f, p) { return iv === rv || iv.startsWith(`${rv}-`) },
-                    '^=': function (iv, rv, f, p) { return iv.startsWith(rv) },
-                    '$=': function (iv, rv, f, p) { return iv.endsWith(rv) },
-                    '*=': function (iv, rv, f, p) { return iv.includes(rv) },
-                    '/=': function (iv, rv, f, p) { return (new RegExp(rv)).test(iv) },
-                    '==': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('olor'))) ? (this.sys.color.canonicalize(iv, true) === this.sys.color.canonicalize(rv, true)) : (iv == rv) },
-                    '<=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('olor')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] <= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) <= parseFloat(rv) },
-                    '>=': function (iv, rv, f, p) { return (((f === '&') && (p?.endsWith('olor')))) ? this.sys.color.rgbToHsl(...this.sys.color.toArray(iv))[0] >= this.sys.color.rgbToHsl(...this.sys.color.toArray(rv))[0] : parseFloat(iv) >= parseFloat(rv) },
-                    '=': function (iv, rv, f, p) { return ((f === '&') && (p?.endsWith('olor'))) ? (this.sys.color.canonicalize(iv) === this.sys.color.canonicalize(rv)) : (iv == rv) },
-                    '<': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? this.sys.color.calculateLuminance(iv) < this.sys.color.calculateLuminance(rv) : parseFloat(iv) < parseFloat(rv) },
-                    '>': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? this.sys.color.calculateLuminance(iv) > this.sys.color.calculateLuminance(rv) : parseFloat(iv) > parseFloat(rv) },
-                    '': function (iv, rv, f, p) { return (f === '&' && p?.endsWith('olor')) ? (this.sys.color.toArray(iv, true)[3] > 0) : !!iv }
-                },
-                flags: {
-                    '%': function (n, cp) { return `${n.style.getPropertyValue(cp)}` },
-                    '&': function (n, cp) { return `${window.getComputedStyle(n)[cp]}` },
-                    '?': function (n, cp) { return n.dataset[cp] },
-                    '$': function (n, cp) { return `${n[cp]}` },
-                    '@': function (n, cp) { return n.getAttribute(cp) },
-                    '': function (n, cp) { return n.getAttribute(cp) },
-                }
             }),
             suffixContentTypeMap: Object.freeze({
                 html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
@@ -1132,17 +820,6 @@ const ElementHTML = Object.defineProperties({}, {
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
-    processElementMapper: {
-        value: function (element, prop, mappers, isHas) {
-            if (prop in mappers) return isHas || mappers[prop](element)
-            const propFlag = prop[0], propMain = prop.slice(1)
-            let r, t
-            if (t = (propFlag in mappers)) r = mappers[propFlag](element, propMain)
-            else if (t = ((propFlag === '[') && propMain.endsWith(']'))) r = mappers.$form(element, propMain.slice(0, -1))
-            else if (t = ((propFlag === '{') && propMain.endsWith('}'))) r = mappers.$microdata(element, propMain.slice(0, -1))
-            return t ? (isHas ? (r !== undefined) : r) : (isHas ? (prop in element) : this.flatten(element[prop]))
-        }
-    },
     processQueue: { // optimal
         value: async function () {
             for (const job of this.sys.queue.values()) job.run()
@@ -1152,7 +829,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     runFragment: {
         value: async function (fragmentKey, ...args) {
-            return (this.app._fragments[fragmentKey] ??= await import(import.meta.resolve(`./fragments/${fragmentKey}.js`))).default.call(this, ...args)
+            const fragment = (this.app._fragments[fragmentKey] ??= (await import(import.meta.resolve(`./fragments/${fragmentKey}.js`)))?.default)
+            return typeof fragment === 'function' ? fragment.call(this, ...args) : fragment
         }
     },
     resolveShape: {
@@ -1448,7 +1126,7 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch (e) { }
             }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-            valueOf() { return this.E.flatten(this) }
+            valueOf() { return this.E.flatten(this) } // this has to change to be a syncronous manual flattening at this point
             toJSON() { return this.valueOf() }
             dispatchEvent(event) {
                 let virtualElement = this.constructor.E.app._components.virtualsFromNatives.get(this), nativeElement = this.constructor.E.app._components.nativesFromVirtuals.get(this)
@@ -1517,7 +1195,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
                         container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async () => {
                             if (disabled) return
-                            const handlerEnvelope = { ...envelope, fields: Object.freeze(E.flatten(fields)), cells: Object.freeze(E.flatten(cells)), labels: Object.freeze({ ...labels }) },
+                            const handlerEnvelope = { ...envelope, fields: Object.freeze(await E.flatten(fields)), cells: Object.freeze(await E.flatten(cells)), labels: Object.freeze({ ...labels }) },
                                 value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
                                     ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
@@ -1633,7 +1311,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!virtual.engine) return
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = E.createEnvelope(this.envelope ?? {}), promises = []
+                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = await E.createEnvelope(this.envelope ?? {}), promises = []
                 if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputBase, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
                     promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputBase, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
@@ -1774,9 +1452,9 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            apply(node) {
+            async apply(node) {
                 const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement, { selectors, name, defaultValue, mode } = this, promises = [],
-                    modeIsLang = mode === 'lang', envelope = Object.freeze(E.createEnvelope(this.envelope ?? {}))
+                    modeIsLang = mode === 'lang', envelope = Object.freeze(await E.createEnvelope(this.envelope ?? {}))
                 for (const selector in selectors) {
                     const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
                     if (nodeIsElement && node.matches(selector)) nodeList.push(node)
@@ -1999,10 +1677,6 @@ const { app, sys } = ElementHTML
 for (const k in ElementHTML.env) Object.defineProperty(app, k, { configurable: false, enumerable: true, writable: false, value: {} })
 for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) Object.defineProperty(ElementHTML[className], 'E', { configurable: false, writable: false, value: ElementHTML })
 for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
-for (const c in ElementHTML.sys.selector) for (const f in ElementHTML.sys.selector[c]) if (typeof ElementHTML.sys.selector[c][f] === 'function')
-    ElementHTML.sys.selector[c][f] = ElementHTML.sys.selector[c][f].bind(ElementHTML)
-for (const f in ElementHTML.sys.mappers) ElementHTML.sys.mappers[f] = typeof ElementHTML.sys.mappers[f] === 'string'
-    ? (ElementHTML.sys.mappers[f] = ElementHTML.sys.mappers[ElementHTML.sys.mappers[f]].bind(ElementHTML)) : ElementHTML.sys.mappers[f].bind(ElementHTML)
 const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
 await Promise.all(promises)
