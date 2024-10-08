@@ -562,14 +562,14 @@ const ElementHTML = Object.defineProperties({}, {
     },
     toKebabCase: { enumerable: true, value: function (str) { return str.replace(this.sys.regexp.lowerCaseThenUpper, '$1-$2').replace(this.sys.regexp.upperCaseThenAlpha, '$1-$2').toLowerCase() } }, // optimal
 
-    app: {
+    app: { // optimal
         value: Object.defineProperties({}, {
             cells: { enumerable: true, value: {} }, _components: { value: { nativesFromVirtuals: new WeakMap(), bindings: new WeakMap(), virtualsFromNatives: new WeakMap() } },
             _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _fragments: { value: {} }, _observers: { value: new WeakMap() }
         })
     },
-    modules: { enumerable: true, value: {} },
-    sys: {
+    modules: { enumerable: true, value: {} }, // optimal
+    sys: { // optimal
         value: Object.freeze({
             defaultEventTypes: Object.freeze({
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
