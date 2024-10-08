@@ -347,22 +347,23 @@ const ElementHTML = Object.defineProperties({}, {
                     }
             }
             if (value instanceof HTMLElement) {
+                const { mappers } = this.sys
                 result = new Proxy({}, {
-                    get(target, prop, receiver) {
-                        const { mappers } = this.sys
-                        if (prop in mappers) return mappers(value)
+                    get(target, prop) {
+                        if (prop in mappers) return mappers[prop](value)
                         const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in mappers) return mappers(value, propMain)
+                        if (propFlag in mappers) return mappers[propFlag](value, propMain)
                         if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1))
+                        if ((propFlag === '{') && propMain.endsWith('}')) return mappers.$microdata(value, propMain.slice(0, -1))
                         return this.flatten(value[prop])
                     },
-                    has(target, key) {
-                        const { mappers } = this.sys
+                    has(target, prop) {
                         if (prop in mappers) return mappers(value, prop) !== undefined
                         const propFlag = prop[0], propMain = prop.slice(1)
                         if (propFlag in mappers) return mappers(value, propMain) !== undefined
                         if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1)) !== undefined
-                        return value[prop] !== undefined
+                        if ((propFlag === '{') && propMain.endsWith('}')) return mappers.$microdata(value, propMain.slice(0, -1)) !== undefined
+                        return (prop in value)
                     }
                 })
                 return result
