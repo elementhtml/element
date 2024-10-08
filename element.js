@@ -1075,7 +1075,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-    Facet: { // optimal
+    Facet: { // optimal - but needs to recheck
         enumerable: true, value: class {
             static E
             controller
@@ -1111,9 +1111,8 @@ const ElementHTML = Object.defineProperties({}, {
                     let stepIndex = -1
                     for (const step of steps) {
                         stepIndex++
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step,
-                            { interpreter: interpreterKey, variables } = signature, descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor,
-                            envelope = { descriptor, labels, fields, cells, context, variables }
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step, { interpreter: interpreterKey, variables } = signature,
+                            descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor, envelope = { descriptor, labels, fields, cells, context, variables }
                         let interpreter, matcher
                         for (matcher of interpreterKeys) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = interpreters.get(matcher)
@@ -1167,7 +1166,7 @@ const ElementHTML = Object.defineProperties({}, {
             static getJobFunction(id) { return this.constructor.E.sys.queue.get(id)?.jobFunction }
             static getJobRunner(id) { return this.constructor.E.sys.queue.get(id)?.runner }
             static waitComplete(id, deadline = 1000) {
-                const { E } = this, { sys } = E, { queue } = sys
+                const { queue } = this.E.sys
                 if (!queue.has(id)) return
                 const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
                 deadline = now + deadline
@@ -1181,7 +1180,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }))
             }
             constructor(jobFunction, id) {
-                const { E } = this.constructor, { sys } = E, { queue } = sys
+                const { E } = this.constructor, { queue } = E.sys
                 if (typeof jobFunction !== 'function') return
                 this.id = id ?? E.generateUuid()
                 if (queue.get(this.id)) return
