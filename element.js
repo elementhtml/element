@@ -766,7 +766,7 @@ const ElementHTML = Object.defineProperties({}, {
             return Promise.all(promises)
         }
     },
-    mountFacet: { // optimal
+    mountFacet: { // needs revision to check for overlaps with Facet
         value: async function (facetContainer) {
             let { type } = facetContainer, FacetClass, facetCid
             const src = facetContainer.getAttribute('src')
@@ -781,11 +781,8 @@ const ElementHTML = Object.defineProperties({}, {
                     break
                 case 'application/element':
                     if (!src || this.app.facets[src]) break
-                    FacetClass = (this.env.facets[src]?.prototype instanceof this.Facet) ? this.env.facets[src] : (await import(this.resolveUrl(src)))
-                    FacetClass.E ??= this
-                    FacetClass.prototype.E ??= this
+                    FacetClass = await this.resolveUnit(src, 'facet')
                     facetCid = FacetClass.cid
-                    this.app.facets[facetCid] = FacetClass
                     break
             }
             FacetClass ??= this.app.facets[facetCid]
@@ -818,106 +815,75 @@ const ElementHTML = Object.defineProperties({}, {
             return typeof fragment === 'function' ? fragment.call(this, ...args) : fragment
         }
     },
-    resolveShape: {
-        value: function (input) {
-            const parseInput = (input) => {
-                if (typeof input !== 'string') return input
-                if (input.startsWith('[')) return parseArray(input)
-                else if (input.startsWith('?')) return parseQuerystring(input)
-                else if (input.startsWith('{')) return parseObject(input)
-                return input
-            }, parseArray = (input) => {
-                input = input.slice(1, -1)
-                const entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}'])
-                return entries.map(entry => parseInput(entry.trim()))
-            }, parseQuerystring = (input) => {
-                input = input.slice(1)
-                const result = {}, entries = splitIgnoringNesting(input, '&', ['"', "'"])
-                for (const entry of entries) {
-                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, '=', ['"', "'"])
-                    let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
-                    if (value === undefined) [key, value] = handleImplicitValue(key)
-                    result[key] = value
-                }
-                return result
-            }, parseObject = (input) => {
-                input = input.slice(1, -1)
-                const result = {}, entries = splitIgnoringNesting(input, ',', ['"', "'", '[', ']', '{', '}'])
-                for (const entry of entries) {
-                    const [rawKey, rawValue] = splitByFirstIgnoringNesting(entry, ':', ['"', "'", '[', ']', '{', '}']);
-                    let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
-                    if (value === undefined) [key, value] = handleImplicitValue(key)
-                    else value = parseInput(value)
-                    result[key] = value
-                }
-                return result
-            }, splitIgnoringNesting = (input, delimiter, nesters) => {
-                const result = []
-                let current = '', depth = 0, inQuote = null
-                for (let i = 0; i < input.length; i++) {
-                    const char = input[i]
-                    if (inQuote) {
-                        current += char
-                        if (char === inQuote) inQuote = null
-                    } else {
-                        if (char === '"' || char === "'") {
-                            inQuote = char
-                            current += char
-                        } else if (nesters.includes(char)) {
-                            depth += 1
-                            current += char
-                        } else if (nesters.includes(getMatchingCloser(char))) {
-                            depth -= 1
-                            current += char
-                        } else if (char === delimiter && depth === 0) {
-                            result.push(current.trim())
-                            current = ''
-                        } else current += char
-                    }
-                }
-                if (current) result.push(current.trim())
-                return result
-            }, splitByFirstIgnoringNesting = (input, delimiter, nesters) => {
-                let current = '', depth = 0, inQuote = null
-                for (let i = 0; i < input.length; i++) {
-                    const char = input[i]
-                    if (inQuote) {
-                        current += char
-                        if (char === inQuote) inQuote = null
-                    } else {
-                        if (char === '"' || char === "'") {
-                            inQuote = char
-                            current += char
-                        } else if (nesters.includes(char)) {
-                            depth += 1
-                            current += char
-                        } else if (nesters.includes(getMatchingCloser(char))) {
-                            depth -= 1
-                            current += char
-                        } else if (char === delimiter && depth === 0) {
-                            const rest = input.slice(i + 1)
-                            return [current.trim(), rest.trim()]
-                        } else current += char
-                    }
-                }
-                return [current.trim()]
-            }, handleImplicitValue = (key) => {
-                if (key.endsWith('.')) return [key.slice(0, -1), true]
-                if (key.endsWith('!')) return [key.slice(0, -1), false]
-                if (key.endsWith('-')) return [key.slice(0, -1), null]
-                if (key.endsWith('?')) return [key.slice(0, -1), undefined]
-                return [key, key]
-            }, getMatchingCloser = (char) => {
-                if (char === '[') return ']'
-                if (char === '{') return '}'
-                return null
-            }, skipWhitespace = (input, i) => {
-                while (i < input.length && /\s/.test(input[i])) i++
-                return i
-            }
-            return parseInput(input)
+
+
+
+    resolveShapeHandleImplicitValue: {
+        value: function (key) {
+            if (key.endsWith('.')) return [key.slice(0, -1), true]
+            if (key.endsWith('!')) return [key.slice(0, -1), false]
+            if (key.endsWith('-')) return [key.slice(0, -1), null]
+            if (key.endsWith('?')) return [key.slice(0, -1), undefined]
+            return [key, key]
         }
     },
+    resolveShapeSplitIgnoringNesting: {
+        value: function (input, delimiter, nesters, byFirst) {
+            const result = byFirst ? undefined : [], closers = { '{': '}', '[': ']' }
+            let current = '', depth = 0, inQuote = null
+            for (let i = 0, l = input.length; i < l; i++) {
+                const char = input[i]
+                if (inQuote) {
+                    current += char
+                    if (char === inQuote) inQuote = null
+                } else {
+                    if (char === '"' || char === "'") {
+                        inQuote = char
+                        current += char
+                    } else if (nesters.includes(char)) {
+                        depth += 1
+                        current += char
+                    } else if (nesters.includes(closers[char])) {
+                        depth -= 1
+                        current += char
+                    } else if (char === delimiter && depth === 0) {
+                        if (byFirst) return [current.trim(), input.slice(i + 1).trim()]
+                        result.push(current.trim())
+                        current = ''
+                    } else current += char
+                }
+            }
+            if (!byFirst && current) result.push(current.trim())
+            return byFirst ? [current.trim()] : result
+        }
+    },
+    resolveShapeParseCompound: {
+        value: function (input, type) {
+            const isQs = type === 'querystring', isArray = type === 'array', delimiter = isQs ? '&' : ',', subDelimiter = isQs ? '=' : ':', nesters = ['"', "'", ...(isQs ? [] : ['[', ']', '{', '}'])],
+                result = isArray ? [] : {}, entries = this.resolveShapeSplitIgnoringNesting(input.slice(1, -1), delimiter, nesters)
+            for (const entry of entries) {
+                if (isArray) { result.push(this.resolveShape(entry.trim())); continue }
+                const [rawKey, rawValue] = this.resolveShapeSplitIgnoringNesting(entry, subDelimiter, nesters, true)
+                let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
+                if (value === undefined) [key, value] = this.resolveShapeHandleImplicitValue(key)
+                else if (type === 'object') value = this.resolveShape(value)
+                result[key] = value
+            }
+            return result
+        }
+    },
+    resolveShape: {
+        value: function (input) {
+            if (typeof input !== 'string') return input
+            if (input.startsWith('[')) return this.resolveShapeParseCompound(input, 'array')
+            else if (input.startsWith('?')) return this.resolveShapeParseCompound(input, 'querystring')
+            else if (input.startsWith('{')) return this.resolveShapeParseCompound(input, 'object')
+            return input
+        }
+    },
+
+
+
     sliceAndStep: { // optimal
         value: function (sig, list) {
             if (!Array.isArray(list)) return list
