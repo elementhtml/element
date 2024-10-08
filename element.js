@@ -275,7 +275,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     Load: { // optimal
         enumerable: true, value: async function (rootElement = undefined) {
-            const { env, app, sys, runHook } = this, { interpreters } = env, { _eventTarget } = app
+            const { env, app, sys, runUnit } = this, { interpreters } = env, { _eventTarget } = app
             for (const [, interpreter] of interpreters) for (const p of ['handler', 'binder']) if (interpreter[p]) interpreter[p] = interpreter[p].bind(this)
             const interpretersProxyError = () => { throw new Error('Interpreters are read-only at runtime.') }
             env.interpreters = Object.freeze(new Proxy(interpreters, {
@@ -286,11 +286,11 @@ const ElementHTML = Object.defineProperties({}, {
             Object.freeze(app)
             for (const eventName of sys.windowEvents) window.addEventListener(eventName, event => {
                 _eventTarget.dispatchEvent(new CustomEvent(eventName, { detail: this }))
-                runHook.call(this, eventName)
+                runUnit.call(this, eventName, 'hook')
             })
             this.mountElement(document.documentElement).then(async () => {
                 _eventTarget.dispatchEvent(new CustomEvent('load', { detail: this }))
-                await runHook.call(this, 'load')
+                await runUnit.call(this, 'load', 'hook')
                 new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100)).then(() => this.processQueue())
             })
         }
@@ -456,7 +456,7 @@ const ElementHTML = Object.defineProperties({}, {
                 return app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
             }
             unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
+            return app[unitTypeCollectionName][unitKey] = await unitResolver.call(this, unitKey)
         }
     },
     resolveUrl: { // optimal
@@ -536,27 +536,17 @@ const ElementHTML = Object.defineProperties({}, {
             return result === undefined ? dft : result
         }
     },
-    runHook: { // should be able to be replaced with runUnit(name, 'hook')
-        enumerable: true, value: async function (hookName) {
-            if (!this.app.hooks[hookName]) {
-                if (!this.env.hooks[hookName]) return
-                this.app.hooks[hookName] = {}
-                const promises = []
-                for (const packageKey in this.env.hooks[hookName]) {
-                    let hookFunction = this.env.hooks[hookName][packageKey]
-                    if (typeof hookFunction === 'string') promises.push(this.resolveUnit(hookFunction, 'hook').then(hookFunction => { if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction }))
-                    if (typeof hookFunction === 'function') this.app.hooks[hookName][packageKey] = hookFunction
-                }
-                await Promise.all(promises)
-            }
-            if (!this.app.hooks[hookName]) return
-            const envelope = this.createEnvelope()
-            for (const packageKey in this.app.hooks[hookName]) this.app.hooks[hookName][packageKey](envelope)
-        }
-    },
     runUnit: { // optimal
         enumerable: true, value: async function (unitKey, unitType, ...args) {
-            const unit = await this.resolveUnit(unitKey, unitType)
+            const unit = await this.resolveUnit(unitKey, unitType), isArray = Array.isArray(unit), isObject = !isArray && this.isPlainObject(unit),
+                promises = (isArray || isObject) && [], result = isObject && {}
+            if (isArray) {
+                for (const u of unit) promises.push(typeof u === 'function' ? u(...args) : (u?.run(...args) ?? u))
+                return Promise.all(promises)
+            } else if (isObject) {
+                for (const k in unit) promises.push(Promise.resolve(typeof unit[k] === 'function' ? unit[k](...args) : (unit[k]?.run(...args) ?? unit[k])).then(resolved => result[k] = resolved))
+                return Promise.all(promises).then(() => result)
+            }
             return unit?.run(...args)
         }
     },
@@ -1012,12 +1002,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     defaultResolver: { // optimal
-        value: async function (unitKey) {
+        value: async function (unitKey, unitType) {
+            if (!(unitKey && unitType)) return
+            const unitTypeCollectionName = this.sys.unitTypeMap[unitType]?.[0]
+            if (!unitTypeCollectionName) return
             let unitUrl
             switch (unitKey[0]) {
                 case '.': case '/': unitUrl = this.resolveUrl(unitKey, undefined, true); break
                 default:
-                    if (unitUrl.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
+                    if (unitKey.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
                     else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey}`, undefined, true)
             }
             if (!unitUrl) return
