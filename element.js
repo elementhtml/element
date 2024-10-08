@@ -368,11 +368,7 @@ const ElementHTML = Object.defineProperties({}, {
             return (proto === null) || (proto === Object.prototype) || (proto.constructor === Object)
         }
     },
-    isWrappedVariable: { // optimal
-        enumerable: true, value: function (expression) {
-            return ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}')))
-        }
-    },
+    isWrappedVariable: { enumerable: true, value: function (expression) { return ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}'))) } }, // optimal
     parse: {
         enumerable: true, value: async function (input, contentType) {
             const inputIsResponse = (input instanceof Response), inputIsText = (typeof input === 'text')
