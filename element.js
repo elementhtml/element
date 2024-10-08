@@ -467,14 +467,14 @@ const ElementHTML = Object.defineProperties({}, {
             if (protocol === document.location.protocol) return raw ? valueUrl : valueUrl.href
             const gateway = this.app.gateways[protocol]
             if (gateway) {
-                const path = valueUrl.pathname.replace(this.sys.regexp.leadingSlash, '')
+                const { regexp } = this.sys, path = valueUrl.pathname.replace(regexp.leadingSlash, '')
                 switch (typeof gateway) {
                     case 'function':
                         const gatewayArgs = { path }
                         for (const k in valueUrl) if (typeof valueUrl[k] === 'string') gatewayArgs[k] = valueUrl[k]
                         return raw ? new URL((gateway(gatewayArgs)), base) : (gateway(gatewayArgs))
                     case 'string':
-                        const mergedUrl = new URL(gateway.replace(this.sys.regexp.gatewayUrlTemplateMergeField, (match, mergeExpression) => {
+                        const mergedUrl = new URL(gateway.replace(regexp.gatewayUrlTemplateMergeField, (match, mergeExpression) => {
                             mergeExpression = mergeExpression.trim()
                             if (!mergeExpression) return path
                             if (!mergeExpression.includes('|')) {
