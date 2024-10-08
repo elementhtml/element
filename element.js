@@ -1541,9 +1541,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                 }
             }
-            run(input, verbose, envelope) {
-                return this.engine(input, verbose, envelope)
-            }
+            run(input, verbose, envelope) { return this.engine(input, verbose, envelope) }
         }
     },
     Validator: { // optimal
@@ -1575,8 +1573,8 @@ Object.defineProperties(ElementHTML, {
     },
     Field: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
-            constructor(facetInstanceOrContainer, name, initialValue) {
-                let fields = (facetInstanceOrContainer instanceof ElementHTML.Facet) ? facetInstanceOrContainer.fields : ((facetInstanceOrContainer instanceof HTMLElement) ? ElementHTML.app._facetInstances.get(facetInstanceOrContainer).fields : undefined)
+            constructor(facet, name, initialValue) {
+                let fields = (facet instanceof ElementHTML.Facet) ? facet.fields : ((facet instanceof HTMLElement) ? ElementHTML.app._facetInstances.get(facet).fields : undefined)
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
                 if (name && fields) fields[name] ??= this
@@ -1584,10 +1582,9 @@ Object.defineProperties(ElementHTML, {
         }
     }
 })
-const { app, sys } = ElementHTML
+const { app } = ElementHTML
 for (const k in ElementHTML.env) Object.defineProperty(app, k, { configurable: false, enumerable: true, writable: false, value: {} })
 for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) Object.defineProperty(ElementHTML[className], 'E', { configurable: false, writable: false, value: ElementHTML })
-for (const f in ElementHTML.sys.color) ElementHTML.sys.color[f] = ElementHTML.sys.color[f].bind(ElementHTML)
 const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
 await Promise.all(promises)
