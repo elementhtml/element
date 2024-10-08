@@ -1024,9 +1024,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.engine ??= this.apiWrapper
             }
             async run(slug, lang, envelope) {
-                const { E } = this.constructor
                 if (typeof slug === 'string') {
-                    slug = E.resolveVariable(slug, envelope, { merge: true })
+                    slug = this.constructor.E.resolveVariable(slug, envelope, { merge: true })
                     if (lang && typeof lang === 'string') slug = `${E.resolveVariable(lang, envelope, { merge: true })}/${slug}`
                 }
                 return this.engine(slug, envelope)
