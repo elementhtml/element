@@ -1,3 +1,9 @@
+const voidElementTags = Object.freeze({
+    area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
+    param: 'value', source: 'src', track: 'src', wbr: null
+})
+
+
 export default async function (element, data) {
     if (!(element instanceof HTMLElement)) return
     element = this.app._components.natives.get(element) ?? element

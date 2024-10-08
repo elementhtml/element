@@ -1,3 +1,7 @@
+const suffixContentTypeMap = Object.freeze({
+    html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
+})
+
 export default async function (input, contentType) {
     const inputIsResponse = (input instanceof Response)
     if (!(inputIsResponse || (typeof input === 'text'))) return input
@@ -7,7 +11,7 @@ export default async function (input, contentType) {
         if (serverContentType !== 'application/octet-stream') contentType = serverContentType || undefined
         if (!contentType) {
             const inputUrlPathname = (new URL(input.url)).pathname, suffix = inputUrlPathname.includes('.') ? inputUrlPathname.split('.').pop() : undefined
-            contentType = suffix ? this.sys.suffixContentTypeMap[suffix] : undefined
+            contentType = suffix ? suffixContentTypeMap[suffix] : undefined
             if (contentType) inputUrlExtension = suffix
         }
         if (!contentType || (contentType === 'text/html') || (contentType === 'text/plain')) return await input.text()

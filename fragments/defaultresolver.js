@@ -1,3 +1,8 @@
+const autoResolverSuffixes = Object.freeze({
+    component: ['html'], gateway: ['wasm'], helper: ['wasm'], snippet: ['html'], syntax: ['wasm'],
+    transform: ['wasm', 'jsonata'], type: ['x', 'schema.json', 'json']
+})
+
 export default async function () {
     if (!(unitKey && unitType)) return
     const unitTypeCollectionName = this.sys.unitTypeMap[unitType]?.[0]
@@ -11,7 +16,7 @@ export default async function () {
     }
     if (!unitUrl) return
     let unitSuffix
-    for (const s of (['js', ...(this.sys.autoResolverSuffixes[unitType] ?? [])].sort())) {
+    for (const s of (['js', ...(autoResolverSuffixes[unitType] ?? [])].sort())) {
         if (unitUrl.pathname.endsWith(`.${s}`)) { unitSuffix = s; break }
         const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
         if ((await fetch(testUrl, { method: 'HEAD' })).ok) {

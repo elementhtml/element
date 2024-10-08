@@ -571,10 +571,6 @@ const ElementHTML = Object.defineProperties({}, {
     modules: { enumerable: true, value: {} },
     sys: {
         value: Object.freeze({
-            autoResolverSuffixes: Object.freeze({ // once
-                component: ['html'], gateway: ['wasm'], helper: ['wasm'], snippet: ['html'], syntax: ['wasm'],
-                transform: ['wasm', 'jsonata'], type: ['x', 'schema.json', 'json']
-            }),
             defaultEventTypes: Object.freeze({
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
@@ -590,9 +586,6 @@ const ElementHTML = Object.defineProperties({}, {
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
-            suffixContentTypeMap: Object.freeze({ // once
-                html: 'text/html', css: 'text/css', md: 'text/markdown', csv: 'text/csv', txt: 'text/plain', json: 'application/json', yaml: 'application/x-yaml', jsonl: 'application/x-jsonl',
-            }),
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
@@ -604,11 +597,7 @@ const ElementHTML = Object.defineProperties({}, {
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
-            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true }),
-            voidElementTags: Object.freeze({ // once
-                area: 'href', base: 'href', br: null, col: 'span', embed: 'src', hr: 'size', img: 'src', input: 'value', link: 'href', meta: 'content',
-                param: 'value', source: 'src', track: 'src', wbr: null
-            })
+            valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true })
         })
     },
 
