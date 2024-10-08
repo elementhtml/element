@@ -302,11 +302,10 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     deepFreeze: { //optimal
-        enumerable: true, value: function (obj, copy) {
-            if (!Array.isArray(obj) && !this.isPlainObject(obj)) return obj
-            if (copy) obj = JSON.parse(JSON.stringify(obj))
-            const isArray = Array.isArray(obj), keys = isArray ? obj : Object.keys(obj)
-            for (const item of keys) this.deepFreeze(isArray ? item : obj[item])
+        enumerable: true, value: function (obj, copy, isArray) {
+            if (!(isArray ??= Array.isArray(obj)) && !this.isPlainObject(obj)) return obj
+            try { if (copy) obj = JSON.parse(JSON.stringify(obj)) } catch (e) { }
+            for (const v of (isArray ? obj : Object.values(obj))) this.deepFreeze(v)
             return Object.freeze(obj)
         }
     },
