@@ -601,7 +601,7 @@ const ElementHTML = Object.defineProperties({}, {
         })
     },
 
-    activateTag: {
+    activateTag: { // optimal
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
             let componentClass = await this.resolveUnit(tag, 'component')
