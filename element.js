@@ -350,8 +350,8 @@ const ElementHTML = Object.defineProperties({}, {
     },
     generateUuid: {//optimal
         enumerable: true, value: function (noDashes) {
-            if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
-            return (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
+            return typeof crypto.randomUUID === 'function' ? crypto.randomUUID()[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
+                : (noDashes ? 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx' : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').replace(this.sys.regexp.xy, c => ((c === 'x' ? Math.random() * 16 : (Math.random() * 4 + 8)) | 0).toString(16))
         }
     },
     getCustomTag: { // optimal
