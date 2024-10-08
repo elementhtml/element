@@ -586,6 +586,7 @@ const ElementHTML = Object.defineProperties({}, {
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
+            resolveShape: Object.freeze({ startFlags: new Set(['[', '?', '{']), endFlags: Object.freeze({ '.': true, '!': false, '-': null, '?': undefined }), closers: Object.freeze({ '{': '}', '[': ']' }) }),
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
@@ -820,16 +821,13 @@ const ElementHTML = Object.defineProperties({}, {
 
     resolveShapeHandleImplicitValue: {
         value: function (key) {
-            if (key.endsWith('.')) return [key.slice(0, -1), true]
-            if (key.endsWith('!')) return [key.slice(0, -1), false]
-            if (key.endsWith('-')) return [key.slice(0, -1), null]
-            if (key.endsWith('?')) return [key.slice(0, -1), undefined]
-            return [key, key]
+            const { endFlags } = this.sys.resolveShape, endFlag = key.slice(key.length - 1)
+            return (endFlag in endFlags) ? endFlags[endFlag] : [key, key]
         }
     },
     resolveShapeSplitIgnoringNesting: {
         value: function (input, delimiter, nesters, byFirst) {
-            const result = byFirst ? undefined : [], closers = { '{': '}', '[': ']' }
+            const result = byFirst ? undefined : [], { closers } = this.sys.resolveShape
             let current = '', depth = 0, inQuote = null
             for (let i = 0, l = input.length; i < l; i++) {
                 const char = input[i]
@@ -858,15 +856,15 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveShapeParseCompound: {
-        value: function (input, type) {
-            const isQs = type === 'querystring', isArray = type === 'array', delimiter = isQs ? '&' : ',', subDelimiter = isQs ? '=' : ':', nesters = ['"', "'", ...(isQs ? [] : ['[', ']', '{', '}'])],
+        value: function (input, flag) {
+            const isQs = flag === '?', isArray = flag === '[', delimiter = isQs ? '&' : ',', subDelimiter = isQs ? '=' : ':', nesters = ['"', "'", ...(isQs ? [] : ['[', ']', '{', '}'])],
                 result = isArray ? [] : {}, entries = this.resolveShapeSplitIgnoringNesting(input.slice(1, -1), delimiter, nesters)
             for (const entry of entries) {
                 if (isArray) { result.push(this.resolveShape(entry.trim())); continue }
                 const [rawKey, rawValue] = this.resolveShapeSplitIgnoringNesting(entry, subDelimiter, nesters, true)
                 let key = rawKey.trim(), value = rawValue !== undefined ? rawValue.trim() : undefined
                 if (value === undefined) [key, value] = this.resolveShapeHandleImplicitValue(key)
-                else if (type === 'object') value = this.resolveShape(value)
+                else if (flag === '{') value = this.resolveShape(value)
                 result[key] = value
             }
             return result
@@ -875,9 +873,7 @@ const ElementHTML = Object.defineProperties({}, {
     resolveShape: {
         value: function (input) {
             if (typeof input !== 'string') return input
-            if (input.startsWith('[')) return this.resolveShapeParseCompound(input, 'array')
-            else if (input.startsWith('?')) return this.resolveShapeParseCompound(input, 'querystring')
-            else if (input.startsWith('{')) return this.resolveShapeParseCompound(input, 'object')
+            if (this.sys.resolveShape.startFlags.has(input[0])) return this.resolveShapeParseCompound(input, input[0])
             return input
         }
     },
