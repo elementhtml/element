@@ -436,7 +436,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const k of keys) result[isArray ? result.length : k] = await this.resolveUnit(k, unitKey[k])
                 return result
             }
-            if (unitType === 'resolver') return this.defaultResolver
+            if (unitType === 'resolver') return this.defaultResolver.bind(this)
             const { sys, app } = this, [unitTypeCollectionName, unitClassName] = sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
             if (!(unitKey = unitKey.trim())) return
@@ -453,10 +453,11 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
                 else if (envUnit instanceof Promise) envUnit = await envUnit
                 else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-                return app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
+                return app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType) : envUnit
             }
+            if (this.sys.localOnlyUnitTypes.has(unitType)) return
             unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return app[unitTypeCollectionName][unitKey] = await unitResolver.call(this, unitKey)
+            return app[unitTypeCollectionName][unitKey] = await unitResolver.call(this, unitKey, unitType)
         }
     },
     resolveUrl: { // optimal
@@ -540,6 +541,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (unitKey, unitType, ...args) {
             const unit = await this.resolveUnit(unitKey, unitType), isArray = Array.isArray(unit), isObject = !isArray && this.isPlainObject(unit),
                 promises = (isArray || isObject) && [], result = isObject && {}
+            if (!unit) return
             if (isArray) {
                 for (const u of unit) promises.push(typeof u === 'function' ? u(...args) : (u?.run(...args) ?? u))
                 return Promise.all(promises)
@@ -844,6 +846,7 @@ const ElementHTML = Object.defineProperties({}, {
                 },
             },
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
+            localOnlyUnitTypes: new Set(['hook']),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             queue: new Map(),
             regexp: Object.freeze({
@@ -1015,8 +1018,8 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!unitUrl) return
             let unitSuffix
-            for (const s of this.sys.autoResolverSuffixes[unitType]) {
-                if (unitUrl.patname.endsWith(`.${s}`)) { unitSuffix = s; break }
+            for (const s of (this.sys.autoResolverSuffixes[unitType] ?? ['js'])) {
+                if (unitUrl.pathname.endsWith(`.${s}`)) { unitSuffix = s; break }
                 const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
                 if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
                     unitUrl.pathname = testPath
