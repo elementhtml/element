@@ -401,13 +401,13 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: { // optimal
         enumerable: true, value: async function (scopedSelector, element) {
-            const { impliedScopes, regexp } = this.sys
+            const { impliedScopes, regexp } = this.sys, { pipeSplitter } = regexp
             element &&= this.app._components.nativesFromVirtuals.get(element) ?? element
             if (impliedScopes[scopedSelector]) return element ? (await this.resolveScope(impliedScopes[scopedSelector], element)) : { scope: impliedScopes[scopedSelector] }
             if (impliedScopes[scopedSelector[0]]) scopedSelector = `${impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
-            if (regexp.pipeSplitter.test(scopedSelector)) {
-                const [scopeStatement, selectorStatement] = scopedSelector.split(regexp.pipeSplitter, 2).map(s => s.trim())
+            if (pipeSplitter.test(scopedSelector)) {
+                const [scopeStatement, selectorStatement] = scopedSelector.split(pipeSplitter, 2).map(s => s.trim())
                 if (!element) return { scope: scopeStatement, selector: selectorStatement }
                 scope = await this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
