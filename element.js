@@ -322,22 +322,18 @@ const ElementHTML = Object.defineProperties({}, {
                 case Blob: return { size: value.size, type: value.type }
                 case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
                 case DataTransferItem: return { kind: value.kind, type: value.type }
-                case DataTransfer:
-                    result = { dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types }
-                    Object.defineProperties(result, { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
-                    return result
+                case DataTransfer: return Object.defineProperties({ dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types },
+                    { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
                 case FileList: case DataTransferItemList: case Array:
                     result = []
                     for (const f of value) result.push(this.flatten(f))
                     return result
                 case FormData: return Object.fromEntries(value.entries())
                 case Response:
-                    result = { ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }
-                    Object.defineProperties(result, {
+                    return Object.defineProperties({ ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }, {
                         body: { enumerable: true, get: () => this.parse(value) }, bodyUsed: { enumerable: true, get: () => value.bodyUsed },
                         headers: { enumerable: true, get: () => Object.fromEntries(value.headers.entries()) }
                     })
-                    return result
                 default:
                     if (typeof value.valueOf === 'function') return value.valueOf()
                     else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
@@ -348,25 +344,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (value instanceof HTMLElement) {
                 const { mappers } = this.sys
-                result = new Proxy({}, {
-                    get(target, prop) {
-                        if (prop in mappers) return mappers[prop](value)
-                        const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in mappers) return mappers[propFlag](value, propMain)
-                        if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1))
-                        if ((propFlag === '{') && propMain.endsWith('}')) return mappers.$microdata(value, propMain.slice(0, -1))
-                        return this.flatten(value[prop])
-                    },
-                    has(target, prop) {
-                        if (prop in mappers) return mappers(value, prop) !== undefined
-                        const propFlag = prop[0], propMain = prop.slice(1)
-                        if (propFlag in mappers) return mappers(value, propMain) !== undefined
-                        if ((propFlag === '[') && propMain.endsWith(']')) return mappers.$form(value, propMain.slice(0, -1)) !== undefined
-                        if ((propFlag === '{') && propMain.endsWith('}')) return mappers.$microdata(value, propMain.slice(0, -1)) !== undefined
-                        return (prop in value)
-                    }
-                })
-                return result
+                return new Proxy({}, { get: (target, prop) => this.processElementMapper(value, prop, mappers), has: (target, prop) => this.processElementMapper(value, prop, mappers, true) })
             }
             for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
         }
@@ -1375,6 +1353,17 @@ const ElementHTML = Object.defineProperties({}, {
             facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
             facetInstance.disabled = facetContainer.hasAttribute('disabled')
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
+        }
+    },
+    processElementMapper: {
+        value: function (element, prop, mappers, isHas) {
+            if (prop in mappers) return isHas || mappers[prop](element)
+            const propFlag = prop[0], propMain = prop.slice(1)
+            let r, t
+            if (t = (propFlag in mappers)) r = mappers[propFlag](element, propMain)
+            else if (t = ((propFlag === '[') && propMain.endsWith(']'))) r = mappers.$form(element, propMain.slice(0, -1))
+            else if (t = ((propFlag === '{') && propMain.endsWith('}'))) r = mappers.$microdata(element, propMain.slice(0, -1))
+            return t ? (isHas ? (r !== undefined) : r) : (isHas ? (prop in element) : this.flatten(element[prop]))
         }
     },
     processQueue: { // optimal
