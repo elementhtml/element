@@ -886,7 +886,7 @@ const ElementHTML = Object.defineProperties({}, {
             return newList
         }
     },
-    unmountElement: { // optimal
+    unmountElement: { // optimal - but check for interplace with this.app._components ... virtuals, natives and bindings
         value: async function (element) {
             if (!(element instanceof HTMLElement)) return
             if (this.isFacetContainer(element)) return this.unmountFacet(element)
