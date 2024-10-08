@@ -317,7 +317,6 @@ const ElementHTML = Object.defineProperties({}, {
                 case 'bigint': case 'symbol': return value.toString()
                 case 'function': return undefined
             }
-            let result
             switch (value?.constructor) {
                 case Blob: return { size: value.size, type: value.type }
                 case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
@@ -325,9 +324,9 @@ const ElementHTML = Object.defineProperties({}, {
                 case DataTransfer: return Object.defineProperties({ dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types },
                     { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
                 case FileList: case DataTransferItemList: case Array:
-                    result = []
-                    for (const f of value) result.push(this.flatten(f))
-                    return result
+                    let a = []
+                    for (const f of value) a.push(this.flatten(f))
+                    return a
                 case FormData: return Object.fromEntries(value.entries())
                 case Response:
                     return Object.defineProperties({ ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }, {
@@ -337,9 +336,9 @@ const ElementHTML = Object.defineProperties({}, {
                 default:
                     if (typeof value.valueOf === 'function') return value.valueOf()
                     else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
-                        result = {}
-                        for (const k in value) result[k] = this.flatten(value[k])
-                        return result
+                        let obj = {}
+                        for (const k in value) obj[k] = this.flatten(value[k])
+                        return obj
                     }
             }
             if (value instanceof HTMLElement) {
