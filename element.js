@@ -721,7 +721,7 @@ const ElementHTML = Object.defineProperties({}, {
             if (this.isFacetContainer(element)) return this.mountFacet(element)
             const customTag = this.getCustomTag(element)
             if (customTag) {
-                await this.activateTag(customTag, element)
+                await this.activateTag(customTag)
                 const isAttr = element.getAttribute('is')
                 if (isAttr) {
                     const componentInstance = this.app._components.virtualsFromNatives.set(element, document.createElement(isAttr)).get(element)
