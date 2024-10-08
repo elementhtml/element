@@ -604,20 +604,22 @@ const ElementHTML = Object.defineProperties({}, {
     activateTag: {
         value: async function (tag) {
             if (!tag || globalThis.customElements.get(tag) || !this.getCustomTag(tag)) return
-            const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? this.env.namespaces[namespace]
-                ?? (namespace === 'component' ? './components' : `./components/${namespace}`)), id = `${namespaceBase}/${name.join('/')}.html`
-            this.app.components[id] = this.env.components[id] ?? (await this.modules.compile?.component(id))
-            for (const subspaceName of (this.app.components[id].subspaces)) {
-                let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
-                this.app.namespaces[virtualSubspaceName] = this.app.components[id][subspaceName]
-                this.app.components[id].template.innerHTML = this.app.components[id].template.innerHTML
-                    .replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`).replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`)
-                    .replace(new RegExp(` is='${subspaceName}-`, 'g'), ` is='${virtualSubspaceName}-`).replace(new RegExp(` is="${subspaceName}-`, 'g'), ` is="${virtualSubspaceName}-`)
-                    .replace(new RegExp(` is=${subspaceName}-`, 'g'), ` is=${virtualSubspaceName}-`)
-                this.app.components[id].style.textContext = this.app.components[id].style.textContext
-                    .replace(new RegExp(`${subspaceName}-`, 'g'), `${virtualSubspaceName}-`)
+            let componentClass = await this.resolveUnit(tag, 'component')
+            if (!componentClass) {
+                const [namespace, ...name] = tag.split('-'), namespaceBase = this.resolveUrl(this.app.namespaces[namespace] ?? `./components/${namespace}`), componentUrl = `${namespaceBase}/${name.join('/')}.html`
+                componentClass = this.app.components[tag] = await this.modules.compile?.component(componentUrl)
             }
-            globalThis.customElements.define(tag, this.app.components[id], undefined)
+            if (!componentClass) return
+            const { subspaces, style, template } = componentClass
+            for (const subspaceName of (subspaces)) {
+                let virtualSubspaceName = `${subspaceName}x${crypto.randomUUID().split('-').join('')}`
+                this.app.namespaces[virtualSubspaceName] = subspaces[subspaceName]
+                componentClass.template.innerHTML = template.innerHTML.replace(new RegExp(`<${subspaceName}-`, 'g'), `<${virtualSubspaceName}-`)
+                    .replace(new RegExp(`</${subspaceName}-`, 'g'), `</${virtualSubspaceName}-`).replace(new RegExp(` is='${subspaceName}-`, 'g'), ` is='${virtualSubspaceName}-`)
+                    .replace(new RegExp(` is="${subspaceName}-`, 'g'), ` is="${virtualSubspaceName}-`).replace(new RegExp(` is=${subspaceName}-`, 'g'), ` is=${virtualSubspaceName}-`)
+                componentClass.style.textContext = style.textContext.replace(new RegExp(`${subspaceName}-`, 'g'), `${virtualSubspaceName}-`)
+            }
+            globalThis.customElements.define(tag, componentClass)
         }
     },
     attachUnitTypeCollection: { // optimal
