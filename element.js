@@ -810,22 +810,19 @@ const ElementHTML = Object.defineProperties({}, {
             this.processQueue()
         }
     },
-    runFragment: {
+    runFragment: { // optimal
         value: async function (fragmentKey, ...args) {
             const fragment = (this.app._fragments[fragmentKey] ??= (await import(import.meta.resolve(`./fragments/${fragmentKey}.js`)))?.default)
             return typeof fragment === 'function' ? fragment.call(this, ...args) : fragment
         }
     },
-
-
-
-    resolveShapeHandleImplicitValue: {
+    resolveShapeHandleImplicitValue: { // optimal
         value: function (key) {
             const { endFlags } = this.sys.resolveShape, endFlag = key.slice(key.length - 1)
             return (endFlag in endFlags) ? endFlags[endFlag] : [key, key]
         }
     },
-    resolveShapeSplitIgnoringNesting: {
+    resolveShapeSplitIgnoringNesting: { // optimal
         value: function (input, delimiter, nesters, byFirst) {
             const result = byFirst ? undefined : [], { closers } = this.sys.resolveShape
             let current = '', depth = 0, inQuote = null
@@ -855,7 +852,7 @@ const ElementHTML = Object.defineProperties({}, {
             return byFirst ? [current.trim()] : result
         }
     },
-    resolveShapeParseCompound: {
+    resolveShapeParseCompound: { // optimal
         value: function (input, flag) {
             const isQs = flag === '?', isArray = flag === '[', delimiter = isQs ? '&' : ',', subDelimiter = isQs ? '=' : ':', nesters = ['"', "'", ...(isQs ? [] : ['[', ']', '{', '}'])],
                 result = isArray ? [] : {}, entries = this.resolveShapeSplitIgnoringNesting(input.slice(1, -1), delimiter, nesters)
@@ -870,16 +867,13 @@ const ElementHTML = Object.defineProperties({}, {
             return result
         }
     },
-    resolveShape: {
+    resolveShape: { // optimal
         value: function (input) {
             if (typeof input !== 'string') return input
             if (this.sys.resolveShape.startFlags.has(input[0])) return this.resolveShapeParseCompound(input, input[0])
             return input
         }
     },
-
-
-
     sliceAndStep: { // optimal
         value: function (sig, list) {
             if (!Array.isArray(list)) return list
