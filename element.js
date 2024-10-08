@@ -427,18 +427,25 @@ const ElementHTML = Object.defineProperties({}, {
             } catch (e) { return this.runFragment('resolveselector', selector, scope, isMulti, sliceSignature) }
         }
     },
-    resolveUnit: { // optimal - but put in feature to handle an array of unitKeys of the same unitType
+    resolveUnit: { // optimal
         enumerable: true, value: async function (unitKey, unitType) {
             if (!unitKey || !unitType) return
-            const [unitTypeCollectionName, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
+            const unitKeyTest = Array.isArray(unitKey) ? 'array' : (this.isPlainObject(unitKey) ? 'object' : undefined)
+            if (unitKeyTest) {
+                const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey : Object.keys(unitKey)
+                for (const k of keys) result[isArray ? result.length : k] = await this.resolveUnit(k, unitKey[k])
+                return result
+            }
+            if (unitType === 'resolver') return this.defaultResolver
+            const { sys, app } = this, [unitTypeCollectionName, unitClassName] = sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
             if (!(unitKey = unitKey.trim())) return
-            if (unitType === 'resolver') return this.defaultResolver
-            if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
-            const unitQueueJob = this.sys.queue.get(`${unitType}:${unitKey}`) ?? this.sys.queue.get(`${unitTypeCollectionName}:${unitKey}`)
+            let unit = app[unitTypeCollectionName][unitKey]
+            if (unit) return unit
+            const { queue } = sys, unitQueueJob = queue.get(`${unitType}:${unitKey}`) ?? queue.get(`${unitTypeCollectionName}:${unitKey}`)
             if (unitQueueJob) {
                 await unitQueueJob.completed()
-                if (this.app[unitTypeCollectionName][unitKey]) return this.app[unitTypeCollectionName][unitKey]
+                if (unit = app[unitTypeCollectionName][unitKey]) return unit
             }
             const envUnit = this.env[unitTypeCollectionName][unitKey]
             let unitResolver
@@ -446,10 +453,10 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
                 else if (envUnit instanceof Promise) envUnit = await envUnit
                 else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-                return this.app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
+                return app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver(envUnit) : envUnit
             }
             unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return this.app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
+            return app[unitTypeCollectionName][unitKey] = await unitResolver(unitKey)
         }
     },
     resolveUrl: { // optimal
