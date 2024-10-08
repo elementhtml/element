@@ -360,16 +360,12 @@ const ElementHTML = Object.defineProperties({}, {
             return tag.includes('-') ? tag : undefined
         }
     },
-    isFacetContainer: { // optimal
-        enumerable: true, value: function (element) {
-            return ((element instanceof HTMLScriptElement) && element.type?.endsWith('/element'))
-        }
-    },
+    isFacetContainer: { enumerable: true, value: function (element) { return ((element instanceof HTMLScriptElement) && element.type?.endsWith('/element')) } }, // optimal
     isPlainObject: { // optimal
         enumerable: true, value: function (obj) {
             if (!obj) return false
             const proto = Object.getPrototypeOf(obj)
-            return proto === null || proto === Object.prototype || proto.constructor === Object
+            return (proto === null) || (proto === Object.prototype) || (proto.constructor === Object)
         }
     },
     isWrappedVariable: { // optimal
