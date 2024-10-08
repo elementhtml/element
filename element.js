@@ -664,7 +664,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     defaultResolver: { value: async function (unitKey, unitType) { return this.runFragment('defaultresolver', unitKey, unitType) } }, // optimal
-    installGateway: { // optimal
+    installGateway: { // optimal - but needs testing to see how it can integrate with runUnit() and both the Gateway class and the Renderer class
         value: async function (protocol) {
             if (!protocol) return
             if (!protocol.endsWith(':')) protocol = `${protocol}:`
@@ -675,19 +675,14 @@ const ElementHTML = Object.defineProperties({}, {
                 const { gateway, head = gateway, auto, ctx } = manifest
                 let connection
                 switch (typeof head) {
-                    case 'string':
-                        const connectionResponse = await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })
-                        if (connectionResponse.ok) connection = await this.parse(connectionResponse)
-                        break
-                    case 'function':
-                        connection = await head.bind(this, { as: 'head', ctx, protocol })()
-                        break
+                    case 'string': if ((await fetch(`${window.location.protocol}//${head}`, { method: 'HEAD' })).ok) connection = true; break
+                    case 'function': connection = await head.bind(this, { as: 'head', ctx, protocol })(); break
                 }
                 if (!connection) continue
-                this.app.gateways[protocol] = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
+                let useGateway = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
                 if (auto) {
                     const urlAttributes = ['href', 'src']
-                    this.app._observers.set(this.app.gateways[protocol], new MutationObserver(records => {
+                    this.app._observers.set(useGateway, new MutationObserver(records => {
                         for (const { type, target, attributeName, addedNodes } of records) {
                             if (type !== 'attributes' && type !== 'childList') continue
                             const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
@@ -708,9 +703,9 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     }))
-                    this.app._observers.get(this.app.gateways[protocol]).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
+                    this.app._observers.get(useGateway).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
                 }
-                return this.app.gateways[protocol]
+                return this.app.gateways[protocol] = useGateway
             }
         }
     },
