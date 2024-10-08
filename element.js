@@ -1220,8 +1220,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!(typeof defaultTokenValue === 'string' || defaultTokenValue === true)) defaultTokenValue = ''
                 Object.assign(this, { defaultTokenValue, tokens: Object.freeze(tokens), virtual })
                 if (typeof virtual.engine === 'string') {
-                    const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter),
-                        [engineName, engineIntent] = engineNamePlusIntent.split(E.sys.regexp.pipeSplitter),
+                    const [engineType, engineNamePlusIntent] = virtual.engine.trim().split(E.sys.regexp.colonSplitter), [engineName, engineIntent] = engineNamePlusIntent.split(E.sys.regexp.pipeSplitter),
                         loadEngineJob = new E.Job(async function () { await await E.resolveUnit(engineName, engineType) }, `${engineType}:${engineName}`)
                     virtual.engine = loadEngineJob.complete.then(async () => {
                         const engine = await E.resolveUnit(engineName, engineType), validEngine = false
@@ -1237,11 +1236,10 @@ const ElementHTML = Object.defineProperties({}, {
             }
             saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
             async preload(langCode) {
-                const { E } = this.constructor, { virtual = {}, saveVirtual, tokens } = this
-                if (!virtual.engine) return
+                const { virtual = {}, saveVirtual, tokens } = this
                 if (virtual.engine instanceof Promise) await virtual.engine
                 if (!virtual.engine) return
-                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = await E.createEnvelope(this.envelope ?? {}), promises = []
+                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = await this.constructor.E.createEnvelope(this.envelope ?? {}), promises = []
                 if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputBase, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
                 if (Array.isArray(preload)) for (const preloadLangCode of preload)
                     promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputBase, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
@@ -1251,7 +1249,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const defaultResult = (this.defaultTokenValue === true ? token : this.defaultTokenValue)
                 if (!(token in this.tokens)) return defaultResult
                 if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
-                const { E } = this.constructor, { virtual } = this, { engine, engineIntent, lang, base } = virtual
+                const { virtual } = this, { engine, engineIntent, lang, base } = virtual
                 if (!(langCode && engine)) return
                 const [baseLangCode,] = langCode.split('-')
                 lang[langCode] ??= {}
