@@ -552,22 +552,7 @@ const ElementHTML = Object.defineProperties({}, {
             return unit?.run(...args)
         }
     },
-    serialize: {
-        enumerable: true, value: async function (input, contentType = 'application/json') {
-            contentType ||= 'application/json'
-            if (typeof input === 'string') return input
-            if (contentType && !contentType.includes('/')) contentType = `application/${contentType}`
-            if (contentType === 'application/json') return JSON.stringify(input)
-            if ((input instanceof HTMLElement) && (contentType === 'text/html' || contentType === 'text/markdown')) input = input.outerHTML
-            if (contentType && contentType.includes('form')) return (new URLSearchParams(input)).toString()
-            if (contentType === 'text/css') {
-                if (input instanceof HTMLElement) return (await (new CSSStyleSheet()).replace(input.textContent)).cssRules.map(rule => rule.cssText).join('\n')
-                if (input instanceof CSSStyleSheet) return input.cssRules.map(rule => rule.cssText).join('\n')
-            }
-            await this.loadHelper(contentType)
-            return this.useHelper(contentType, input, true) ?? `${input}`
-        }
-    },
+    serialize: { enumerable: true, value: async function (input, contentType = 'application/json') { return this.runFragment('serialize', input, contentType) } }, // optimal
     toCamelCase: {
         enumerable: true, value: function (str) {
             return str.replace(this.sys.regexp.dashUnderscoreSpace, (_, c) => (c ? c.toUpperCase() : '')).replace(this.sys.regexp.nothing, (c) => c.toLowerCase())

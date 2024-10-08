@@ -17,5 +17,5 @@ export default async function (input, contentType) {
     let text = ((input instanceof Response) ? await input.text() : input).trim()
     if (contentType === 'text/css') return await (new CSSStyleSheet()).replace(text)
     if (contentType && contentType.includes('form')) return Object.fromEntries((new URLSearchParams(text)).entries())
-    return (this.resolveUnit(contentType, 'transform') ?? (inputUrlExtension ? this.resolveUnit(inputUrlExtension, 'transform') : undefined))?.run(text)
+    return (await (this.resolveUnit(contentType, 'transform') ?? (inputUrlExtension ? this.resolveUnit(inputUrlExtension, 'transform') : undefined)))?.run(text)
 }
