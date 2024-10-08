@@ -380,7 +380,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScope: { // optimal
         enumerable: true, value: function (scopeStatement, element) {
-            element = this.app._components.natives.get(element) ?? element
+            element = this.app._components.nativesFromVirtuals.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             switch (scopeStatement) {
                 case 'head': return document.head
@@ -402,7 +402,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveScopedSelector: { // optimal
         enumerable: true, value: function (scopedSelector, element) {
-            if (element) element = this.app._components.natives.get(element) ?? element
+            if (element) element = this.app._components.nativesFromVirtuals.get(element) ?? element
             if (this.sys.impliedScopes[scopedSelector]) return element ? this.resolveScope(this.sys.impliedScopes[scopedSelector], element) : { scope: this.sys.impliedScopes[scopedSelector] }
             if (this.sys.impliedScopes[scopedSelector[0]]) scopedSelector = `${this.sys.impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
@@ -652,7 +652,7 @@ const ElementHTML = Object.defineProperties({}, {
     app: {
         value: Object.defineProperties({}, {
             cells: { enumerable: true, value: {} },
-            _components: { value: { natives: new WeakMap(), bindings: new WeakMap(), virtuals: new WeakMap() } },
+            _components: { value: { nativesFromVirtuals: new WeakMap(), bindings: new WeakMap(), virtualsFromNatives: new WeakMap() } },
             _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _fragments: { value: {} }, _observers: { value: new WeakMap() }
         })
     },
@@ -756,7 +756,7 @@ const ElementHTML = Object.defineProperties({}, {
                 '<>': '$html',
                 $tag: (el, p, w, v = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
                 $parent: function (el, p, w, v) {
-                    el = this.app._components.natives.get(el) ?? el
+                    el = this.app._components.nativesFromVirtuals.get(el) ?? el
                     return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
                 },
                 '^': '$parent',
@@ -1174,10 +1174,10 @@ const ElementHTML = Object.defineProperties({}, {
                 await this.activateTag(customTag, element)
                 const isAttr = element.getAttribute('is')
                 if (isAttr) {
-                    const componentInstance = this.app._components.virtuals.set(element, document.createElement(isAttr)).get(element)
+                    const componentInstance = this.app._components.virtualsFromNatives.set(element, document.createElement(isAttr)).get(element)
                     for (const a of element.attributes) componentInstance.setAttribute(a.name, a.value)
                     if (element.innerHTML != undefined) componentInstance.innerHTML = element.innerHTML
-                    this.app._components.natives.set(componentInstance, element)
+                    this.app._components.nativesFromVirtuals.set(componentInstance, element)
                     if (typeof componentInstance.connectedCallback === 'function') componentInstance.connectedCallback()
                     if (componentInstance.disconnectedCallback || componentInstance.adoptedCallback || componentInstance.attributeChangedCallback) {
                         const observer = new MutationObserver(mutations => {
@@ -1574,7 +1574,7 @@ const ElementHTML = Object.defineProperties({}, {
             valueOf() { return this.E.flatten(this) }
             toJSON() { return this.valueOf() }
             dispatchEvent(event) {
-                let virtualElement = this.constructor.E.app._components.virtuals.get(this), nativeElement = this.constructor.E.app._components.natives.get(this)
+                let virtualElement = this.constructor.E.app._components.virtualsFromNatives.get(this), nativeElement = this.constructor.E.app._components.nativesFromVirtuals.get(this)
                 let eventName = event.type === 'default' ? undefined : event.type
                 const isPair = (virtualElement || nativeElement), { detail, bubbles, cancelable, composed } = event
                 if (isPair) {
