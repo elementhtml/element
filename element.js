@@ -940,14 +940,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.engine = async input => ((this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper))(input))
             }
-            async run(input, promptTemplateKey, envelope) {
-                if (!this.engine) return
-                if (typeof input === 'string') {
-                    const promptTemplate = promptTemplateKey ? (this.promptTemplates[promptTemplateKey] ?? '$') : '$'
-                    input = this.constructor.E.resolveVariable(promptTemplate, { ...envelope, value: input }, { merge: true })
-                }
-                return this.engine(input)
-            }
+            async run(input, promptTemplateKey, envelope) { return (await this.constructor.E.runFragment('ai')).run.call(this, input, promptTemplateKey, envelope) }
         }
     },
     API: { // optimal
@@ -962,30 +955,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
-            async run(value, action, envelope) {
-                const { E } = this
-                if (this.preProcessor) value = await E.runUnit(this.preProcessor, 'transform', value)
-                action = (action ? this.actions[action] : undefined) ?? { pathname: `/${('pathname' in this.options) ? (this.options.pathname || '') : (action || '')}` }
-                const options = {
-                    ...this.options, ...(action?.options ?? {}),
-                    method: action.method ?? ({ null: 'HEAD', false: 'DELETE', true: 'GET', undefined: 'GET' })[value] ?? this.options.method,
-                    headers: { ...this.options.headers, ...(action?.options?.headers ?? {}) }
-                }, merge = true, pathname = E.resolveVariable(action.pathname, envelope, { merge }),
-                    url = E.resolveUrl(pathname, E.resolveVariable(this.base, envelope, { merge }))
-                if (value === 0 || (value && typeof value !== 'string')) {
-                    const contentType = options.headers['Content-Type'] ?? options.headers['content-type'] ?? action.contentType ?? this.contentType
-                    options.body = await E.runUnit(contentType, 'transform', value)
-                    if (typeof options.body !== 'string') throw new Error(`Input value unable to be serialized to "${contentType}".`)
-                }
-                const response = await fetch(url, options)
-                let result
-                if (response.ok) {
-                    const acceptType = options.headers.Accept ?? options.headers.accept ?? action.acceptType ?? this.acceptType
-                    result = await E.runUnit(acceptType, 'transform', await response.text())
-                    if (this.postProcessor) result = await E.runUnit(this.postProcessor, 'transform', result)
-                } else if (this.errorProcessor) result = await E.runUnit(this.errorProcessor, 'transform', response)
-                return result
-            }
+            async run(value, action, envelope) { return (await this.constructor.E.runFragment('api')).run.call(this, value, action, envelope) }
         }
     },
     Collection: { // optimal
@@ -1023,13 +993,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.engine ??= this.apiWrapper
             }
-            async run(slug, lang, envelope) {
-                if (typeof slug === 'string') {
-                    slug = this.constructor.E.resolveVariable(slug, envelope, { merge: true })
-                    if (lang && typeof lang === 'string') slug = `${E.resolveVariable(lang, envelope, { merge: true })}/${slug}`
-                }
-                return this.engine(slug, envelope)
-            }
+            async run(slug, lang, envelope) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, lang, envelope) }
         }
     },
     Component: {
@@ -1239,36 +1203,8 @@ const ElementHTML = Object.defineProperties({}, {
                 if (virtual && Array.isArray(virtual.preload)) this.preload()
             }
             saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
-            async preload(langCode) {
-                const { virtual = {}, saveVirtual, tokens } = this
-                if (virtual.engine instanceof Promise) await virtual.engine
-                if (!virtual.engine) return
-                const { engine, engineIntent, preload, lang, base } = virtual, engineInputBase = { base, tokens }, envelope = await this.constructor.E.createEnvelope(this.envelope ?? {}), promises = []
-                if (langCode) return (lang[langCode] ??= engine.run({ ...engineInputBase, to: langCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, langCode)))
-                if (Array.isArray(preload)) for (const preloadLangCode of preload)
-                    promises.push(lang[preloadLangCode] ??= engine.run({ ...engineInputBase, to: preloadLangCode }, engineIntent, envelope).then(virtualTokens => saveVirtual(virtualTokens, virtualLangCode)))
-                return Promise.all(promises)
-            }
-            async run(token, langCode, envelope) {
-                const defaultResult = (this.defaultTokenValue === true ? token : this.defaultTokenValue)
-                if (!(token in this.tokens)) return defaultResult
-                if (!(this.virtual && langCode)) return this.tokens[token] ?? defaultResult
-                const { virtual } = this, { engine, engineIntent, lang, base } = virtual
-                if (!(langCode && engine)) return
-                const [baseLangCode,] = langCode.split('-')
-                lang[langCode] ??= {}
-                let langTokens = lang[langCode]
-                if (token in langTokens) return langTokens[token] ?? defaultResult
-                lang[baseLangCode] ??= {}
-                langTokens = lang[baseLangCode]
-                if (token in langTokens) return langTokens[token] ?? defaultResult
-                if (virtual.preload) {
-                    await Promise.resolve(this.preload(langCode))
-                    Object.freeze(langTokens)
-                    return langTokens[token] ?? defaultResult
-                }
-                return langTokens[token] ??= await this.engine.run({ token, tokenValue: this.tokens[token], from: base, to: langCode }, engineIntent, envelope)
-            }
+            async preload(langCode) { return (await this.constructor.E.runFragment('language')).preload.call(this, langCode) }
+            async run(token, langCode, envelope) { return (await this.constructor.E.runFragment('language')).run.call(this, token, langCode, envelope) }
         }
     },
     Model: { // optimal
@@ -1280,20 +1216,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.name = name ?? this.constructor.E.generateUuid()
                 new this.constructor.E.Job(async function () { await this.load(library, load, options) }, `model:${this.name}`)
             }
-            async load(library, load, options) {
-                if (this.loaded) return true
-                this.library ??= await this.constructor.E.resolveUnit(library, 'library')
-                if (!this.library) return
-                this.options = options ?? {}
-                this.loader ??= load.bind(this)
-                if (!this.loader) return
-                this.loaded = !!(this.engine ??= (await this.loader(this.library, (this.options.load ?? {}))))
-                return this.loaded
-            }
-            async run(input) {
-                if (!this.loaded) await this.constructor.E.Job.waitComplete(`model:${this.name}`, Infinity)
-                return this.inference(input, this.engine, this.options.inference ?? {})
-            }
+            async load(library, load, options) { return (await this.constructor.E.runFragment('model')).load.call(this, library, load, options) }
+            async run(input) { return (await this.constructor.E.runFragment('model')).run.call(this, input) }
         }
     },
     Renderer: { // optimal
@@ -1368,21 +1292,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            async apply(node) {
-                const { E } = this.constructor, nodeIsElement = node instanceof HTMLElement, { selectors, name, defaultValue, mode } = this, promises = [],
-                    modeIsLang = mode === 'lang', envelope = Object.freeze(await E.createEnvelope(this.envelope ?? {}))
-                for (const selector in selectors) {
-                    const nodeList = Array.from(node.querySelectorAll(selector)), { key, token: tokenAttr, target: targetAttr } = selectors[selector]
-                    if (nodeIsElement && node.matches(selector)) nodeList.push(node)
-                    for (const n of nodeList) {
-                        const nodeEnvelope = { ...envelope, labels: { ...n.dataset } }, token = E.resolveVariable(n.getAttribute(tokenAttr), nodeEnvelope, { wrapped: false })
-                        promises.push(this.engine.run(token, modeIsLang ? (n.closest('[lang]').getAttribute('lang') || undefined) : name, nodeEnvelope).then(tokenValue => {
-                            targetAttr ? n.setAttribute(target, tokenValue ?? defaultValue) : (n[key] = (tokenValue ?? defaultValue))
-                        }))
-                    }
-                }
-                return Promise.all(promises)
-            }
+            async apply(node) { return (await this.constructor.E.runFragment('transform')).apply.call(this, node) }
             support(node) {
                 const observer = new MutationObserver((mutations) => {
                     const { scopeSelector } = this
@@ -1396,22 +1306,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.apply(node)
                 if (node.shadowRoot) this.support(node.shadowRoot)
             }
-            async run() {
-                const { E, validEngineClasses } = this.constructor, { scopeSelector, engine } = this
-                if (!engine) return
-                if (typeof engine === 'string') {
-                    const [engineType, engineName] = engine.trim().split(E.sys.regexp.colonSplitter), validEngine = false
-                    this.engine = await E.resolveUnit(engineName, engineType)
-                    for (const n of validEngineClasses.keys()) if (validEngine ||= (this.engine instanceof E[n])) break
-                    if (!validEngine) return
-                }
-                let nodes
-                if (scopeSelector) {
-                    nodes = Array.from(document.querySelectorAll(scopeSelector))
-                    if (document.documentElement.matches(scopeSelector)) nodes.push(document.documentElement)
-                } else nodes = Array.from(document.getElementsByTagName('*'))
-                for (const node of nodes) this.support(node)
-            }
+            async run() { return (await this.constructor.E.runFragment('transform')).run.call(this) }
         }
     },
     State: { // optimal
@@ -1487,15 +1382,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})
             }
-            async run(input, stepKey, envelope) {
-                const { E } = this.constructor, state = { ...this.pipelineState, ...(envelope.state ?? {}) }
-                for (const k of state) if (E.isWrappedVariable(k)) state[k] = E.resolveVariable(state[k], envelope, { wrapped: true })
-                const pipelineEnvelope = Object.freeze({ ...envelope, state })
-                if (stepKey && this.steps.has(stepKey)) return this.steps.get(stepKey)?.call(E, input, pipelineEnvelope)
-                let useSteps = stepKey.includes(':') ? E.sliceAndStep(stepKey, this.steps.values()) : this.steps.values()
-                for (const step of useSteps) if ((input = await step.call(E, input, pipelineEnvelope)) === undefined) break
-                return input
-            }
+            async run(input, stepKey, envelope) { return (await this.constructor.E.runFragment('transform')).run.call(this, input, stepKey, envelope) }
         }
     },
     Type: { // optimal
@@ -1551,16 +1438,7 @@ const ElementHTML = Object.defineProperties({}, {
     Validator: { // optimal
         enumerable: true, value: class {
             static E
-            static async run(input, verbose, envelope) {
-                const instance = this instanceof this.constructor ? this : new this(), validationResults = {}
-                let valid = true
-                for (const key of Object.keys(instance)) if (typeof instance[key] === 'function') {
-                    validationResults[key] = await instance[key](input, envelope)
-                    valid = validationResults[key] === true
-                    if (!valid && !verbose) return false
-                }
-                return verbose ? validationResults : true
-            }
+            static async run(input, verbose, envelope) { return (await this.E.runFragment('job')).run.call(this, input, verbose, envelope) }
         }
     },
 })
