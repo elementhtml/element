@@ -341,7 +341,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return Promise.all(promises).then(() => obj)
                     }
             }
-            if (value instanceof this.Component) return value.valueOf()
+            if (value instanceof this.Component) return await this.flatten(value.valueOf())
             if (value instanceof HTMLElement) {
                 const { processElementMapper } = await this.runFragment('sys/mappers')
                 return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, prop, mappers), has: (target, prop) => processElementMapper.call(value, prop, mappers, true) })
@@ -1058,7 +1058,11 @@ const ElementHTML = Object.defineProperties({}, {
                 } catch (e) { }
             }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-            valueOf() { return this.E.flatten(this) } // this has to change to be a syncronous manual flattening at this point
+            valueOf() {
+                const result = {}
+                for (const p of this.constructor.properties.flattenable.concat('value')) result[p] = this[p]
+                return result
+            }
             toJSON() { return this.valueOf() }
             dispatchEvent(event) {
                 const eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed }, { E } = this.constructor, defaultEventTypes = E.sys
