@@ -46,9 +46,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/content', container, position, envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/content', container, position, envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
                         if (!variables?.collection) new Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
@@ -56,9 +54,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/transform', container, position, envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/transform', container, position, envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
                         if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
@@ -82,9 +78,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/type', container, position, envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/type', container, position, envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
                         for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
@@ -167,9 +161,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'api',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/api', container, position, envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/api', container, position, envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
                         if (!variables?.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
@@ -177,9 +169,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
-                    handler: async function (container, position, envelope, value) {
-                        return await this.runFragment('env/interpreters/ai', container, position, envelope, value)
-                    },
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/ai', container, position, envelope, value) },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
                         if (!variables?.ai) new Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
