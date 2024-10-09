@@ -80,7 +80,7 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
         }
     },
     facet: { // optimal
-        enumerable: true, value: async function (directives, cid) {
+        enumerable: true, value: async function (directives, cid, container) {
             cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
             const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: cellNames, field: fieldNames, '#': cellNames, '@': fieldNames },
                 { dev } = this.modules, { interpreters } = this.env, { regexp: sysRegexp } = this.sys
