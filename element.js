@@ -1292,7 +1292,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.attributeFilter = Array.from(attributes)
                 Object.freeze(this.matches)
             }
-            async apply(node) { return (await this.constructor.E.runFragment('transform')).apply.call(this, node) }
+            async apply(node) { return (await this.constructor.E.runFragment('renderer')).apply.call(this, node) }
             support(node) {
                 const observer = new MutationObserver((mutations) => {
                     const { scopeSelector } = this
@@ -1306,7 +1306,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.apply(node)
                 if (node.shadowRoot) this.support(node.shadowRoot)
             }
-            async run() { return (await this.constructor.E.runFragment('transform')).run.call(this) }
+            async run() { return (await this.constructor.E.runFragment('renderer')).run.call(this) }
         }
     },
     State: { // optimal
@@ -1432,7 +1432,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                 }
             }
-            run(input, verbose, envelope) { return this.engine(input, verbose, envelope) }
+            async run(input, verbose, envelope) { return this.engine(input, verbose, envelope) }
         }
     },
     Validator: { // optimal
