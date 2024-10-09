@@ -47,14 +47,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { collection: a, article: articleSignature, lang: langSignature } = descriptor, wrapped = variables && true,
-                            valueEnvelope = variables && Object.freeze({ ...envelope, value }),
-                            collection = await this.resolveUnit(variables?.collection ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'collection')
-                        if (!collection) return
-                        const vArticle = variables?.article, article = vArticle ? this.resolveVariable(articleSignature, valueEnvelope, { wrapped }) : articleSignature
-                        if (vArticle && !article) return
-                        const lang = variables?.lang ? this.resolveVariable(langSignature, valueEnvelope, { wrapped }) : langSignature
-                        return collection.run(article, lang ?? container.lang, valueEnvelope)
+                        return await this.runFragment('env/interpreters/content', container, position, envelope, value)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
@@ -64,10 +57,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\(.*\)$/, {
                     name: 'transform',
                     handler: async function (container, position, envelope, value) {
-                        let { descriptor, variables } = envelope, { transform: t } = descriptor, vTransform = variables?.transform, wrapped = vTransform && true,
-                            valueEnvelope = vTransform ? Object.freeze({ ...envelope, value }) : envelope,
-                            transform = await this.resolveUnit(vTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
-                        return transform?.run(value, container, valueEnvelope)
+                        return await this.runFragment('env/interpreters/transform', container, position, envelope, value)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
@@ -93,19 +83,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^\|.*\|$/, {
                     name: 'type',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor } = envelope, { types, mode } = descriptor, info = mode === 'info', promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
-                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
-                        await Promise.all(promises)
-                        let pass = info
-                        if (info) {
-                            const validation = {}, promises = []
-                            for (const { name } of types) promises.push(this.runUnit(name, 'type', value, true).then(r => validation[name] = r))
-                            await Promise.all(promises)
-                            return { value, validation }
-                        }
-                        const [any, all] = [mode === 'any', mode === 'all']
-                        for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.runUnit(name, 'type', value)))) { if (any) break; } else if (all) break
-                        if (pass) return value
+                        return await this.runFragment('env/interpreters/type', container, position, envelope, value)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
@@ -190,12 +168,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'api',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { api: a, action: actionSignature } = descriptor, wrapped = variables && true,
-                            valueEnvelope = Object.freeze({ ...envelope, value }), api = await this.resolveUnit(variables?.api ? this.resolveVariable(a, valueEnvelope, { wrapped }) : a, 'api')
-                        if (!api) return
-                        const vAction = variables?.action, action = vAction ? this.resolveVariable(actionSignature, valueEnvelope, { wrapped }) : actionSignature
-                        if (vAction && !action) return
-                        return api.run(value, action, valueEnvelope)
+                        return await this.runFragment('env/interpreters/api', container, position, envelope, value)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
@@ -205,10 +178,7 @@ const ElementHTML = Object.defineProperties({}, {
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
                     handler: async function (container, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { ai: m, prompt: p } = descriptor, wrapped = variables && true, valueEnvelope = Object.freeze({ ...envelope, value }),
-                            ai = await this.resolveUnit(variables?.ai ? this.resolveVariable(m, valueEnvelope, { wrapped }) : a, 'ai')
-                        if (!ai) return
-                        return ai.run(value, prompt, valueEnvelope)
+                        return await this.runFragment('env/interpreters/ai', container, position, envelope, value)
                     },
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
