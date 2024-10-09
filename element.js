@@ -269,46 +269,7 @@ const ElementHTML = Object.defineProperties({}, {
             return Object.freeze(obj)
         }
     },
-    flatten: { //optimal
-        enumerable: true, value: async function (value, event) {
-            if (value == undefined) return null
-            switch (typeof value) {
-                case 'string': case 'number': case 'boolean': return value
-                case 'bigint': case 'symbol': return value.toString()
-                case 'function': return undefined
-            }
-            switch (value?.constructor) {
-                case Blob: return { size: value.size, type: value.type }
-                case File: return { size: value.size, type: value.type, lastModified: value.lastModified, name: value.name }
-                case DataTransferItem: return { kind: value.kind, type: value.type }
-                case DataTransfer: return Object.defineProperties({ dropEffect: value.dropEffect, effectAllowed: value.effectAllowed, types: value.types },
-                    { files: { enumerable: true, get: () => this.flatten(value.files) }, items: { enumerable: true, get: () => this.flatten(value.items) } })
-                case FileList: case DataTransferItemList: case Array:
-                    let a = []
-                    for (const f of value) a.push(this.flatten(f))
-                    return Promise.all(a)
-                case FormData: return Object.fromEntries(value.entries())
-                case Response:
-                    return Object.defineProperties({ ok: value.ok, redirected: value.redirected, status: value.status, statusText: value.statusText, type: value.type, url: value.url }, {
-                        body: { enumerable: true, get: () => this.parse(value) }, bodyUsed: { enumerable: true, get: () => value.bodyUsed },
-                        headers: { enumerable: true, get: () => Object.fromEntries(value.headers.entries()) }
-                    })
-                default:
-                    if (typeof value.valueOf === 'function') return value.valueOf()
-                    else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
-                        let obj = {}, promises = []
-                        for (const k in value) promises.push(this.flatten(value[k]).then(v => obj[k] = v))
-                        return Promise.all(promises).then(() => obj)
-                    }
-            }
-            if (value instanceof this.Component) return await this.flatten(value.valueOf())
-            if (value instanceof HTMLElement) {
-                const { processElementMapper } = await this.runFragment('sys/mappers')
-                return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, prop, mappers), has: (target, prop) => processElementMapper.call(value, prop, mappers, true) })
-            }
-            for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
-        }
-    },
+    flatten: { enumerable: true, value: async function (value, event) { return this.runFragment('flatten', value, event) } }, // optimal
     generateUuid: {//optimal
         enumerable: true, value: function (noDashes) {
             return crypto?.randomUUID()?.[noDashes ? 'replace' : 'toString'](this.sys.regexp.dash, '')
@@ -846,26 +807,8 @@ const ElementHTML = Object.defineProperties({}, {
             return newList
         }
     },
-    unmountElement: { // optimal - but check for interplace with this.app._components ... virtuals, natives and bindings
-        value: async function (element) {
-            if (!(element instanceof HTMLElement)) return
-            if (this.isFacetContainer(element)) return this.unmountFacet(element)
-            if (element.children.length) {
-                const promises = []
-                for (const n of element.children) promises.push(this.unmountElement(n))
-                await Promise.all(promises)
-            }
-            if ((typeof element.disconnectedCallback === 'function') && this.getCustomTag(element)) element.disconnectedCallback()
-        }
-    },
-    unmountFacet: { // optimal
-        value: function (facetContainer) {
-            const facetInstance = this.app._facetInstances.get(facetContainer)
-            for (const p in facetInstance.controllers) facetInstance.controllers[p].abort()
-            facetInstance.controller.abort()
-            facetInstance.observer.disconnect()
-        }
-    },
+    unmountElement: { value: async function (element) { return this.runFragment('unmountelement', element) } }, // optimal
+    unmountFacet: { value: async function (facetContainer) { return this.runFragment('unmountfacet', facetContainer) } }, // optimal
 
     AI: { // optimal
         enumerable: true, value: class {
