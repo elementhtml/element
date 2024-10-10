@@ -899,6 +899,23 @@ const ElementHTML = Object.defineProperties({}, {
             async run(slug, lang, envelope) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, lang, envelope) }
         }
     },
+
+    Component: {
+        enumerable: true, value: class extends HTMLElement {
+            static E
+            static manifest
+            static base
+
+            constructor({ template, style }) {
+                const { E } = this.constructor
+
+
+            }
+
+        }
+    },
+
+
     Component: {
         enumerable: true, value: class extends HTMLElement {
             static E

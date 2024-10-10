@@ -20,8 +20,8 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g,
 }, module = {
     component: {
-        enumerable: true, value: async function (id) {
-            const fileFetch = await fetch(this.resolveUrl(id)), container = document.createElement('template')
+        enumerable: true, value: async function (src) {
+            const fileFetch = await fetch(this.resolveUrl(src)), container = document.createElement('template')
             if (fileFetch.status >= 400) return
             container.innerHTML = await fileFetch.text()
             const style = container.content.querySelector('style') ?? document.createElement('style'),
