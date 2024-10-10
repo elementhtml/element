@@ -904,12 +904,67 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class extends HTMLElement {
             static E
             static manifest
-            static base
+            static mode
+            static packageKey
+            static packageUrl
+            static packageComponentsBaseUrl
+            static componentBaseUrl
 
-            constructor({ template, style }) {
+            constructor() {
                 const { E } = this.constructor
+                if (this.constructor.manifest) this.attachShadow({ mode: this.constructor.mode ?? 'open' })
+                this.constructor.packageUrl ??= E.resolveUrl('./')
+                this.constructor.packageComponentsBaseUrl ??= E.resolveUrl('./components/', this.constructor.packageUrl)
+            }
 
-
+            connectedCallback() {
+                const { E, packageComponentsBaseUrl, packageUrl } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
+                    componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
+                this.constructor.packageKey ??= packageKey
+                this.constructor.componentBaseUrl ??= E.resolveUrl(componentPath, packageComponentsBaseUrl)
+                const { componentBaseUrl } = this.constructor
+                if (this.constructor.manifest) {
+                    if (typeof this.constructor.manifest !== 'object') {
+                        const manifestPath = typeof this.constructor.manifest === 'boolean' ? `${componentName}.json` : this.constructor.manifest
+                        this.constructor.manifest = fetch(E.resolveUrl(manifestPath, componentBaseUrl)).then(r => r.json()).then(m => this.constructor.manifest = m)
+                    }
+                    Promise.resolve(this.constructor.manifest).then(async manifest => {
+                        this.constructor.template = new Promise(async resolve => {
+                            const { template, style } = manifest
+                            let templateHtml = ''
+                            if (template) {
+                                const templatePath = typeof template === 'string' ? template : 'template.html', templateUrl = E.resolveUrl(templatePath, componentBaseUrl)
+                                templateHtml = await fetch(templateUrl).then(r => r.text().trim())
+                                if (typeof template === 'object') {
+                                    const templateFragments = {}
+                                    for (const templateFragmentKey in template) {
+                                        const fragmentUrl = E.resolveUrl(template[templateFragmentKey], templateUrl)
+                                        templateFragments[templateFragmentKey] = await fetch(fragmentUrl).then(r => r.text())
+                                    }
+                                    templateHtml = E.resolveVariable(templateHtml, await E.createEnvelope(templateFragments), { merge: true }).trim()
+                                }
+                            }
+                            if (templateHtml || style) {
+                                const templateElement = document.createElement('template')
+                                templateElement.innerHTML = templateHtml
+                                if (!Array.isArray(style)) style = [style]
+                                for (const styleHref of style.reverse()) {
+                                    const styleLink = document.createElement('link')
+                                    styleLink.setAttribute('rel', 'stylesheet')
+                                    styleLink.setAttribute('href', E.resolveUrl(styleHref, componentBaseUrl))
+                                    templateElement.content.prepend(styleLink)
+                                }
+                                templateHtml = templateElement.innerHTML
+                            }
+                            resolve(templateHtml)
+                        })
+                    })
+                }
+                if (this.constructor.template) {
+                    Promise.resolve(this.constructor.template).then(templateHtml => {
+                        this.shadowRoot.innerHTML = templateHtml
+                    })
+                }
             }
 
         }
