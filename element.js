@@ -903,117 +903,59 @@ const ElementHTML = Object.defineProperties({}, {
     Component: {
         enumerable: true, value: class extends HTMLElement {
             static E
-            static manifest
-            static mode
-            static packageKey
-            static packageUrl
-            static packageComponentsBaseUrl
-            static componentBaseUrl
-            static env = {}
-            app = {}
+            static base = {}
+            static events = {}
+            static mode = "open"
+            static name
+            static layout
+            static package = {}
+
+            static get observedAttributes() { return (super.observedAttributes || []).concat([]) }
 
             constructor() {
-                const { constructor: con } = this, { E, manifest } = con
-                con.packageUrl ??= E.resolveUrl('./')
-                con.packageComponentsBaseUrl ??= E.resolveUrl('./components/', con.packageUrl)
-                if (manifest && (typeof manifest !== 'object')) con.manifest = fetch(E.resolveUrl(manifest === true
-                    ? 'manifest.json' : manifest, this.constructor.packageComponentsBaseUrl)).then(r => r.json()).then(m => {
-                        con.mode ??= m.mode ?? 'open'
-                        for (const k in E.env) {
-                            con.env[k] ??= {}
-                            if (E.isPlainObject(m.env[k])) Object.assign(con.env[k], m.env[k])
-                            Object.freeze(con.env[k])
-                        }
-                        this.attachShadow({ mode: con.mode })
-                        con.manifest = m
-                    })
+                const { E, base } = this.constructor
+                base.package ??= E.resolveUrl('./')
+                base.components ??= E.resolveUrl('./components/', base.package)
+                this.constructor.layout ??= 'layout.html'
             }
 
-            connectedCallback() {
-                const { E, packageComponentsBaseUrl, packageUrl } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
-                    componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
-                this.constructor.packageKey ??= packageKey
-                this.constructor.componentBaseUrl ??= E.resolveUrl(componentPath, packageComponentsBaseUrl)
-                const { componentBaseUrl } = this.constructor
+            attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
 
-                if (this.constructor.manifest) {
-                    Promise.resolve(this.constructor.manifest).then(async manifest => {
-                        this.constructor.template = new Promise(async resolve => {
-                            const { template, style } = manifest
-                            let templateHtml = ''
-                            if (template) {
-                                const templatePath = typeof template === 'string' ? template : 'template.html', templateUrl = E.resolveUrl(templatePath, componentBaseUrl)
-                                templateHtml = await fetch(templateUrl).then(r => r.text().trim())
-                                if (typeof template === 'object') {
-                                    const templateFragments = {}
-                                    for (const templateFragmentKey in template) {
-                                        const fragmentUrl = E.resolveUrl(template[templateFragmentKey], templateUrl)
-                                        templateFragments[templateFragmentKey] = await fetch(fragmentUrl).then(r => r.text())
-                                    }
-                                    templateHtml = E.resolveVariable(templateHtml, await E.createEnvelope(templateFragments), { merge: true }).trim()
-                                }
-                            }
-                            if (templateHtml || style) {
+            connectedCallback() {
+                const { E, base, mode, layout } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
+                    componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
+                this.constructor.package.key ??= packageKey
+                base.component ??= E.resolveUrl(componentPath, base.components)
+                this.constructor.name ??= componentName
+                if (layout) {
+                    this.attachShadow({ mode })
+                    Promise.resolve(new Promise(res => {
+                        if (layout instanceof HTMLTemplateElement) res(layout.content.cloneNode(true).textContent)
+                        else if (layout instanceof Promise) res(layout)
+                        else if (typeof layout === 'string') {
+                            fetch(E.resolve(layout, base.component)).then(r => r.text()).then(t => {
                                 const templateElement = document.createElement('template')
-                                templateElement.innerHTML = templateHtml
-                                if (!Array.isArray(style)) style = [style]
-                                for (const styleHref of style.reverse()) {
-                                    const styleLink = document.createElement('link')
-                                    styleLink.setAttribute('rel', 'stylesheet')
-                                    styleLink.setAttribute('href', E.resolveUrl(styleHref, componentBaseUrl))
-                                    templateElement.content.prepend(styleLink)
-                                }
-                                templateHtml = templateElement.innerHTML
-                            }
-                            resolve(templateHtml)
+                                templateElement.textContent = t
+                                this.constructor.layout = templateElement
+                                res(templateElement.content.cloneNode(true).textContent)
+                            })
+                        }
+                        else res()
+                    })).then(layoutHtml => {
+                        if (layoutHtml === undefined) return
+                        const fields = Object.freeze({ ...this.dataset }), labels = Object.freeze(E.flatten(this.valueOf()))
+                        E.createEnvelope({ labels, fields }).then(envelope => {
+                            this.shadowRoot.innerHTML = E.resolveVariable(layoutHtml, envelope, { merge: true })
+                            this.dispatchEvent(new CustomEvent('ready', { detail: this }))
+                            this.readyCallback()
                         })
                     })
                 }
-                if (this.constructor.template) {
-                    Promise.resolve(this.constructor.template).then(templateHtml => {
-                        this.shadowRoot.innerHTML = templateHtml
-                    })
-                }
             }
 
-        }
-    },
-
-
-    Component: {
-        enumerable: true, value: class extends HTMLElement {
-            static E
-            static attributes = { observed: [] }
-            static shadow = { mode: 'open' }
-            static events = { default: undefined }
-            static extends
-            static native
-            static id
-            static properties = { flattenable: this.observedAttributes ?? [], value: undefined }
-            static style
-            static subspaces = []
-            static template
-            static get observedAttributes() { return (super.observedAttributes || []).concat(...(this.attributes.observed ?? [])) }
-            constructor() {
-                super()
-                const { style, template, shadow } = this.constructor
-                try {
-                    if (style || template) {
-                        const shadowRoot = this.attachShadow(shadow)
-                        if (style) shadowRoot.append(style.cloneNode(true))
-                        if (template) shadowRoot.append(...template.content.cloneNode(true).children)
-                    }
-                } catch (e) { }
-            }
-            attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-            valueOf() {
-                const result = {}
-                for (const p of this.constructor.properties.flattenable.concat('value')) result[p] = this[p]
-                return result
-            }
-            toJSON() { return this.valueOf() }
             dispatchEvent(event) {
-                const eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed }, { E } = this.constructor, defaultEventTypes = E.sys
+                const { E } = this.constructor, eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed },
+                    defaultEventTypes = E.sys
                 let virtualElement = E.app._components.virtualsFromNatives.get(this), nativeElement = E.app._components.nativesFromVirtuals.get(this),
                     eventName = event.type === 'default' ? undefined : event.type
                 if (virtualElement || nativeElement) {
@@ -1025,8 +967,20 @@ const ElementHTML = Object.defineProperties({}, {
                 eventName ??= instance instanceof E.Component ? (instance.constructor.events?.default) : defaultEventTypes[instance.tagName.toLowerCase()]
                 return super.dispatchEvent(new CustomEvent(eventName ?? 'click', eventProps))
             }
+
+            readyCallback() { }
+
+            toJSON() { return this.valueOf() }
+
+            valueOf() {
+                const result = {}
+                for (const p of this.constructor.observedAttributes.concat('value')) result[p] = this[p]
+                return result
+            }
+
         }
     },
+
     Facet: { // optimal - but needs to recheck
         enumerable: true, value: class {
             static E
