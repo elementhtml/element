@@ -911,10 +911,12 @@ const ElementHTML = Object.defineProperties({}, {
             static componentBaseUrl
 
             constructor() {
-                const { E } = this.constructor
-                if (this.constructor.manifest) this.attachShadow({ mode: this.constructor.mode ?? 'open' })
+                const { E, manifest } = this.constructor
                 this.constructor.packageUrl ??= E.resolveUrl('./')
                 this.constructor.packageComponentsBaseUrl ??= E.resolveUrl('./components/', this.constructor.packageUrl)
+                if (manifest && (typeof manifest !== 'object')) this.constructor.manifest = fetch(E.resolveUrl(manifest === true
+                    ? 'manifest.json' : manifest, this.constructor.packageComponentsBaseUrl)).then(r => r.json())
+                this.attachShadow({ mode: this.constructor.mode ?? 'open' })
             }
 
             connectedCallback() {
