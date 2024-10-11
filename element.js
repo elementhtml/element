@@ -909,14 +909,24 @@ const ElementHTML = Object.defineProperties({}, {
             static packageUrl
             static packageComponentsBaseUrl
             static componentBaseUrl
+            static env = {}
+            app = {}
 
             constructor() {
-                const { E, manifest } = this.constructor
-                this.constructor.packageUrl ??= E.resolveUrl('./')
-                this.constructor.packageComponentsBaseUrl ??= E.resolveUrl('./components/', this.constructor.packageUrl)
-                if (manifest && (typeof manifest !== 'object')) this.constructor.manifest = fetch(E.resolveUrl(manifest === true
-                    ? 'manifest.json' : manifest, this.constructor.packageComponentsBaseUrl)).then(r => r.json())
-                this.attachShadow({ mode: this.constructor.mode ?? 'open' })
+                const { constructor: con } = this, { E, manifest } = con
+                con.packageUrl ??= E.resolveUrl('./')
+                con.packageComponentsBaseUrl ??= E.resolveUrl('./components/', con.packageUrl)
+                if (manifest && (typeof manifest !== 'object')) con.manifest = fetch(E.resolveUrl(manifest === true
+                    ? 'manifest.json' : manifest, this.constructor.packageComponentsBaseUrl)).then(r => r.json()).then(m => {
+                        con.mode ??= m.mode ?? 'open'
+                        for (const k in E.env) {
+                            con.env[k] ??= {}
+                            if (E.isPlainObject(m.env[k])) Object.assign(con.env[k], m.env[k])
+                            Object.freeze(con.env[k])
+                        }
+                        this.attachShadow({ mode: con.mode })
+                        con.manifest = m
+                    })
             }
 
             connectedCallback() {
@@ -925,11 +935,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.constructor.packageKey ??= packageKey
                 this.constructor.componentBaseUrl ??= E.resolveUrl(componentPath, packageComponentsBaseUrl)
                 const { componentBaseUrl } = this.constructor
+
                 if (this.constructor.manifest) {
-                    if (typeof this.constructor.manifest !== 'object') {
-                        const manifestPath = typeof this.constructor.manifest === 'boolean' ? `${componentName}.json` : this.constructor.manifest
-                        this.constructor.manifest = fetch(E.resolveUrl(manifestPath, componentBaseUrl)).then(r => r.json()).then(m => this.constructor.manifest = m)
-                    }
                     Promise.resolve(this.constructor.manifest).then(async manifest => {
                         this.constructor.template = new Promise(async resolve => {
                             const { template, style } = manifest
