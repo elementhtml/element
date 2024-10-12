@@ -27,22 +27,26 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
                         if (signal) window.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
-                    }
+                    },
+                    parser: async function (expression) { return { expression, signal: expression === '#' } }
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
-                    handler: async function (container, position, envelope, value) { return envelope.descriptor.value }
+                    handler: async function (container, position, envelope, value) { return envelope.descriptor.value },
+                    parser: async function (expression) { return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) } }
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (container, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) }
+                    handler: async function (container, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) },
+                    parser: async function (expression) { return { expression: expression.slice(2, -1).trim() } }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
                     handler: async function (container, position, envelope, value) {
                         const { descriptor } = envelope
                         return this.resolveVariable(descriptor.shape, Object.freeze({ ...envelope, value }))
-                    }
+                    },
+                    parser: async function (expression) { return { shape: this.resolveShape(expression) } }
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
@@ -50,6 +54,10 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
                         if (!variables?.collection) new Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
+                    },
+                    parser: async function (expression) {
+                        const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                        return { collection, article, lang }
                     }
                 }],
                 [/^\(.*\)$/, {
@@ -58,7 +66,8 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
                         if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
-                    }
+                    },
+                    parser: async function (expression) { return { transform: expression.slice(1, -1).trim() } }
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
@@ -74,6 +83,12 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
                         if (!variables?.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
+                    },
+                    parser: async function (expression) {
+                        expression = expression.slice(1, -1)
+                        expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
+                        expression.replaceAll('\\ ', ' ')
+                        return { pattern: expression }
                     }
                 }],
                 [/^\|.*\|$/, {
@@ -82,6 +97,23 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
                         for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
+                    },
+                    parser: async function (expression) {
+                        let mode = 'any', types = []
+                        expression = expression.slice(1, -1).trim()
+                        switch (expression[0]) {
+                            case '|':
+                                if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
+                                break
+                            case '?': if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
+                        }
+                        for (let typeName of expression.split(',')) {
+                            typeName = typeName.trim()
+                            if (!typeName) continue
+                            const ifMode = typeName[0] !== '!'
+                            types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
+                        }
+                        return { types, mode }
                     }
                 }],
                 [/^\$\(.*\)$/, {
@@ -112,7 +144,8 @@ const ElementHTML = Object.defineProperties({}, {
                             }, { signal, once })
                         }
                         return { selector, scope }
-                    }
+                    },
+                    parser: async function (expression) { return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) } }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
@@ -157,6 +190,13 @@ const ElementHTML = Object.defineProperties({}, {
                             }, { signal })
                         }
                         return { getReturnValue, target }
+                    },
+                    parser: async function (expression) {
+                        expression = expression.trim()
+                        const typeDefault = expression[0] === '@' ? 'field' : 'cell'
+                        expression = expression.slice(1).trim()
+                        const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
+                        return { signal: true, target, shape }
                     }
                 }],
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
@@ -165,6 +205,10 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
                         if (!variables?.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
+                    },
+                    parser: async function (expression) {
+                        const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                        return { api, action }
                     }
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
@@ -173,6 +217,10 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
                         if (!variables?.ai) new Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
+                    },
+                    parser: async function (expression) {
+                        const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                        return { ai, prompt }
                     }
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
@@ -181,22 +229,29 @@ const ElementHTML = Object.defineProperties({}, {
                     binder: async function (container, position, envelope) {
                         const { descriptor, variables } = envelope, { contentType } = descriptor
                         if (!variables?.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
+                    },
+                    parser: async function (expression) {
+                        const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                        return { url, contentType }
                     }
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/wait', container, position, envelope, value) }
+                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/wait', container, position, envelope, value) },
+                    parser: async function (expression) { return { expression: expression.slice(1, -1).trim() } }
                 }],
                 [/^\$\`[^`]+\`$/, {
                     name: 'command',
-                    handler: async function (container, position, envelope, value) { return this.modules.dev ? (await this.runFragment('env/interpreters/command', envelope, value)) : value }
+                    handler: async function (container, position, envelope, value) { return this.modules.dev ? (await this.runFragment('env/interpreters/command', envelope, value)) : value },
+                    parser: async function (expression) { return { invocation: expression.slice(2, -1).trim() } }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
                     handler: async function (container, position, envelope, value) {
                         return this.modules.dev
                             ? ((envelope.descriptor.verbose === true ? (console.log(await this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value) : value
-                    }
+                    },
+                    parser: async function (expression) { return { verbose: expression === '$?' } }
                 }]
             ]),
             languages: {},
@@ -1002,8 +1057,18 @@ const ElementHTML = Object.defineProperties({}, {
     Facet: {
         enumerable: true, value: class {
             static E
+            fields = {}
 
             constructor() {
+                const { E, fieldNames } = this.constructor
+                this.controller = new AbortController()
+                for (const fieldName of fieldNames) this.fields[fieldName] = new E.Field(this, fieldName)
+                Object.freeze(this.fields)
+
+
+            }
+
+            async run() {
 
             }
 

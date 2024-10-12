@@ -19,66 +19,6 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     defaultValue: /\s+\?\?\s+(.+)\s*$/, extends: /export\s+default\s+class\s+extends\s+`(?<extends>.*)`\s+\{/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
     directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, splitter: /\n(?!\s+>>)/gm, segmenter: /\s+>>\s+/g,
 }, module = {
-    component: {
-        enumerable: true, value: async function (src) {
-            const fileFetch = await fetch(this.resolveUrl(src)), container = document.createElement('template')
-            if (fileFetch.status >= 400) return
-            container.innerHTML = await fileFetch.text()
-            const style = container.content.querySelector('style') ?? document.createElement('style'),
-                template = container.content.querySelector('template') ?? document.createElement('template'),
-                script = container.content.querySelector('script') ?? document.createElement('script'),
-                scriptCode = script.textContent.trim() || 'export default class extends E.Component {}',
-                className = id.split('/').pop().replace('.html', '').split('').map((c, i) => i === 0 ? c.toUpperCase() : c).join('')
-            let extendsId = scriptCode.match(regexp.extends)?.groups?.extends, extendsClass = this.Component,
-                extendsStatement = `export default class ${className} extends E.Component {`, native
-            if (extendsId == null || (extendsId === 'E.Component')) {
-                extendsId = undefined
-            } else if (extendsId in nativeElementsMap) {
-                native = extendsId
-                extendsClass = this.app.components[extendsId] = this.Component
-                extendsStatement = `export default class ${className} extends E.app.components['${extendsId}'] {`
-            } else {
-                if (extendsId) {
-                    extendsId = this.resolveUrl(new URL(extendsId, id))
-                    extendsClass = this.app.components[extendsId] = this.env.components[extendsId] ?? (await this.modules.compile.component(extendsId))
-                    extendsStatement = `export default class ${className} extends E.app.components['${extendsId}'] {`
-                }
-                style.textContent = [extendsClass.style.textContent, style.textContent].join('\n\n')
-                if (template.content.querySelector('template[slot], template[data-target]')) {
-                    const extendsTemplate = extendsClass.template.content.cloneNode(true)
-                    for (const t of template.content.querySelectorAll('template[slot]')) {
-                        const slotName = t.getAttribute('slot'), slot = slotName ? extendsTemplate.querySelector(`slot[name="${slotName}"]`) : extendsTemplate.querySelector('slot:not([name])')
-                        if (slot) slot.replaceWith(...t.content.cloneNode(true).children)
-                    }
-                    for (const t of template.content.querySelectorAll('template[data-target]')) {
-                        const { position, target = 'slot' } = t.dataset
-                        for (const targetElement of extendsTemplate.querySelectorAll(target)) {
-                            const replacers = t.content.cloneNode(true).children
-                            switch (position) {
-                                case 'before': case 'beforebegin':
-                                    targetElement.before(...replacers)
-                                    break
-                                case 'prepend': case 'afterbegin':
-                                    targetElement.prepend(...replacers)
-                                    break
-                                case 'append': case 'beforeend':
-                                    targetElement.append(...replacers)
-                                    break
-                                case 'after': case 'afterend':
-                                    targetElement.after(...replacers)
-                                    break
-                                default:
-                                    targetElement.replaceWith(...replacers)
-                            }
-                        }
-                    }
-                    template.content.replaceWith(...extendsTemplate.children)
-                }
-            }
-            const sanitizedScript = scriptCode.replace(regexp.extends, extendsStatement)
-            return this.modules.compile.componentFactory({ extends: extendsId, native, script: sanitizedScript, style, template }, id)
-        }
-    },
     facet: { // optimal
         enumerable: true, value: async function (directives, cid, container) {
             cid ??= await this.modules.compile.digest(directives = (await this.modules.compile.canonicalizeDirectives(directives)))
@@ -176,48 +116,6 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
     isValidTag: {
         value: function (tag) {
             return !(document.createElement(tag) instanceof HTMLUnknownElement)
-        }
-    },
-    componentFactory: {
-        value: async function (manifest, id) {
-            let ComponentClass
-            if (manifest.prototype instanceof this.Component) {
-                ComponentClass = manifest
-            } else {
-                if (!this.isPlainObject(manifest)) return
-                const { extends: mExtends, native: mNative, script: mScript, style: mStyle, template: mTemplate } = manifest
-                let cExtends = mExtends ? ((mNative && mExtends === mNative) ? mExtends : this.resolveUrl(mExtends)) : undefined,
-                    native = mNative && (typeof mNative === 'string') && !mNative.includes('-') && this.modules.compile.isValidTag(mNative) ? mNative : undefined,
-                    style = mStyle && (typeof mStyle === 'string') ? mStyle : (mStyle instanceof HTMLElement ? mStyle.textContent : ''),
-                    template = mTemplate && (typeof mTemplate === 'string') ? mTemplate : (mTemplate instanceof HTMLElement ? mTemplate.innerHTML : ''),
-                    script = mScript && (typeof mScript === 'string') ? mScript.replace('export default ', '').trim() : 'class extends E.Component {}',
-                    [scriptHead, ...scriptBody] = script.split('{')
-                script = `  ${scriptHead} {
-
-        static {
-            this.extends = ${cExtends ? ("'" + cExtends + "'") : "undefined"}
-            this.native = ${native ? ("'" + native + "'") : "undefined"}
-            const styleCss = \`${style}\`, templateHtml = \`${template}\`
-            if (styleCss) {
-                this.style = document.createElement('style')
-                this.style.textContent = styleCss
-            }
-            if (templateHtml) {
-                this.template = document.createElement('template')
-                this.template.innerHTML = templateHtml
-            }
-        }
-
-${scriptBody.join('{')}`
-
-                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${globalNamespace}']; export default ${script}`], { type: 'text/javascript' }))
-                ComponentClass = (await import(classAsModuleUrl)).default
-                URL.revokeObjectURL(classAsModuleUrl)
-            }
-            Object.defineProperty(ComponentClass, 'id', { enumerable: true, value: id })
-            Object.defineProperty(ComponentClass, 'E', { value: this })
-            Object.defineProperty(ComponentClass.prototype, 'E', { value: this })
-            return ComponentClass
         }
     },
     canonicalizeDirectives: { // optimal
@@ -335,79 +233,79 @@ ${scriptBody.join('{')}`
     globalNamespace: { value: globalNamespace },
     parsers: {
         value: {
-            ai: async function (expression) { // optimal
-                const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { ai, prompt }
-            },
-            api: async function (expression) { // optimal
-                const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { api, action }
-            },
-            command: async function (expression) { // optimal
-                return { invocation: expression.slice(2, -1).trim() }
-            },
-            console: async function (expression) { // optimal
-                return { verbose: expression === '$?' }
-            },
-            content: async function (expression) { // optimal
-                const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { collection, article, lang }
-            },
-            pattern: async function (expression) { // optimal
-                expression = expression.slice(1, -1)
-                expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
-                expression.replaceAll('\\ ', ' ')
-                return { pattern: expression }
-            },
-            request: async function (expression) { // optimal
-                const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                return { url, contentType }
-            },
-            router: async function (expression) { // optimal
-                return { expression, signal: expression === '#' }
-            },
-            selector: async function (expression) { // optimal
-                return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) }
-            },
-            shape: async function (expression) { // optimal
-                return { shape: this.resolveShape(expression) }
-            },
-            state: async function (expression) { // optimal
-                expression = expression.trim()
-                const typeDefault = expression[0] === '@' ? 'field' : 'cell'
-                expression = expression.slice(1).trim()
-                const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
-                return { signal: true, target, shape }
-            },
-            transform: async function (expression) { // optimal
-                return { transform: expression.slice(1, -1).trim() }
-            },
-            type: async function (expression) { // optimal
-                let mode = 'any', types = []
-                expression = expression.slice(1, -1).trim()
-                switch (expression[0]) {
-                    case '|':
-                        if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
-                        break
-                    case '?': if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
-                }
-                for (let typeName of expression.split(',')) {
-                    typeName = typeName.trim()
-                    if (!typeName) continue
-                    const ifMode = typeName[0] !== '!'
-                    types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
-                }
-                return { types, mode }
-            },
-            value: async function (expression) { // optimal
-                return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) }
-            },
-            variable: async function (expression) { // optimal
-                return { expression: expression.slice(2, -1).trim() }
-            },
-            wait: async function (expression) { // optimal
-                return { expression: expression.slice(1, -1).trim() }
-            }
+            // ai: async function (expression) { // optimal
+            //     const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+            //     return { ai, prompt }
+            // },
+            // api: async function (expression) { // optimal
+            //     const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+            //     return { api, action }
+            // },
+            // command: async function (expression) { // optimal
+            //     return { invocation: expression.slice(2, -1).trim() }
+            // },
+            // console: async function (expression) { // optimal
+            //     return { verbose: expression === '$?' }
+            // },
+            // content: async function (expression) { // optimal
+            //     const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+            //     return { collection, article, lang }
+            // },
+            // pattern: async function (expression) { // optimal
+            //     expression = expression.slice(1, -1)
+            //     expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
+            //     expression.replaceAll('\\ ', ' ')
+            //     return { pattern: expression }
+            // },
+            // request: async function (expression) { // optimal
+            //     const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+            //     return { url, contentType }
+            // },
+            // router: async function (expression) { // optimal
+            //     return { expression, signal: expression === '#' }
+            // },
+            // selector: async function (expression) { // optimal
+            //     return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) }
+            // },
+            // shape: async function (expression) { // optimal
+            //     return { shape: this.resolveShape(expression) }
+            // },
+            // state: async function (expression) { // optimal
+            //     expression = expression.trim()
+            //     const typeDefault = expression[0] === '@' ? 'field' : 'cell'
+            //     expression = expression.slice(1).trim()
+            //     const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
+            //     return { signal: true, target, shape }
+            // },
+            // transform: async function (expression) { // optimal
+            //     return { transform: expression.slice(1, -1).trim() }
+            // },
+            // type: async function (expression) { // optimal
+            //     let mode = 'any', types = []
+            //     expression = expression.slice(1, -1).trim()
+            //     switch (expression[0]) {
+            //         case '|':
+            //             if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
+            //             break
+            //         case '?': if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
+            //     }
+            //     for (let typeName of expression.split(',')) {
+            //         typeName = typeName.trim()
+            //         if (!typeName) continue
+            //         const ifMode = typeName[0] !== '!'
+            //         types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
+            //     }
+            //     return { types, mode }
+            // },
+            // value: async function (expression) { // optimal
+            //     return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) }
+            // },
+            // variable: async function (expression) { // optimal
+            //     return { expression: expression.slice(2, -1).trim() }
+            // },
+            // wait: async function (expression) { // optimal
+            //     return { expression: expression.slice(1, -1).trim() }
+            // }
         }
     }
 }
