@@ -1084,6 +1084,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             fields = {}
+            statements = []
 
             static parseDirectives(directives) {
                 const { E } = this, { sys } = E, { regexp } = sys
@@ -1179,13 +1180,8 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.seal(statement.labels)
                     Object.freeze(statement.steps)
                     Object.freeze(statement)
-                    statements.push(statement)
+                    this.statements.push(statement)
                 }
-
-
-
-                { fieldNames, cellNames, statements }
-
 
 
             }
