@@ -922,15 +922,12 @@ const ElementHTML = Object.defineProperties({}, {
             static layout
             static package = {}
             static get observedAttributes() { return (super.observedAttributes || []).concat([]) }
-
             #observer
-
             #resolveScopedUrl(url) {
                 if (!url) return
                 for (const p of ['component', 'components', 'package']) if (url.startsWith(`${p}://`)) return url.replace(`${p}:/`, base[p]).replace('//', '/')
                 return E.resolveUrl(url, base.component)
             }
-
             constructor() {
                 const { E, base } = this.constructor
                 base.package ??= E.resolveUrl('./')
