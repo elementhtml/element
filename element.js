@@ -1086,7 +1086,7 @@ const ElementHTML = Object.defineProperties({}, {
             fields = {}
             statements = []
 
-            static async parseDirectives(directives) {
+            async parseDirectives(directives) {
                 const { E } = this, { sys } = E, { regexp } = sys
                 directives = directives.trim()
                 if (!directives) return
@@ -1164,7 +1164,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!matcher) continue
                             signature = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
                         }
-                        for (const p in signature.descriptor) if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
+                        for (const p in signature.descriptor) if (E.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
                         if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
                         else delete signature.variables
                         Object.freeze(signature.descriptor)
@@ -1181,9 +1181,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            constructor({ directives, target }) {
+            constructor({ directives, statements, fields, anchor }) {
                 if (!directives) return
-                if (typeof directives === 'string') this.constructor.parseDirectives(directives).then(facetConfig => this.constructor.init(facetConfig))
+                const promises = []
+                if (typeof directives === 'string') this.parseDirectives(directives).then(facetConfig => this.constructor.init(facetConfig))
                 else if (this.constructor.E.isPlainObject(directives)) this.constructor.init(directives)
 
 
