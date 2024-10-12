@@ -519,6 +519,7 @@ const ElementHTML = Object.defineProperties({}, {
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
             }),
+            urlAttributes: Object.freeze(['href', 'src']),
             valueAliases: Object.freeze({ 'null': null, 'undefined': undefined, 'false': false, 'true': true, '-': null, '?': undefined, '!': false, '.': true })
         })
     },
@@ -701,27 +702,14 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     observeUrlAttributes: { // optimal
-        value: async function (observedScope = document.documentElement, resolveUrl = undefined, urlAttributes = ['href', 'src']) {
+        value: function (observedScope = document.documentElement, resolveUrl = undefined, urlAttributes = undefined) {
             if (typeof resolveUrl !== 'function') resolveUrl ??= this.resolveUrl
+            urlAttributes ??= this.sys.urlAttributes
             const observer = new MutationObserver(records => {
                 for (const { type, target, attributeName, addedNodes } of records) {
                     if (type !== 'attributes' && type !== 'childList') continue
                     const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
-                    for (const target of targets) {
-                        if (!(target instanceof HTMLElement)) continue
-                        for (const attributeName of processAttributes) {
-                            const attributeValue = target.getAttribute(attributeName)
-                            if (!attributeValue) continue
-                            let valueUrl
-                            try { valueUrl = new URL(attributeValue, document.baseURI) } catch (e) { continue }
-                            if (valueUrl.protocol === protocol) {
-                                const resolvedUrl = resolveUrl.call(this, attributeValue)
-                                let resolveUrlObj
-                                try { resolveUrlObj = new URL(resolvedUrl) } catch (e) { continue }
-                                if (resolveUrlObj.protocol !== protocol) target.setAttribute(attributeName, resolvedUrl)
-                            }
-                        }
-                    }
+                    this.resolveUrlAttributes(targets, processAttributes, resolveUrl)
                 }
             })
             observer.observe(observedScope, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
@@ -733,6 +721,27 @@ const ElementHTML = Object.defineProperties({}, {
             for (const job of this.sys.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
+        }
+    },
+    resolveUrlAttributes: { // optimal
+        value: function (targets, urlAttributes, resolveUrl) {
+            urlAttributes ??= this.sys.urlAttributes
+            if (typeof resolveUrl !== 'function') resolveUrl ??= this.resolveUrl
+            for (const target of targets) {
+                if (!(target instanceof HTMLElement)) continue
+                for (const attributeName of urlAttributes) {
+                    const attributeValue = target.getAttribute(attributeName)
+                    if (!attributeValue) continue
+                    let valueUrl
+                    try { valueUrl = new URL(attributeValue, document.baseURI) } catch (e) { continue }
+                    if (valueUrl.protocol === protocol) {
+                        const resolvedUrl = resolveUrl.call(this, attributeValue)
+                        let resolveUrlObj
+                        try { resolveUrlObj = new URL(resolvedUrl) } catch (e) { continue }
+                        if (resolveUrlObj.protocol !== protocol) target.setAttribute(attributeName, resolvedUrl)
+                    }
+                }
+            }
         }
     },
     runFragment: { // optimal
@@ -916,6 +925,12 @@ const ElementHTML = Object.defineProperties({}, {
 
             #observer
 
+            #resolveScopedUrl(url) {
+                if (!url) return
+                for (const p of ['component', 'components', 'package']) if (url.startsWith(`${p}://`)) return url.replace(`${p}:/`, base[p]).replace('//', '/')
+                return E.resolveUrl(url, base.component)
+            }
+
             constructor() {
                 const { E, base } = this.constructor
                 base.package ??= E.resolveUrl('./')
@@ -948,11 +963,10 @@ const ElementHTML = Object.defineProperties({}, {
                         const fields = Object.freeze({ ...this.dataset }), labels = Object.freeze(E.flatten(this.valueOf()))
                         E.createEnvelope({ labels, fields }).then(envelope => {
                             this.shadowRoot.innerHTML = E.resolveVariable(layoutHtml, envelope, { merge: true })
-                            this.#observer = this.observeUrlAttributes(this.shadowRoot, (url) => {
-                                if (!url) return
-                                for (const p of ['component', 'components', 'package']) if (url.startsWith(`${p}://`)) return url.replace(`${p}:/`, base[p]).replace('//', '/')
-                                return E.resolveUrl(url, base.component)
-                            })
+                            let urlAttributesSelector = ''
+                            for (const a of this.sys.urlAttributes) urlAttributesSelector += `[${a}]`
+                            this.resolveUrlAttributes(this.shadowRoot.querySelectorAll(urlAttributesSelector), this.sys.urlAttributes)
+                            this.#observer = this.observeUrlAttributes(this.shadowRoot, this.#resolveScopedUrl)
                             this.dispatchEvent(new CustomEvent('ready', { detail: this }))
                             this.readyCallback()
                         })
