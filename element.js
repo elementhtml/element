@@ -270,7 +270,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-    Compile: { enumerable: true, value: function () { return this.runFragment('compile') } }, // optimal
     Dev: { enumerable: true, value: function () { return this.runFragment('dev') } }, // optimal
     Expose: { enumerable: true, value: function (name) { window[name || 'E'] ??= this } }, // optimal
     ImportPackage: { // optimal
