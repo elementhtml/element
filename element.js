@@ -602,11 +602,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (!connection) continue
                 let useGateway = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
-                if (auto) {
-
-                    this.app._observers.set(useGateway, this.observeUrlAttributes())
-
-                }
+                if (auto) this.app._observers.set(useGateway, this.observeUrlAttributes())
                 return this.app.gateways[protocol] = useGateway
             }
         }
@@ -705,7 +701,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     observeUrlAttributes: { // optimal
-        value: async function (observedScope = document.documentElement, urlAttributes = ['href', 'src'], resolveUrl = undefined) {
+        value: async function (observedScope = document.documentElement, resolveUrl = undefined, urlAttributes = ['href', 'src']) {
             if (typeof resolveUrl !== 'function') resolveUrl ??= this.resolveUrl
             const observer = new MutationObserver(records => {
                 for (const { type, target, attributeName, addedNodes } of records) {
@@ -917,6 +913,9 @@ const ElementHTML = Object.defineProperties({}, {
             static layout
             static package = {}
             static get observedAttributes() { return (super.observedAttributes || []).concat([]) }
+
+            #observer
+
             constructor() {
                 const { E, base } = this.constructor
                 base.package ??= E.resolveUrl('./')
@@ -949,12 +948,20 @@ const ElementHTML = Object.defineProperties({}, {
                         const fields = Object.freeze({ ...this.dataset }), labels = Object.freeze(E.flatten(this.valueOf()))
                         E.createEnvelope({ labels, fields }).then(envelope => {
                             this.shadowRoot.innerHTML = E.resolveVariable(layoutHtml, envelope, { merge: true })
-
+                            this.#observer = this.observeUrlAttributes(this.shadowRoot, (url) => {
+                                if (!url) return
+                                for (const p of ['component', 'components', 'package']) if (url.startsWith(`${p}://`)) return url.replace(`${p}:/`, base[p]).replace('//', '/')
+                                return E.resolveUrl(url, base.component)
+                            })
                             this.dispatchEvent(new CustomEvent('ready', { detail: this }))
                             this.readyCallback()
                         })
                     })
                 }
+            }
+            disconnectedCallback() {
+                if (this.#observer) this.#observer.disconnect()
+                super.disconnectedCallback()
             }
             dispatchEvent(event) {
                 const { E } = this.constructor, eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed },
