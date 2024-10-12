@@ -603,29 +603,9 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!connection) continue
                 let useGateway = typeof gateway === 'function' ? gateway.bind(this, { as: 'gateway', connection, ctx, protocol }) : gateway
                 if (auto) {
-                    const urlAttributes = ['href', 'src']
-                    this.app._observers.set(useGateway, new MutationObserver(records => {
-                        for (const { type, target, attributeName, addedNodes } of records) {
-                            if (type !== 'attributes' && type !== 'childList') continue
-                            const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
-                            for (const target of targets) {
-                                if (!(target instanceof HTMLElement)) continue
-                                for (const attributeName of processAttributes) {
-                                    const attributeValue = target.getAttribute(attributeName)
-                                    if (!attributeValue) continue
-                                    let valueUrl
-                                    try { valueUrl = new URL(attributeValue, document.baseURI) } catch (e) { continue }
-                                    if (valueUrl.protocol === protocol) {
-                                        const resolvedUrl = this.resolveUrl(attributeValue)
-                                        let resolveUrlObj
-                                        try { resolveUrlObj = new URL(resolvedUrl) } catch (e) { continue }
-                                        if (resolveUrlObj.protocol !== protocol) target.setAttribute(attributeName, resolvedUrl)
-                                    }
-                                }
-                            }
-                        }
-                    }))
-                    this.app._observers.get(useGateway).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
+
+                    this.app._observers.set(useGateway, this.observeUrlAttributes())
+
                 }
                 return this.app.gateways[protocol] = useGateway
             }
@@ -722,6 +702,34 @@ const ElementHTML = Object.defineProperties({}, {
             facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
             facetInstance.disabled = facetContainer.hasAttribute('disabled')
             await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
+        }
+    },
+    observeUrlAttributes: { // optimal
+        value: async function (observedScope = document.documentElement, urlAttributes = ['href', 'src'], resolveUrl = undefined) {
+            if (typeof resolveUrl !== 'function') resolveUrl ??= this.resolveUrl
+            const observer = new MutationObserver(records => {
+                for (const { type, target, attributeName, addedNodes } of records) {
+                    if (type !== 'attributes' && type !== 'childList') continue
+                    const [targets, processAttributes] = type === 'attributes' ? [[target], [attributeName]] : [addedNodes, urlAttributes]
+                    for (const target of targets) {
+                        if (!(target instanceof HTMLElement)) continue
+                        for (const attributeName of processAttributes) {
+                            const attributeValue = target.getAttribute(attributeName)
+                            if (!attributeValue) continue
+                            let valueUrl
+                            try { valueUrl = new URL(attributeValue, document.baseURI) } catch (e) { continue }
+                            if (valueUrl.protocol === protocol) {
+                                const resolvedUrl = resolveUrl.call(this, attributeValue)
+                                let resolveUrlObj
+                                try { resolveUrlObj = new URL(resolvedUrl) } catch (e) { continue }
+                                if (resolveUrlObj.protocol !== protocol) target.setAttribute(attributeName, resolvedUrl)
+                            }
+                        }
+                    }
+                }
+            })
+            observer.observe(observedScope, { subtree: true, childList: true, attributes: true, attributeFilter: urlAttributes })
+            return observer
         }
     },
     processQueue: { // optimal
@@ -899,7 +907,6 @@ const ElementHTML = Object.defineProperties({}, {
             async run(slug, lang, envelope) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, lang, envelope) }
         }
     },
-
     Component: {
         enumerable: true, value: class extends HTMLElement {
             static E
@@ -909,18 +916,14 @@ const ElementHTML = Object.defineProperties({}, {
             static name
             static layout
             static package = {}
-
             static get observedAttributes() { return (super.observedAttributes || []).concat([]) }
-
             constructor() {
                 const { E, base } = this.constructor
                 base.package ??= E.resolveUrl('./')
                 base.components ??= E.resolveUrl('./components/', base.package)
                 this.constructor.layout ??= 'layout.html'
             }
-
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
-
             connectedCallback() {
                 const { E, base, mode, layout } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
                     componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
@@ -928,7 +931,7 @@ const ElementHTML = Object.defineProperties({}, {
                 base.component ??= E.resolveUrl(componentPath, base.components)
                 this.constructor.name ??= componentName
                 if (layout) {
-                    this.attachShadow({ mode })
+                    this.attachShadow({ mode: mode || 'open' })
                     Promise.resolve(new Promise(res => {
                         if (layout instanceof HTMLTemplateElement) res(layout.content.cloneNode(true).textContent)
                         else if (layout instanceof Promise) res(layout)
@@ -946,13 +949,13 @@ const ElementHTML = Object.defineProperties({}, {
                         const fields = Object.freeze({ ...this.dataset }), labels = Object.freeze(E.flatten(this.valueOf()))
                         E.createEnvelope({ labels, fields }).then(envelope => {
                             this.shadowRoot.innerHTML = E.resolveVariable(layoutHtml, envelope, { merge: true })
+
                             this.dispatchEvent(new CustomEvent('ready', { detail: this }))
                             this.readyCallback()
                         })
                     })
                 }
             }
-
             dispatchEvent(event) {
                 const { E } = this.constructor, eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed },
                     defaultEventTypes = E.sys
@@ -967,19 +970,28 @@ const ElementHTML = Object.defineProperties({}, {
                 eventName ??= instance instanceof E.Component ? (instance.constructor.events?.default) : defaultEventTypes[instance.tagName.toLowerCase()]
                 return super.dispatchEvent(new CustomEvent(eventName ?? 'click', eventProps))
             }
-
             readyCallback() { }
-
             toJSON() { return this.valueOf() }
-
             valueOf() {
                 const result = {}
                 for (const p of this.constructor.observedAttributes.concat('value')) result[p] = this[p]
                 return result
             }
+        }
+    },
+
+
+    Facet: {
+        enumerable: true, value: class {
+            static E
+
+            constructor() {
+
+            }
 
         }
     },
+
 
     Facet: { // optimal - but needs to recheck
         enumerable: true, value: class {
