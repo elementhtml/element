@@ -195,7 +195,7 @@ const ElementHTML = Object.defineProperties({}, {
                         expression = expression.trim()
                         const typeDefault = expression[0] === '@' ? 'field' : 'cell'
                         expression = expression.slice(1).trim()
-                        const { group: target, shape } = this.modules.compile.getStateGroup(expression, typeDefault)
+                        const { group: target, shape } = this.getStateGroup(expression, typeDefault)
                         return { signal: true, target, shape }
                     }
                 }],
@@ -550,7 +550,10 @@ const ElementHTML = Object.defineProperties({}, {
                 audio: 'loadeddata', body: 'load', details: 'toggle', dialog: 'close', embed: 'load', form: 'submit', iframe: 'load', img: 'load', input: 'change', link: 'load',
                 meta: 'change', object: 'load', script: 'load', search: 'change', select: 'change', slot: 'slotchange', style: 'load', textarea: 'change', track: 'load', video: 'loadeddata'
             }),
+            defaultValue: /\s+\?\?\s+(.+)\s*$/,
+            directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/,
             impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
+            label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
             localOnlyUnitTypes: new Set(['hook']),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             queue: new Map(),
@@ -562,6 +565,8 @@ const ElementHTML = Object.defineProperties({}, {
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
             resolveShape: Object.freeze({ startFlags: new Set(['[', '?', '{']), endFlags: Object.freeze({ '.': true, '!': false, '-': null, '?': undefined }), closers: Object.freeze({ '{': '}', '[': ']' }) }),
+            segmenter: /\s+>>\s+/g,
+            splitter: /\n(?!\s+>>)/gm,
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
                 apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
@@ -641,6 +646,64 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     defaultResolver: { value: async function (unitKey, unitType) { return this.runFragment('defaultresolver', unitKey, unitType) } }, // optimal
+    getStateGroup: {
+        value: function (expression, typeDefault = 'cell', element) {
+            const parseOnly = !(element instanceof HTMLElement)
+            let group, shape
+            if (!parseOnly) element = this.app._components.virtuals.get(element) ?? element
+            const canonicalizeName = (name) => {
+                let type
+                switch (name[0]) {
+                    case '@': type = 'field'; break
+                    case '#': type = 'cell'; break
+                    default: type = typeDefault
+                }
+                const modeFlag = name[name.length - 1],
+                    mode = modeFlag === '!' ? 'force' : ((modeFlag === '?') ? 'silent' : undefined)
+                if (mode) name = name.slice(0, -1).trim()
+                return { name: name, mode, type }
+            }, getStateTarget = parseOnly ? undefined : (name, mode, type) => {
+                switch (type) {
+                    case 'cell':
+                        return { cell: (new this.Cell(name)), type, mode }
+                    case 'field':
+                        return { field: (new this.Field(name, undefined, element)), type, mode }
+                }
+            }
+            switch (expression[0]) {
+                case '{':
+                    group = {}
+                    shape = 'object'
+                    for (const pair of expression.slice(1, -1).trim().split(',')) {
+                        let [key, rawName] = pair.trim().split(':').map(s => s.trim())
+                        if (!rawName) rawName = key
+                        const { name, mode, type } = canonicalizeName(rawName)
+                        if (mode) key = key.slice(0, -1)
+                        group[key] = { name, mode, type }
+                        if (!parseOnly) group[key][type] = getStateTarget(name, mode, type)
+                    }
+                    break
+                case '[':
+                    group = []
+                    shape = 'array'
+                    for (let t of expression.slice(1, -1).split(',')) {
+                        t = t.trim()
+                        if (!t) continue
+                        const { name, mode, type } = canonicalizeName(t), index = group.push({ name, mode, type }) - 1
+                        if (!parseOnly) group[index][type] = getStateTarget(name, mode, type)
+                    }
+                    break
+                default:
+                    shape = 'single'
+                    expression = expression.trim()
+                    if (!expression) return
+                    group = canonicalizeName(expression)
+                    if (!parseOnly) group = getStateTarget(group.name, group.mode, group.type)
+            }
+            if (parseOnly) return { group, shape }
+            return group
+        }
+    },
     installGateway: { // optimal - but needs testing to see how it can integrate with runUnit() and both the Gateway class and the Renderer class
         value: async function (protocol) {
             if (!protocol) return
@@ -671,7 +734,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     mountElement: { // optimal
         value: async function (element) {
-            if (this.isFacetContainer(element)) return this.mountFacet(element)
+            if (this.isFacetContainer(element)) return this.app._facetInstances.set(element, new this.Facet(element))
             const customTag = this.getCustomTag(element)
             if (customTag) {
                 await this.activateTag(customTag)
@@ -717,42 +780,6 @@ const ElementHTML = Object.defineProperties({}, {
             if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
             return Promise.all(promises)
-        }
-    },
-    mountFacet: { // needs revision to check for overlaps with Facet
-        value: async function (facetContainer) {
-            let { type } = facetContainer, FacetClass, facetCid
-            const src = facetContainer.getAttribute('src')
-            if (type === 'facet/element') type = src ? 'application/element' : 'directives/element'
-            switch (type) {
-                case 'directives/element':
-                    if (!this.modules.compile) return
-                    const directives = await this.modules.compile.canonicalizeDirectives(src ? await fetch(this.resolveUrl(src)).then(r => r.text()) : facetContainer.textContent)
-                    if (!directives) break
-                    facetCid = await this.modules.compile.digest(directives)
-                    this.app.facets[facetCid] ??= await this.modules.compile.facet(directives, facetCid, facetContainer)
-                    break
-                case 'application/element':
-                    if (!src || this.app.facets[src]) break
-                    FacetClass = await this.resolveUnit(src, 'facet')
-                    facetCid = FacetClass.cid
-                    break
-            }
-            FacetClass ??= this.app.facets[facetCid]
-            if (!(FacetClass?.prototype instanceof this.Facet)) return
-            if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
-            const facetInstance = new FacetClass()
-            this.app._facetInstances.set(facetContainer, facetInstance)
-            const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
-                context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
-            for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
-            for (const cellName of FacetClass.cellNames) cells[cellName] = new this.Cell(cellName)
-            Object.freeze(fields)
-            Object.freeze(cells)
-            facetInstance.observer = new MutationObserver(() => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
-            facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
-            facetInstance.disabled = facetContainer.hasAttribute('disabled')
-            await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
         }
     },
     observeUrlAttributes: { // optimal
@@ -1058,11 +1085,159 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             fields = {}
 
-            constructor() {
-                const { E, fieldNames } = this.constructor
+            static parseDirectives(directives) {
+                const { E } = this, { sys } = E, { regexp } = sys
+                directives = directives.trim()
+                if (!directives) return
+
+                const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: E.Cell, field: E.Field, '#': E.Cell, '@': E.Field },
+                    { dev } = this.modules, { interpreters } = this.env
+
+                let statementIndex = -1
+                for (let directive of directives.split(regexp.splitter)) {
+                    directive = directive.trim()
+                    if (!directive || directive.startsWith('|* ')) continue
+                    statementIndex++
+                    let stepIndex = -1, handle, handleMatch
+                    if (handleMatch = directive.match(regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
+                    directive = directive.trim()
+                    const statement = { handle, index: statementIndex, labels: {}, steps: [] }
+                    for (const segment of directive.split(regexp.segmenter)) {
+                        if (!segment) continue
+                        stepIndex++
+                        let handlerExpression = segment, label, defaultExpression
+                        const labelMatch = handlerExpression.match(regexp.label)
+                        if (labelMatch) {
+                            label = labelMatch[1].trim()
+                            handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
+                        }
+                        const defaultExpressionMatch = handlerExpression.match(regexp.defaultValue)
+                        if (defaultExpressionMatch) {
+                            defaultExpression = defaultExpressionMatch[1].trim()
+                            handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
+                            let name
+                            if (defaultExpression.length > 1) switch (defaultExpression[0]) {
+                                case '@': new E.Field(defaultExpression.slice(1).trim(), this); break
+                                case '#': new E.Cell(defaultExpression.slice(1).trim()); break
+                            }
+                        }
+                        label ||= `${stepIndex}`
+                        const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
+                        if (labelMode) {
+                            label = label.slice(0, -1).trim()
+                            labelMode = labelMode
+                        }
+                        label = label
+                        switch (label[0]) {
+                            case '@': case '#':
+                                let n = label.slice(1).trim()
+                                if (n) new targetNames[label[0]](n, this)
+                                break
+                            default:
+                                const ln = label.trim()
+                                if (ln) statement.labels[ln] ??= undefined
+                        }
+                        let signature
+                        for (const [matcher, interpreter] of interpreters) {
+                            const { parser, name } = interpreter
+                            if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
+                                signature = { name, interpreter: matcher.toString(), descriptor: (await parser(handlerExpression)) ?? {}, variables: {} }
+                                if (name === 'state') {
+                                    const { target, shape } = signature.descriptor
+                                    switch (shape) {
+                                        case 'single':
+                                            new targetNames[target.type](target.name, this)
+                                            break
+                                        case 'array':
+                                            for (const t of target) new targetNames[t.type](t.name, this)
+                                            break
+                                        case 'object':
+                                            for (const key in target) new targetNames[target[key].type](target[key].name, this)
+                                            break
+                                    }
+                                }
+                                break
+                            }
+                        }
+                        if (signature === undefined) {
+                            if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in: ${handlerExpression}`, 'warning')
+                            let matcher, name = 'console'
+                            for (const [k, v] of interpreters) if (v.name === name) { matcher = k; break }
+                            if (!matcher) continue
+                            signature = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
+                        }
+                        for (const p in signature.descriptor) if (this.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
+                        if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
+                        else delete signature.variables
+                        Object.freeze(signature.descriptor)
+                        const step = { label, labelMode, signature: Object.freeze(signature) }
+                        if (defaultExpression) step.defaultExpression = defaultExpression
+                        statement.labels[label] ??= undefined
+                        statement.labels[`${stepIndex}`] ??= undefined
+                        statement.steps.push(Object.freeze(step))
+                    }
+                    Object.seal(statement.labels)
+                    Object.freeze(statement.steps)
+                    Object.freeze(statement)
+                    statements.push(statement)
+                }
+
+
+
+                { fieldNames, cellNames, statements }
+
+
+
+            }
+
+            constructor(directives) {
+                if (!directives) return
+                if (typeof directives === 'string') directives = this.constructor.parseDirectives(directives).then(directives => this.constructor.init(directives))
+                else if (directives instanceof Promise) directives.then(directives => this.constructor.init(directives))
+                else if (this.constructor.E.isPlainObject(directives)) this.constructor.init(directives)
+
+
+
+
+
+                if (container instanceof HTMLScriptElement) return
+                const { E, canonicalizeDirectives } = this.constructor, { src, textContent, type } = container
                 this.controller = new AbortController()
-                for (const fieldName of fieldNames) this.fields[fieldName] = new E.Field(this, fieldName)
-                Object.freeze(this.fields)
+                // for (const fieldName of fieldNames) this.fields[fieldName] = new E.Field(this, fieldName)
+                // Object.freeze(this.fields)
+                let effectiveType = (type === 'facet/element') ? (type = src ? 'application/element' : 'directives/element') : type
+
+
+                switch (effectiveType) {
+                    case 'directives/element':
+                        Promise.resolve(src ? (fetch(this.resolveUrl(src)).then(r => r.text())) : textContent).then(directives => {
+                            const directives = canonicalizeDirectives(directives)
+                            if (!directives) return
+                        })
+                        break
+                    case 'application/element':
+                        if (!src || this.app.facets[src]) break
+                        FacetClass = await this.resolveUnit(src, 'facet')
+                        facetCid = FacetClass.cid
+                        break
+                }
+                FacetClass ??= this.app.facets[facetCid]
+                if (!(FacetClass?.prototype instanceof this.Facet)) return
+                if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
+                const facetInstance = new FacetClass()
+                this.app._facetInstances.set(facetContainer, facetInstance)
+                const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
+                    context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
+                for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
+                for (const cellName of FacetClass.cellNames) cells[cellName] = new this.Cell(cellName)
+                Object.freeze(fields)
+                Object.freeze(cells)
+                facetInstance.observer = new MutationObserver(() => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
+                facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
+                facetInstance.disabled = facetContainer.hasAttribute('disabled')
+                await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
+
+
 
 
             }
