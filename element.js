@@ -1181,10 +1181,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            constructor(directives) {
+            constructor({ directives, target }) {
                 if (!directives) return
-                if (typeof directives === 'string') directives = this.constructor.parseDirectives(directives).then(directives => this.constructor.init(directives))
-                else if (directives instanceof Promise) directives.then(directives => this.constructor.init(directives))
+                if (typeof directives === 'string') this.constructor.parseDirectives(directives).then(facetConfig => this.constructor.init(facetConfig))
                 else if (this.constructor.E.isPlainObject(directives)) this.constructor.init(directives)
 
 
