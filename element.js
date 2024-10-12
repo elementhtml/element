@@ -1090,10 +1090,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E } = this, { sys } = E, { regexp } = sys
                 directives = directives.trim()
                 if (!directives) return
-
-                const fieldNames = new Set(), cellNames = new Set(), statements = [], targetNames = { cell: E.Cell, field: E.Field, '#': E.Cell, '@': E.Field },
-                    { dev } = this.modules, { interpreters } = this.env
-
+                const targetNames = { cell: E.Cell, field: E.Field, '#': E.Cell, '@': E.Field }, { interpreters } = E.env
                 let statementIndex = -1
                 for (let directive of directives.split(regexp.splitter)) {
                     directive = directive.trim()
@@ -1182,8 +1179,6 @@ const ElementHTML = Object.defineProperties({}, {
                     Object.freeze(statement)
                     this.statements.push(statement)
                 }
-
-
             }
 
             constructor(directives) {
