@@ -51,33 +51,6 @@ const globalNamespace = crypto.randomUUID(), nativeElementsMap = {
             return digest.join('')
         }
     },
-    facetFactory: { // optimal
-        value: async function (manifest) {
-            let FacetClass
-            if (manifest.prototype instanceof this.Facet) {
-                FacetClass = manifest
-            } else {
-                if (!this.isPlainObject(manifest)) return
-                const { fieldNames = [], cellNames = [], statements = [], cid } = manifest
-                if (!cid || (typeof cid !== 'string')) return
-                const source = `  class ${cid} extends E.Facet {
-
-        static cid = '${cid}'
-        static fieldNames = Object.freeze(${JSON.stringify(Array.from(fieldNames))})
-        static cellNames = Object.freeze(${JSON.stringify(Array.from(cellNames))})
-        static statements = E.deepFreeze(${JSON.stringify(statements)})
-
-    }`
-
-                const classAsModuleUrl = URL.createObjectURL(new Blob([`const E = globalThis['${globalNamespace}']; export default ${source}`], { type: 'text/javascript' }))
-                FacetClass = (await import(classAsModuleUrl)).default
-                URL.revokeObjectURL(classAsModuleUrl)
-            }
-            Object.defineProperty(FacetClass, 'E', { value: this })
-            Object.defineProperty(FacetClass.prototype, 'E', { value: this })
-            return FacetClass
-        }
-    },
     globalNamespace: { value: globalNamespace },
     parsers: {
         value: {

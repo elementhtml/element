@@ -355,7 +355,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveScope: { // optimal
-        enumerable: true, value: async function (scopeStatement, element) {
+        enumerable: true, value: function (scopeStatement, element) {
             element = this.app._components.nativesFromVirtuals.get(element) ?? element
             if (!scopeStatement) return element.parentElement
             switch (scopeStatement) {
@@ -379,13 +379,13 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (scopedSelector, element) {
             const { impliedScopes, regexp } = this.sys, { pipeSplitter } = regexp
             element &&= this.app._components.nativesFromVirtuals.get(element) ?? element
-            if (impliedScopes[scopedSelector]) return element ? (await this.resolveScope(impliedScopes[scopedSelector], element)) : { scope: impliedScopes[scopedSelector] }
+            if (impliedScopes[scopedSelector]) return element ? (this.resolveScope(impliedScopes[scopedSelector], element)) : { scope: impliedScopes[scopedSelector] }
             if (impliedScopes[scopedSelector[0]]) scopedSelector = `${impliedScopes[scopedSelector[0]]}|${scopedSelector}`
             let scope = element
             if (pipeSplitter.test(scopedSelector)) {
                 const [scopeStatement, selectorStatement] = scopedSelector.split(pipeSplitter, 2).map(s => s.trim())
                 if (!element) return { scope: scopeStatement, selector: selectorStatement }
-                scope = await this.resolveScope(scopeStatement, element)
+                scope = this.resolveScope(scopeStatement, element)
                 scopedSelector = selectorStatement
             }
             return element ? (await this.resolveSelector(scopedSelector, scope)) : { selector: scopedSelector }
@@ -1086,7 +1086,7 @@ const ElementHTML = Object.defineProperties({}, {
             fields = {}
             statements = []
 
-            static parseDirectives(directives) {
+            static async parseDirectives(directives) {
                 const { E } = this, { sys } = E, { regexp } = sys
                 directives = directives.trim()
                 if (!directives) return
