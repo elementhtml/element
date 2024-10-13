@@ -552,7 +552,7 @@ const ElementHTML = Object.defineProperties({}, {
             }),
             defaultValue: /\s+\?\?\s+(.+)\s*$/,
             directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/,
-            impliedScopes: Object.freeze({ ':': '*', '#': 'html' }),
+            impliedScopes: Object.freeze({ ':': 'body', '#': 'html' }),
             label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
             localOnlyUnitTypes: new Set(['hook']),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
@@ -1115,7 +1115,7 @@ const ElementHTML = Object.defineProperties({}, {
                             handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
                             let name
                             if (defaultExpression.length > 1) switch (defaultExpression[0]) {
-                                case '@': new E.Field(defaultExpression.slice(1).trim(), this); break
+                                case '@': new E.Field(defaultExpression.slice(1).trim(), undefined, this); break
                                 case '#': new E.Cell(defaultExpression.slice(1).trim()); break
                             }
                         }
@@ -1181,11 +1181,34 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            constructor({ directives, statements, fields, anchor }) {
+            async setupStatements(statements, fields) {
+                for (const statement of statements) {
+                    if (!(statement.labels && statement.steps)) continue
+                    Object.seal(statement.labels)
+                    Object.freeze(statement.steps)
+                    Object.freeze(statement)
+                    this.statements.push(statement)
+                }
+                for (const name in fields) new E.Field(name, fields[name], this)
+            }
+
+            async init(anchor, root) {
+                Object.freeze(this.statements)
+                Object.freeze(this.fields)
+                this.anchor ??= anchor
+                this.root = (root instanceof ShadowRoot) ? root : document.documentElement
+
+            }
+
+            constructor({ directives, statements, fields, anchor, root }) {
                 if (!directives) return
-                const promises = []
-                if (typeof directives === 'string') this.parseDirectives(directives).then(facetConfig => this.constructor.init(facetConfig))
-                else if (this.constructor.E.isPlainObject(directives)) this.constructor.init(directives)
+                let promise
+                if (typeof directives === 'string') promise = this.parseDirectives(directives)
+                else if (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields)) promise = this.constructor.setupStatements(statements, fields)
+                if (!promise) return
+                promise.then(() => this.init(anchor, root)).then(() => {
+
+                })
 
 
 
@@ -1653,7 +1676,7 @@ Object.defineProperties(ElementHTML, {
     },
     Field: { // optimal
         enumerable: true, value: class extends ElementHTML.State {
-            constructor(facet, name, initialValue) {
+            constructor(name, initialValue, facet) {
                 let fields = (facet instanceof ElementHTML.Facet) ? facet.fields : ((facet instanceof HTMLElement) ? ElementHTML.app._facetInstances.get(facet).fields : undefined)
                 if (name && fields[name]) return fields[name]
                 super(name, initialValue)
