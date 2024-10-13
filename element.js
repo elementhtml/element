@@ -1085,6 +1085,7 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             fields = {}
             statements = []
+            observer
 
             async parseDirectives(directives) {
                 const { E } = this, { sys } = E, { regexp } = sys
@@ -1192,10 +1193,15 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const name in fields) new E.Field(name, fields[name], this)
             }
 
-            async init(anchor, root) {
+            async init() {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
-
+                this.observer = new MutationObserver(mutations => {
+                    const anchorElement = this.resolveSelector(this.anchor, this.root)
+                    if (!anchorElement || !anchorElement?.length) this.pause()
+                    else this.run()
+                })
+                this.observer.observe(this.root, { childList: true, subtree: true, attributes: true })
             }
 
             constructor({ directives, statements, fields, anchor, root }) {
@@ -1205,54 +1211,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!promise) return
                 if (typeof anchor === 'string') this.anchor = anchor
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
-                promise.then(() => this.init(anchor, root)).then(() => {
-
-                })
-
-
-
-
-
-                if (container instanceof HTMLScriptElement) return
-                const { E, canonicalizeDirectives } = this.constructor, { src, textContent, type } = container
-                this.controller = new AbortController()
-                // for (const fieldName of fieldNames) this.fields[fieldName] = new E.Field(this, fieldName)
-                // Object.freeze(this.fields)
-                let effectiveType = (type === 'facet/element') ? (type = src ? 'application/element' : 'directives/element') : type
-
-
-                switch (effectiveType) {
-                    case 'directives/element':
-                        Promise.resolve(src ? (fetch(this.resolveUrl(src)).then(r => r.text())) : textContent).then(directives => {
-                            const directives = canonicalizeDirectives(directives)
-                            if (!directives) return
-                        })
-                        break
-                    case 'application/element':
-                        if (!src || this.app.facets[src]) break
-                        FacetClass = await this.resolveUnit(src, 'facet')
-                        facetCid = FacetClass.cid
-                        break
-                }
-                FacetClass ??= this.app.facets[facetCid]
-                if (!(FacetClass?.prototype instanceof this.Facet)) return
-                if (this.modules.dev) facetContainer.dataset.facetCid = facetCid
-                const facetInstance = new FacetClass()
-                this.app._facetInstances.set(facetContainer, facetInstance)
-                const rootNode = facetContainer.getRootNode(), fields = {}, cells = {},
-                    context = Object.freeze(rootNode instanceof ShadowRoot ? { ...this.env.context, ...Object.fromEntries(Object.entries(rootNode.host.dataset)) } : this.env.context)
-                for (const fieldName of FacetClass.fieldNames) fields[fieldName] = (new this.Field(facetInstance, fieldName))
-                for (const cellName of FacetClass.cellNames) cells[cellName] = new this.Cell(cellName)
-                Object.freeze(fields)
-                Object.freeze(cells)
-                facetInstance.observer = new MutationObserver(() => facetInstance.disabled = facetContainer.hasAttribute('disabled'))
-                facetInstance.observer.observe(facetContainer, { attributes: true, attributeFilter: ['disabled'] })
-                facetInstance.disabled = facetContainer.hasAttribute('disabled')
-                await facetInstance.run(facetContainer, Object.freeze({ fields, cells, context }))
-
-
-
-
+                promise.then(() => this.init(anchor, root))
             }
 
             async run() {
