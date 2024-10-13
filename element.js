@@ -1083,108 +1083,35 @@ const ElementHTML = Object.defineProperties({}, {
     Facet: {
         enumerable: true, value: class {
             static E
+
+            static saveToLabel(stepIndex, label, value, labelMode, labels, fields, cells) {
+                labels[`${stepIndex}`] = value
+                if (label && (label != stepIndex)) {
+                    switch (label[0]) {
+                        case '@': fields[label.slice(1)].set(value, labelMode); break
+                        case '#': cells[label.slice(1)].set(value, labelMode); break
+                        default: labels[label] = value
+                    }
+                }
+            }
+
+            controller
+            controllers = {}
+            descriptors = {}
+            eventTarget
             fields = {}
-            statements = []
             observer
+            running
+            statements = []
 
             async parseDirectives(directives) {
-                const { E } = this, { sys } = E, { regexp } = sys
-                directives = directives.trim()
-                if (!directives) return
-                const targetNames = { cell: E.Cell, field: E.Field, '#': E.Cell, '@': E.Field }, { interpreters } = E.env
-                let statementIndex = -1
-                for (let directive of directives.split(regexp.splitter)) {
-                    directive = directive.trim()
-                    if (!directive || directive.startsWith('|* ')) continue
-                    statementIndex++
-                    let stepIndex = -1, handle, handleMatch
-                    if (handleMatch = directive.match(regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
-                    directive = directive.trim()
-                    const statement = { handle, index: statementIndex, labels: {}, steps: [] }
-                    for (const segment of directive.split(regexp.segmenter)) {
-                        if (!segment) continue
-                        stepIndex++
-                        let handlerExpression = segment, label, defaultExpression
-                        const labelMatch = handlerExpression.match(regexp.label)
-                        if (labelMatch) {
-                            label = labelMatch[1].trim()
-                            handlerExpression = handlerExpression.slice(labelMatch[0].length).trim()
-                        }
-                        const defaultExpressionMatch = handlerExpression.match(regexp.defaultValue)
-                        if (defaultExpressionMatch) {
-                            defaultExpression = defaultExpressionMatch[1].trim()
-                            handlerExpression = handlerExpression.slice(0, defaultExpressionMatch.index).trim()
-                            let name
-                            if (defaultExpression.length > 1) switch (defaultExpression[0]) {
-                                case '@': new E.Field(defaultExpression.slice(1).trim(), undefined, this); break
-                                case '#': new E.Cell(defaultExpression.slice(1).trim()); break
-                            }
-                        }
-                        label ||= `${stepIndex}`
-                        const labelModeFlag = label[label.length - 1], labelMode = labelModeFlag === '!' ? 'force' : ((labelModeFlag === '?') ? 'silent' : undefined)
-                        if (labelMode) {
-                            label = label.slice(0, -1).trim()
-                            labelMode = labelMode
-                        }
-                        label = label
-                        switch (label[0]) {
-                            case '@': case '#':
-                                let n = label.slice(1).trim()
-                                if (n) new targetNames[label[0]](n, this)
-                                break
-                            default:
-                                const ln = label.trim()
-                                if (ln) statement.labels[ln] ??= undefined
-                        }
-                        let signature
-                        for (const [matcher, interpreter] of interpreters) {
-                            const { parser, name } = interpreter
-                            if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                                signature = { name, interpreter: matcher.toString(), descriptor: (await parser(handlerExpression)) ?? {}, variables: {} }
-                                if (name === 'state') {
-                                    const { target, shape } = signature.descriptor
-                                    switch (shape) {
-                                        case 'single':
-                                            new targetNames[target.type](target.name, this)
-                                            break
-                                        case 'array':
-                                            for (const t of target) new targetNames[t.type](t.name, this)
-                                            break
-                                        case 'object':
-                                            for (const key in target) new targetNames[target[key].type](target[key].name, this)
-                                            break
-                                    }
-                                }
-                                break
-                            }
-                        }
-                        if (signature === undefined) {
-                            if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in: ${handlerExpression}`, 'warning')
-                            let matcher, name = 'console'
-                            for (const [k, v] of interpreters) if (v.name === name) { matcher = k; break }
-                            if (!matcher) continue
-                            signature = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
-                        }
-                        for (const p in signature.descriptor) if (E.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
-                        if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
-                        else delete signature.variables
-                        Object.freeze(signature.descriptor)
-                        const step = { label, labelMode, signature: Object.freeze(signature) }
-                        if (defaultExpression) step.defaultExpression = defaultExpression
-                        statement.labels[label] ??= undefined
-                        statement.labels[`${stepIndex}`] ??= undefined
-                        statement.steps.push(Object.freeze(step))
-                    }
-                    Object.seal(statement.labels)
-                    Object.freeze(statement.steps)
-                    Object.freeze(statement)
-                    this.statements.push(statement)
-                }
+                const { E } = this.constructor
+                return (await E.runFragment('facet')).parseDirectives.call(this, directives)
             }
 
             async setupStatements(statements, fields) {
                 for (const statement of statements) {
-                    if (!(statement.labels && statement.steps)) continue
+                    if (!(statement?.labels && statement?.steps)) continue
                     Object.seal(statement.labels)
                     Object.freeze(statement.steps)
                     Object.freeze(statement)
@@ -1196,6 +1123,38 @@ const ElementHTML = Object.defineProperties({}, {
             async init() {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
+                const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, eventTarget, statements } = this
+                let statementIndex = -1
+                for (const statement of statements) {
+                    statementIndex++
+                    const { steps = [] } = statement, labels = {}
+                    for (const label of statement.labels) labels[label] = undefined
+                    this.labels[statementIndex] = labels
+                    let stepIndex = -1
+                    for (const step of steps) {
+                        stepIndex++
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step, { interpreter: interpreterKey, variables } = signature,
+                            descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor, envelope = { descriptor, labels, fields, cells, context: this.context, variables }
+                        let interpreter, matcher
+                        for (matcher of interpreterKeys) if (matcher.toString() === interpreterKey) break
+                        if (matcher) interpreter = interpreters.get(matcher)
+                        if (!interpreter) continue
+                        const { binder, handler } = interpreter
+                        if (signal) descriptor.signal = (controllers[position] = new AbortController()).signal
+                        if (binder) Object.assign(descriptor, (await binder(this, position, envelope) ?? {}))
+                        descriptors[position] = Object.freeze(descriptor)
+                        eventTarget.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells), { signal: controller.signal })
+                        const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
+                        eventTarget.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'init', async () => {
+                            if (!this.running) return
+                            const handlerEnvelope = { ...envelope, fields: Object.freeze(await E.flatten(fields)), cells: Object.freeze(await E.flatten(cells)), labels: Object.freeze({ ...labels }) },
+                                value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(this, position, handlerEnvelope, value)
+                                    ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
+                            if (detail !== undefined) eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                        }, { signal: controller.signal })
+                    }
+                }
+                container.dispatchEvent(new CustomEvent('init'))
                 this.observer = new MutationObserver(mutations => {
                     const anchorElement = this.resolveSelector(this.anchor, this.root)
                     if (!anchorElement || !anchorElement?.length) this.pause()
@@ -1211,76 +1170,15 @@ const ElementHTML = Object.defineProperties({}, {
                 if (!promise) return
                 if (typeof anchor === 'string') this.anchor = anchor
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
+                this.controller = new AbortController()
+                this.eventTarget = new EventTarget()
                 promise.then(() => this.init(anchor, root))
             }
 
-            async run() {
+            async pause() { return (this.running = false) }
 
-            }
+            async run() { return (this.running = true) }
 
-        }
-    },
-
-
-    Facet: { // optimal - but needs to recheck
-        enumerable: true, value: class {
-            static E
-            controller
-            controllers = {}
-            fields = {}
-            observer
-            descriptors = {}
-            labels = []
-            disabled
-            constructor() {
-                this.controller = new AbortController()
-                for (const fieldName of this.constructor.fieldNames) this.fields[fieldName] = new this.constructor.E.Field(this, fieldName)
-                Object.freeze(this.fields)
-            }
-            saveToLabel(stepIndex, label, value, labelMode, labels, fields, cells) {
-                labels[`${stepIndex}`] = value
-                if (label && (label != stepIndex)) {
-                    switch (label[0]) {
-                        case '@': fields[label.slice(1)].set(value, labelMode); break
-                        case '#': cells[label.slice(1)].set(value, labelMode); break
-                        default: labels[label] = value
-                    }
-                }
-            }
-            async run(container, { fields, cells, context }) {
-                const { E, statements } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, saveToLabel, disabled } = this
-                let statementIndex = -1
-                for (const statement of statements) {
-                    statementIndex++
-                    const { steps = [] } = statement, labels = {}
-                    for (const label of statement.labels) labels[label] = undefined
-                    this.labels[statementIndex] = labels
-                    let stepIndex = -1
-                    for (const step of steps) {
-                        stepIndex++
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step, { interpreter: interpreterKey, variables } = signature,
-                            descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor, envelope = { descriptor, labels, fields, cells, context, variables }
-                        let interpreter, matcher
-                        for (matcher of interpreterKeys) if (matcher.toString() === interpreterKey) break
-                        if (matcher) interpreter = interpreters.get(matcher)
-                        if (!interpreter) continue
-                        const { binder, handler } = interpreter
-                        if (signal) descriptor.signal = (controllers[position] = new AbortController()).signal
-                        if (binder) Object.assign(descriptor, (await binder(container, position, envelope) ?? {}))
-                        descriptors[position] = Object.freeze(descriptor)
-                        container.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, fields, cells), { signal: controller.signal })
-                        const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
-                        container.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'run', async () => {
-                            if (disabled) return
-                            const handlerEnvelope = { ...envelope, fields: Object.freeze(await E.flatten(fields)), cells: Object.freeze(await E.flatten(cells)), labels: Object.freeze({ ...labels }) },
-                                value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(container, position, handlerEnvelope, value)
-                                    ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
-                            if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: controller.signal })
-                    }
-                }
-                container.dispatchEvent(new CustomEvent('run'))
-            }
             valueOf() {
                 const fields = {}
                 for (const f in this.fields) fields[f] = this.fields[f].value
@@ -1289,6 +1187,7 @@ const ElementHTML = Object.defineProperties({}, {
             toJSON() { return this.valueOf() }
         }
     },
+
     Gateway: {
         enumerable: true, value: class {
             static E
