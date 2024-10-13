@@ -1104,22 +1104,6 @@ const ElementHTML = Object.defineProperties({}, {
             running
             statements = []
 
-            async parseDirectives(directives) {
-                const { E } = this.constructor
-                return (await E.runFragment('facet')).parseDirectives.call(this, directives)
-            }
-
-            async setupStatements(statements, fields) {
-                for (const statement of statements) {
-                    if (!(statement?.labels && statement?.steps)) continue
-                    Object.seal(statement.labels)
-                    Object.freeze(statement.steps)
-                    Object.freeze(statement)
-                    this.statements.push(statement)
-                }
-                for (const name in fields) new E.Field(name, fields[name], this)
-            }
-
             async init() {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
@@ -1175,9 +1159,25 @@ const ElementHTML = Object.defineProperties({}, {
                 promise.then(() => this.init(anchor, root))
             }
 
+            async parseDirectives(directives) {
+                const { E } = this.constructor
+                return (await E.runFragment('facet')).parseDirectives.call(this, directives)
+            }
+
             async pause() { return (this.running = false) }
 
             async run() { return (this.running = true) }
+
+            async setupStatements(statements, fields) {
+                for (const statement of statements) {
+                    if (!(statement?.labels && statement?.steps)) continue
+                    Object.seal(statement.labels)
+                    Object.freeze(statement.steps)
+                    Object.freeze(statement)
+                    this.statements.push(statement)
+                }
+                for (const name in fields) new E.Field(name, fields[name], this)
+            }
 
             async stop() {
                 this.observer.disconnect()
@@ -1185,12 +1185,12 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const k in this.controllers) this.controllers[k].abort()
             }
 
+            toJSON() { return this.valueOf() }
             valueOf() {
                 const fields = {}
                 for (const f in this.fields) fields[f] = this.fields[f].value
                 return fields
             }
-            toJSON() { return this.valueOf() }
         }
     },
 
