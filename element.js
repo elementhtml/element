@@ -1195,17 +1195,16 @@ const ElementHTML = Object.defineProperties({}, {
             async init(anchor, root) {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
-                this.anchor ??= anchor
-                this.root = (root instanceof ShadowRoot) ? root : document.documentElement
 
             }
 
             constructor({ directives, statements, fields, anchor, root }) {
                 if (!directives) return
-                let promise
-                if (typeof directives === 'string') promise = this.parseDirectives(directives)
-                else if (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields)) promise = this.constructor.setupStatements(statements, fields)
+                let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
+                    ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
                 if (!promise) return
+                if (typeof anchor === 'string') this.anchor = anchor
+                this.root = (root instanceof ShadowRoot) ? root : document.documentElement
                 promise.then(() => this.init(anchor, root)).then(() => {
 
                 })
