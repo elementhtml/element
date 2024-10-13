@@ -1154,7 +1154,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }, { signal: controller.signal })
                     }
                 }
-                container.dispatchEvent(new CustomEvent('init'))
+                eventTarget.dispatchEvent(new CustomEvent('init'))
                 this.observer = new MutationObserver(mutations => {
                     const anchorElement = this.resolveSelector(this.anchor, this.root)
                     if (!anchorElement || !anchorElement?.length) this.pause()
