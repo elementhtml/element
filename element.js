@@ -1179,6 +1179,12 @@ const ElementHTML = Object.defineProperties({}, {
 
             async run() { return (this.running = true) }
 
+            async stop() {
+                this.observer.disconnect()
+                this.controller.abort()
+                for (const k in this.controllers) this.controllers[k].abort()
+            }
+
             valueOf() {
                 const fields = {}
                 for (const f in this.fields) fields[f] = this.fields[f].value
