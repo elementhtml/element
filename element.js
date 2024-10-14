@@ -8,7 +8,7 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         const { sys } = this, { location } = document, { descriptor } = envelope, { expression } = descriptor
                         let result
                         if (expression in sys.locationKeyMap) {
@@ -24,25 +24,25 @@ const ElementHTML = Object.defineProperties({}, {
                         result.path = result.pathname.replace(sys.regexp.leadingSlash, '')
                         return result
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
-                        if (signal) window.addEventListener('hashchange', () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
+                        if (signal) window.addEventListener('hashchange', () => facet.eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
                     },
                     parser: async function (expression) { return { expression, signal: expression === '#' } }
                 }],
                 [/^(true|false|null|[.!-]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|-?\d+(\.\d+)?)$/, {
                     name: 'value',
-                    handler: async function (container, position, envelope, value) { return envelope.descriptor.value },
+                    handler: async function (facet, position, envelope, value) { return envelope.descriptor.value },
                     parser: async function (expression) { return { value: expression in this.sys.valueAliases ? this.sys.valueAliases[expression] : JSON.parse(expression) } }
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (container, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) },
+                    handler: async function (facet, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) },
                     parser: async function (expression) { return { expression: expression.slice(2, -1).trim() } }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
                     name: 'shape',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         const { descriptor } = envelope
                         return this.resolveVariable(descriptor.shape, Object.freeze({ ...envelope, value }))
                     },
@@ -50,8 +50,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^#\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'content',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/content', container, position, envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/content', facet, position, envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
                         if (!variables?.collection) new Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
                     },
@@ -62,8 +62,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\(.*\)$/, {
                     name: 'transform',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/transform', container, position, envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
                         if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
                     },
@@ -71,7 +71,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = variables && true,
                             valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
                             pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, valueEnvelope, { wrapped }) : p, 'pattern')
@@ -80,7 +80,7 @@ const ElementHTML = Object.defineProperties({}, {
                         const match = value.match(pattern), groups = match?.groups
                         return groups ? Object.fromEntries(Object.entries(groups)) : (match ? match[1] : undefined)
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
                         if (!variables?.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     },
@@ -93,8 +93,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/type', container, position, envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/type', facet, position, envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
                         for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
                     },
@@ -118,29 +118,29 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\(.*\)$/, {
                     name: 'selector',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         const { descriptor } = envelope, { scope, selector } = descriptor
                         if (value != undefined) for (const t of ([].concat(await this.resolveSelector(selector, scope)))) this.render(t, value)
                         return value
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
-                            scope = await this.resolveScope(scopeStatement, container), { sys } = this, { defaultEventTypes } = sys
+                            scope = await this.resolveScope(scopeStatement, facet.root), { sys } = this, { defaultEventTypes } = sys
                         if (!scope) return {}
                         const bangIndex = selectorStatement.lastIndexOf('!')
                         let selector = selectorStatement.trim(), eventList
                         if ((bangIndex > selector.lastIndexOf(']')) && (bangIndex > selector.lastIndexOf(')')) && (bangIndex > selector.lastIndexOf('"')) && (bangIndex > selector.lastIndexOf("'")))
                             [selector, eventList] = [selector.slice(0, bangIndex).trim(), selector.slice(bangIndex + 1).trim()]
                         if (eventList) eventList = eventList.split(sys.regexp.commaSplitter).filter(Boolean)
-                        else if (container.dataset.facetCid) {
+                        else {
                             const [statementIndex, stepIndex] = position.split('-')
-                            if (!this.app.facets[container.dataset.facetCid]?.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
+                            if (!facet.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
                         }
                         for (let eventName of eventList ?? Array.from(new Set(Object.values(defaultEventTypes).concat(['click'])))) {
                             const enSlice3 = eventName.slice(-3), keepDefault = enSlice3.includes('+'), exactMatch = enSlice3.includes('='), once = enSlice3.includes('-')
                             for (const [v, r] of [[keepDefault, '+'], [exactMatch, '='], [once, '-']]) if (v) eventName = eventName.replace(r, '')
                             scope.addEventListener(eventName, event => {
-                                this.runFragment('env/interpreters/selector', event, selector, scope, exactMatch, defaultEventTypes, keepDefault, container, position)
+                                this.runFragment('env/interpreters/selector', event, selector, scope, exactMatch, defaultEventTypes, keepDefault, facet, position)
                             }, { signal, once })
                         }
                         return { selector, scope }
@@ -149,7 +149,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         const { descriptor } = envelope, { getReturnValue, shape, target } = descriptor
                         if (value == undefined) return getReturnValue()
                         switch (shape) {
@@ -158,18 +158,18 @@ const ElementHTML = Object.defineProperties({}, {
                             case 'object': if (value instanceof Object) for (const k in value) if (value[k] !== undefined) if (k in target) target[k][target[k].type].set(value[k], target[k].mode)
                         }
                     },
-                    binder: async function (container, position, envelope) {
+                    binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { signal, shape } = descriptor, items = []
                         let { target } = descriptor, getReturnValue
                         switch (shape) {
                             case 'single':
                                 const { type, name } = target
-                                target[type] = type === 'field' ? (new this.Field(container, name)) : (new this.Cell(name))
+                                target[type] = type === 'field' ? (new this.Field(name, facet)) : (new this.Cell(name))
                                 getReturnValue = () => target[type].get()
                                 items.push(target)
                                 break
                             case 'array':
-                                for (const t of target) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
+                                for (const t of target) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(t.name, facet)) : (new this.Cell(t.name))
                                 getReturnValue = (r = [], l) => {
                                     for (const t of target) if ((r[l ??= r.length] = t[t.type].get()) === undefined) return
                                     return r
@@ -177,7 +177,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 break
                             case 'object':
                                 if (Array.isArray(target)) target = Object.fromEntries(target)
-                                for (const t of Object.values(target)) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(container, t.name)) : (new this.Cell(t.name))
+                                for (const t of Object.values(target)) (items[items.length] = t)[t.type] = t.type === 'field' ? (new this.Field(t.name, facet)) : (new this.Cell(t.name))
                                 getReturnValue = (r = {}, tk) => {
                                     for (const k in target) if ((r[k] = (tk = target[k])[tk.type].get()) === undefined) return
                                     return r
@@ -186,7 +186,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const item of items) {
                             item[item.type].eventTarget.addEventListener('change', () => {
                                 const detail = getReturnValue()
-                                if (detail !== undefined) container.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
+                                if (detail !== undefined) facet.eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
                             }, { signal })
                         }
                         return { getReturnValue, target }
@@ -201,8 +201,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'api',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/api', container, position, envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/api', facet, position, envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
                         if (!variables?.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
                     },
@@ -213,8 +213,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
                     name: 'ai',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/ai', container, position, envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/ai', facet, position, envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
                         if (!variables?.ai) new Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
                     },
@@ -225,8 +225,8 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^`[^`]+(\|[^`]+)?`$/, {
                     name: 'request',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/request', envelope, value) },
-                    binder: async function (container, position, envelope) {
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/request', envelope, value) },
+                    binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { contentType } = descriptor
                         if (!variables?.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
                     },
@@ -237,19 +237,19 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^_.*_$/, {
                     name: 'wait',
-                    handler: async function (container, position, envelope, value) { return await this.runFragment('env/interpreters/wait', container, position, envelope, value) },
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/wait', facet, position, envelope, value) },
                     parser: async function (expression) { return { expression: expression.slice(1, -1).trim() } }
                 }],
                 [/^\$\`[^`]+\`$/, {
                     name: 'command',
-                    handler: async function (container, position, envelope, value) { return this.modules.dev ? (await this.runFragment('env/interpreters/command', envelope, value)) : value },
+                    handler: async function (facet, position, envelope, value) { return this.modules.dev ? (await this.runFragment('env/interpreters/command', envelope, value)) : value },
                     parser: async function (expression) { return { invocation: expression.slice(2, -1).trim() } }
                 }],
                 [/^\$\??$/, {
                     name: 'console',
-                    handler: async function (container, position, envelope, value) {
+                    handler: async function (facet, position, envelope, value) {
                         return this.modules.dev
-                            ? ((envelope.descriptor.verbose === true ? (console.log(await this.flatten({ container, position, envelope, value }))) : (console.log(value))) ?? value) : value
+                            ? ((envelope.descriptor.verbose === true ? (console.log(await this.flatten({ facet, position, envelope, value }))) : (console.log(value))) ?? value) : value
                     },
                     parser: async function (expression) { return { verbose: expression === '$?' } }
                 }]

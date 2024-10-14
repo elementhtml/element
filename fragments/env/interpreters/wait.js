@@ -1,7 +1,7 @@
-export default async function (container, position, envelope, value) {
+export default async function (facet, position, envelope, value) {
     const { descriptor, variables } = envelope, { expression } = descriptor, isPlus = (expression[0] === '+'), { sys } = this,
         vOrIsPlus = (variables || isPlus), wrapped = vOrIsPlus && true, valueEnvelope = vOrIsPlus && Object.freeze({ ...envelope, value }),
-        done = () => container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now(), { regex } = sys
+        done = () => facet.eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail: value })), now = Date.now(), { regex } = sys
     let ms = 0
     if (expression === 'frame') await new Promise(resolve => window.requestAnimationFrame(resolve))
     else if (expression.startsWith('idle')) {

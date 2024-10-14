@@ -1,4 +1,4 @@
-export default function (event, selector, scope, exactMatch, defaultEventTypes, keepDefault, container, position) {
+export default function (event, selector, scope, exactMatch, defaultEventTypes, keepDefault, facet, position) {
     let targetElement
     if (selector.endsWith('}') && selector.includes('{')) {
         targetElement = this.resolveSelector(selector, scope)
@@ -12,5 +12,5 @@ export default function (event, selector, scope, exactMatch, defaultEventTypes, 
     if (!targetElement) return
     if (!eventList && (event.type !== (targetElement.constructor.events?.default ?? defaultEventTypes[targetElement.tagName.toLowerCase()] ?? 'click'))) return
     if (!keepDefault) event.preventDefault()
-    container.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
+    facet.eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail: this.flatten(targetElement, undefined, event) }))
 }
