@@ -1082,7 +1082,6 @@ const ElementHTML = Object.defineProperties({}, {
     Facet: {
         enumerable: true, value: class {
             static E
-
             static saveToLabel(stepIndex, label, value, labelMode, labels, fields, cells) {
                 labels[`${stepIndex}`] = value
                 if (label && (label != stepIndex)) {
@@ -1093,7 +1092,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-
             controller
             controllers = {}
             descriptors = {}
@@ -1101,7 +1099,6 @@ const ElementHTML = Object.defineProperties({}, {
             fields = {}
             running
             statements = []
-
             async init(root) {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
@@ -1139,8 +1136,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 eventTarget.dispatchEvent(new CustomEvent('init'))
             }
-
-            constructor({ directives, statements, fields, root }) {
+            constructor({ directives, statements, fields, root, running }) {
                 if (!directives) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
@@ -1148,18 +1144,12 @@ const ElementHTML = Object.defineProperties({}, {
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
                 this.controller = new AbortController()
                 this.eventTarget = new EventTarget()
+                this.running = running ?? true
                 promise.then(() => this.init(root))
             }
-
-            async parseDirectives(directives) {
-                const { E } = this.constructor
-                return (await E.runFragment('facet')).parseDirectives.call(this, directives)
-            }
-
+            async parseDirectives(directives) { return (await this.constructor.E.runFragment('facet')).parseDirectives.call(this, directives) }
             async pause() { return (this.running = false) }
-
             async run() { return (this.running = true) }
-
             async setupStatements(statements, fields) {
                 for (const statement of statements) {
                     if (!(statement?.labels && statement?.steps)) continue
@@ -1170,12 +1160,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 for (const name in fields) new E.Field(name, fields[name], this)
             }
-
             async stop() {
                 this.controller.abort()
                 for (const k in this.controllers) this.controllers[k].abort()
             }
-
             toJSON() { return this.valueOf() }
             valueOf() {
                 const fields = {}
@@ -1184,7 +1172,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     Gateway: {
         enumerable: true, value: class {
             static E
