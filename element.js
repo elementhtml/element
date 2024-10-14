@@ -1017,7 +1017,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             connectedCallback() {
-                const { E, base, mode, layout } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
+                const { E, base, mode, layout, facet } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
                     componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
                 this.constructor.package.key ??= packageKey
                 base.component ??= E.resolveUrl(componentPath, base.components)
@@ -1050,10 +1050,19 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     })
                 }
+                if (facet) {
+                    const facetPromise = (facet instanceof Promise ? facet
+                        : (typeof facet === 'string' ? Promise.resolve({ directives: facet }) : facet))
+                    facetPromise.then(resolvedFacet => {
+                        if (resolvedFacet instanceof E.Facet) this.facet = resolvedFacet
+                        else if (E.isPlainObject(resolvedFacet)) this.facet = new E.Facet({ ...resolvedFacet, root: this.shadowRoot })
+                    })
+                }
             }
             disconnectedCallback() {
                 if (this.#observer) this.#observer.disconnect()
                 super.disconnectedCallback()
+                if (this.facet) this.facet.stop()
             }
             dispatchEvent(event) {
                 const { E } = this.constructor, eventProps = { detail: event.detail, bubbles: event.bubbles, cancelable: event.cancelable, composed: event.composed },
