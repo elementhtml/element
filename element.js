@@ -1017,7 +1017,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             attributeChangedCallback(attrName, oldVal, newVal) { if (oldVal !== newVal) this[attrName] = newVal }
             connectedCallback() {
-                const { E, base, mode, layout, facet } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
+                const { E, base, mode, layout, facet: constructorFacet } = this.constructor, [packageKey, ...componentPathParts] = this.tagName.toLowerCase().split('-'),
                     componentName = componentPathParts.slice(-1)[0], componentPath = componentPathParts.join('/')
                 this.constructor.package.key ??= packageKey
                 base.component ??= E.resolveUrl(componentPath, base.components)
@@ -1050,16 +1050,35 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     })
                 }
+                const { facet } = this
                 if (facet) {
-                    const facetPromise = (facet instanceof Promise ? facet
-                        : (typeof facet === 'string' ? fetch(E.resolveUrl(layout, base.component)).then(r => r.text()).then(t => ({ directives: t })) : facet))
-                    facetPromise.then(async resolvedFacet => {
-                        if (resolvedFacet instanceof E.Facet) this.facet = resolvedFacet
-                        else if (E.isPlainObject(resolvedFacet)) {
-                            this.facet = new E.Facet({ ...resolvedFacet, root: this.shadowRoot })
-                            if (resolvedFacet.directives) this.constructor.facet = await this.facet.export()
-                        }
-                    })
+                    if (constructorFacet) {
+                        Promise.resolve(constructorFacet).then(facetData => {
+                            this.facet = facetData instanceof E.Facet ? facetData : new E.Facet({ ...facetData, root: this.shadowRoot })
+                        });
+                    } else {
+                        constructor.facet = (facet instanceof Promise ? facet
+                            : (typeof facet === 'string' ? fetch(E.resolveUrl(facet, base.component)).then(r => r.text()).then(t => ({ directives: t })) : Promise.resolve(facet))
+                        ).then(async resolvedFacet => {
+                            let facetData;
+
+                            if (resolvedFacet instanceof E.Facet) {
+                                facetData = resolvedFacet;
+                            } else if (E.isPlainObject(resolvedFacet)) {
+                                const facetInstance = new E.Facet({ ...resolvedFacet, root: this.shadowRoot });
+                                facetData = await facetInstance.export();
+                            }
+
+                            this.facet = facetData instanceof E.Facet
+                                ? facetData
+                                : new E.Facet({ ...facetData, root: this.shadowRoot });
+
+                            // Cache the resolved facet data for future instances
+                            constructor.facet = facetData;
+
+                            return facetData;
+                        });
+                    }
                 }
             }
             disconnectedCallback() {
