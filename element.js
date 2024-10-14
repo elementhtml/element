@@ -1028,7 +1028,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (layout instanceof HTMLTemplateElement) res(layout.content.cloneNode(true).textContent)
                         else if (layout instanceof Promise) res(layout)
                         else if (typeof layout === 'string') {
-                            fetch(E.resolve(layout, base.component)).then(r => r.text()).then(t => {
+                            fetch(E.resolveUrl(layout, base.component)).then(r => r.text()).then(t => {
                                 const templateElement = document.createElement('template')
                                 templateElement.textContent = t
                                 this.constructor.layout = templateElement
@@ -1052,10 +1052,13 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 if (facet) {
                     const facetPromise = (facet instanceof Promise ? facet
-                        : (typeof facet === 'string' ? Promise.resolve({ directives: facet }) : facet))
-                    facetPromise.then(resolvedFacet => {
+                        : (typeof facet === 'string' ? fetch(E.resolveUrl(layout, base.component)).then(r => r.text()).then(t => ({ directives: t })) : facet))
+                    facetPromise.then(async resolvedFacet => {
                         if (resolvedFacet instanceof E.Facet) this.facet = resolvedFacet
-                        else if (E.isPlainObject(resolvedFacet)) this.facet = new E.Facet({ ...resolvedFacet, root: this.shadowRoot })
+                        else if (E.isPlainObject(resolvedFacet)) {
+                            this.facet = new E.Facet({ ...resolvedFacet, root: this.shadowRoot })
+                            if (resolvedFacet.directives) this.constructor.facet = await this.facet.export()
+                        }
                     })
                 }
             }
@@ -1106,8 +1109,31 @@ const ElementHTML = Object.defineProperties({}, {
             descriptors = {}
             eventTarget
             fields = {}
+            inited
             running
             statements = []
+            constructor({ directives, statements, fields, root, running }) {
+                if (!directives) return
+                let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
+                    ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
+                if (!promise) return
+                this.root = (root instanceof ShadowRoot) ? root : document.documentElement
+                this.controller = new AbortController()
+                this.eventTarget = new EventTarget()
+                this.running = running ?? true
+                promise.then(() => this.init(root))
+            }
+            async export() {
+                if (this.inited) return { statements: this.statements, fields: this.fields }
+                await new Promise((resolve) => {
+                    const checkInit = () => {
+                        if (this.inited) resolve()
+                        else setTimeout(checkInit, 10)
+                    }
+                    checkInit()
+                })
+                return { statements: this.statements, fields: this.fields }
+            }
             async init(root) {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
@@ -1144,17 +1170,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
                 eventTarget.dispatchEvent(new CustomEvent('init'))
-            }
-            constructor({ directives, statements, fields, root, running }) {
-                if (!directives) return
-                let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
-                    ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
-                if (!promise) return
-                this.root = (root instanceof ShadowRoot) ? root : document.documentElement
-                this.controller = new AbortController()
-                this.eventTarget = new EventTarget()
-                this.running = running ?? true
-                promise.then(() => this.init(root))
+                this.inited = true
             }
             async parseDirectives(directives) { return (await this.constructor.E.runFragment('facet')).parseDirectives.call(this, directives) }
             async pause() { return (this.running = false) }
