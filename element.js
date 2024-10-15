@@ -1060,24 +1060,16 @@ const ElementHTML = Object.defineProperties({}, {
                         constructor.facet = (facet instanceof Promise ? facet
                             : (typeof facet === 'string' ? fetch(E.resolveUrl(facet, base.component)).then(r => r.text()).then(t => ({ directives: t })) : Promise.resolve(facet))
                         ).then(async resolvedFacet => {
-                            let facetData;
-
-                            if (resolvedFacet instanceof E.Facet) {
-                                facetData = resolvedFacet;
-                            } else if (E.isPlainObject(resolvedFacet)) {
-                                const facetInstance = new E.Facet({ ...resolvedFacet, root: this.shadowRoot });
-                                facetData = await facetInstance.export();
+                            let facetData
+                            if (resolvedFacet instanceof E.Facet) facetData = resolvedFacet
+                            else if (E.isPlainObject(resolvedFacet)) {
+                                const facetInstance = new E.Facet({ ...resolvedFacet, root: this.shadowRoot })
+                                facetData = await facetInstance.export()
                             }
-
-                            this.facet = facetData instanceof E.Facet
-                                ? facetData
-                                : new E.Facet({ ...facetData, root: this.shadowRoot });
-
-                            // Cache the resolved facet data for future instances
-                            constructor.facet = facetData;
-
-                            return facetData;
-                        });
+                            this.facet = facetData instanceof E.Facet ? facetData : new E.Facet({ ...facetData, root: this.shadowRoot })
+                            constructor.facet = facetData
+                            return facetData
+                        })
                     }
                 }
             }
@@ -1144,13 +1136,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             async export() {
                 if (this.inited) return { statements: this.statements, fields: this.fields }
-                await new Promise((resolve) => {
-                    const checkInit = () => {
-                        if (this.inited) resolve()
-                        else setTimeout(checkInit, 10)
-                    }
-                    checkInit()
-                })
+                await new Promise((resolve) => (() => (this.inited ? resolve() : setTimeout(checkInit, 10)))())
                 return { statements: this.statements, fields: this.fields }
             }
             async init(root) {
