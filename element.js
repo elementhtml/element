@@ -1123,7 +1123,7 @@ const ElementHTML = Object.defineProperties({}, {
             inited
             running
             statements = []
-            constructor({ directives, statements, fields, root, running }) {
+            constructor({ directives, statements, fields, running, root }) {
                 if (!directives) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
@@ -1133,6 +1133,16 @@ const ElementHTML = Object.defineProperties({}, {
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
                 promise.then(() => this.init(root))
+
+                /*
+                {
+                    anchor: "scope|selector",  // it node is present facet is enabled, otherwise disabled -  use a MuationObserver for the given scope
+                    location: {key: /pattern/}, // if any match facet is enabled, trigger on init and also on hash change if hash is a key
+                    transform: "unitKey", // input will be {facet, envelope, location}, triggered on facet init, hash change and cell changes - return true/false to enable/disable facet
+                    type: {cellName: "typeKey"} // input for each will be the value of the named cell, trigger when the values of the included cells change. Will implement type gating to turn facet on/off when *any* of the included cells match their type
+                }
+                */
+
             }
             async export() {
                 if (this.inited) return { statements: this.statements, fields: this.fields }
