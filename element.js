@@ -601,7 +601,7 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     defaultResolver: { value: async function (unitKey, unitType) { return this.runFragment('defaultresolver', unitKey, unitType) } }, // optimal
-    installGateway: { // optimal - but needs testing to see how it can integrate with runUnit() and both the Gateway class and the Renderer class
+    installGateway: { // optimal
         value: async function (protocol) {
             if (!protocol) return
             if (!protocol.endsWith(':')) protocol = `${protocol}:`
@@ -799,7 +799,6 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     unmountElement: { value: async function (element) { return this.runFragment('unmountelement', element) } }, // optimal
-    unmountFacet: { value: async function (facetContainer) { return this.runFragment('unmountfacet', facetContainer) } }, // optimal
 
     AI: { // optimal
         enumerable: true, value: class {
@@ -1012,9 +1011,9 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-            #conditionsAnchorObservers = {}
+            conditionsAnchorObservers = {}
             conditions = { dom: {}, location: {}, cells: {}, fields: {}, host: {} }
-            #controller
+            controller
             #controllers = {}
             descriptors = {}
             eventTarget
@@ -1022,97 +1021,27 @@ const ElementHTML = Object.defineProperties({}, {
             inited
             running
             statements = []
-            #checkConditions() {
-                let running = true
-                for (const k in this.conditions) {
-                    for (const kk in this.conditions[k]) if (!this.conditions[k][kk]) { running = false; break }
-                    if (!running) break
-                }
-                this.running = running
-            }
             constructor({ conditions, directives, statements, fields, running, root }) {
                 if (!directives) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
                 if (!promise) return
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
-                this.#controller = new AbortController()
+                this.controller = new AbortController()
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    let { dom, location, cells, fields, host } = conditions, signal = this.#controller.signal
-                    if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
-                        if (typeof dom === 'string') dom = { [dom]: true }
-                        for (const scopedSelector in dom) {
-                            const { scope: scopeStatement, selector } = E.resolveScopedSelector(scopedSelector), scope = E.resolveScope(scopeStatement, this.root),
-                                check = !!dom[scopedSelector]
-                            if (scope) {
-                                this.conditions.dom[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
-                                const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
-                                this.#conditionsAnchorObservers[scopedSelector] = new MutationObserver(() => {
-                                    this.conditions.dom[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
-                                    this.#checkConditions()
-                                })
-                                this.#conditionsAnchorObservers[k].observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
-                            }
-                        }
-                    }
-                    if (location && ((typeof location === 'string') || E.isPlainObject(location))) {
-                        if (typeof location === 'string') location = { ...E.resolveUrl(location, undefined, true) }
-                        for (const k in document.location) {
-                            if (!location[k]) continue
-                            if (k === 'hash') {
-                                const r = new RegExp(location.hash)
-                                window.addEventListener('hashchange', () => {
-                                    this.conditions.location.hash = r.test(document.location.hash)
-                                    this.#checkConditions()
-                                }, { signal })
-                                this.conditions.location.hash = r.test(document.location.hash)
-                            } else if (typeof document.location[k] === 'string') {
-                                const r = new RegExp(location[k])
-                                this.conditions.location[k] = r.test(document.location[k])
-                            }
-                        }
-                    }
-                    const stateTypeMap = { Cell: [cells, 'cells'], Field: [fields, 'fields'] }
-                    for (const stateType in stateTypeMap) {
-                        let [stateSet, stateConditionLabel] = stateTypeMap[stateType]
-                        if (stateSet && ((typeof stateSet === 'string') || E.isPlainObject(stateSet))) {
-                            if (typeof stateSet === 'string') stateSet = { [stateSet]: true }
-                            for (const name in stateSet) {
-                                const stateInstance = new E[stateType](name), check = !!stateSet[name]
-                                stateInstance.eventTarget.addEventListener('change', () => {
-                                    this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
-                                    this.#checkConditions()
-                                }, { signal })
-                                this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
-                            }
-                        }
-                    }
-                    if (host && root && (root instanceof ShadowRoot) && ((typeof host === 'string') || E.isPlainObject(host))) {
-                        if (typeof host === 'string') host = { [host]: true }
-                        const hostComponentInstance = root.host
-                        for (const eventName in host) {
-                            const check = host[eventName], isBool = typeof check === 'boolean', isString = typeof check === 'string'
-                            if (!isBool && !isString) continue
-                            this.conditions.host[eventName] = isBool ? check : !!hostComponentInstance[check]
-                            hostComponentInstance.addEventListener(eventName, event => {
-                                this.conditions.host[eventName] = isBool ? (event.detail == check) : !!hostComponentInstance[check]
-                                this.#checkConditions()
-                            }, { signal })
-                        }
-                    }
-                    this.#checkConditions()
+                    promise = Promise.all([promise, this.setupConditions(conditions)])
                 }
-                promise.then(() => this.init(root))
+                promise.then(() => this.init())
             }
             async export() {
                 if (this.inited) return { statements: this.statements, fields: this.fields }
                 await new Promise((resolve) => (() => (this.inited ? resolve() : setTimeout(checkInit, 10)))())
                 return { statements: this.statements, fields: this.fields }
             }
-            async init(root) {
+            async init() {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
                 const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { descriptors, eventTarget, statements } = this
@@ -1144,7 +1073,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(this, position, handlerEnvelope, value)
                                     ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: this.#controller.signal })
+                        }, { signal: this.controller.signal })
                     }
                 }
                 eventTarget.dispatchEvent(new CustomEvent('init'))
@@ -1153,6 +1082,7 @@ const ElementHTML = Object.defineProperties({}, {
             async parseDirectives(directives) { return (await this.constructor.E.runFragment('facet')).parseDirectives.call(this, directives) }
             async pause() { return (this.running = false) }
             async run() { return (this.running = true) }
+            async setupConditions(conditions) { return (await this.constructor.E.runFragment('facet')).setupConditions.call(this, conditions) }
             async setupStatements(statements, fields) {
                 for (const statement of statements) {
                     if (!(statement?.labels && statement?.steps)) continue
@@ -1164,9 +1094,9 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const name in fields) new E.Field(name, fields[name], this)
             }
             async stop() {
-                this.#controller.abort()
+                this.controller.abort()
                 for (const p in this.#controllers) this.#controllers[p].abort()
-                for (const c in this.#conditionsAnchorObservers) this.#conditionsAnchorObservers[c].disconnect()
+                for (const c in this.conditionsAnchorObservers) this.conditionsAnchorObservers[c].disconnect()
             }
             toJSON() { return this.valueOf() }
             valueOf() {
