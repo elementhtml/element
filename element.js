@@ -1144,15 +1144,16 @@ const ElementHTML = Object.defineProperties({}, {
                 if (conditions && E.isPlainObject(conditions)) {
                     let { anchor, location, gates } = conditions
                     if (anchor && ((typeof anchor === 'string') || E.isPlainObject(anchor))) {
-                        if (typeof anchor === 'string') anchor = { anchor }
+                        if (typeof anchor === 'string') anchor = { [anchor]: true }
                         this.conditions.anchor ??= {}
-                        for (const k in anchor) {
-                            const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
+                        for (const scopedSelector in anchor) {
+                            const { scope: scopeStatement, selector } = E.resolveScopedSelector(scopedSelector), scope = E.resolveScope(scopeStatement, this.root),
+                                check = !!anchor[scopedSelector]
                             if (scope) {
-                                this.conditions.anchor[k] = !!(E.resolveScopedSelector(selector, scope)?.length)
+                                this.conditions.anchor[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
                                 const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
-                                this.#conditionsAnchorObservers[k] = new MutationObserver(mutations => {
-                                    this.conditions.anchor[k] = !!(E.resolveScopedSelector(selector, scope)?.length)
+                                this.#conditionsAnchorObservers[scopedSelector] = new MutationObserver(() => {
+                                    this.conditions.anchor[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
                                     this.checkConditions()
                                 })
                                 this.#conditionsAnchorObservers[k].observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
@@ -1180,8 +1181,11 @@ const ElementHTML = Object.defineProperties({}, {
                     if (gates && ((typeof gates === 'string') || E.isPlainObject(gates))) {
                         if (typeof gates === 'string') gates = { [gates]: true }
                         for (const cellName in gates) {
-                            const typeName = gates[cellName]
+                            const cell = new E.Cell(cellName), typeName = gates[cellName]
                             if (typeof typeName == 'boolean') {
+                                cell.eventTarget.addEventListener('change', event => {
+
+                                })
 
                             } else if (typeof typeName === 'string') {
 
