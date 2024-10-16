@@ -1142,18 +1142,18 @@ const ElementHTML = Object.defineProperties({}, {
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    let { anchor, location, gates } = conditions
-                    if (anchor && ((typeof anchor === 'string') || E.isPlainObject(anchor))) {
-                        if (typeof anchor === 'string') anchor = { [anchor]: true }
-                        this.conditions.anchor ??= {}
-                        for (const scopedSelector in anchor) {
+                    let { dom, location, state } = conditions
+                    if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
+                        if (typeof dom === 'string') dom = { [dom]: true }
+                        this.conditions.dom ??= {}
+                        for (const scopedSelector in dom) {
                             const { scope: scopeStatement, selector } = E.resolveScopedSelector(scopedSelector), scope = E.resolveScope(scopeStatement, this.root),
-                                check = !!anchor[scopedSelector]
+                                check = !!dom[scopedSelector]
                             if (scope) {
-                                this.conditions.anchor[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
+                                this.conditions.dom[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
                                 const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
                                 this.#conditionsAnchorObservers[scopedSelector] = new MutationObserver(() => {
-                                    this.conditions.anchor[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
+                                    this.conditions.dom[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
                                     this.checkConditions()
                                 })
                                 this.#conditionsAnchorObservers[k].observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
@@ -1178,30 +1178,20 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     }
-                    if (gates && ((typeof gates === 'string') || E.isPlainObject(gates))) {
-                        if (typeof gates === 'string') gates = { [gates]: true }
-                        this.conditions.gates ??= {}
-                        for (const cellName in gates) {
-                            const cell = new E.Cell(cellName), check = !!gates[cellName]
+                    if (state && ((typeof state === 'string') || E.isPlainObject(state))) {
+                        if (typeof state === 'string') state = { [state]: true }
+                        this.conditions.state ??= {}
+                        for (const cellName in state) {
+                            const cell = new E.Cell(cellName), check = !!state[cellName]
                             cell.eventTarget.addEventListener('change', event => {
-                                this.conditions.gates[cellName] = (!!cell.value === check)
+                                this.conditions.state[cellName] = (!!cell.value === check)
                                 this.checkConditions()
                             })
-                            this.conditions.gates[cellName] = (!!cell.value === check)
+                            this.conditions.state[cellName] = (!!cell.value === check)
                         }
                     }
                 }
                 promise.then(() => this.init(root))
-
-
-                /*
-                {
-                    anchor: "scope|selector",  // it node is present facet is enabled, otherwise disabled -  use a MuationObserver for the given scope
-                    location: {key: /pattern/}, // if any match facet is enabled, trigger on init and also on hash change if hash is a key
-                    gates: {"cellName": "typeKey"} // input for each will be the value of the named cell, trigger on init and (if cells are referenced) when the values of the included cells change. Will implement type gating to turn facet on/off when *any* of the included variables values match their type
-                }
-                */
-
             }
             async export() {
                 if (this.inited) return { statements: this.statements, fields: this.fields }
