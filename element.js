@@ -1117,7 +1117,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             #conditionsAnchorObservers = {}
-            conditions = { dom: {}, location: {}, state: {} }
+            conditions = { dom: {}, location: {}, cells: {}, fields: {}, host: {} }
             #controller
             #controllers = {}
             descriptors = {}
@@ -1147,7 +1147,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    let { dom, location, state } = conditions, signal = this.#controller.signal
+                    let { dom, location, cells, fields, host } = conditions, signal = this.#controller.signal
                     if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
                         if (typeof dom === 'string') dom = { [dom]: true }
                         for (const scopedSelector in dom) {
@@ -1181,15 +1181,19 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     }
-                    if (state && ((typeof state === 'string') || E.isPlainObject(state))) {
-                        if (typeof state === 'string') state = { [state]: true }
-                        for (const cellName in state) {
-                            const cell = new E.Cell(cellName), check = !!state[cellName]
-                            cell.eventTarget.addEventListener('change', event => {
-                                this.conditions.state[cellName] = (!!cell.value === check)
-                                this.checkConditions()
-                            }, { signal })
-                            this.conditions.state[cellName] = (!!cell.value === check)
+                    const stateTypeMap = { Cell: [cells, 'cells'], Field: [fields, 'fields'] }
+                    for (const stateType in stateTypeMap) {
+                        let [stateSet, stateConditionLabel] = stateTypeMap[stateType]
+                        if (stateSet && ((typeof stateSet === 'string') || E.isPlainObject(stateSet))) {
+                            if (typeof stateSet === 'string') stateSet = { [stateSet]: true }
+                            for (const name in stateSet) {
+                                const stateInstance = new E[stateType](name), check = !!stateSet[name]
+                                stateInstance.eventTarget.addEventListener('change', event => {
+                                    this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
+                                    this.checkConditions()
+                                }, { signal })
+                                this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
+                            }
                         }
                     }
                     this.checkConditions()
