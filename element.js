@@ -1180,39 +1180,16 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (gates && ((typeof gates === 'string') || E.isPlainObject(gates))) {
                         if (typeof gates === 'string') gates = { [gates]: true }
+                        this.conditions.gates ??= {}
                         for (const cellName in gates) {
-                            const cell = new E.Cell(cellName), typeName = gates[cellName]
-                            if (typeof typeName == 'boolean') {
-                                cell.eventTarget.addEventListener('change', event => {
-
-                                })
-
-                            } else if (typeof typeName === 'string') {
-
-                            }
+                            const cell = new E.Cell(cellName), check = !!gates[cellName]
+                            cell.eventTarget.addEventListener('change', event => {
+                                this.conditions.gates[cellName] = (!!cell.value === check)
+                                this.checkConditions()
+                            })
+                            this.conditions.gates[cellName] = (!!cell.value === check)
                         }
-
-
-
-
-                        const { descriptor } = envelope, { types, mode } = descriptor, info = mode === 'info', promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
-                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
-                        await Promise.all(promises)
-                        let pass = info
-                        if (info) {
-                            const validation = {}, promises = []
-                            for (const { name } of types) promises.push(this.runUnit(name, 'type', value, true).then(r => validation[name] = r))
-                            await Promise.all(promises)
-                            return { value, validation }
-                        }
-                        const [any, all] = [mode === 'any', mode === 'all']
-                        for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.runUnit(name, 'type', value)))) { if (any) break; } else if (all) break
-                        if (pass) return value
-
-
-
                     }
-
                 }
                 promise.then(() => this.init(root))
 
