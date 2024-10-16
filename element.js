@@ -8,22 +8,7 @@ const ElementHTML = Object.defineProperties({}, {
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
-                    handler: async function (facet, position, envelope, value) {
-                        const { sys } = this, { location } = document, { descriptor } = envelope, { expression } = descriptor
-                        let result
-                        if (expression in sys.locationKeyMap) {
-                            const locationKey = sys.locationKeyMap[expression]
-                            if (typeof value === 'string') location[locationKey] = value
-                            return location[locationKey].slice(1) || undefined
-                        }
-                        if (expression !== ':') return
-                        if (value !== undefined) await this.runFragment('env/interpreters/router', value)
-                        result = {}
-                        for (const k in location) if (typeof location[k] !== 'function') result[k] = location[k]
-                        result.ancestorOrigins = Array.from(result.ancestorOrigins)
-                        result.path = result.pathname.replace(sys.regexp.leadingSlash, '')
-                        return result
-                    },
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/router', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { signal } = descriptor
                         if (signal) window.addEventListener('hashchange', () => facet.eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail: document.location.hash.slice(1) })), { signal })
