@@ -1170,7 +1170,7 @@ const ElementHTML = Object.defineProperties({}, {
                             if (!location[k]) continue
                             if (k === 'hash') {
                                 const r = new RegExp(location.hash)
-                                window.addEventListener('hashchange', event => {
+                                window.addEventListener('hashchange', () => {
                                     this.conditions.location.hash = r.test(document.location.hash)
                                     this.checkConditions()
                                 }, { signal })
@@ -1188,12 +1188,25 @@ const ElementHTML = Object.defineProperties({}, {
                             if (typeof stateSet === 'string') stateSet = { [stateSet]: true }
                             for (const name in stateSet) {
                                 const stateInstance = new E[stateType](name), check = !!stateSet[name]
-                                stateInstance.eventTarget.addEventListener('change', event => {
+                                stateInstance.eventTarget.addEventListener('change', () => {
                                     this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
                                     this.checkConditions()
                                 }, { signal })
                                 this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
                             }
+                        }
+                    }
+                    if (host && root && (root instanceof ShadowRoot) && ((typeof host === 'string') || E.isPlainObject(host))) {
+                        if (typeof host === 'string') host = { [host]: true }
+                        const hostComponentInstance = root.host
+                        for (const eventName in host) {
+                            const check = host[eventName], isBool = typeof check === 'boolean', isString = typeof check === 'string'
+                            if (!isBool && !isString) continue
+                            this.conditions.host[eventName] = isBool ? check : !!hostComponentInstance[check]
+                            hostComponentInstance.addEventListener(eventName, event => {
+                                this.conditions.host[eventName] = isBool ? (event.detail == check) : !!hostComponentInstance[check]
+                                this.checkConditions()
+                            }, { signal })
                         }
                     }
                     this.checkConditions()
