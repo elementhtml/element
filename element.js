@@ -1117,7 +1117,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             #conditionsAnchorObservers = {}
-            conditions = { anchor: null, location: {}, gates: null }
+            conditions = { dom: {}, location: {}, state: {} }
             controller
             controllers = {}
             descriptors = {}
@@ -1128,7 +1128,12 @@ const ElementHTML = Object.defineProperties({}, {
             statements = []
 
             checkConditions() {
-
+                let running = true
+                for (const k in this.conditions) {
+                    for (const kk in this.conditions[k]) if (!this.conditions[k][kk]) { running = false; break }
+                    if (!running) break
+                }
+                this.running = running
             }
 
             constructor({ conditions, directives, statements, fields, running, root }) {
@@ -1145,7 +1150,6 @@ const ElementHTML = Object.defineProperties({}, {
                     let { dom, location, state } = conditions
                     if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
                         if (typeof dom === 'string') dom = { [dom]: true }
-                        this.conditions.dom ??= {}
                         for (const scopedSelector in dom) {
                             const { scope: scopeStatement, selector } = E.resolveScopedSelector(scopedSelector), scope = E.resolveScope(scopeStatement, this.root),
                                 check = !!dom[scopedSelector]
@@ -1162,7 +1166,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (location && ((typeof location === 'string') || E.isPlainObject(location))) {
                         if (typeof location === 'string') location = { ...E.resolveUrl(location, undefined, true) }
-                        this.conditions.location ??= {}
                         for (const k in document.location) {
                             if (!location[k]) continue
                             if (k === 'hash') {
@@ -1180,7 +1183,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     if (state && ((typeof state === 'string') || E.isPlainObject(state))) {
                         if (typeof state === 'string') state = { [state]: true }
-                        this.conditions.state ??= {}
                         for (const cellName in state) {
                             const cell = new E.Cell(cellName), check = !!state[cellName]
                             cell.eventTarget.addEventListener('change', event => {
