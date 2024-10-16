@@ -1115,7 +1115,6 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
-
             #conditionsAnchorObservers = {}
             conditions = { dom: {}, location: {}, cells: {}, fields: {}, host: {} }
             #controller
@@ -1126,8 +1125,7 @@ const ElementHTML = Object.defineProperties({}, {
             inited
             running
             statements = []
-
-            checkConditions() {
+            #checkConditions() {
                 let running = true
                 for (const k in this.conditions) {
                     for (const kk in this.conditions[k]) if (!this.conditions[k][kk]) { running = false; break }
@@ -1135,7 +1133,6 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.running = running
             }
-
             constructor({ conditions, directives, statements, fields, running, root }) {
                 if (!directives) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
@@ -1158,7 +1155,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
                                 this.#conditionsAnchorObservers[scopedSelector] = new MutationObserver(() => {
                                     this.conditions.dom[scopedSelector] = (!!(E.resolveSelector(selector, scope)?.length) === check)
-                                    this.checkConditions()
+                                    this.#checkConditions()
                                 })
                                 this.#conditionsAnchorObservers[k].observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
                             }
@@ -1172,7 +1169,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 const r = new RegExp(location.hash)
                                 window.addEventListener('hashchange', () => {
                                     this.conditions.location.hash = r.test(document.location.hash)
-                                    this.checkConditions()
+                                    this.#checkConditions()
                                 }, { signal })
                                 this.conditions.location.hash = r.test(document.location.hash)
                             } else if (typeof document.location[k] === 'string') {
@@ -1190,7 +1187,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 const stateInstance = new E[stateType](name), check = !!stateSet[name]
                                 stateInstance.eventTarget.addEventListener('change', () => {
                                     this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
-                                    this.checkConditions()
+                                    this.#checkConditions()
                                 }, { signal })
                                 this.conditions[stateConditionLabel][name] = (!!stateInstance.value === check)
                             }
@@ -1205,11 +1202,11 @@ const ElementHTML = Object.defineProperties({}, {
                             this.conditions.host[eventName] = isBool ? check : !!hostComponentInstance[check]
                             hostComponentInstance.addEventListener(eventName, event => {
                                 this.conditions.host[eventName] = isBool ? (event.detail == check) : !!hostComponentInstance[check]
-                                this.checkConditions()
+                                this.#checkConditions()
                             }, { signal })
                         }
                     }
-                    this.checkConditions()
+                    this.#checkConditions()
                 }
                 promise.then(() => this.init(root))
             }
