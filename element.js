@@ -1115,6 +1115,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
+            conditions = { anchor: null, location: {}, gates: null }
             controller
             controllers = {}
             descriptors = {}
@@ -1123,7 +1124,12 @@ const ElementHTML = Object.defineProperties({}, {
             inited
             running
             statements = []
-            constructor({ directives, statements, fields, running, root }) {
+
+            checkConditions() {
+
+            }
+
+            constructor({ conditions, directives, statements, fields, running, root }) {
                 if (!directives) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
@@ -1132,14 +1138,40 @@ const ElementHTML = Object.defineProperties({}, {
                 this.controller = new AbortController()
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
+                const { E } = this.constructor
+                if (conditions && E.isPlainObject(conditions)) {
+                    const { anchor, location, gates } = conditions
+                    if (anchor) {
+                        const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
+                        this.conditions.anchor = { scope, selector }
+                    }
+                    if (location && E.isPlainObject(location)) {
+                        this.conditions.location ??= {}
+                        for (const k in document.location) {
+                            if (!(k in location)) continue
+                            if (k === 'hash') {
+                                const r = new RegExp(location.hash)
+                                window.addEventListener('hashchange', event => {
+                                    this.conditions.location.hash = r.test(document.location.hash)
+                                    this.checkConditions()
+                                })
+                                this.conditions.location.hash = r.test(document.location.hash)
+                            } else if (typeof document.location[k] === 'string') {
+                                const r = new RegExp(location[k])
+                                this.conditions.location[k] = r.test(document.location[k])
+                            }
+                        }
+                    }
+
+                }
                 promise.then(() => this.init(root))
+
 
                 /*
                 {
                     anchor: "scope|selector",  // it node is present facet is enabled, otherwise disabled -  use a MuationObserver for the given scope
                     location: {key: /pattern/}, // if any match facet is enabled, trigger on init and also on hash change if hash is a key
-                    transform: "unitKey", // input will be {facet, envelope, location}, triggered on facet init, hash change and cell changes - return true/false to enable/disable facet
-                    type: {cellName: "typeKey"} // input for each will be the value of the named cell, trigger when the values of the included cells change. Will implement type gating to turn facet on/off when *any* of the included cells match their type
+                    gates: {"cellName": "typeKey"} // input for each will be the value of the named cell, trigger on init and (if cells are referenced) when the values of the included cells change. Will implement type gating to turn facet on/off when *any* of the included variables values match their type
                 }
                 */
 
