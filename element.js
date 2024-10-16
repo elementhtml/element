@@ -1031,9 +1031,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
                 const { E } = this.constructor
-                if (conditions && E.isPlainObject(conditions)) {
-                    promise = Promise.all([promise, this.setupConditions(conditions)])
-                }
+                if (conditions && E.isPlainObject(conditions)) promise = Promise.all([promise, this.setupConditions(conditions)])
                 promise.then(() => this.init())
             }
             async export() {
