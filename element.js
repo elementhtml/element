@@ -1160,7 +1160,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (typeof location === 'string') location = { ...E.resolveUrl(location, undefined, true) }
                         this.conditions.location ??= {}
                         for (const k in document.location) {
-                            if (!(k in location)) continue
+                            if (!location[k]) continue
                             if (k === 'hash') {
                                 const r = new RegExp(location.hash)
                                 window.addEventListener('hashchange', event => {
