@@ -1125,6 +1125,7 @@ const ElementHTML = Object.defineProperties({}, {
             fields = {}
             inited
             running
+            signal
             statements = []
 
             checkConditions() {
@@ -1147,7 +1148,7 @@ const ElementHTML = Object.defineProperties({}, {
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    let { dom, location, state } = conditions
+                    let { dom, location, state } = conditions, signal = this.controller.signal
                     if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
                         if (typeof dom === 'string') dom = { [dom]: true }
                         for (const scopedSelector in dom) {
@@ -1173,7 +1174,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 window.addEventListener('hashchange', event => {
                                     this.conditions.location.hash = r.test(document.location.hash)
                                     this.checkConditions()
-                                })
+                                }, { signal })
                                 this.conditions.location.hash = r.test(document.location.hash)
                             } else if (typeof document.location[k] === 'string') {
                                 const r = new RegExp(location[k])
@@ -1188,7 +1189,7 @@ const ElementHTML = Object.defineProperties({}, {
                             cell.eventTarget.addEventListener('change', event => {
                                 this.conditions.state[cellName] = (!!cell.value === check)
                                 this.checkConditions()
-                            })
+                            }, { signal })
                             this.conditions.state[cellName] = (!!cell.value === check)
                         }
                     }
