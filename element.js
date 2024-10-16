@@ -998,6 +998,7 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static base = {}
             static events = {}
+            static facet
             static mode = "open"
             static name
             static layout
@@ -1101,7 +1102,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     Facet: {
         enumerable: true, value: class {
             static E
