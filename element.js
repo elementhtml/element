@@ -56,50 +56,21 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
-                    handler: async function (facet, position, envelope, value) {
-                        const { descriptor, variables } = envelope, { pattern: p } = descriptor, wrapped = variables && true,
-                            valueEnvelope = variables ? Object.freeze({ ...envelope, value }) : undefined,
-                            pattern = await this.resolveUnit(variables.pattern ? this.resolveVariable(p, valueEnvelope, { wrapped }) : p, 'pattern')
-                        if (!(pattern instanceof RegExp)) return
-                        pattern.lastIndex &&= 0
-                        const match = value.match(pattern), groups = match?.groups
-                        return groups ? Object.fromEntries(Object.entries(groups)) : (match ? match[1] : undefined)
-                    },
+                    handler: async function (facet, position, envelope, value) { return (await this.runFragment('env/interpreters/pattern')).handler.call(this, facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
                         if (!variables?.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     },
-                    parser: async function (expression) {
-                        expression = expression.slice(1, -1)
-                        expression = (expression.endsWith('\\ ')) ? expression.trimStart() : expression.trim()
-                        expression.replaceAll('\\ ', ' ')
-                        return { pattern: expression }
-                    }
+                    parser: async function (expression) { return (await this.runFragment('env/interpreters/pattern')).parser.call(this, expression) }
                 }],
                 [/^\|.*\|$/, {
                     name: 'type',
-                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/type', facet, position, envelope, value) },
+                    handler: async function (facet, position, envelope, value) { return (await this.runFragment('env/interpreters/type')).handler.call(this, facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
                         for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
                     },
-                    parser: async function (expression) {
-                        let mode = 'any', types = []
-                        expression = expression.slice(1, -1).trim()
-                        switch (expression[0]) {
-                            case '|':
-                                if (expression.endsWith('|')) [mode, expression] = ['all', expression.slice(1, -1).trim()]
-                                break
-                            case '?': if (expression.endsWith('?')) [mode, expression] = ['info', expression.slice(1, -1).trim()]
-                        }
-                        for (let typeName of expression.split(',')) {
-                            typeName = typeName.trim()
-                            if (!typeName) continue
-                            const ifMode = typeName[0] !== '!'
-                            types.push({ if: ifMode, name: ifMode ? typeName : typeName.slice(1) })
-                        }
-                        return { types, mode }
-                    }
+                    parser: async function (expression) { return (await this.runFragment('env/interpreters/type')).parser.call(this, expression) }
                 }],
                 [/^\$\(.*\)$/, {
                     name: 'selector',
@@ -108,28 +79,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (value != undefined) for (const t of ([].concat(await this.resolveSelector(selector, scope)))) this.render(t, value)
                         return value
                     },
-                    binder: async function (facet, position, envelope) {
-                        const { descriptor } = envelope, { signal } = descriptor, { scope: scopeStatement, selector: selectorStatement } = descriptor,
-                            scope = await this.resolveScope(scopeStatement, facet.root), { sys } = this, { defaultEventTypes } = sys
-                        if (!scope) return {}
-                        const bangIndex = selectorStatement.lastIndexOf('!')
-                        let selector = selectorStatement.trim(), eventList
-                        if ((bangIndex > selector.lastIndexOf(']')) && (bangIndex > selector.lastIndexOf(')')) && (bangIndex > selector.lastIndexOf('"')) && (bangIndex > selector.lastIndexOf("'")))
-                            [selector, eventList] = [selector.slice(0, bangIndex).trim(), selector.slice(bangIndex + 1).trim()]
-                        if (eventList) eventList = eventList.split(sys.regexp.commaSplitter).filter(Boolean)
-                        else {
-                            const [statementIndex, stepIndex] = position.split('-')
-                            if (!facet.statements?.[+statementIndex]?.steps[+stepIndex + 1]) return { selector, scope }
-                        }
-                        for (let eventName of eventList ?? Array.from(new Set(Object.values(defaultEventTypes).concat(['click'])))) {
-                            const enSlice3 = eventName.slice(-3), keepDefault = enSlice3.includes('+'), exactMatch = enSlice3.includes('='), once = enSlice3.includes('-')
-                            for (const [v, r] of [[keepDefault, '+'], [exactMatch, '='], [once, '-']]) if (v) eventName = eventName.replace(r, '')
-                            scope.addEventListener(eventName, event => {
-                                this.runFragment('env/interpreters/selector', event, selector, scope, exactMatch, defaultEventTypes, keepDefault, facet, position)
-                            }, { signal, once })
-                        }
-                        return { selector, scope }
-                    },
+                    binder: async function (facet, position, envelope) { return (await this.runFragment('env/interpreters/selector')).binder.call(this, facet, position, envelope) },
                     parser: async function (expression) { return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) } }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
