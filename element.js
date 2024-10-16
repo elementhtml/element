@@ -1116,8 +1116,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            #anchorObserver
-
+            #conditionsAnchorObservers = {}
             conditions = { anchor: null, location: {}, gates: null }
             controller
             controllers = {}
@@ -1144,16 +1143,20 @@ const ElementHTML = Object.defineProperties({}, {
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
                     let { anchor, location, gates } = conditions
-                    if (anchor && (typeof anchor === 'string')) {
-                        const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
-                        if (scope) {
-                            const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
-                            this.#anchorObserver = new MutationObserver(mutations => {
-                                const matchedElements = E.resolveScopedSelector(selector, scope)
-                                this.conditions.anchor = Array.isArray(matchedElements) ? !!matchedElements.length : !!matchedElements
-                                this.checkConditions()
-                            })
-                            this.#anchorObserver.observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
+                    if (anchor && ((typeof anchor === 'string') || E.isPlainObject(anchor))) {
+                        if (typeof anchor === 'string') anchor = { anchor }
+                        this.conditions.anchor ??= {}
+                        for (const k in anchor) {
+                            const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
+                            if (scope) {
+                                this.conditions.anchor[k] = !!(E.resolveScopedSelector(selector, scope)?.length)
+                                const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
+                                this.#conditionsAnchorObservers[k] = new MutationObserver(mutations => {
+                                    this.conditions.anchor[k] = !!(E.resolveScopedSelector(selector, scope)?.length)
+                                    this.checkConditions()
+                                })
+                                this.#conditionsAnchorObservers[k].observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
+                            }
                         }
                     }
                     if (location && ((typeof location === 'string') || E.isPlainObject(location))) {
@@ -1174,7 +1177,35 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     }
-                    if (gates && E.isPlainObject(gates)) {
+                    if (gates && ((typeof gates === 'string') || E.isPlainObject(gates))) {
+                        if (typeof gates === 'string') gates = { [gates]: true }
+                        for (const cellName in gates) {
+                            const typeName = gates[cellName]
+                            if (typeof typeName == 'boolean') {
+
+                            } else if (typeof typeName === 'string') {
+
+                            }
+                        }
+
+
+
+
+                        const { descriptor } = envelope, { types, mode } = descriptor, info = mode === 'info', promises = [], wrapped = true, valueEnvelope = { ...envelope, value }
+                        for (const t of types) if (this.isWrappedVariable(t.name)) promises.push(this.resolveUnit(this.resolveVariable(t.name, valueEnvelope, { wrapped }), 'type'))
+                        await Promise.all(promises)
+                        let pass = info
+                        if (info) {
+                            const validation = {}, promises = []
+                            for (const { name } of types) promises.push(this.runUnit(name, 'type', value, true).then(r => validation[name] = r))
+                            await Promise.all(promises)
+                            return { value, validation }
+                        }
+                        const [any, all] = [mode === 'any', mode === 'all']
+                        for (const { if: ifMode, name } of types) if (pass = (ifMode === (await this.runUnit(name, 'type', value)))) { if (any) break; } else if (all) break
+                        if (pass) return value
+
+
 
                     }
 
@@ -1250,7 +1281,7 @@ const ElementHTML = Object.defineProperties({}, {
             async stop() {
                 this.controller.abort()
                 for (const k in this.controllers) this.controllers[k].abort()
-                if (this.#anchorObserver) this.#anchorObserver.disconnect()
+                for (const c in this.#conditionsAnchorObservers) this.#conditionsAnchorObservers[c].disconnect()
             }
             toJSON() { return this.valueOf() }
             valueOf() {
