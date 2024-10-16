@@ -1193,6 +1193,7 @@ const ElementHTML = Object.defineProperties({}, {
                             this.conditions.state[cellName] = (!!cell.value === check)
                         }
                     }
+                    this.checkConditions()
                 }
                 promise.then(() => this.init(root))
             }
