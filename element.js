@@ -1115,6 +1115,9 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 }
             }
+
+            #anchorObserver
+
             conditions = { anchor: null, location: {}, gates: null }
             controller
             controllers = {}
@@ -1143,7 +1146,15 @@ const ElementHTML = Object.defineProperties({}, {
                     const { anchor, location, gates } = conditions
                     if (anchor) {
                         const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
-                        this.conditions.anchor = { scope, selector }
+                        if (scope) {
+                            const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
+                            this.#anchorObserver = new MutationObserver(mutations => {
+                                const matchedElements = E.resolveScopedSelector(selector, scope)
+                                this.conditions.anchor = Array.isArray(matchedElements) ? !!matchedElements.length : !!matchedElements
+                                this.checkConditions()
+                            })
+                            this.#anchorObserver.observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
+                        }
                     }
                     if (location && E.isPlainObject(location)) {
                         this.conditions.location ??= {}
@@ -1235,6 +1246,7 @@ const ElementHTML = Object.defineProperties({}, {
             async stop() {
                 this.controller.abort()
                 for (const k in this.controllers) this.controllers[k].abort()
+                if (this.#anchorObserver) this.#anchorObserver.disconnect()
             }
             toJSON() { return this.valueOf() }
             valueOf() {
