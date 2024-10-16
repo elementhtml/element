@@ -1118,14 +1118,13 @@ const ElementHTML = Object.defineProperties({}, {
 
             #conditionsAnchorObservers = {}
             conditions = { dom: {}, location: {}, state: {} }
-            controller
-            controllers = {}
+            #controller
+            #controllers = {}
             descriptors = {}
             eventTarget
             fields = {}
             inited
             running
-            signal
             statements = []
 
             checkConditions() {
@@ -1143,12 +1142,12 @@ const ElementHTML = Object.defineProperties({}, {
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
                 if (!promise) return
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
-                this.controller = new AbortController()
+                this.#controller = new AbortController()
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    let { dom, location, state } = conditions, signal = this.controller.signal
+                    let { dom, location, state } = conditions, signal = this.#controller.signal
                     if (dom && ((typeof dom === 'string') || E.isPlainObject(dom))) {
                         if (typeof dom === 'string') dom = { [dom]: true }
                         for (const scopedSelector in dom) {
@@ -1205,7 +1204,7 @@ const ElementHTML = Object.defineProperties({}, {
             async init(root) {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
-                const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { controller, controllers, descriptors, eventTarget, statements } = this
+                const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { descriptors, eventTarget, statements } = this
                 let statementIndex = -1
                 for (const statement of statements) {
                     statementIndex++
@@ -1223,7 +1222,7 @@ const ElementHTML = Object.defineProperties({}, {
                         if (matcher) interpreter = interpreters.get(matcher)
                         if (!interpreter) continue
                         const { binder, handler } = interpreter
-                        if (signal) descriptor.signal = (controllers[position] = new AbortController()).signal
+                        if (signal) descriptor.signal = (this.#controllers[position] = new AbortController()).signal
                         if (binder) Object.assign(descriptor, (await binder(this, position, envelope) ?? {}))
                         descriptors[position] = Object.freeze(descriptor)
                         eventTarget.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, this.fields, E.app.cells), { signal: controller.signal })
@@ -1234,7 +1233,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(this, position, handlerEnvelope, value)
                                     ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: controller.signal })
+                        }, { signal: this.#controller.signal })
                     }
                 }
                 eventTarget.dispatchEvent(new CustomEvent('init'))
@@ -1254,8 +1253,8 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const name in fields) new E.Field(name, fields[name], this)
             }
             async stop() {
-                this.controller.abort()
-                for (const k in this.controllers) this.controllers[k].abort()
+                this.#controller.abort()
+                for (const p in this.#controllers) this.#controllers[p].abort()
                 for (const c in this.#conditionsAnchorObservers) this.#conditionsAnchorObservers[c].disconnect()
             }
             toJSON() { return this.valueOf() }
