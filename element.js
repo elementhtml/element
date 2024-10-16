@@ -1143,8 +1143,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.running = running ?? true
                 const { E } = this.constructor
                 if (conditions && E.isPlainObject(conditions)) {
-                    const { anchor, location, gates } = conditions
-                    if (anchor) {
+                    let { anchor, location, gates } = conditions
+                    if (anchor && (typeof anchor === 'string')) {
                         const { scope: scopeStatement, selector } = E.resolveScopedSelector(conditions.anchor), scope = E.resolveScope(scopeStatement, this.root)
                         if (scope) {
                             const attributeFilter = selector.match(this.sys.regexp.extractAttributes), attributes = !!attributeFilter.length
@@ -1156,7 +1156,8 @@ const ElementHTML = Object.defineProperties({}, {
                             this.#anchorObserver.observe(scope, { subtree: true, childList: true, attributes, attributeFilter: (attributes ? attributeFilter : undefined) })
                         }
                     }
-                    if (location && E.isPlainObject(location)) {
+                    if (location && ((typeof location === 'string') || E.isPlainObject(location))) {
+                        if (typeof location === 'string') location = { ...E.resolveUrl(location, undefined, true) }
                         this.conditions.location ??= {}
                         for (const k in document.location) {
                             if (!(k in location)) continue
@@ -1172,6 +1173,9 @@ const ElementHTML = Object.defineProperties({}, {
                                 this.conditions.location[k] = r.test(document.location[k])
                             }
                         }
+                    }
+                    if (gates && E.isPlainObject(gates)) {
+
                     }
 
                 }
