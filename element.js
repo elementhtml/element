@@ -1469,7 +1469,10 @@ if (initializationParameters.has('packages')) {
     const importmapElement = document.head.querySelector('script[type="importmap"]'), importmap = { imports }, importPromises = new Map(), packageList = []
     for (let s of initializationParameters.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
     if (importmapElement) try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
-    else if (initializationParameters.get('packages')) for (const p of packageList) imports[p] = `./packages/${p}.js`
+    else if (initializationParameters.get('packages')) for (const p of packageList) {
+        imports[p] = (p.startsWith('/') || p.startsWith('./') || p.startsWith('../')) ? p : `./packages/${p}`
+        if (!imports[p].endsWith('.js')) imports[p] = `${imports[p]}.js`
+    }
     else {
         imports.main = './packages/main.js'
         packageList.push('main')
