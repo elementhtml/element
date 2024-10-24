@@ -1022,7 +1022,7 @@ const ElementHTML = Object.defineProperties({}, {
             running
             statements = []
             constructor({ conditions, directives, statements, fields, running, root }) {
-                if (!directives) return
+                if (!(directives || statements)) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
                 if (!promise) return
