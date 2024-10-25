@@ -347,6 +347,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveSelector: {  // optimal
         enumerable: true, value: async function (selector, scope) {
+            scope ??= document.documentElement
             if (!selector) return scope
             if (selector[0] === ':') return scope.querySelector(this.buildCatchallSelector(selector))
             let sliceSignature
@@ -1052,7 +1053,7 @@ const ElementHTML = Object.defineProperties({}, {
             async init() {
                 Object.freeze(this.statements)
                 Object.freeze(this.fields)
-                const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = interpreters.keys(), { descriptors, eventTarget, statements } = this
+                const { E, saveToLabel } = this.constructor, { interpreters } = E.env, interpreterKeys = Array.from(interpreters.keys()), { descriptors, eventTarget, statements } = this
                 let statementIndex = -1
                 for (const statement of statements) {
                     statementIndex++

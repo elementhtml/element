@@ -5,6 +5,7 @@ const voidElementTags = Object.freeze({
 
 
 export default async function (element, data) {
+    console.log(element, data)
     if (!(element instanceof HTMLElement)) return
     element = this.app._components.natives.get(element) ?? element
     const tag = element.tagName.toLowerCase()
