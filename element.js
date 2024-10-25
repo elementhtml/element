@@ -22,7 +22,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }],
                 [/^\$\{.*\}$/, {
                     name: 'variable',
-                    handler: async function (facet, position, envelope, value) { return this.resolveVariable(descriptor.expression, Object.freeze({ ...envelope, value })) },
+                    handler: async function (facet, position, envelope, value) { return this.resolveVariable(envelope.descriptor.expression, Object.freeze({ ...envelope, value })) },
                     parser: async function (expression) { return { expression: expression.slice(2, -1).trim() } }
                 }],
                 [/^[{](.*?)[}]$|^[\[](.*?)[\]]$|^\?[^ ]+$/, {
@@ -267,7 +267,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     createEnvelope: { // optimal
         enumerable: true, value: async function (value = {}) {
-            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: await this.flatten(this.app.cells), context: this.env.context })
+            return Object.freeze({ ...(this.isPlainObject(value) ? value : { value }), cells: await this.flatten(this.app.cells), context: Object.freeze({ ...this.env.context, ...this.app.context }) })
         }
     },
     deepFreeze: { //optimal
