@@ -1070,7 +1070,6 @@ const ElementHTML = Object.defineProperties({}, {
                         eventTarget.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'init', async () => {
                             if (!this.running) return
                             const handlerEnvelope = await E.createEnvelope({ ...envelope, fields: Object.freeze(this.valueOf()), labels: Object.freeze({ ...labels }) }),
-                                test = console.log(envelope, handlerEnvelope),
                                 value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler.call(E, this, position, handlerEnvelope, value)
                                     ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
