@@ -291,7 +291,6 @@ const ElementHTML = Object.defineProperties({}, {
             return tag.includes('-') ? tag : undefined
         }
     },
-    isFacetContainer: { enumerable: true, value: function (element) { return ((element instanceof HTMLScriptElement) && element.type?.endsWith('/element')) } }, // optimal
     isPlainObject: { // optimal
         enumerable: true, value: function (obj) {
             if (!obj) return false
@@ -631,7 +630,6 @@ const ElementHTML = Object.defineProperties({}, {
     },
     mountElement: { // optimal
         value: async function (element) {
-            if (this.isFacetContainer(element)) return this.app._facetInstances.set(element, new this.Facet(element))
             const customTag = this.getCustomTag(element)
             if (customTag) {
                 await this.activateTag(customTag)
@@ -674,6 +672,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const promises = []
+            if ((element instanceof HTMLMetaElement && element.name == 'e-unit')) promises.push(this.resolveUnit(element.content.trim().split(this.sys.regexp.colonSplitter).reverse()))
             if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
             return Promise.all(promises)
