@@ -386,7 +386,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
                 else if (envUnit instanceof Promise) envUnit = await envUnit
                 else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
-                return app[unitTypeCollectionName][asUnitKey ?? unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType, asUnitKey) : envUnit
+                return app[unitTypeCollectionName][asUnitKey ?? unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType, asUnitKey ?? unitKey) : envUnit
             }
             if (this.sys.localOnlyUnitTypes.has(unitType)) return
             unitResolver ??= await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
