@@ -5,17 +5,19 @@ const checkConditions = function () {
         if (!running) break
     }
     this.running = running
+}, regexp = {
+    defaultValue: /\s+\?\?\s+(.+)\s*$/, label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
+    directiveHandleMatch: /^([A-Z][A-Z0-9]*)::\s(.*)/, directiveSplitter: /\n(?!\s+>>)/gm, directiveSegmenter: /\s+>>\s+/g,
 }
-
 
 export default {
     parseDirectives: async function (directives) {
-        const { E } = this, { sys } = E, { regexp } = sys
+        const { E } = this.constructor
         directives = directives.trim()
         if (!directives) return
         const targetNames = { cell: E.Cell, field: E.Field, '#': E.Cell, '@': E.Field }, { interpreters } = E.env
         let statementIndex = -1
-        for (let directive of directives.split(regexp.splitter)) {
+        for (let directive of directives.split(regexp.directiveSplitter)) {
             directive = directive.trim()
             if (!directive || directive.startsWith('|* ')) continue
             statementIndex++
@@ -23,7 +25,7 @@ export default {
             if (handleMatch = directive.match(regexp.directiveHandleMatch)) [, handle, directive] = handleMatch
             directive = directive.trim()
             const statement = { handle, index: statementIndex, labels: {}, steps: [] }
-            for (const segment of directive.split(regexp.segmenter)) {
+            for (const segment of directive.split(regexp.directiveSegmenter)) {
                 if (!segment) continue
                 stepIndex++
                 let handlerExpression = segment, label, defaultExpression

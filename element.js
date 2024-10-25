@@ -512,7 +512,7 @@ const ElementHTML = Object.defineProperties({}, {
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             queue: new Map(),
             regexp: Object.freeze({
-                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, directiveHandleMatch: /^(?:(?<handle>[A-Z][A-Z0-9]*)::\s*)(?<directive>.*)?$/, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
                 isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
@@ -672,7 +672,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const promises = []
-            if ((element instanceof HTMLMetaElement && element.name == 'e-unit')) promises.push(this.resolveUnit(element.content.trim().split(this.sys.regexp.colonSplitter).reverse()))
+            if ((element instanceof HTMLMetaElement && element.name == 'e-unit')) promises.push(this.resolveUnit(...element.content.trim().split(this.sys.regexp.colonSplitter).reverse()))
             if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
             return Promise.all(promises)
@@ -1020,7 +1020,9 @@ const ElementHTML = Object.defineProperties({}, {
             inited
             running
             statements = []
-            constructor({ conditions, directives, statements, fields, running, root }) {
+            constructor(params = {}) {
+                if (typeof params === 'string') params = { directives: params }
+                const { conditions, directives, statements, fields, running, root } = params
                 if (!(directives || statements)) return
                 let promise = (statements && fields && Array.isArray(statements) && this.constructor.E.isPlainObject(fields))
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)

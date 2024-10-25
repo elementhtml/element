@@ -1,22 +1,24 @@
 const autoResolverSuffixes = Object.freeze({
-    component: ['html'], gateway: ['wasm'], helper: ['wasm'], snippet: ['html'], syntax: ['wasm'],
-    transform: ['wasm', 'jsonata'], type: ['x', 'schema.json', 'json']
+    ai: ['js', 'json'], api: ['js', 'json'], collection: ['js', 'json'], content: ['md', 'html', 'txt', 'js'], context: ['json', 'js'], facet: ['directives', 'js'],
+    gateway: ['js'], hook: ['js'], interpreter: ['js'], model: ['json', 'jsonl', 'js'], language: ['json', 'js'],
+    pattern: ['txt', 'js'], renderer: ['js'], resolver: ['js'], snippet: ['html', 'js'], transform: ['js'], type: ['js', 'schema.json', 'json', 'x', 'xdr']
 })
 
-export default async function () {
+export default async function (unitKey, unitType) {
     if (!(unitKey && unitType)) return
     const unitTypeCollectionName = this.sys.unitTypeMap[unitType]?.[0]
     if (!unitTypeCollectionName) return
     let unitUrl
     switch (unitKey[0]) {
         case '.': case '/': unitUrl = this.resolveUrl(unitKey, undefined, true); break
+        case '~': unitUrl = this.resolveUrl(`/${unitTypeCollectionName}/${unitKey.slice(1)}`, undefined, true); break
         default:
             if (unitKey.includes('://')) try { unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true) } catch (e) { }
             else unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey}`, undefined, true)
     }
     if (!unitUrl) return
     let unitSuffix
-    for (const s of (['js', ...(autoResolverSuffixes[unitType] ?? [])].sort())) {
+    for (const s of (autoResolverSuffixes[unitType] ?? ['js'])) {
         if (unitUrl.pathname.endsWith(`.${s}`)) { unitSuffix = s; break }
         const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
         if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
@@ -38,5 +40,9 @@ export default async function () {
                 unit = hash ? ((unit && typeof unit === 'object') ? unit[hash] : undefined) : unitModule
         }
     }
-    return unit
+    const [, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
+    if (unit instanceof unitClass) return unit
+    if (typeof unit === 'function') unit = await unit(this)
+    if (unit instanceof unitClass) return unit
+    return new unitClass(unit)
 }
