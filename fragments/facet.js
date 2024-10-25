@@ -60,13 +60,13 @@ export default {
                         const ln = label.trim()
                         if (ln) statement.labels[ln] ??= undefined
                 }
-                let signature
+                let stepEnvelope
                 for (const [matcher, interpreter] of interpreters) {
                     const { parser, name } = interpreter
                     if (matcher.test(handlerExpression) && (typeof parser === 'function')) {
-                        signature = { name, interpreter: matcher.toString(), descriptor: (await parser(handlerExpression)) ?? {}, variables: {} }
+                        stepEnvelope = { name, interpreter: matcher.toString(), descriptor: (await parser.call(E, handlerExpression)) ?? {}, variables: {} }
                         if (name === 'state') {
-                            const { target, shape } = signature.descriptor
+                            const { target, shape } = stepEnvelope.descriptor
                             switch (shape) {
                                 case 'single':
                                     new targetNames[target.type](target.name, this)
@@ -82,18 +82,18 @@ export default {
                         break
                     }
                 }
-                if (signature === undefined) {
+                if (stepEnvelope === undefined) {
                     if (dev) dev.print(`No matching interpreter is available for the expression at position '${statementIndex}-${stepIndex}' in: ${handlerExpression}`, 'warning')
                     let matcher, name = 'console'
                     for (const [k, v] of interpreters) if (v.name === name) { matcher = k; break }
                     if (!matcher) continue
-                    signature = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
+                    stepEnvelope = { name, interpreter: 'undefined', descriptor: { verbose: true }, variables: {} }
                 }
-                for (const p in signature.descriptor) if (E.isWrappedVariable(signature.descriptor[p])) signature.variables[p] = true
-                if (Object.keys(signature.variables).length) Object.freeze(signature.variables)
-                else delete signature.variables
-                Object.freeze(signature.descriptor)
-                const step = { label, labelMode, signature: Object.freeze(signature) }
+                for (const p in stepEnvelope.descriptor) if (E.isWrappedVariable(stepEnvelope.descriptor[p])) stepEnvelope.variables[p] = true
+                if (Object.keys(stepEnvelope.variables).length) Object.freeze(stepEnvelope.variables)
+                else delete stepEnvelope.variables
+                Object.freeze(stepEnvelope.descriptor)
+                const step = { label, labelMode, stepEnvelope: Object.freeze(stepEnvelope) }
                 if (defaultExpression) step.defaultExpression = defaultExpression
                 statement.labels[label] ??= undefined
                 statement.labels[`${stepIndex}`] ??= undefined

@@ -1012,12 +1012,13 @@ const ElementHTML = Object.defineProperties({}, {
             }
             conditionsAnchorObservers = {}
             conditions = { dom: {}, location: {}, cells: {}, fields: {}, host: {} }
-            controller
+            #controller
             #controllers = {}
             descriptors = {}
             eventTarget
             fields = {}
             inited
+            labels = {}
             running
             statements = []
             constructor(params = {}) {
@@ -1028,7 +1029,7 @@ const ElementHTML = Object.defineProperties({}, {
                     ? this.constructor.setupStatements(statements, fields) : ((typeof directives === 'string') ? this.parseDirectives(directives) : undefined)
                 if (!promise) return
                 this.root = (root instanceof ShadowRoot) ? root : document.documentElement
-                this.controller = new AbortController()
+                this.#controller = new AbortController()
                 this.eventTarget = new EventTarget()
                 this.running = running ?? true
                 const { E } = this.constructor
@@ -1048,31 +1049,32 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const statement of statements) {
                     statementIndex++
                     const { steps = [] } = statement, labels = {}
-                    for (const label of statement.labels) labels[label] = undefined
+                    for (const label in statement.labels) labels[label] = undefined
                     this.labels[statementIndex] = labels
                     let stepIndex = -1
                     for (const step of steps) {
                         stepIndex++
-                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, signature } = step, { interpreter: interpreterKey, variables } = signature,
-                            descriptor = { ...(signature.descriptor ?? {}) }, { signal } = descriptor,
-                            envelope = E.createEnvelope({ descriptor, fields: Object.freeze(this.valueOf()), labels, variables })
+                        const position = `${statementIndex}-${stepIndex}`, { label, labelMode, defaultExpression, stepEnvelope } = step, { interpreter: interpreterKey, variables } = stepEnvelope,
+                            descriptor = { ...(stepEnvelope.descriptor ?? {}) }, { signal } = descriptor,
+                            envelope = await E.createEnvelope({ ...stepEnvelope, descriptor, fields: Object.freeze(this.valueOf()), labels, variables })
                         let interpreter, matcher
                         for (matcher of interpreterKeys) if (matcher.toString() === interpreterKey) break
                         if (matcher) interpreter = interpreters.get(matcher)
                         if (!interpreter) continue
                         const { binder, handler } = interpreter
                         if (signal) descriptor.signal = (this.#controllers[position] = new AbortController()).signal
-                        if (binder) Object.assign(descriptor, (await binder(this, position, envelope) ?? {}))
+                        if (binder) Object.assign(descriptor, (await binder.call(E, this, position, envelope) ?? {}))
                         descriptors[position] = Object.freeze(descriptor)
-                        eventTarget.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, this.fields, E.app.cells), { signal: controller.signal })
+                        eventTarget.addEventListener(`done-${position}`, async event => saveToLabel(stepIndex, label, event.detail, labelMode, labels, this.fields, E.app.cells), { signal: this.#controller.signal })
                         const previousStepIndex = stepIndex ? stepIndex - 1 : undefined
                         eventTarget.addEventListener(stepIndex ? `done-${statementIndex}-${previousStepIndex}` : 'init', async () => {
                             if (!this.running) return
                             const handlerEnvelope = await E.createEnvelope({ ...envelope, fields: Object.freeze(this.valueOf()), labels: Object.freeze({ ...labels }) }),
-                                value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler(this, position, handlerEnvelope, value)
+                                test = console.log(envelope, handlerEnvelope),
+                                value = previousStepIndex !== undefined ? labels[`${previousStepIndex}`] : undefined, detail = await handler.call(E, this, position, handlerEnvelope, value)
                                     ?? (defaultExpression ? E.resolveVariable(defaultExpression, { ...handlerEnvelope, value }) : undefined)
                             if (detail !== undefined) eventTarget.dispatchEvent(new CustomEvent(`done-${position}`, { detail }))
-                        }, { signal: this.controller.signal })
+                        }, { signal: this.#controller.signal })
                     }
                 }
                 eventTarget.dispatchEvent(new CustomEvent('init'))
@@ -1093,7 +1095,7 @@ const ElementHTML = Object.defineProperties({}, {
                 for (const name in fields) new E.Field(name, fields[name], this)
             }
             async stop() {
-                this.controller.abort()
+                this.#controller.abort()
                 for (const p in this.#controllers) this.#controllers[p].abort()
                 for (const c in this.conditionsAnchorObservers) this.conditionsAnchorObservers[c].disconnect()
             }
