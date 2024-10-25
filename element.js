@@ -358,36 +358,39 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
     resolveUnit: { // optimal
-        enumerable: true, value: async function (unitKey, unitType) {
+        enumerable: true, value: async function (unitKey, unitType, asUnitKey) {
             if (!unitKey || !unitType) return
             const unitKeyTest = Array.isArray(unitKey) ? 'array' : (this.isPlainObject(unitKey) ? 'object' : undefined)
             if (unitKeyTest) {
-                const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey : Object.keys(unitKey)
-                for (const k of keys) result[isArray ? result.length : k] = await this.resolveUnit(k, unitKey[k])
+                const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey : Object.keys(unitKey),
+                    asKeysIsArray = Array.isArray(asUnitKey) && asUnitKey.length, asKeysIsObject = !asKeysIsArray && (this.isPlainObject(asUnitKey))
+                for (const k of keys) result[isArray ? result.length : k] = await this.resolveUnit(k, unitKey[k],
+                    ((isArray && asKeysIsArray) || asKeysIsObject) ? asUnitKey[k] : undefined)
                 return result
             }
             if (unitType === 'resolver') return this.defaultResolver.bind(this)
             const { sys, app } = this, [unitTypeCollectionName, unitClassName] = sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
             if (!(unitKey = unitKey.trim())) return
-            let unit = app[unitTypeCollectionName][unitKey]
+            let unit = app[unitTypeCollectionName][asUnitKey ?? unitKey]
             if (unit) return unit
-            const { queue } = sys, unitQueueJob = queue.get(`${unitType}:${unitKey}`) ?? queue.get(`${unitTypeCollectionName}:${unitKey}`)
+            const { queue } = sys, unitQueueJob = queue.get(`${unitType}:${asUnitKey ?? unitKey}`)
+                ?? queue.get(`${unitTypeCollectionName}:${asUnitKey ?? unitKey}`)
             if (unitQueueJob) {
                 await unitQueueJob.completed()
-                if (unit = app[unitTypeCollectionName][unitKey]) return unit
+                if (unit = app[unitTypeCollectionName][asUnitKey ?? unitKey]) return unit
             }
             const envUnit = this.env[unitTypeCollectionName][unitKey]
             let unitResolver
             if (envUnit) {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
                 else if (envUnit instanceof Promise) envUnit = await envUnit
-                else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-                return app[unitTypeCollectionName][unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType) : envUnit
+                else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
+                return app[unitTypeCollectionName][asUnitKey ?? unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType, asUnitKey) : envUnit
             }
             if (this.sys.localOnlyUnitTypes.has(unitType)) return
-            unitResolver ??= await this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver
-            return app[unitTypeCollectionName][unitKey] = await unitResolver.call(this, unitKey, unitType)
+            unitResolver ??= await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
+            return app[unitTypeCollectionName][asUnitKey ?? unitKey] = await unitResolver.call(this, unitKey, unitType, asUnitKey)
         }
     },
     resolveUrl: { // optimal
@@ -515,6 +518,7 @@ const ElementHTML = Object.defineProperties({}, {
                 commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, directiveHandleMatch: /^(?:(?<handle>[A-Z][A-Z0-9]*)::\s*)(?<directive>.*)?$/, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
                 isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
+                periodSplitter: /\s*\.\s*/,
                 pipeSplitter: /(?<!\|)\|(?!\|)(?![^\[]*\])/, pipeSplitterAndTrim: /\s*\|\s*/, dash: /-/g, xy: /[xy]/g, selectorBranchSplitter: /\s*,\s*(?![^"']*["'][^"']*$)/,
                 selectorSegmentSplitter: /(?<=[^\s>+~|\[])\s+(?![^"']*["'][^"']*$)|\s*(?=\|\||[>+~](?![^\[]*\]))\s*/, spaceSplitter: /\s+/
             }),
@@ -673,8 +677,9 @@ const ElementHTML = Object.defineProperties({}, {
             }
             const promises = []
             if ((element instanceof HTMLMetaElement && element.name.startsWith('e-'))) {
-                const nameMain = element.name.slice(2).toLowerCase()
-                if (nameMain in this.sys.unitTypeMap) promises.push(this.resolveUnit(element.content.trim(), nameMain))
+                let [unitType, asUnitKey] = element.name.slice(2).toLowerCase().trim().split(this.sys.regexp.periodSplitter)
+                unitType = this.sys.unitTypeCollectionNameToUnitTypeMap[unitType] ?? unitType
+                if (unitType in this.sys.unitTypeMap) promises.push(this.resolveUnit(element.content.trim(), unitType, asUnitKey))
             }
             if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
