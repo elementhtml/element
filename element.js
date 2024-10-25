@@ -672,7 +672,10 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
             const promises = []
-            if ((element instanceof HTMLMetaElement && element.name == 'e-unit')) promises.push(this.resolveUnit(...element.content.trim().split(this.sys.regexp.colonSplitter).reverse()))
+            if ((element instanceof HTMLMetaElement && element.name.startsWith('e-'))) {
+                const nameMain = element.name.slice(2).toLowerCase()
+                if (nameMain in this.sys.unitTypeMap) promises.push(this.resolveUnit(element.content.trim(), nameMain))
+            }
             if (element.shadowRoot?.children) for (const n of element.shadowRoot.children) promises.push(this.mountElement(n))
             for (const n of element.children) promises.push(this.mountElement(n))
             return Promise.all(promises)
