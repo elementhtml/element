@@ -3,9 +3,7 @@ const voidElementTags = Object.freeze({
     param: 'value', source: 'src', track: 'src', wbr: null
 })
 
-
 export default async function (element, data) {
-    console.log(element, data)
     if (!(element instanceof HTMLElement)) return
     element = this.app._components.virtualsFromNatives.get(element) ?? element
     const tag = element.tagName.toLowerCase()
@@ -26,54 +24,7 @@ export default async function (element, data) {
         if (tag in voidElementTags) return element.setAttribute(voidElementTags[tag], data)
         return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
     }
-
     const { processElementMapper } = await this.runFragment('sys/mappers'), promises = []
     for (const p in data) promises.push(processElementMapper.call(this, element, 'set', p, data[p]))
-    return await Promise.all(promises)
-
-
-
-    for (const p in data) {
-        return processElementMapper.call(this, element, 'set', p, data[p])
-        if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
-        if (p.startsWith('::')) {
-            const position = p.slice(2)
-            if (typeof element[position] !== 'function') continue
-            let snippets = data[p]
-            if (!snippets) { element[position](snippets); continue }
-            if (!Array.isArray(snippets)) if (this.isPlainObject(snippets)) {
-                for (const snippetKey in snippets) promises.push(this.resolveUnit(snippetKey, 'snippet').then(s => this.render(s, snippets[snippetKey])).then(s => element[position](...s)))
-                continue
-            } else snippets = [snippets]
-            if (!snippets.length) { element[position](); continue }
-            promises.push(this.resolveUnit(snippets, 'snippet').then(s => element[position](...s)))
-            continue
-        }
-        const pFlag = p[0]
-        if (pFlag === '&') {
-            let child = this.resolveScopedSelector(p, element)
-            if (!child) continue
-            if (!Array.isArray(child)) { this.render(child, data[p]); continue }
-            const useArray = Array.isArray(data[p]) ? [...data[p]] : undefined
-            for (const c of child) promises.push(this.render(c, useArray ? useArray.shift() : data[p]))
-        }
-        else if (pFlag in mappers) mappers[pFlag](element, p.slice(1).trim(), true, data[p])
-        else if ((pFlag === '[') && p.endsWith(']')) mappers.$form(element, p.slice(1, -1).trim(), true, data[p])
-        else if ((pFlag === '{') && p.endsWith('}')) mappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
-        else if (typeof element[p] === 'function') element[p](data[p])
-        else if (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')) {
-            let [functionName, argsList] = p.slice(0, -1).split('(')
-            functionName = functionName.trim()
-            argsList ||= '$'
-            if (typeof element[functionName] !== 'function') continue
-            argsList = argsList.trim().split(this.sys.regexp.commaSplitter)
-            const args = [], labels = { ...element.dataset }
-            promises.push(this.createEnvelope({ labels, value: data }).then(envelope => {
-                for (let a of argsList) args.push(this.resolveVariable(a, envelope))
-                element[functionName](...args)
-            }))
-        }
-        else element[p] = data[p]
-    }
     return await Promise.all(promises)
 }
