@@ -28,10 +28,13 @@ export default async function (element, data) {
     }
 
     const { processElementMapper } = await this.runFragment('sys/mappers'), promises = []
+    for (const p in data) promises.push(processElementMapper.call(this, element, 'set', p, data[p]))
+    return await Promise.all(promises)
 
-    // return processElementMapper.call(this, element, 'set', undefined, data)
+
 
     for (const p in data) {
+        return processElementMapper.call(this, element, 'set', p, data[p])
         if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
         if (p.startsWith('::')) {
             const position = p.slice(2)
