@@ -13,24 +13,24 @@ export default async function (element, data) {
         case null: case undefined:
             for (const p of ['checked', 'selected']) if (p in element) return element[p] = false
             if ('value' in element) return element.value = ''
-            if (tag in this.sys.voidElementTags) return element.removeAttribute(this.sys.voidElementTags[tag])
+            if (tag in voidElementTags) return element.removeAttribute(voidElementTags[tag])
             return element.textContent = ''
         case true: case false:
             for (const p of ['checked', 'selected', 'value']) if (p in element) return element[p] = data
-            if (tag in this.sys.voidElementTags) return element.toggleAttribute(this.sys.voidElementTags[tag])
+            if (tag in voidElementTags) return element.toggleAttribute(voidElementTags[tag])
             return element.textContent = data
     }
     if (typeof data !== 'object') {
         for (const p of ['checked', 'selected']) if (p in element) return element[p] = !!data
         if ('value' in element) return element.value = data
-        if (tag in this.sys.voidElementTags) return element.setAttribute(this.sys.voidElementTags[tag], data)
+        if (tag in voidElementTags) return element.setAttribute(voidElementTags[tag], data)
         return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
     }
 
-    // const { processElementMapper } = await this.runFragment('sys/mappers')
+    const { processElementMapper } = await this.runFragment('sys/mappers'), promises = []
+
     // return processElementMapper.call(this, element, 'set', undefined, data)
 
-    const promises = []
     for (const p in data) {
         if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
         if (p.startsWith('::')) {
