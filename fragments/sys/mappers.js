@@ -1,17 +1,15 @@
 const mappers = {
-    '#': (el, mode, v, p, options = {}) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
+    '#': (el, mode, v, p, options = {}) => el[`${mode}Attribute`]('id', v),
     $attributes: function (el, mode, v, p, options = {}) {
         if (!(el && (el instanceof HTMLElement))) return
         const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', toggle = 'toggleAttribute', filter } = options,
-            target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
+            target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? ((mode === 'set') && !isComputed) : (mode === 'set'), vIsObject = typeof v === 'object'
         p &&= this.toKebabCase(p)
         if (writable) {
             if (p) return target[v == null ? remove : ((!style && (typeof v === 'boolean')) ? toggle : set)](p, v)
-            const vIsObject = typeof v === 'object'
             if (vIsObject) for (const k in v) target[v[k] == null ? remove : ((!style && (typeof v[k] === 'boolean')) ? toggle : set)](this.toKebabCase(k), v[k])
             if (vIsObject || style) return
-            p ||= defaultAttribute
-            return target[(typeof v === 'boolean') ? toggle : set](p, v)
+            return target[(typeof v === 'boolean') ? toggle : set](p || defaultAttribute, v)
         }
         if (p) return target[get](p)
         const r = {}, iterator = style ? target : el.attributes
