@@ -134,7 +134,7 @@ const mappers = {
     },
     $table: function (el, mode, v, p, options = {}) {
         if (!(el instanceof HTMLTableElement || el instanceof HTMLTableSectionElement)) return
-        if (w) {
+        if (mode === 'set') {
             if (!Array.isArray(v)) return
             if (el instanceof HTMLTableElement) {
                 if (v.length === 0) return
@@ -187,19 +187,19 @@ const mappers = {
             return
         }
         if (el instanceof HTMLTableElement) {
-            const thead = el.querySelector('thead'), tbody = el.querySelector('tbody'), p = []
+            const thead = el.querySelector('thead'), tbody = el.querySelector('tbody'), promises = []
             if (!thead || !tbody) return []
             const headers = [], rows = []
             for (const th of thead.querySelectorAll('th')) headers.push(th.textContent.trim())
             for (const tr of tbody.querySelectorAll('tr')) {
                 const cells = tr.querySelectorAll('td'), rowObj = {}
                 let index = -1
-                for (const header of headers) p.push(this.flatten(cells[++index]).then(v => rowObj[header] = v))
+                for (const header of headers) promises.push(this.flatten(cells[++index]).then(v => rowObj[header] = v))
                 rows.push(rowObj)
             }
-            return Promise.all(p).then(() => rows)
+            return Promise.all(promises).then(() => rows)
         } else if (el instanceof HTMLTableSectionElement && el.tagName.toLowerCase() === 'tbody') {
-            const rows = [], p = []
+            const rows = []
             for (const tr of el.querySelectorAll('tr')) {
                 const row = []
                 for (const td of tr.querySelectorAll('td')) row.push(this.flatten(td))
