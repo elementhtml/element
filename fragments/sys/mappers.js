@@ -30,40 +30,40 @@ const mappers = {
             v[`${filter}${k}`] = v[k]
             delete v[k]
         }
-        return this.sys.mappers.$attributes(el, p, w, v, { defaultAttribute, filter })
+        return mappers.$attributes(el, mode, v, p, { defaultAttribute, filter })
     },
     '$': '$data',
-    $aria: function (el, mode, v, p, options = {}) { return this.sys.mappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
+    $aria: function (el, mode, v, p, options = {}) { return mappers.$data(el, mode, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
     '*': '$aria',
-    $style: function (el, mode, v, p, options = {}) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $style: function (el, mode, v, p, options = {}) { return mappers.$attributes(el, mode, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
     '%': '$style',
-    $computed: function (el, mode, v, p, options = {}) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $computed: function (el, mode, v, p, options = {}) { return mappers.$attributes(el, mode, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
     '&': '$computed',
-    $inner: function (el, mode, v, p, options = {}) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
+    $inner: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
     '.': '$inner',
-    $content: (el, mode, v, p, options = {}) => w ? (el.textContent = v) : el.textContent,
+    $content: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.textContent = v) : el.textContent,
     '..': '$content',
-    $text: (el, mode, v, p, options = {}) => w ? (el.innerText = v) : el.innerText,
+    $text: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerText = v) : el.innerText,
     '...': '$text',
-    $html: (el, mode, v, p, options = {}) => w ? (el.innerHTML = v) : el.innerHTML,
+    $html: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerHTML = v) : el.innerHTML,
     '<>': '$html',
-    $tag: (el, mode, v, p, options = {}) => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
+    $tag: (el, mode, v, p, options = {}) => (mode === 'set') ? (v == null ? el.removeAttribute('is') : (el.setAttribute('is', v.toLowerCase()))) : ((value.getAttribute('is') || value.tagName).toLowerCase()),
     $parent: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
-        return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
+        return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
     },
     '^': '$parent',
-    $event: function (el, mode, v, p, options = {}) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
+    $event: function (el, mode, v, p, options = {}) { return (mode === 'set') ? undefined : (p ? this.flatten(options?.detail?.[p]) : this.flatten(options)) },
     '!': '$event',
     $form: (el, mode, v, p, options = {}) => {
         if (!(el instanceof HTMLElement)) return
         const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
         switch (tagName.toLowerCase()) {
             case 'form': case 'fieldset':
-                if (p) return this.sys.mappers.$form(el.querySelector(`[name="${p}"]`), w, v)
+                if (p) return mappers.$form(el.querySelector(`[name="${p}"]`), mode, v)
                 if (!vIsObject) return
                 const r = {}
-                for (const fieldName in v) r[fieldName] = this.sys.mappers.$form(el.querySelector(`[name="${fieldName}"]`), w, v[fieldName])
+                for (const fieldName in v) r[fieldName] = mappers.$form(el.querySelector(`[name="${fieldName}"]`), mode, v[fieldName])
                 return r
             default:
                 const { type, name } = el
@@ -73,7 +73,7 @@ const mappers = {
                         const inputs = el.closest('form,fieldset').querySelectorAll(`[name="${name}"][type=${type}]`)
                         if (!inputs) return
                         const isCheckbox = type === 'checkbox', isRadio = !isCheckbox
-                        if (w) {
+                        if (mode === 'set') {
                             const vIsArray = Array.isArray(v), useV = vIsObject ? v : (vIsArray ? {} : { [v]: true })
                             if (vIsArray) for (const f of v) useV[f] = true
                             for (const c of inputs) if ((c.checked = !!useV[c.value]) && isRadio) return
@@ -85,7 +85,7 @@ const mappers = {
                         for (const f of inputs) if (f.checked) r.push(f.value)
                         return r
                     default:
-                        return w ? (el.value = v) : el.value
+                        return (mode === 'set') ? (el.value = v) : el.value
                 }
         }
     },
@@ -211,12 +211,12 @@ const mappers = {
 
 export default {
     processElementMapper: async function (element, mode, prop, value) {
-        if (prop in mappers) return (mode === 'has') || (await mappers[prop](element, mode, value))
+        if (prop in mappers) return (mode === 'has') || (await mappers[prop].call(this, element, mode, value))
         const propFlag = prop[0], propMain = prop.slice(1)
         let r
-        if (propFlag in mappers) r = await mappers[propFlag](element, mode, value, propMain)
-        else if ((propFlag === '[') && propMain.endsWith(']')) r = await mappers.$form(element, mode, value, propMain.slice(0, -1))
-        else if ((propFlag === '{') && propMain.endsWith('}')) r = await mappers.$microdata(element, mode, value, propMain.slice(0, -1))
+        if (propFlag in mappers) r = await mappers[propFlag].call(this, element, mode, value, propMain)
+        else if ((propFlag === '[') && propMain.endsWith(']')) r = await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1))
+        else if ((propFlag === '{') && propMain.endsWith('}')) r = await mappers.$microdata.call(this, element, mode, value, propMain.slice(0, -1))
         return (mode === 'has') ? (prop in element) : ((mode === 'set') ? (element[prop] = value) : (await this.flatten(element[prop])))
     }
 }
