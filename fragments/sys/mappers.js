@@ -1,6 +1,6 @@
 const mappers = {
-    '#': (el, w, v) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
-    $attributes: function (el, p, w, v, options = {}) {
+    '#': (el, mode, v, p, options = {}) => w ? (v == null ? el.removeAttribute('id') : (el.id = v)) : el.id,
+    $attributes: function (el, mode, v, p, options = {}) {
         if (!(el && (el instanceof HTMLElement))) return
         const { style, isComputed, get = 'getAttribute', set = 'setAttribute', remove = 'removeAttribute', defaultAttribute = 'name', toggle = 'toggleAttribute', filter } = options,
             target = style ? (isComputed ? window.getComputedStyle(el) : el.style) : el, writable = style ? (w && !isComputed) : w
@@ -24,7 +24,7 @@ const mappers = {
         return r
     },
     '@': '$attributes',
-    $data: function (el, p, w, v, options = {}) {
+    $data: function (el, mode, v, p, options = {}) {
         const { filter = 'data-', defaultAttribute = 'data-value' } = options
         if (!p && !(v && (typeof v === 'object'))) return v ? (el.value = v) : (el.value = '')
         if (p && !p.startsWith(filter)) p = `${filter}${p}`
@@ -35,29 +35,29 @@ const mappers = {
         return this.sys.mappers.$attributes(el, p, w, v, { defaultAttribute, filter })
     },
     '$': '$data',
-    $aria: function (el, p, w, v) { return this.sys.mappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
+    $aria: function (el, mode, v, p, options = {}) { return this.sys.mappers.$data(el, p, w, v, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
     '*': '$aria',
-    $style: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $style: function (el, mode, v, p, options = {}) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
     '%': '$style',
-    $computed: function (el, p, w, v) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $computed: function (el, mode, v, p, options = {}) { return this.sys.mappers.$attributes(el, p, w, v, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
     '&': '$computed',
-    $inner: function (el, w, v) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
+    $inner: function (el, mode, v, p, options = {}) { return w ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
     '.': '$inner',
-    $content: (el, w, v) => w ? (el.textContent = v) : el.textContent,
+    $content: (el, mode, v, p, options = {}) => w ? (el.textContent = v) : el.textContent,
     '..': '$content',
-    $text: (el, w, v) => w ? (el.innerText = v) : el.innerText,
+    $text: (el, mode, v, p, options = {}) => w ? (el.innerText = v) : el.innerText,
     '...': '$text',
-    $html: (el, w, v) => w ? (el.innerHTML = v) : el.innerHTML,
+    $html: (el, mode, v, p, options = {}) => w ? (el.innerHTML = v) : el.innerHTML,
     '<>': '$html',
-    $tag: (el, p, w, v = 'is') => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
-    $parent: function (el, p, w, v) {
+    $tag: (el, mode, v, p, options = {}) => w ? (v == null ? el.removeAttribute(p) : (el.setAttribute(p, v.toLowerCase()))) : ((value.getAttribute(p) || value.tagName).toLowerCase()),
+    $parent: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
         return (w ?? v ?? p) ? undefined : this.flatten(el.parentElement)
     },
     '^': '$parent',
-    $event: function (el, p, w, v, ev) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
+    $event: function (el, mode, v, p, options = {}) { return (w ?? v) ? undefined : (p ? this.flatten(ev?.detail?.[p]) : this.flatten(ev)) },
     '!': '$event',
-    $form: (el, p, w, v) => {
+    $form: (el, mode, v, p, options = {}) => {
         if (!(el instanceof HTMLElement)) return
         const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
         switch (tagName.toLowerCase()) {
@@ -92,7 +92,7 @@ const mappers = {
         }
     },
     '[]': '$form',
-    $microdata: function (el, p, w, v) {
+    $microdata: function (el, mode, v, p, options = {}) {
         if (!((el instanceof HTMLElement) && el.hasAttribute('itemscope'))) return
         if (p) {
             const propElement = el.querySelector(`[itemprop="${p}"]`)
@@ -106,7 +106,7 @@ const mappers = {
         return Promise.all(p).then(() => r)
     },
     '{}': '$microdata',
-    $options: function (el, w, v) {
+    $options: function (el, mode, v, p, options = {}) {
         if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLDataListElement))) return
         if (w) {
             const optionElements = []
@@ -132,7 +132,7 @@ const mappers = {
         }
         return isMap ? rObj : rArr
     },
-    $table: function (el, p, w, v) {
+    $table: function (el, mode, v, p, options = {}) {
         if (!(el instanceof HTMLTableElement || el instanceof HTMLTableSectionElement)) return
         if (w) {
             if (!Array.isArray(v)) return
@@ -212,13 +212,13 @@ const mappers = {
 }
 
 export default {
-    processElementMapper: async function (element, prop, isHas) {
-        if (prop in mappers) return isHas || (await mappers[prop](element))
+    processElementMapper: async function (element, mode, prop, value) {
+        if (prop in mappers) return (mode === 'has') || (await mappers[prop](element, mode, value))
         const propFlag = prop[0], propMain = prop.slice(1)
-        let r, t
-        if (t = (propFlag in mappers)) r = await mappers[propFlag](element, propMain)
-        else if (t = ((propFlag === '[') && propMain.endsWith(']'))) r = await mappers.$form(element, propMain.slice(0, -1))
-        else if (t = ((propFlag === '{') && propMain.endsWith('}'))) r = await mappers.$microdata(element, propMain.slice(0, -1))
-        return t ? (isHas ? (r !== undefined) : r) : (isHas ? (prop in element) : (await this.flatten(element[prop])))
+        let r
+        if (propFlag in mappers) r = await mappers[propFlag](element, mode, value, propMain)
+        else if ((propFlag === '[') && propMain.endsWith(']')) r = await mappers.$form(element, mode, value, propMain.slice(0, -1))
+        else if ((propFlag === '{') && propMain.endsWith('}')) r = await mappers.$microdata(element, mode, value, propMain.slice(0, -1))
+        return (mode === 'has') ? (prop in element) : ((mode === 'set') ? (element[prop] = value) : (await this.flatten(element[prop])))
     }
 }

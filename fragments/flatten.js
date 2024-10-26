@@ -32,7 +32,7 @@ export default async function (value, event) {
     if (value instanceof this.Component) return await this.flatten(value.valueOf())
     if (value instanceof HTMLElement) {
         const { processElementMapper } = await this.runFragment('sys/mappers')
-        return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, prop, mappers), has: (target, prop) => processElementMapper.call(value, prop, mappers, true) })
+        return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, 'get', prop), has: (target, prop) => processElementMapper.call(this, value, 'has', prop) })
     }
     for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
 }

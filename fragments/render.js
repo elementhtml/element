@@ -7,7 +7,7 @@ const voidElementTags = Object.freeze({
 export default async function (element, data) {
     console.log(element, data)
     if (!(element instanceof HTMLElement)) return
-    element = this.app._components.natives.get(element) ?? element
+    element = this.app._components.virtualsFromNatives.get(element) ?? element
     const tag = element.tagName.toLowerCase()
     switch (data) {
         case null: case undefined:
@@ -26,7 +26,10 @@ export default async function (element, data) {
         if (tag in this.sys.voidElementTags) return element.setAttribute(this.sys.voidElementTags[tag], data)
         return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
     }
-    const { mappers } = this.sys
+
+    // const { processElementMapper } = await this.runFragment('sys/mappers')
+    // return processElementMapper.call(this, element, 'set', undefined, data)
+
     const promises = []
     for (const p in data) {
         if (p in mappers) { mappers[p](element, undefined, true, data[p]); continue }
