@@ -95,18 +95,20 @@ const mappers = {
         if (p) {
             const propElement = el.querySelector(`[itemprop="${p}"]`)
             if (!propElement) return
-            return w ? this.render(propElement, v) : this.flatten(propElement)
+            return (mode === 'set') ? this.render(propElement, v) : this.flatten(propElement)
         }
-        if (w) if (this.isPlainObject(v)) for (const k in v) this.sys.mappers.$microdata(el, w, v[k], k)
-        if (w) return
-        const r = {}, p = []
-        for (const propElement of el.querySelectorAll('[itemprop]')) p.push(this.flatten(propElement).then(v => (r[propElement.getAttribute('itemprop')] = v)))
-        return Promise.all(p).then(() => r)
+        if (mode === 'set') {
+            if (this.isPlainObject(v)) for (const k in v) mappers.$microdata(el, mode, v[k], k)
+            return
+        }
+        const r = {}, promises = []
+        for (const propElement of el.querySelectorAll('[itemprop]')) promises.push(this.flatten(propElement).then(v => (r[propElement.getAttribute('itemprop')] = v)))
+        return Promise.all(promises).then(() => r)
     },
     '{}': '$microdata',
     $options: function (el, mode, v, p, options = {}) {
         if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLDataListElement))) return
-        if (w) {
+        if (mode === 'set') {
             const optionElements = []
             if (v && (typeof v === 'object')) {
                 const vIsArray = Array.isArray(v), optionsMap = vIsArray ? {} : v
