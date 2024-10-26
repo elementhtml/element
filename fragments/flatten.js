@@ -22,17 +22,15 @@ export default async function (value, event) {
                 headers: { enumerable: true, get: () => Object.fromEntries(value.headers.entries()) }
             })
         default:
-            if (typeof value.valueOf === 'function') return value.valueOf()
-            else if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
+            if (value instanceof HTMLElement) {
+                const { processElementMapper } = await this.runFragment('sys/mappers')
+                return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, 'get', prop), has: (target, prop) => processElementMapper.call(this, value, 'has', prop) })
+            } else if (value instanceof this.Component) return await this.flatten(value.valueOf())
+            for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return await this.flatten(value.valueOf())
+            if ((value?.constructor === Object) || (value instanceof Event) || this.isPlainObject(value)) {
                 let obj = {}, promises = []
                 for (const k in value) promises.push(this.flatten(value[k]).then(v => obj[k] = v))
                 return Promise.all(promises).then(() => obj)
             }
     }
-    if (value instanceof this.Component) return await this.flatten(value.valueOf())
-    if (value instanceof HTMLElement) {
-        const { processElementMapper } = await this.runFragment('sys/mappers')
-        return new Proxy({}, { get: (target, prop) => processElementMapper.call(this, value, 'get', prop), has: (target, prop) => processElementMapper.call(this, value, 'has', prop) })
-    }
-    for (const p in this) if ((p.charCodeAt(0) <= 90) && (this[p].prototype instanceof this[p]) && value instanceof this[p]) return value.valueOf()
 }
