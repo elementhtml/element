@@ -53,6 +53,38 @@ const mappers = {
         return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
     },
     '^': '$parent',
+
+    $position: function (el, mode, v, p, options = {}) {
+        el = this.app._components.nativesFromVirtuals.get(el) ?? el
+
+        if (mode !== 'set') {
+            const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children']),
+                traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild' }, traverser = traversersMap[p] ?? p
+            if (!traversers.has(traverser)) return
+            if (mode === 'has') return !!el[traverser]
+            if (mode === 'get') return this.flatten(el[traverser])
+        }
+
+        const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
+            insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
+        if (!inserters.has(inserter)) return
+
+
+
+        const promises = []
+
+        if (!Array.isArray(v)) if (this.isPlainObject(v)) {
+            for (const snippetKey in v) promises.push(this.resolveUnit(snippetKey, 'snippet').then(snippet => this.render(snippet, v[snippetKey])).then(snippet => el[p](...snippet)))
+            return
+        } else v = [v]
+        if (!v.length) return el[p]()
+        for (const snippet of v) promises.push(this.resolveUnit(snippet, 'snippet').then(snippet => el[p](...snippet)))
+        return
+
+        // return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
+    },
+
+
     $event: function (el, mode, v, p, options = {}) { return (mode === 'set') ? undefined : (p ? this.flatten(options?.detail?.[p]) : this.flatten(options)) },
     '!': '$event',
     $form: (el, mode, v, p, options = {}) => {
@@ -215,28 +247,15 @@ export default {
     processElementMapper: async function (element, mode, prop, value) {
         if (prop in mappers) return (mode === 'has') || (await mappers[prop].call(this, element, mode, value))
         const propFlag = prop[0], propMain = prop.slice(1)
-        let r
-        if (propFlag in mappers) r = await mappers[propFlag].call(this, element, mode, value, propMain)
-        else if ((propFlag === '[') && propMain.endsWith(']')) r = await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1))
-        else if ((propFlag === '{') && propMain.endsWith('}')) r = await mappers.$microdata.call(this, element, mode, value, propMain.slice(0, -1))
+        if (propFlag in mappers) return await mappers[propFlag].call(this, element, mode, value, propMain)
+        if ((propFlag === '[') && propMain.endsWith(']')) return await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1).trim())
+        if ((propFlag === '{') && propMain.endsWith('}')) return await mappers.$microdata.call(this, element, mode, value, propMain.slice(0, -1).trim())
+        if (propFlag === ':' && propMain[0] === ':') return await mappers.$position.call(this, element, mode, value, propMain.slice(1).trim())
         return (mode === 'has') ? (prop in element) : ((mode === 'set') ? (element[prop] = value) : (await this.flatten(element[prop])))
     }
 }
 
 
-// if (p.startsWith('::')) {
-//     const position = p.slice(2)
-//     if (typeof element[position] !== 'function') continue
-//     let snippets = data[p]
-//     if (!snippets) { element[position](snippets); continue }
-//     if (!Array.isArray(snippets)) if (this.isPlainObject(snippets)) {
-//         for (const snippetKey in snippets) promises.push(this.resolveUnit(snippetKey, 'snippet').then(s => this.render(s, snippets[snippetKey])).then(s => element[position](...s)))
-//         continue
-//     } else snippets = [snippets]
-//     if (!snippets.length) { element[position](); continue }
-//     promises.push(this.resolveUnit(snippets, 'snippet').then(s => element[position](...s)))
-//     continue
-// }
 // const pFlag = p[0]
 // if (pFlag === '&') {
 //     let child = this.resolveScopedSelector(p, element)
