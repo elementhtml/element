@@ -49,8 +49,8 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
-                        const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
-                        if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
+                        const { descriptor, variables } = envelope, { transform } = descriptor
+                        if (!variables?.transform) new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
                     },
                     parser: async function (expression) {
                         let [transform, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter))
