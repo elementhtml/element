@@ -45,7 +45,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return { collection, article, lang }
                     }
                 }],
-                [/^[a-z\$][a-zA-Z0-9\$\.]*[a-zA-Z0-9]*\(.*\)$/, {
+                [/^(\$|\$\$|[a-zA-Z0-9_]+)(\.[a-zA-Z0-9_]+)?\((.*)\)$/, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
@@ -63,8 +63,9 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                     },
                     parser: async function (expression) {
-                        const [transformBody, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter)),
-                            [transform, step] = transformBody.split(this.sys.periodSplitter)
+                        const [transformBody, argList] = expression.split(this.sys.regexp.openBracketSplitter),
+                            args = (!argList || argList === ')') ? [] : Object.freeze(argList.slice(0, -1).split(this.sys.regexp.commaSplitter)),
+                            [transform, step] = transformBody.split(this.sys.regexp.periodSplitter)
                         return { transform, step, args }
                     }
                 }],
