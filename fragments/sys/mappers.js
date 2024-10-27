@@ -70,7 +70,6 @@ const mappers = {
         if (!inserters.has(inserter)) return
 
 
-
         const promises = []
 
         if (!Array.isArray(v)) if (this.isPlainObject(v)) {

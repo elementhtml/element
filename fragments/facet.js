@@ -19,7 +19,7 @@ export default {
         let statementIndex = -1
         for (let directive of directives.split(regexp.directiveSplitter)) {
             directive = directive.trim()
-            if (!directive || directive.startsWith('|* ')) continue
+            if (!directive || directive.startsWith('* ')) continue
             statementIndex++
             let stepIndex = -1, handle, handleMatch
             if (handleMatch = directive.match(regexp.directiveHandleMatch)) [, handle, directive] = handleMatch

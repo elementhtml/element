@@ -72,7 +72,7 @@ const ElementHTML = Object.defineProperties({}, {
                     },
                     parser: async function (expression) { return (await this.runFragment('env/interpreters/type')).parser.call(this, expression) }
                 }],
-                [/^\$\(.*\)$/, {
+                [/^\<.*\>$/, {
                     name: 'selector',
                     handler: async function (facet, position, envelope, value) {
                         const { descriptor } = envelope, { scope, selector } = descriptor
