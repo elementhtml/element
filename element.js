@@ -38,7 +38,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/content', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { collection: collectionSignature } = descriptor
-                        if (!variables?.collection) new Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
+                        if (!variables?.collection) new this.Job(async function () { await this.resolveUnit(collectionSignature, 'collection') }, `collection:${collectionSignature}`)
                     },
                     parser: async function (expression) {
                         const [collection, article, lang] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
@@ -64,7 +64,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return (await this.runFragment('env/interpreters/pattern')).handler.call(this, facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { pattern: patternSignature } = descriptor
-                        if (!variables?.pattern) new Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
+                        if (!variables?.pattern) new this.Job(async function () { await this.resolveUnit(patternSignature, 'pattern') }, `pattern:${patternSignature}`)
                     },
                     parser: async function (expression) { return (await this.runFragment('env/interpreters/pattern')).parser.call(this, expression) }
                 }],
@@ -73,7 +73,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return (await this.runFragment('env/interpreters/type')).handler.call(this, facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor } = envelope, { types } = descriptor
-                        for (t of types) if (!this.isWrappedVariable(t.name)) new Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
+                        for (t of types) if (!this.isWrappedVariable(t.name)) new this.Job(async function () { await this.resolveUnit(t.name, 'type') }, `type:${t}`)
                     },
                     parser: async function (expression) { return (await this.runFragment('env/interpreters/type')).parser.call(this, expression) }
                 }],
@@ -164,7 +164,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/api', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
-                        if (!variables?.api) new Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
+                        if (!variables?.api) new this.Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
                     },
                     parser: async function (expression) {
                         const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
@@ -176,7 +176,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/ai', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { ai: aiSignature, } = descriptor
-                        if (!variables?.ai) new Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
+                        if (!variables?.ai) new this.Job(async function () { await this.resolveUnit(aiSignature, 'ai') }, `ai:${aiSignature}`)
                     },
                     parser: async function (expression) {
                         const [ai, prompt] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
@@ -188,7 +188,7 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/request', envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { contentType } = descriptor
-                        if (!variables?.contentType) new Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
+                        if (!variables?.contentType) new this.Job(async function () { await this.resolveUnit(contentType, 'transform') }, `transform:${contentType}`)
                     },
                     parser: async function (expression) {
                         const [url, contentType] = this.expression.slice(1, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
@@ -410,7 +410,9 @@ const ElementHTML = Object.defineProperties({}, {
             const { queue } = sys, unitQueueJob = queue.get(`${unitType}:${asUnitKey ?? unitKey}`)
                 ?? queue.get(`${unitTypeCollectionName}:${asUnitKey ?? unitKey}`)
             if (unitQueueJob) {
-                await unitQueueJob.completed()
+                console.log(unitKey, unitType, unitQueueJob.running)
+                await unitQueueJob.complete()
+                console.log(unitKey, unitType)
                 if (unit = app[unitTypeCollectionName][asUnitKey ?? unitKey]) return unit
             }
             const envUnit = this.env[unitTypeCollectionName][unitKey]
@@ -736,7 +738,11 @@ const ElementHTML = Object.defineProperties({}, {
     },
     processQueue: { // optimal
         value: async function () {
-            for (const job of this.sys.queue.values()) job.run()
+            for (const job of this.sys.queue.values()) {
+                console.log(job)
+                await job.run()
+                console.log(job)
+            }
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
@@ -880,11 +886,12 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
-                Object.assign(this, { E: this.constructor.E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
+                const { E } = this.constructor
+                Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
                 this.acceptType ??= this.contentType
-                new Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
-                if (this.acceptType && (this.acceptType !== this.contentType)) new Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
-                for (const p of ['preProcessor', 'postProcessor', 'errorProcessor']) if (this[p]) new Job(async function () { await this.resolveUnit(this[p], 'transformer') }, `transformer:${this[p]}`)
+                new E.Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                if (this.acceptType && (this.acceptType !== this.contentType)) new E.Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
+                for (const p of ['preProcessor', 'postProcessor', 'errorProcessor']) if (this[p]) new E.Job(async function () { await this.resolveUnit(this[p], 'transformer') }, `transformer:${this[p]}`)
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
@@ -1169,8 +1176,7 @@ const ElementHTML = Object.defineProperties({}, {
             static isComplete(id) { return !this.constructor.E.sys.queue.get(id) }
             static isRunning(id) { return this.constructor.E.sys.queue.get(id)?.running }
             static getJobFunction(id) { return this.constructor.E.sys.queue.get(id)?.jobFunction }
-            static getJobRunner(id) { return this.constructor.E.sys.queue.get(id)?.runner }
-            static waitComplete(id, deadline = 1000) {
+            static waitComplete(id, deadline = 30000) {
                 const { queue } = this.E.sys
                 if (!queue.has(id)) return
                 const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
@@ -1194,11 +1200,22 @@ const ElementHTML = Object.defineProperties({}, {
             }
             cancel() { this.constructor.E.sys.queue.delete(this.id) }
             complete() { return this.constructor.waitComplete(this.id) }
-            async run() { if (!this.running) return this.runner() }
-            async runner() {
+            async run() {
+                console.log(this.id, this.running)
                 if (this.running) return
                 this.running = true
-                try { await this.jobFunction.call(this.constructor.E) } finally { this.cancel() }
+                try {
+                    console.log(this.id, this.running)
+                    if (typeof this.jobFunction === 'function') {
+                        console.log(this.id, this.running)
+                        await this.jobFunction.call(this.constructor.E)
+                        console.log(this.id, this.running)
+                        this.constructor.E.sys.queue.delete(this.id)
+                        this.running = false
+                    } else this.cancel()
+                } catch (e) {
+                    this.cancel()
+                } finally { this.cancel() }
             }
         }
     },
