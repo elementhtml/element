@@ -1,5 +1,3 @@
-import transform from "./fragments/env/interpreters/transform"
-
 const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '2.0.0' }, // optimal
