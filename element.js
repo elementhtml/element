@@ -49,18 +49,8 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
-                        const { descriptor } = envelope, { transform, step } = descriptor
-                        switch (transform) {
-                            case '$':
-
-
-                                break
-                            case '$$':
-
-                                break
-                            default:
-                                new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
-                        }
+                        const { descriptor } = envelope, { transform } = descriptor
+                        new this.Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
                     },
                     parser: async function (expression) {
                         const [transformBody, argList] = expression.split(this.sys.regexp.openBracketSplitter),
