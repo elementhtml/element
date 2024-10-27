@@ -45,14 +45,17 @@ const ElementHTML = Object.defineProperties({}, {
                         return { collection, article, lang }
                     }
                 }],
-                [/^\(.*\)$/, {
+                [/^[a-z][a-zA-Z0-9\-\_]*\(.*\)$/, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { transform: transformSignature } = descriptor
                         if (!variables?.transform) new Job(async function () { await this.resolveUnit(transformSignature, 'transform') }, `transform:${transformSignature}`)
                     },
-                    parser: async function (expression) { return { transform: expression.slice(1, -1).trim() } }
+                    parser: async function (expression) {
+                        let [transform, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter))
+                        return { transform, args }
+                    }
                 }],
                 [/^\/.*\/$/, {
                     name: 'pattern',
@@ -298,7 +301,7 @@ const ElementHTML = Object.defineProperties({}, {
             return (proto === null) || (proto === Object.prototype) || (proto.constructor === Object)
         }
     },
-    isWrappedVariable: { enumerable: true, value: function (expression) { return ((expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}'))) } }, // optimal
+    isWrappedVariable: { enumerable: true, value: function (expression) { return ((typeof expression === 'string') && (expression[0] === '$') && (expression[1] === '{') && (expression.endsWith('}'))) } }, // optimal
     parse: { enumerable: true, value: async function (input, contentType) { return this.runFragment('parse', input, contentType) } }, // optimal
     render: { enumerable: true, value: async function (element, data) { return this.runFragment('render', element, data) } }, // optimal
     resolveImport: { //optimal
@@ -516,7 +519,7 @@ const ElementHTML = Object.defineProperties({}, {
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
             queue: new Map(),
             regexp: Object.freeze({
-                commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, directiveHandleMatch: /^(?:(?<handle>[A-Z][A-Z0-9]*)::\s*)(?<directive>.*)?$/, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
+                openBracketSplitter: /\s*\(\s*/, commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, directiveHandleMatch: /^(?:(?<handle>[A-Z][A-Z0-9]*)::\s*)(?<directive>.*)?$/, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
                 isHTML: /<[^>]+>|&[a-zA-Z0-9]+;|&#[0-9]+;|&#x[0-9A-Fa-f]+;/, isJSONObject: /^\s*{.*}$/, isNumeric: /^[0-9\.]+$/, leadingSlash: /^\/+/, nothing: /^(.)/, notAlphaNumeric: /[^a-zA-Z0-9]/,
                 periodSplitter: /\s*\.\s*/,
