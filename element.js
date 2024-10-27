@@ -1,3 +1,5 @@
+import transform from "./fragments/env/interpreters/transform"
+
 const ElementHTML = Object.defineProperties({}, {
 
     version: { enumerable: true, value: '2.0.0' }, // optimal
@@ -45,22 +47,27 @@ const ElementHTML = Object.defineProperties({}, {
                         return { collection, article, lang }
                     }
                 }],
-                [/^[a-z][a-zA-Z0-9\-\_]*\(.*\)$/, {
+                [/^[a-z\$][a-zA-Z0-9\$\.]*[a-zA-Z0-9]*\(.*\)$/, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
-                        const { descriptor, variables } = envelope, { transform } = descriptor
-                        if (!variables?.transform) {
-                            if (transform.startsWith('$.')) {
+                        const { descriptor } = envelope, { transform, step } = descriptor
+                        switch (transform) {
+                            case '$':
 
-                            } else if (transform.startsWith('$$.')) {
 
-                            } else new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
+                                break
+                            case '$$':
+
+                                break
+                            default:
+                                new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
                         }
                     },
                     parser: async function (expression) {
-                        let [transform, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter))
-                        return { transform, args }
+                        const [transformBody, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter)),
+                            [transform, step] = transformBody.split(this.sys.periodSplitter)
+                        return { transform, step, args }
                     }
                 }],
                 [/^\/.*\/$/, {
@@ -227,6 +234,33 @@ const ElementHTML = Object.defineProperties({}, {
             namespaces: { e: new URL(`./components`, import.meta.url) },
             patterns: {}, renderers: {}, resolvers: {}, snippets: {},
             transforms: {
+                '$': (E) => {
+                    const proxy = new Proxy({}, {
+                        get: (target, prop, receiver) => {
+                            return (input, args, envelope, transformInstance) => {
+                                if (prop === '*') {
+                                    const [jsonataExpression] = args, expressionKey = `*::${jsonataExpression}`
+                                    return E.resolveUnit('jsonata', 'library').then(jsonata => {
+                                        const expression = transformInstance.stepIntermediates.get(expressionKey)
+                                            ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
+                                        return expression.evaluate(input, { envelope })
+                                    })
+                                }
+                                return (input?.[prop] === undefined) ? undefined : (typeof input[prop] === 'function' ? input[prop](...args) : input[prop])
+                            }
+                        }
+                    })
+                    return (new E.Transform(proxy))
+                },
+                '$$': (E) => {
+                    const proxy = new Proxy({}, {
+                        get: (target, prop, receiver) => {
+                            return (input, args, envelope, transformInstance) => ((input?.constructor?.[prop] === undefined) ? undefined
+                                : (typeof input.constructor?.[prop] === 'function' ? input.constructor[prop](...args) : input.constructor?.[prop]))
+                        }
+                    })
+                    return (new E.Transform(proxy))
+                },
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })), 'text/markdown': import.meta.resolve('./transforms/md.js'),
                 'application/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#application`, 'text/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#text`,
             },
@@ -1356,42 +1390,47 @@ const ElementHTML = Object.defineProperties({}, {
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
             constructor(stepChain, pipelineState = {}) {
                 if (!stepChain) return
-                const { E } = this.constructor, isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
-                if (!isMap && !Array.isArray(stepChain)) stepChain = [stepChain]
-                this.steps = new Map()
-                this.stepIntermediates = new Map()
-                for (let [stepKey, stepValue] of stepChain.entries()) {
-                    if (!stepValue) continue
-                    if (typeof stepKey !== 'string') stepKey = `${stepKey}`
-                    else if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
-                    else if (stepValue instanceof Promise) {
-                        this.steps.set(stepKey, async (input, envelope) => {
-                            if (!this.stepIntermediates.has(stepKey)) {
-                                const stepResult = await stepValue
-                                if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
-                                this.stepIntermediates.set(stepKey, stepResult)
-                            }
-                            const func = this.stepIntermediates.get(stepKey)
-                            return (typeof func === 'function') ? func(input, envelope) : func
-                        })
-                    }
-                    else if (typeof stepValue === 'string') {
-                        this.steps.set(stepKey, async (input, envelope) => {
-                            const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
-                                expression = this.stepIntermediates.get(stepKey) ?? this.stepIntermediates.set(stepKey, jsonata(`(${step.trim()})`)).get(stepKey)
-                            return expression.evaluate(input, { envelope })
-                        })
-                    }
-                    else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
-                        const { unitType, unitNamePlusIntent } = stepValue.entries()[0], [unitName, unitIntent] = unitNamePlusIntent.split(E.sys.regexp.pipeSplitter),
-                            stepClassName = (E.sys.unitTypeMap[unitType] ?? [])[1]
-                        if (!this.constructor.embeddableClasses.has(stepClassName)) continue
-                        this.steps.set(stepKey, async (input, envelope) => {
-                            input = Array.isArray(input) ? input : [input, undefined]
-                            const unit = await E.resolveUnit(unitType, unitKey)
-                            if (!unit) return
-                            return unit(...input, envelope)
-                        })
+                const { E } = this.constructor, isProxy = (stepChain instanceof Proxy)
+                if (isProxy) {
+                    this.steps = stepChain
+                } else {
+                    const isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
+                    if (!isMap && !Array.isArray(stepChain)) stepChain = [stepChain]
+                    this.steps = new Map()
+                    this.stepIntermediates = new Map()
+                    for (let [stepKey, stepValue] of stepChain.entries()) {
+                        if (!stepValue) continue
+                        if (typeof stepKey !== 'string') stepKey = `${stepKey}`
+                        if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
+                        else if (stepValue instanceof Promise) {
+                            this.steps.set(stepKey, async (input, envelope) => {
+                                if (!this.stepIntermediates.has(stepKey)) {
+                                    const stepResult = await stepValue
+                                    if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
+                                    this.stepIntermediates.set(stepKey, stepResult)
+                                }
+                                const func = this.stepIntermediates.get(stepKey)
+                                return (typeof func === 'function') ? func(input, envelope) : func
+                            })
+                        }
+                        else if (typeof stepValue === 'string') {
+                            this.steps.set(stepKey, async (input, envelope) => {
+                                const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
+                                    expression = this.stepIntermediates.get(stepKey) ?? this.stepIntermediates.set(stepKey, jsonata(`(${step.trim()})`)).get(stepKey)
+                                return expression.evaluate(input, { envelope })
+                            })
+                        }
+                        else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
+                            const { unitType, unitNamePlusIntent } = stepValue.entries()[0], [unitName, unitIntent] = unitNamePlusIntent.split(E.sys.regexp.pipeSplitter),
+                                stepClassName = (E.sys.unitTypeMap[unitType] ?? [])[1]
+                            if (!this.constructor.embeddableClasses.has(stepClassName)) continue
+                            this.steps.set(stepKey, async (input, envelope) => {
+                                input = Array.isArray(input) ? input : [input, undefined]
+                                const unit = await E.resolveUnit(unitType, unitKey)
+                                if (!unit) return
+                                return unit(...input, envelope)
+                            })
+                        }
                     }
                 }
                 this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})

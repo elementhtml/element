@@ -1,6 +1,6 @@
 export default async function (facet, position, envelope, value) {
-    let { descriptor, variables } = envelope, { transform: t } = descriptor, vTransform = variables?.transform, wrapped = vTransform && true,
-        valueEnvelope = vTransform ? Object.freeze({ ...envelope, value }) : envelope,
-        transform = await this.resolveUnit(vTransform ? this.resolveVariable(t, valueEnvelope, { wrapped }) : t, 'transform')
-    return transform?.run(value, undefined, valueEnvelope, facet, position)
+    const { descriptor } = envelope, { transform: transformKey, step } = descriptor, args = [],
+        valueEnvelope = Object.freeze({ ...envelope, value }), transform = await this.resolveUnit(transformKey, 'transform')
+    for (const a of descriptor.args) args.push(this.resolveVariable(a, valueEnvelope, { wrapped: false }))
+    return transform?.run(value, valueEnvelope, facet, position, { step, args })
 }
