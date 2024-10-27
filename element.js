@@ -50,7 +50,13 @@ const ElementHTML = Object.defineProperties({}, {
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
                         const { descriptor, variables } = envelope, { transform } = descriptor
-                        if (!variables?.transform) new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
+                        if (!variables?.transform) {
+                            if (transform.startsWith('$.')) {
+
+                            } else if (transform.startsWith('$$.')) {
+
+                            } else new Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
+                        }
                     },
                     parser: async function (expression) {
                         let [transform, argList] = expression.split(this.sys.openBracketSplitter), args = Object.freeze(argList.slice(0, -1).split(this.sys.commaSplitter))
@@ -844,7 +850,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.engine = async input => ((this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper))(input))
             }
-            async run(input, promptTemplateKey, envelope) { return (await this.constructor.E.runFragment('ai')).run.call(this, input, promptTemplateKey, envelope) }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('ai')).run.call(this, input, envelope, options.promptTemplateKey) }
         }
     },
     API: { // optimal
@@ -859,7 +865,7 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
-            async run(value, action, envelope) { return (await this.constructor.E.runFragment('api')).run.call(this, value, action, envelope) }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('api')).run.call(this, input, envelope, options.action) }
         }
     },
     Collection: { // optimal
@@ -897,7 +903,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.engine ??= this.apiWrapper
             }
-            async run(slug, lang, envelope) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, lang, envelope) }
+            async run(slug, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, envelope, options.langCode) }
         }
     },
     Component: {
@@ -1212,7 +1218,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
             async preload(langCode) { return (await this.constructor.E.runFragment('language')).preload.call(this, langCode) }
-            async run(token, langCode, envelope) { return (await this.constructor.E.runFragment('language')).run.call(this, token, langCode, envelope) }
+            async run(token, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('language')).run.call(this, token, options.langCode, envelope) }
         }
     },
     Model: { // optimal
@@ -1390,7 +1396,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
                 this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})
             }
-            async run(input, stepKey, envelope) { return (await this.constructor.E.runFragment('transform')).run.call(this, input, stepKey, envelope) }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('transform')).run.call(this, input, envelope, options.step, options.args) }
         }
     },
     Type: { // optimal
@@ -1410,7 +1416,7 @@ const ElementHTML = Object.defineProperties({}, {
                         } else {
                             if (!this.isPlainObject(typeDefinition)) return
                             if (this.isPlainObject(typeDefinition.library) && Array.isArray(typeDefinition.types)) {
-                                this.engine = async (input, verbose, envelope) => {
+                                this.engine = async (input, verbose) => {
                                     const xdr = await E.resolveUnit('xdr', 'library')
                                     this.typeDefinition ??= await xdr.import(typeDefinition, undefined, {}, 'json')
                                     let valid = false, errors
@@ -1418,7 +1424,7 @@ const ElementHTML = Object.defineProperties({}, {
                                     return verbose ? { input, typeName, valid, errors } : valid
                                 }
                             } else {
-                                this.engine = async (input, verbose, envelope) => {
+                                this.engine = async (input, verbose) => {
                                     const jsonSchema = await E.resolveUnit('schema', 'library')
                                     if (!this.typeDefinition) {
                                         this.typeDefinition = new jsonSchema(typeDefinition)
@@ -1431,7 +1437,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         break
                     case 'string':
-                        this.engine = async (input, verbose, envelope) => {
+                        this.engine = async (input, verbose) => {
                             const xdr = await E.resolveUnit('xdr', 'library')
                             this.typeDefinition ??= await xdr.factory(typeDefinition, typeName)
                             let valid = false, errors
@@ -1440,13 +1446,13 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                 }
             }
-            async run(input, verbose, envelope) { return this.engine(input, verbose, envelope) }
+            async run(input, envelope, facet, position, options = {}) { return this.engine(input, options.verbose) }
         }
     },
     Validator: { // optimal
         enumerable: true, value: class {
             static E
-            static async run(input, verbose, envelope) { return (await this.E.runFragment('job')).run.call(this, input, verbose, envelope) }
+            static async run(input, envelope, facet, position, options = {}) { return (await this.E.runFragment('validator')).run.call(this, input, envelope, facet, position, options) }
         }
     },
 })
