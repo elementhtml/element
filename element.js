@@ -45,7 +45,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return { collection, article, lang }
                     }
                 }],
-                [/^(\$|\$\$|[a-zA-Z0-9_]+)(\.[a-zA-Z0-9_]+)?\((.*)\)$/, {
+                [/^(\$|\$Boolean|\$Number|\$String|\$Array|\$Object|\$\$|[a-zA-Z0-9_]+)(\.[a-zA-Z0-9_]+)?\((.*)\)$/, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
