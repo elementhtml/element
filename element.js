@@ -49,8 +49,9 @@ const ElementHTML = Object.defineProperties({}, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
-                        const { descriptor } = envelope, { transform } = descriptor
+                        const { descriptor } = envelope, { transform, step, flag } = descriptor
                         new this.Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
+                        if (!step && flag) new this.Job(async function () { await this.resolveUnit('jsonata', 'library') }, `library:jsonata`)
                     },
                     parser: async function (expression) {
                         const [transformBody, flagRaw] = expression.split(this.sys.regexp.openBracketSplitter),
@@ -225,18 +226,16 @@ const ElementHTML = Object.defineProperties({}, {
             transforms: {
                 '$': (E) => {
                     const proxy = new Proxy({}, {
+                        apply: (target, thisArg, argumentsList) => {
+                            const [jsonataExpression] = args, expressionKey = `*::${jsonataExpression}`
+                            return E.resolveUnit('jsonata', 'library').then(jsonata => {
+                                const expression = transformInstance.stepIntermediates.get(expressionKey)
+                                    ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
+                                return expression.evaluate(input, { state, envelope })
+                            })
+                        },
                         get: (target, prop, receiver) => {
-                            return (input, state, envelope, transformInstance) => {
-                                if (prop === '*') {
-                                    const [jsonataExpression] = args, expressionKey = `*::${jsonataExpression}`
-                                    return E.resolveUnit('jsonata', 'library').then(jsonata => {
-                                        const expression = transformInstance.stepIntermediates.get(expressionKey)
-                                            ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
-                                        return expression.evaluate(input, { state, envelope })
-                                    })
-                                }
-                                return (input?.[prop] === undefined) ? undefined : (typeof input[prop] === 'function' ? input[prop]() : input[prop])
-                            }
+                            return (input, state, envelope, transformInstance) => ((input?.[prop] === undefined) ? undefined : (typeof input[prop] === 'function' ? input[prop]() : input[prop]))
                         }
                     })
                     return (new E.Transform(proxy, true))
