@@ -397,8 +397,8 @@ const ElementHTML = Object.defineProperties({}, {
             if (unitKeyTest) {
                 const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey.keys() : Object.keys(unitKey),
                     asKeysIsArray = Array.isArray(asUnitKey) && asUnitKey.length, asKeysIsObject = !asKeysIsArray && (this.isPlainObject(asUnitKey)), promises = isArray ? [] : {},
-                    includeAsUnitKey = ((isArray && asKeysIsArray) || asKeysIsObject), promise = this.resolveUnit(unitKey[k], unitType, includeAsUnitKey ? asUnitKey[k] : undefined)
-                for (const k of keys) promises[k] = isArray ? promise : promise.then(u => [k, u])
+                    includeAsUnitKey = ((isArray && asKeysIsArray) || asKeysIsObject)
+                for (const k of keys) promises[k] = this.resolveUnit(unitKey[k], unitType, includeAsUnitKey ? asUnitKey[k] : undefined).then(u => isArray ? u : [k, u])
                 result = isArray ? (await Promise.all(promises)) : Object.fromEntries(await Promise.all(promises))
                 return result
             }
