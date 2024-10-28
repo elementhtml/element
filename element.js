@@ -1382,11 +1382,12 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
-            #state = {}
+            isProxy
             constructor(stepChain, isProxy) {
                 if (!stepChain) return
                 const { E } = this.constructor
                 if (isProxy) {
+                    Object.defineProperty(this, 'isProxy', { configurable: false, enumerable: true, value: true, writable: false })
                     this.steps = stepChain
                 } else {
                     const isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
@@ -1398,31 +1399,31 @@ const ElementHTML = Object.defineProperties({}, {
                         if (typeof stepKey !== 'string') stepKey = `${stepKey}`
                         if (typeof stepValue === 'function') this.steps.set(stepKey, step.bind(E))
                         else if (stepValue instanceof Promise) {
-                            this.steps.set(stepKey, async (input, envelope) => {
+                            this.steps.set(stepKey, async (input, state, envelope, facet) => {
                                 if (!this.stepIntermediates.has(stepKey)) {
                                     const stepResult = await stepValue
                                     if (typeof stepResult === 'function') stepResult = stepResult.bind(E)
                                     this.stepIntermediates.set(stepKey, stepResult)
                                 }
                                 const func = this.stepIntermediates.get(stepKey)
-                                return (typeof func === 'function') ? func(input, envelope) : func
+                                return (typeof func === 'function') ? func(input, state, envelope, facet) : func
                             })
                         }
                         else if (typeof stepValue === 'string') {
-                            this.steps.set(stepKey, async (input, envelope) => {
+                            this.steps.set(stepKey, async (input, state, envelope, facet) => {
                                 const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
                                     expression = this.stepIntermediates.get(stepKey) ?? this.stepIntermediates.set(stepKey, jsonata(`(${step.trim()})`)).get(stepKey)
-                                return expression.evaluate(input, { envelope })
+                                return expression.evaluate(input, { state, envelope, facet })
                             })
                         }
                         else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
                             const { unitType, unitNamePlusIntent } = stepValue.entries()[0], [unitName, unitIntent] = unitNamePlusIntent.split(E.sys.regexp.pipeSplitter),
                                 stepClassName = (E.sys.unitTypeMap[unitType] ?? [])[1]
                             if (!this.constructor.embeddableClasses.has(stepClassName)) continue
-                            this.steps.set(stepKey, async (input, envelope) => {
+                            this.steps.set(stepKey, async (input, state, envelope, facet) => {
                                 const unit = await E.resolveUnit(unitType, unitKey)
                                 if (!unit) return
-                                return unit(input, envelope)
+                                return unit(input, state, envelope, facet)
                             })
                         }
                     }
