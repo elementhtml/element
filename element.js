@@ -395,37 +395,33 @@ const ElementHTML = Object.defineProperties({}, {
             if (!unitKey || !unitType) return
             const unitKeyTest = Array.isArray(unitKey) ? 'array' : (this.isPlainObject(unitKey) ? 'object' : undefined)
             if (unitKeyTest) {
-                const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey : Object.keys(unitKey),
-                    asKeysIsArray = Array.isArray(asUnitKey) && asUnitKey.length, asKeysIsObject = !asKeysIsArray && (this.isPlainObject(asUnitKey))
-                for (const k of keys) result[isArray ? result.length : k] = await this.resolveUnit(k, unitKey[k],
-                    ((isArray && asKeysIsArray) || asKeysIsObject) ? asUnitKey[k] : undefined)
+                const isArray = unitKeyTest === 'array', result = isArray ? [] : {}, keys = isArray ? unitKey.keys() : Object.keys(unitKey),
+                    asKeysIsArray = Array.isArray(asUnitKey) && asUnitKey.length, asKeysIsObject = !asKeysIsArray && (this.isPlainObject(asUnitKey)), promises = isArray ? [] : {},
+                    includeAsUnitKey = ((isArray && asKeysIsArray) || asKeysIsObject), promise = this.resolveUnit(unitKey[k], unitType, includeAsUnitKey ? asUnitKey[k] : undefined)
+                for (const k of keys) promises[k] = isArray ? promise : promise.then(u => [k, u])
+                result = isArray ? (await Promise.all(promises)) : Object.fromEntries(await Promise.all(promises))
                 return result
             }
             if (unitType === 'resolver') return this.defaultResolver.bind(this)
             const { sys, app } = this, [unitTypeCollectionName, unitClassName] = sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
             if (typeof unitKey !== 'string') return (unitKey instanceof unitClass) ? unitKey : undefined
             if (!(unitKey = unitKey.trim())) return
-            let unit = app[unitTypeCollectionName][asUnitKey ?? unitKey]
-            if (unit) return unit
-            const { queue } = sys, unitQueueJob = queue.get(`${unitType}:${asUnitKey ?? unitKey}`)
-                ?? queue.get(`${unitTypeCollectionName}:${asUnitKey ?? unitKey}`)
-            if (unitQueueJob) {
-                console.log(unitKey, unitType, unitQueueJob.running)
-                await unitQueueJob.complete()
-                console.log(unitKey, unitType)
-                if (unit = app[unitTypeCollectionName][asUnitKey ?? unitKey]) return unit
-            }
-            const envUnit = this.env[unitTypeCollectionName][unitKey]
-            let unitResolver
+            const useUnitKey = asUnitKey ?? unitKey
+            let unit = app[unitTypeCollectionName][useUnitKey]
+            if (unit) return await unit
+            const envUnit = this.env[unitTypeCollectionName][useUnitKey]
+            let unitResolver, unitPromise
             if (envUnit) {
-                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) await envUnit(this)
-                else if (envUnit instanceof Promise) envUnit = await envUnit
-                else if (typeof envUnit === 'string') unitResolver = await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
-                return app[unitTypeCollectionName][asUnitKey ?? unitKey] = unitResolver ? await unitResolver.call(this, envUnit, unitType, asUnitKey ?? unitKey) : envUnit
+                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) unitPromise = envUnit(this)
+                else if (envUnit instanceof Promise) unitPromise = envUnit
+                else if (typeof envUnit === 'string') unitResolver = Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
+                unitPromise = unitResolver ? unitResolver.then(ur => ur.call(this, envUnit, unitType, useUnitKey)) : Promise.resolve(envUnit)
             }
-            if (this.sys.localOnlyUnitTypes.has(unitType)) return
-            unitResolver ??= await this.resolveUnit(unitType, 'resolver', asUnitKey) ?? this.defaultResolver
-            return app[unitTypeCollectionName][asUnitKey ?? unitKey] = await unitResolver.call(this, unitKey, unitType, asUnitKey)
+            if (!unitPromise && this.sys.localOnlyUnitTypes.has(unitType)) return
+            unitResolver ??= Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
+            unitPromise ??= await unitResolver.call(this, unitKey, unitType, asUnitKey)
+            return app[unitTypeCollectionName][useUnitKey] = unitPromise
+                .then(u => Object.defineProperty(app[unitTypeCollectionName], useUnitKey, { configurable: false, enumerable: true, value: u, writable: false })[useUnitKey])
         }
     },
     resolveUrl: { // optimal
