@@ -226,16 +226,16 @@ const ElementHTML = Object.defineProperties({}, {
                 '$': (E) => {
                     const proxy = new Proxy({}, {
                         get: (target, prop, receiver) => {
-                            return (input, args, envelope, transformInstance) => {
+                            return (input, state, envelope, transformInstance) => {
                                 if (prop === '*') {
                                     const [jsonataExpression] = args, expressionKey = `*::${jsonataExpression}`
                                     return E.resolveUnit('jsonata', 'library').then(jsonata => {
                                         const expression = transformInstance.stepIntermediates.get(expressionKey)
                                             ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
-                                        return expression.evaluate(input, { envelope })
+                                        return expression.evaluate(input, { state, envelope })
                                     })
                                 }
-                                return (input?.[prop] === undefined) ? undefined : (typeof input[prop] === 'function' ? input[prop](...args) : input[prop])
+                                return (input?.[prop] === undefined) ? undefined : (typeof input[prop] === 'function' ? input[prop]() : input[prop])
                             }
                         }
                     })
@@ -244,12 +244,25 @@ const ElementHTML = Object.defineProperties({}, {
                 '$$': (E) => {
                     const proxy = new Proxy({}, {
                         get: (target, prop, receiver) => {
-                            return (input, args, envelope, transformInstance) => ((input?.constructor?.[prop] === undefined) ? undefined
-                                : (typeof input.constructor?.[prop] === 'function' ? input.constructor[prop](...args) : input.constructor?.[prop]))
+                            return (input, state, envelope, transformInstance) => {
+                                const c = Object.getPrototypeOf(input).constructor
+                                if (!c) return
+                                return ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](input) : c[prop]))
+                            }
                         }
                     })
                     return (new E.Transform(proxy, true))
                 },
+                ...Object.fromEntries(([Boolean, Number, String, Array, Object]).map(c => {
+                    return [`$${c.name}`, (E) => {
+                        const proxy = new Proxy({}, {
+                            get: (target, prop, receiver) => {
+                                return (input, state, envelope, transformInstance) => ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](input) : c[prop]))
+                            }
+                        })
+                        return (new E.Transform(proxy, true))
+                    }]
+                })),
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })), 'text/markdown': import.meta.resolve('./transforms/md.js'),
                 'application/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#application`, 'text/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#text`,
             },
@@ -1413,7 +1426,7 @@ const ElementHTML = Object.defineProperties({}, {
                             this.steps.set(stepKey, async (input, state, envelope, facet) => {
                                 const jsonata = (E.app.libraries.jsonata ??= await E.resolveUnit('jsonata', 'library')),
                                     expression = this.stepIntermediates.get(stepKey) ?? this.stepIntermediates.set(stepKey, jsonata(`(${step.trim()})`)).get(stepKey)
-                                return expression.evaluate(input, { state, envelope, facet })
+                                return expression.evaluate(input, { state, envelope })
                             })
                         }
                         else if (this.isPlainObject(stepValue) && (Object.keys(stepValue).length === 1)) {
