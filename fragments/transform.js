@@ -1,6 +1,6 @@
 export default {
-    run: async function (input, envelope, step, args = []) {
-        const { E } = this.constructor, state = { ...this.pipelineState, ...(envelope.state ?? {}) }
+    run: async function (input, envelope, step, flag) {
+        const { E } = this.constructor, state = { ...this.pipelineState }
         for (const k of state) if (E.isWrappedVariable(k)) state[k] = E.resolveVariable(state[k], envelope, { wrapped: true })
         const pipelineEnvelope = Object.freeze({ ...envelope, state })
         if (this.steps instanceof Proxy) return this.steps[step ?? '*'].call(E, input, args, pipelineEnvelope, this)

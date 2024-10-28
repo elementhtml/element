@@ -53,10 +53,10 @@ const ElementHTML = Object.defineProperties({}, {
                         new this.Job(async function () { await this.resolveUnit(transform, 'transform') }, `transform:${transform}`)
                     },
                     parser: async function (expression) {
-                        const [transformBody, argList] = expression.split(this.sys.regexp.openBracketSplitter),
-                            args = (!argList || argList === ')') ? [] : Object.freeze(argList.slice(0, -1).split(this.sys.regexp.commaSplitter)),
+                        const [transformBody, flagRaw] = expression.split(this.sys.regexp.openBracketSplitter),
+                            flag = (!flagRaw || flagRaw === ')') ? undefined : flagRaw.slice(0, -1).trim(),
                             [transform, step] = transformBody.split(this.sys.regexp.periodSplitter)
-                        return { transform, step, args }
+                        return { transform, step, flag: (flag || undefined) }
                     }
                 }],
                 [/^\/.*\/$/, {
@@ -239,7 +239,7 @@ const ElementHTML = Object.defineProperties({}, {
                             }
                         }
                     })
-                    return (new E.Transform(proxy))
+                    return (new E.Transform(proxy, true))
                 },
                 '$$': (E) => {
                     const proxy = new Proxy({}, {
@@ -248,7 +248,7 @@ const ElementHTML = Object.defineProperties({}, {
                                 : (typeof input.constructor?.[prop] === 'function' ? input.constructor[prop](...args) : input.constructor?.[prop]))
                         }
                     })
-                    return (new E.Transform(proxy))
+                    return (new E.Transform(proxy, true))
                 },
                 'application/json': (E) => (new E.Transform((input) => { try { return JSON.stringify(input) } catch (e) { } })), 'text/markdown': import.meta.resolve('./transforms/md.js'),
                 'application/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#application`, 'text/x-xdr': `${import.meta.resolve('./transforms/xdr.js')}#text`,
@@ -544,7 +544,6 @@ const ElementHTML = Object.defineProperties({}, {
             label: /^([\@\#]?[a-zA-Z0-9]+[\!\?]?):\s+/,
             localOnlyUnitTypes: new Set(['hook']),
             locationKeyMap: { '#': 'hash', '/': 'pathname', '?': 'search' },
-            queue: new Map(),
             regexp: Object.freeze({
                 openBracketSplitter: /\s*\(\s*/, commaSplitter: /\s*,\s*/, colonSplitter: /\s*\:\s*/, dashUnderscoreSpace: /[-_\s]+(.)?/g, directiveHandleMatch: /^(?:(?<handle>[A-Z][A-Z0-9]*)::\s*)(?<directive>.*)?$/, extractAttributes: /(?<=\[)([^\]=]+)/g, gatewayUrlTemplateMergeField: /{([^}]+)}/g,
                 lowerCaseThenUpper: /([a-z0-9])([A-Z])/g, upperCaseThenAlpha: /([A-Z])([A-Z][a-z])/g, hasVariable: /\$\{(.*?)\}/g, isFormString: /^\w+=.+&.*$/,
@@ -734,7 +733,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     processQueue: { // optimal
         value: async function () {
-            for (const job of this.sys.queue.values()) job.run()
+            for (const job of this.Job.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
@@ -1164,12 +1163,13 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             running = false
-            static cancelJob(id) { return this.constructor.E.sys.queue.delete(id) }
-            static isComplete(id) { return !this.constructor.E.sys.queue.get(id) }
-            static isRunning(id) { return this.constructor.E.sys.queue.get(id)?.running }
-            static getJobFunction(id) { return this.constructor.E.sys.queue.get(id)?.jobFunction }
+            static cancelJob(id) { return this.constructor.queue.delete(id) }
+            static isComplete(id) { return !this.constructor.queue.get(id) }
+            static isRunning(id) { return this.constructor.queue.get(id)?.running }
+            static getJobFunction(id) { return this.constructor.queue.get(id)?.jobFunction }
+            static queue = new Map()
             static waitComplete(id, deadline = 30000) {
-                const { queue } = this.E.sys
+                const { queue } = this
                 if (!queue.has(id)) return
                 const timeoutFunc = window.requestIdleCallback ?? window.setTimeout, timeoutArg = window.requestIdleCallback ? undefined : 1, now = Date.now()
                 deadline = now + deadline
@@ -1183,14 +1183,14 @@ const ElementHTML = Object.defineProperties({}, {
                 }))
             }
             constructor(jobFunction, id) {
-                const { E } = this.constructor, { queue } = E.sys
+                const { E, queue } = this.constructor
                 if (typeof jobFunction !== 'function') return
                 this.id = id ?? E.generateUuid()
                 if (queue.get(this.id)) return
                 this.jobFunction = jobFunction
                 queue.set(this.id, this)
             }
-            cancel() { this.constructor.E.sys.queue.delete(this.id) }
+            cancel() { this.constructor.queue.delete(this.id) }
             complete() { return this.constructor.waitComplete(this.id) }
             async run() {
                 if (this.running) return
@@ -1198,7 +1198,7 @@ const ElementHTML = Object.defineProperties({}, {
                 try {
                     if (typeof this.jobFunction === 'function') {
                         await this.jobFunction.call(this.constructor.E)
-                        this.constructor.E.sys.queue.delete(this.id)
+                        this.constructor.queue.delete(this.id)
                         this.running = false
                     } else this.cancel()
                 } catch (e) {
@@ -1382,9 +1382,10 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: class {
             static E
             static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
-            constructor(stepChain, pipelineState = {}) {
+            #state = {}
+            constructor(stepChain, isProxy) {
                 if (!stepChain) return
-                const { E } = this.constructor, isProxy = (stepChain instanceof Proxy)
+                const { E } = this.constructor
                 if (isProxy) {
                     this.steps = stepChain
                 } else {
@@ -1419,17 +1420,15 @@ const ElementHTML = Object.defineProperties({}, {
                                 stepClassName = (E.sys.unitTypeMap[unitType] ?? [])[1]
                             if (!this.constructor.embeddableClasses.has(stepClassName)) continue
                             this.steps.set(stepKey, async (input, envelope) => {
-                                input = Array.isArray(input) ? input : [input, undefined]
                                 const unit = await E.resolveUnit(unitType, unitKey)
                                 if (!unit) return
-                                return unit(...input, envelope)
+                                return unit(input, envelope)
                             })
                         }
                     }
                 }
-                this.pipelineState = Object.freeze(this.isPlainObject(pipelineState) ? pipelineState : {})
             }
-            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('transform')).run.call(this, input, envelope, options.step, options.args) }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('transform')).run.call(this, input, envelope, options.step, options.flag) }
         }
     },
     Type: { // optimal
