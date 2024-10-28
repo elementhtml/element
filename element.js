@@ -412,10 +412,10 @@ const ElementHTML = Object.defineProperties({}, {
             const envUnit = this.env[unitTypeCollectionName][useUnitKey]
             let unitResolver, unitPromise
             if (envUnit) {
-                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) unitPromise = envUnit(this)
+                if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) unitPromise = Promise.resolve(envUnit(this))
                 else if (envUnit instanceof Promise) unitPromise = envUnit
                 else if (typeof envUnit === 'string') unitResolver = Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
-                unitPromise = unitResolver ? unitResolver.then(ur => ur.call(this, envUnit, unitType, useUnitKey)) : Promise.resolve(envUnit)
+                unitPromise ??= unitResolver ? unitResolver.then(ur => ur.call(this, envUnit, unitType, useUnitKey)) : Promise.resolve(envUnit)
             }
             if (!unitPromise && this.sys.localOnlyUnitTypes.has(unitType)) return
             unitResolver ??= Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
