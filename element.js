@@ -419,7 +419,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             if (!unitPromise && this.sys.localOnlyUnitTypes.has(unitType)) return
             unitResolver ??= Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
-            unitPromise ??= await unitResolver.call(this, unitKey, unitType, asUnitKey)
+            unitPromise ??= unitResolver.then(ur => ur.call(this, unitKey, unitType, asUnitKey))
             return app[unitTypeCollectionName][useUnitKey] = unitPromise
                 .then(u => Object.defineProperty(app[unitTypeCollectionName], useUnitKey, { configurable: false, enumerable: true, value: u, writable: false })[useUnitKey])
         }
@@ -734,11 +734,7 @@ const ElementHTML = Object.defineProperties({}, {
     },
     processQueue: { // optimal
         value: async function () {
-            for (const job of this.sys.queue.values()) {
-                console.log(job)
-                await job.run()
-                console.log(job)
-            }
+            for (const job of this.sys.queue.values()) job.run()
             await new Promise(resolve => requestIdleCallback ? requestIdleCallback(resolve) : setTimeout(resolve, 100))
             this.processQueue()
         }
@@ -1197,15 +1193,11 @@ const ElementHTML = Object.defineProperties({}, {
             cancel() { this.constructor.E.sys.queue.delete(this.id) }
             complete() { return this.constructor.waitComplete(this.id) }
             async run() {
-                console.log(this.id, this.running)
                 if (this.running) return
                 this.running = true
                 try {
-                    console.log(this.id, this.running)
                     if (typeof this.jobFunction === 'function') {
-                        console.log(this.id, this.running)
                         await this.jobFunction.call(this.constructor.E)
-                        console.log(this.id, this.running)
                         this.constructor.E.sys.queue.delete(this.id)
                         this.running = false
                     } else this.cancel()
