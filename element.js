@@ -549,7 +549,7 @@ const ElementHTML = Object.defineProperties({}, {
     app: { // optimal
         value: Object.defineProperties({}, {
             cells: { enumerable: true, value: {} }, _components: { value: { nativesFromVirtuals: new WeakMap(), bindings: new WeakMap(), virtualsFromNatives: new WeakMap() } },
-            _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _fragments: { value: {} }, _observers: { value: new WeakMap() }
+            _eventTarget: { value: new EventTarget() }, _facetInstances: { value: new WeakMap() }, _fragments: { value: {} }, _observers: { value: new WeakMap() }, _failedHrefs: { value: new Set() }
         })
     },
     modules: { enumerable: true, value: {} }, // optimal

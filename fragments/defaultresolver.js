@@ -18,20 +18,24 @@ export default async function (unitKey, unitType) {
     }
     if (!unitUrl) return
     let unitSuffix
-    for (const s of (autoResolverSuffixes[unitType] ?? ['js'])) {
+    try { if (!this.app._failedHrefs.has(unitUrl.href) && (await fetch(unitUrl.href, { method: 'HEAD' })).ok) unitSuffix = true } catch (e) { this.app._failedHrefs.add(unitUrl.href) }
+    if (!unitSuffix) for (const s of (autoResolverSuffixes[unitType] ?? [])) {
         if (unitUrl.pathname.endsWith(`.${s}`)) { unitSuffix = s; break }
         const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
-        if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
-            unitUrl.pathname = testPath
-            unitSuffix = s
-            break
-        }
+        if (this.app._failedHrefs.has(testUrl)) continue
+        try {
+            if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
+                unitUrl.pathname = testPath
+                unitSuffix = s
+                break
+            }
+        } catch (e) { this.app._failedHrefs.add(testUrl) }
     }
     if (!unitSuffix) return
     let unitModule, unit
     if (unitUrl) {
         switch (unitSuffix) {
-            case 'js': case 'wasm': unit = this.resolveImport(unitUrl); break
+            case 'js': case 'wasm': unit = this.resolveImport(unitUrl.href); break
             case 'json':
                 unitModule = await (await fetch(unitUrl.href)).json()
             default:
