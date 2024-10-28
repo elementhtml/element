@@ -45,7 +45,7 @@ const ElementHTML = Object.defineProperties({}, {
                         return { collection, article, lang }
                     }
                 }],
-                [/^(\$|\$Boolean|\$Number|\$String|\$Array|\$Object|\$\$|[a-zA-Z0-9_]+)(\.[a-zA-Z0-9_]+)?\((.*)\)$/, {
+                [/^(\$|\$Number|\$String|\$Array|\$Object|\$Date|\$Math|\$\$|[a-zA-Z0-9_]+)(\.[a-zA-Z0-9_]+)?\((.*)\)$/, {
                     name: 'transform',
                     handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/transform', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
@@ -253,11 +253,20 @@ const ElementHTML = Object.defineProperties({}, {
                     })
                     return (new E.Transform(proxy, true))
                 },
-                ...Object.fromEntries(([Boolean, Number, String, Array, Object]).map(c => {
+                ...Object.fromEntries(([Array]).map(c => {
                     return [`$${c.name}`, (E) => {
                         const proxy = new Proxy({}, {
+                            get: (target, prop, receiver) => ((input) => ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](input) : c[prop])))
+                        })
+                        return (new E.Transform(proxy, true))
+                    }]
+                })),
+                ...Object.fromEntries(([Date, Math, Number, Object, String]).map(c => {
+                    return [`$${c === Math ? 'Math' : c.name}`, (E) => {
+                        const proxy = new Proxy({}, {
                             get: (target, prop, receiver) => {
-                                return (input, state, envelope, transformInstance) => ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](input) : c[prop]))
+                                if ((prop === 'fromEntries') && (c === Object)) return ((input) => ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](input) : c[prop])))
+                                return (input) => ((c[prop] === undefined) ? undefined : (typeof c[prop] === 'function' ? c[prop](...(Array.isArray(input) ? input : [input])) : c[prop]))
                             }
                         })
                         return (new E.Transform(proxy, true))
