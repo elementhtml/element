@@ -228,13 +228,8 @@ const ElementHTML = Object.defineProperties({}, {
                 '$': (E) => {
                     const proxy = new Proxy(function () { }, {
                         apply: (target, thisArg, argumentsList) => {
-
                             const [input, state, envelope, transformInstance, jsonataExpression] = argumentsList, expressionKey = `(${jsonataExpression})`
-
-                            console.log(input, jsonataExpression)
-
                             return E.resolveUnit('jsonata', 'library').then(jsonata => {
-                                console.log(jsonata)
                                 const expression = transformInstance.stepIntermediates.get(expressionKey)
                                     ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
                                 return expression.evaluate(input, { state, envelope })
