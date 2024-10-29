@@ -17,7 +17,6 @@ export default async function (unitKey, unitType) {
             else unitUrl = this.resolveUrl(`/${unitTypeCollectionName}/${unitKey}`, undefined, true)
     }
     if (!unitUrl) return
-
     let unitSuffix, unitModule, unit
     if (!suffixIsExplicit) {
         if (!autoResolverSuffixes[unitType]?.length) return
@@ -45,7 +44,6 @@ export default async function (unitKey, unitType) {
     }
     const { href: unitHref, hash: unitHash, pathname: unitPathname } = unitUrl
     if (!unitSuffix) for (const s of autoResolverSuffixes[unitType] ?? ['js']) if (unitPathname.endsWith(`.${s}`)) { unitSuffix = s; break }
-
     switch (unitSuffix) {
         case 'js': case 'wasm': unit = this.resolveImport(unitHref); break
         case 'md': case 'html': case 'css': case 'txt': case 'directives': case 'jsonl': case 'x': case 'xdr': unit = await (await fetch(unitHref)).text(); break
@@ -65,7 +63,6 @@ export default async function (unitKey, unitType) {
             unit ??= unitHash ? ((unitModule && typeof unitModule === 'object') ? unitModule[unitHash] : undefined) : unitModule
     }
     if (!unit) return
-
     const [, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
     if (unit instanceof unitClass) return unit
     if (typeof unit === 'function') unit = await unit(this)
