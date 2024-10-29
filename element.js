@@ -4,7 +4,7 @@ const ElementHTML = Object.defineProperties({}, {
 
     env: { // optimal
         enumerable: true, value: {
-            ais: {}, apis: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
+            ais: {}, services: {}, components: {}, content: {}, context: {}, facets: {}, gateways: {}, hooks: {},
             interpreters: new Map([
                 [/^[#?/:]$/, {
                     name: 'router',
@@ -161,15 +161,15 @@ const ElementHTML = Object.defineProperties({}, {
                     parser: async function (expression) { return (await this.runFragment('env/interpreters/state')).parser.call(this, expression) }
                 }],
                 [/^!\`[^`]+(\|[^`]+)?\`$/, {
-                    name: 'api',
-                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/api', facet, position, envelope, value) },
+                    name: 'service',
+                    handler: async function (facet, position, envelope, value) { return await this.runFragment('env/interpreters/service', facet, position, envelope, value) },
                     binder: async function (facet, position, envelope) {
-                        const { descriptor, variables } = envelope, { api: apiSignature } = descriptor
-                        if (!variables?.api) new this.Job(async function () { await this.resolveUnit(apiSignature, 'api') }, `api:${apiSignature}`)
+                        const { descriptor, variables } = envelope, { service: serviceSignature } = descriptor
+                        if (!variables?.service) new this.Job(async function () { await this.resolveUnit(serviceSignature, 'service') }, `service:${serviceSignature}`)
                     },
                     parser: async function (expression) {
-                        const [api, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
-                        return { api, action }
+                        const [service, action] = expression.slice(2, -1).trim().split(this.sys.regexp.pipeSplitterAndTrim)
+                        return { service, action }
                     }
                 }],
                 [/^@\`[^`]+(\|[^`]+)?\`$/, {
@@ -577,12 +577,12 @@ const ElementHTML = Object.defineProperties({}, {
             segmenter: /\s+>>\s+/g,
             splitter: /\n(?!\s+>>)/gm,
             unitTypeCollectionNameToUnitTypeMap: Object.freeze({
-                apis: 'api', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
+                services: 'service', components: 'component', content: 'content', context: 'context', facets: 'facet', gateways: 'gateway', hooks: 'hook',
                 interpreters: 'interpreter', languages: 'language', libraries: 'library', ais: 'ai', namespaces: 'namespace', patterns: 'pattern', resolvers: 'resolver',
                 snippets: 'snippet', transforms: 'transform', types: 'type'
             }),
             unitTypeMap: Object.freeze({
-                api: ['apis', 'API'], component: ['components', 'Component'], content: ['content', 'Collection'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
+                service: ['services', 'Service'], component: ['components', 'Component'], content: ['content', 'Collection'], context: ['context', Object], facet: ['facets', 'Facet'], gateway: ['gateways', 'Gateway'],
                 hook: ['hooks', Function], interpreter: ['interpreters', Object], language: ['languages', 'Language'], library: ['libraries', Object], ai: ['ais', 'AI'],
                 namespace: ['namespaces', URL], pattern: ['patterns', RegExp], resolver: ['resolvers', Function], snippet: ['snippets', HTMLElement], transform: ['transforms', 'Transform'],
                 type: ['types', 'Type']
@@ -861,8 +861,8 @@ const ElementHTML = Object.defineProperties({}, {
     AI: { // optimal
         enumerable: true, value: class {
             static E
-            constructor({ api, model, promptTemplates = {} }) {
-                if (!api) return
+            constructor({ service, model, promptTemplates = {} }) {
+                if (!service) return
                 const { E } = this.constructor
                 if (E.isPlainObject(promptTemplates)) this.promptTemplates = promptTemplates
                 if (model) {
@@ -877,24 +877,24 @@ const ElementHTML = Object.defineProperties({}, {
                             else if (E.isPlainObject(model)) this.modelWrapper = async input => (await (this.model ??= new E.Model(model)).run(input))
                     }
                 }
-                if (api) {
-                    switch (typeof api) {
-                        case 'function': this.apiWrapper = api.bind(this); break
+                if (service) {
+                    switch (typeof service) {
+                        case 'function': this.serviceWrapper = service.bind(this); break
                         case 'string':
-                            this.apiWrapper = async input => (await (this.api ??= await E.resolveUnit(api, 'api')).run(input))
-                            new E.Job(async function () { await E.resolveUnit(api, 'api') }, `api:${api}`)
+                            this.serviceWrapper = async input => (await (this.service ??= await E.resolveUnit(service, 'service')).run(input))
+                            new E.Job(async function () { await E.resolveUnit(service, 'service') }, `service:${service}`)
                             break
                         case 'object':
-                            if (api instanceof E.API) this.apiWrapper = async input => (await (this.api ??= api).run(input))
-                            else if (E.isPlainObject(api)) this.apiWrapper = async input => (await (this.api ??= new E.API(api)).run(input))
+                            if (service instanceof E.Service) this.serviceWrapper = async input => (await (this.service ??= service).run(input))
+                            else if (E.isPlainObject(service)) this.serviceWrapper = async input => (await (this.service ??= new E.Service(service)).run(input))
                     }
                 }
-                this.engine = async input => ((this.model?.loaded ? this.modelWrapper : (this.apiWrapper ?? this.modelWrapper))(input))
+                this.engine = async input => ((this.model?.loaded ? this.modelWrapper : (this.serviceWrapper ?? this.modelWrapper))(input))
             }
             async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('ai')).run.call(this, input, envelope, options.promptTemplateKey) }
         }
     },
-    API: { // optimal
+    Service: { // optimal
         enumerable: true, value: class {
             static E
             constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
@@ -907,29 +907,29 @@ const ElementHTML = Object.defineProperties({}, {
                 if (this.actions) Object.freeze(this.actions)
                 if (this.options) Object.freeze(this.options)
             }
-            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('api')).run.call(this, input, envelope, options.action) }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('service')).run.call(this, input, envelope, options.action) }
         }
     },
     Collection: { // optimal
         enumerable: true, value: class {
             static E
-            constructor({ api = {}, ai = {} }) {
+            constructor({ service = {}, ai = {} }) {
                 const { E } = this.constructor
-                switch (typeof api) {
-                    case 'function': this.apiWrapper = api.bind(this); break
+                switch (typeof service) {
+                    case 'function': this.serviceWrapper = service.bind(this); break
                     case 'string':
-                        const [apiName, apiAction] = api.split(E.sys.regexp.pipeSplitterAndTrim)
-                        this.apiWrapper = async (slug, envelope) => (await (this.api ??= await E.resolveUnit(apiName, 'api')).run(slug, apiAction, envelope))
-                        new E.Job(async function () { await E.resolveUnit(apiName, 'api') }, `api:${apiName}`)
+                        const [serviceName, serviceAction] = service.split(E.sys.regexp.pipeSplitterAndTrim)
+                        this.serviceWrapper = async (slug, envelope) => (await (this.service ??= await E.resolveUnit(serviceName, 'service')).run(slug, serviceAction, envelope))
+                        new E.Job(async function () { await E.resolveUnit(serviceName, 'service') }, `service:${serviceName}`)
                         break
                     default:
-                        if (E.isPlainObject(api)) {
-                            api.contentType ??= 'text/markdown'
-                            api.base ??= './content'
-                            this.apiWrapper = async (slug, envelope) => (await (this.api ??= new E.API(api)).run(undefined, slug, envelope))
+                        if (E.isPlainObject(service)) {
+                            service.contentType ??= 'text/markdown'
+                            service.base ??= './content'
+                            this.serviceWrapper = async (slug, envelope) => (await (this.service ??= new E.Service(service)).run(undefined, slug, envelope))
                         }
                 }
-                if (!this.apiWrapper) return
+                if (!this.serviceWrapper) return
                 if (ai) {
                     switch (typeof ai) {
                         case 'function': this.aiWrapper = ai.bind(this); break
@@ -939,11 +939,11 @@ const ElementHTML = Object.defineProperties({}, {
                             new E.Job(async function () { await E.resolveUnit(aiName, 'ai') }, `ai:${aiName}`)
                             break
                         default:
-                            if (E.isPlainObject(ai)) this.aiWrapper = async (prompt) => (await (this.api ??= new E.AI(engine)).run(prompt, undefined, envelope))
+                            if (E.isPlainObject(ai)) this.aiWrapper = async (prompt) => (await (this.service ??= new E.AI(engine)).run(prompt, undefined, envelope))
                     }
-                    if (this.aiWrapper) this.engine = async (slug, envelope) => { return this.aiWrapper(E.resolveVariable(await this.apiWrapper(slug, envelope), envelope, { merge: true })) }
+                    if (this.aiWrapper) this.engine = async (slug, envelope) => { return this.aiWrapper(E.resolveVariable(await this.serviceWrapper(slug, envelope), envelope, { merge: true })) }
                 }
-                this.engine ??= this.apiWrapper
+                this.engine ??= this.serviceWrapper
             }
             async run(slug, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('collection')).run.call(this, slug, envelope, options.langCode) }
         }
@@ -1231,7 +1231,7 @@ const ElementHTML = Object.defineProperties({}, {
     Language: { // optimal
         enumerable: true, value: class {
             static E
-            static validEngineClasses = new Set(['AI', 'API'])
+            static validEngineClasses = new Set(['AI', 'Service'])
             constructor({ defaultTokenValue = '', tokens = {}, virtual = {}, envelope }) {
                 const { E } = this.constructor
                 if (!E.isPlainObject(tokens)) return
@@ -1286,7 +1286,7 @@ const ElementHTML = Object.defineProperties({}, {
     Renderer: { // optimal
         enumerable: true, value: class {
             static E
-            static validEngineClasses = new Set(['AI', 'API', 'Collection', 'Language', 'Transform'])
+            static validEngineClasses = new Set(['AI', 'Service', 'Collection', 'Language', 'Transform'])
             observers = new WeakMap()
             constructor({ engine, matches = {}, mode, scopeSelector, name, namespace, labels = {}, defaultValue = '', envelope }) {
                 const { E, validEngineClasses } = this.constructor
@@ -1402,7 +1402,7 @@ const ElementHTML = Object.defineProperties({}, {
     Transform: { // optimal
         enumerable: true, value: class {
             static E
-            static embeddableClasses = new Set('API', 'Collection', 'AI', 'Transform', 'Language')
+            static embeddableClasses = new Set('Service', 'Collection', 'AI', 'Transform', 'Language')
             isProxy
             constructor(stepChain, isProxy) {
                 if (!stepChain) return
@@ -1534,7 +1534,7 @@ Object.defineProperties(ElementHTML, {
 })
 const { app } = ElementHTML
 for (const k in ElementHTML.env) Object.defineProperty(app, k, { configurable: false, enumerable: true, writable: false, value: {} })
-for (const className of ['API', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) Object.defineProperty(ElementHTML[className], 'E', { configurable: false, writable: false, value: ElementHTML })
+for (const className of ['Service', 'Collection', 'Component', 'Facet', 'Gateway', 'Job', 'Language', 'Transform', 'Type', 'Validator']) Object.defineProperty(ElementHTML[className], 'E', { configurable: false, writable: false, value: ElementHTML })
 const metaUrl = new URL(import.meta.url), initializationParameters = metaUrl.searchParams, promises = [], functionMap = { compile: 'Compile', dev: 'Dev', expose: 'Expose' }
 for (const f in functionMap) if (initializationParameters.has(f)) promises.push(ElementHTML[functionMap[f]](initializationParameters.get(f)))
 await Promise.all(promises)

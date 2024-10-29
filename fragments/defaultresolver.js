@@ -1,5 +1,5 @@
 const autoResolverSuffixes = Object.freeze({
-    ai: ['js', 'json'], api: ['js', 'json'], collection: ['js', 'json'], content: ['md', 'html', 'txt', 'js'], context: ['json', 'js'], facet: ['directives', 'js'],
+    ai: ['js', 'json'], service: ['js', 'json'], collection: ['js', 'json'], content: ['md', 'html', 'txt', 'js'], context: ['json', 'js'], facet: ['directives', 'js'],
     gateway: ['js'], hook: ['js'], interpreter: ['js'], library: ['js'], model: ['json', 'jsonl', 'js'], language: ['json', 'js'],
     pattern: ['txt', 'js'], renderer: ['js'], resolver: ['js'], snippet: ['html', 'js'], transform: ['js'], type: ['js', 'schema.json', 'json', 'x', 'xdr']
 })
