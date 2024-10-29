@@ -1,7 +1,15 @@
 export default {
     run: async function (input, envelope, step, flag) {
         const { isProxy, steps } = this, { E } = this.constructor, state = {}
-        if (isProxy) return (step ? steps[step] : steps)?.call(E, input, state, envelope, this)
+
+        console.log(input, envelope, step, flag, isProxy)
+
+        if (isProxy) {
+            const func = (step ? steps[step] : steps)
+            console.log(func)
+            return func(input, state, envelope, this, flag)
+        }
+
         if (step && steps.has(step)) return steps.get(step)?.call(E, input, state, envelope, this)
         const hasFlag = !!flag, isArray = hasFlag ? Array.isArray(input) : undefined, isObject = hasFlag ? (!isArray && this.isPlainObject(input)) : undefined,
             useSteps = step.includes(':') ? E.sliceAndStep(step, steps.values()) : steps.values(), asEntries = flag === '{:}'

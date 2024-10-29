@@ -54,7 +54,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (!step && flag) new this.Job(async function () { await this.resolveUnit('jsonata', 'library') }, `library:jsonata`)
                     },
                     parser: async function (expression) {
-                        const [transformBody, flagRaw] = expression.split(this.sys.regexp.openBracketSplitter),
+                        const [transformBody, ...flagPieces] = expression.split(this.sys.regexp.openBracketSplitter),
+                            flagRaw = flagPieces.join('('),
                             flag = (!flagRaw || flagRaw === ')') ? undefined : flagRaw.slice(0, -1).trim(),
                             [transform, step] = transformBody.split(this.sys.regexp.periodSplitter)
                         return { transform, step, flag: (flag || undefined) }
@@ -225,10 +226,15 @@ const ElementHTML = Object.defineProperties({}, {
             patterns: {}, renderers: {}, resolvers: {}, snippets: {},
             transforms: {
                 '$': (E) => {
-                    const proxy = new Proxy({}, {
+                    const proxy = new Proxy(function () { }, {
                         apply: (target, thisArg, argumentsList) => {
-                            const [jsonataExpression] = args, expressionKey = `*::${jsonataExpression}`
+
+                            const [input, state, envelope, transformInstance, jsonataExpression] = argumentsList, expressionKey = `(${jsonataExpression})`
+
+                            console.log(input, jsonataExpression)
+
                             return E.resolveUnit('jsonata', 'library').then(jsonata => {
+                                console.log(jsonata)
                                 const expression = transformInstance.stepIntermediates.get(expressionKey)
                                     ?? transformInstance.stepIntermediates.set(expressionKey, jsonata(`(${jsonataExpression})`)).get(expressionKey)
                                 return expression.evaluate(input, { state, envelope })
@@ -1404,9 +1410,11 @@ const ElementHTML = Object.defineProperties({}, {
             static E
             static embeddableClasses = new Set('Service', 'Collection', 'AI', 'Transform', 'Language')
             isProxy
+            stepIntermediates
             constructor(stepChain, isProxy) {
                 if (!stepChain) return
                 const { E } = this.constructor
+                this.stepIntermediates = new Map()
                 if (isProxy) {
                     Object.defineProperty(this, 'isProxy', { configurable: false, enumerable: true, value: true, writable: false })
                     this.steps = stepChain
@@ -1414,7 +1422,6 @@ const ElementHTML = Object.defineProperties({}, {
                     const isMap = ((stepChain instanceof Map) || (this.isPlainObject(stepChain)))
                     if (!isMap && !Array.isArray(stepChain)) stepChain = [stepChain]
                     this.steps = new Map()
-                    this.stepIntermediates = new Map()
                     for (let [stepKey, stepValue] of stepChain.entries()) {
                         if (!stepValue) continue
                         if (typeof stepKey !== 'string') stepKey = `${stepKey}`
