@@ -1544,7 +1544,7 @@ if (initializationParameters.has('packages')) {
     for (let s of initializationParameters.get('packages').split(',')) if (s = s.trim()) packageList.push(s)
     if (importmapElement) try { imports = Object.assign(importmap, JSON.parse(importmapElement.textContent.trim())).imports } catch (e) { }
     else if (initializationParameters.get('packages')) for (const p of packageList) {
-        imports[p] = (p.startsWith('/') || p.startsWith('./') || p.startsWith('../')) ? p : (p.startsWith('~') ? `/packages/${p.slice(1)}` : `./packages/${p}`)
+        imports[p] = (p.startsWith('/') || p.startsWith('./') || p.startsWith('../')) ? p : (p.startsWith('~') ? `./packages/${p.slice(1)}` : `/packages/${p}`)
         if (!imports[p].endsWith('.js')) imports[p] = `${imports[p]}.js`
     }
     else {
