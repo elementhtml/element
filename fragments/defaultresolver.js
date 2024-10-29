@@ -20,7 +20,15 @@ export default async function (unitKey, unitType) {
 
     let unitSuffix, unitModule, unit
     if (!suffixIsExplicit) {
-        try { if (!this.app._failedHrefs.has(unitUrl.href) && (await fetch(unitUrl.href, { method: 'HEAD' })).ok) unitSuffix = true } catch (e) { this.app._failedHrefs.add(unitUrl.href) }
+        if (!autoResolverSuffixes[unitType]?.length) return
+        const testPath = `${unitUrl.pathname}.${autoResolverSuffixes[unitType][0]}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
+        if (!this.app._failedHrefs.has(testUrl)) try {
+            if ((await fetch(testUrl, { method: 'HEAD' })).ok) {
+                unitUrl.pathname = testPath
+                unitSuffix = autoResolverSuffixes[unitType][0]
+            }
+        } catch (e) { this.app._failedHrefs.add(testUrl) }
+        if (!unitSuffix) try { if (!this.app._failedHrefs.has(unitUrl.href) && (await fetch(unitUrl.href, { method: 'HEAD' })).ok) unitSuffix = true } catch (e) { this.app._failedHrefs.add(unitUrl.href) }
         if (!unitSuffix) for (const s of (autoResolverSuffixes[unitType] ?? [])) {
             if (unitUrl.pathname.endsWith(`.${s}`)) { unitSuffix = s; break }
             const testPath = `${unitUrl.pathname}.${s}`, testUrl = `${unitUrl.protocol}//${unitUrl.host}${testPath}`
@@ -45,7 +53,6 @@ export default async function (unitKey, unitType) {
             unitModule = await (await fetch(unitHref)).json()
         default:
             if (!unitModule) {
-                console.log('line 47', unitHref)
                 const unitHead = await fetch(unitHref, { method: 'HEAD' })
                 let unitContentType = unitHead.headers.get('Content-Type')
                 if (unitContentType.includes('/javascript') || unitContentType.includes('/wasm')) {
