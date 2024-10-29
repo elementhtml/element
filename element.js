@@ -364,7 +364,7 @@ const ElementHTML = Object.defineProperties({}, {
         enumerable: true, value: async function (importHref, returnWholeModule, isWasm) {
             const { hash = '#default', origin, pathname } = (importHref instanceof URL) ? importHref : this.resolveUrl(importHref, undefined, true), url = `${origin}${pathname}`,
                 module = (isWasm ?? pathname.endsWith('.wasm')) ? (await WebAssembly.instantiateStreaming(fetch(url))).instance.exports : await import(url)
-            return returnWholeModule ? module : module[hash.slice(1)]
+            return returnWholeModule ? module : module[hash ? hash.slice(1) : 'default']
         }
     },
     resolveScope: { // optimal
@@ -442,13 +442,17 @@ const ElementHTML = Object.defineProperties({}, {
                 if ((typeof envUnit === 'function') && !(envUnit instanceof unitClass)) unitPromise = Promise.resolve(envUnit(this))
                 else if (envUnit instanceof Promise) unitPromise = envUnit
                 else if (typeof envUnit === 'string') unitResolver = Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
-                unitPromise ??= unitResolver ? unitResolver.then(ur => ur.call(this, envUnit, unitType, useUnitKey)) : Promise.resolve(envUnit)
+                unitPromise ??= unitResolver ? unitResolver.then(ur => {
+                    return ur.call(this, envUnit, unitType, useUnitKey)
+                }) : Promise.resolve(envUnit)
             }
             if (!unitPromise && this.sys.localOnlyUnitTypes.has(unitType)) return
             unitResolver ??= Promise.resolve(this.resolveUnit(unitType, 'resolver') ?? this.defaultResolver)
             unitPromise ??= unitResolver.then(ur => ur.call(this, unitKey, unitType, asUnitKey))
             return app[unitTypeCollectionName][useUnitKey] = unitPromise
-                .then(u => Object.defineProperty(app[unitTypeCollectionName], useUnitKey, { configurable: false, enumerable: true, value: u, writable: false })[useUnitKey])
+                .then(u => {
+                    return Object.defineProperty(app[unitTypeCollectionName], useUnitKey, { configurable: false, enumerable: true, value: u, writable: false })[useUnitKey]
+                })
         }
     },
     resolveUrl: { // optimal
@@ -660,7 +664,7 @@ const ElementHTML = Object.defineProperties({}, {
             return `${selectorMain},[is="${selectorMain}"],e-${selectorMain},[is="e-${selectorMain}"]`
         }
     },
-    defaultResolver: { value: async function (unitKey, unitType) { return this.runFragment('defaultresolver', unitKey, unitType) } }, // optimal
+    defaultResolver: { value: async function (unitSource, unitType) { return this.runFragment('defaultresolver', unitSource, unitType) } }, // optimal
     installGateway: { // optimal
         value: async function (protocol) {
             if (!protocol) return

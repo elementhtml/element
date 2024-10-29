@@ -4,17 +4,17 @@ const autoResolverSuffixes = Object.freeze({
     pattern: ['txt', 'js'], renderer: ['js'], resolver: ['js'], snippet: ['html', 'js'], transform: ['js'], type: ['js', 'schema.json', 'json', 'x', 'xdr']
 })
 
-export default async function (unitKey, unitType) {
-    if (!(unitKey && unitType)) return
+export default async function (unitSource, unitType) {
+    if (!(unitSource && unitType)) return
     const unitTypeCollectionName = this.sys.unitTypeMap[unitType]?.[0]
     if (!unitTypeCollectionName) return
     let unitUrl, suffixIsExplicit
-    switch (unitKey[0]) {
-        case '.': case '/': suffixIsExplicit = !!(unitUrl = this.resolveUrl(unitKey, undefined, true)); break
-        case '~': unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitKey.slice(1)}`, undefined, true); break
+    switch (unitSource[0]) {
+        case '.': case '/': suffixIsExplicit = !!(unitUrl = this.resolveUrl(unitSource, undefined, true)); break
+        case '~': unitUrl = this.resolveUrl(`${unitTypeCollectionName}/${unitSource.slice(1)}`, undefined, true); break
         default:
-            if (unitKey.includes('://')) try { suffixIsExplicit = !!(unitUrl = this.resolveUrl(new URL(unitKey).href, undefined, true)) } catch (e) { suffixIsExplicit = true }
-            else unitUrl = this.resolveUrl(`/${unitTypeCollectionName}/${unitKey}`, undefined, true)
+            if (unitSource.includes('://')) try { suffixIsExplicit = !!(unitUrl = this.resolveUrl(new URL(unitSource).href, undefined, true)) } catch (e) { suffixIsExplicit = true }
+            else unitUrl = this.resolveUrl(`/${unitTypeCollectionName}/${unitSource}`, undefined, true)
     }
     if (!unitUrl) return
     let unitSuffix, unitModule, unit
@@ -63,9 +63,11 @@ export default async function (unitKey, unitType) {
             unit ??= unitHash ? ((unitModule && typeof unitModule === 'object') ? unitModule[unitHash] : undefined) : unitModule
     }
     if (!unit) return
+    if (unit instanceof Promise) unit = await unit
     const [, unitClassName] = this.sys.unitTypeMap[unitType], unitClass = typeof unitClassName === 'string' ? this[unitClassName] : unitClassName
     if (unit instanceof unitClass) return unit
     if (typeof unit === 'function') unit = await unit(this)
+    if (unit instanceof Promise) unit = await unit
     if (unit instanceof unitClass) return unit
     return new unitClass(unit)
 }
