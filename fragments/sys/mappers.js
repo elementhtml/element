@@ -11,6 +11,7 @@ const mappers = {
             if (vIsObject || style) return
             return target[(typeof v === 'boolean') ? toggle : set](p || defaultAttribute, v)
         }
+        if (mode !== 'get') return
         if (p) return target[get](p)
         const r = {}, iterator = style ? target : el.attributes
         if (iterator.length) for (let i = 0, k, l = iterator.length; i < l; i++) {
@@ -30,14 +31,14 @@ const mappers = {
             v[`${filter}${k}`] = v[k]
             delete v[k]
         }
-        return mappers.$attributes(el, mode, v, p, { defaultAttribute, filter })
+        return mappers.$attributes.call(this, el, mode, v, p, { defaultAttribute, filter })
     },
     '$': '$data',
-    $aria: function (el, mode, v, p, options = {}) { return mappers.$data(el, mode, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
+    $aria: function (el, mode, v, p, options = {}) { return mappers.$data.call(this, el, mode, v, p, { defaultAttribute: 'aria-label', filter: 'aria-' }) },
     '*': '$aria',
-    $style: function (el, mode, v, p, options = {}) { return mappers.$attributes(el, mode, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $style: function (el, mode, v, p, options = {}) { return mappers.$attributes.call(this, el, mode, v, p, { style: true, isComputed: false, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
     '%': '$style',
-    $computed: function (el, mode, v, p, options = {}) { return mappers.$attributes(el, mode, v, p, { style: true, isComputed: true, get: 'getProperty', set: 'setProperty', remove: 'removeProperty' }) },
+    $computed: function (el, mode, v, p, options = {}) { return (mode === 'get') ? mappers.$attributes.call(this, el, mode, v, p, { style: true, isComputed: true, get: 'getProperty' }) : undefined },
     '&': '$computed',
     $inner: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
     '.': '$inner',
@@ -91,10 +92,10 @@ const mappers = {
         const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
         switch (tagName.toLowerCase()) {
             case 'form': case 'fieldset':
-                if (p) return mappers.$form(el.querySelector(`[name="${p}"]`), mode, v)
+                if (p) return mappers.$form.call(this, el.querySelector(`[name="${p}"]`), mode, v)
                 if (!vIsObject) return
                 const r = {}
-                for (const fieldName in v) r[fieldName] = mappers.$form(el.querySelector(`[name="${fieldName}"]`), mode, v[fieldName])
+                for (const fieldName in v) r[fieldName] = mappers.$form.call(this, el.querySelector(`[name="${fieldName}"]`), mode, v[fieldName])
                 return r
             default:
                 const { type, name } = el
@@ -129,7 +130,7 @@ const mappers = {
             return (mode === 'set') ? this.render(propElement, v) : this.flatten(propElement)
         }
         if (mode === 'set') {
-            if (this.isPlainObject(v)) for (const k in v) mappers.$microdata(el, mode, v[k], k)
+            if (this.isPlainObject(v)) for (const k in v) mappers.$microdata.call(this, el, mode, v[k], k)
             return
         }
         const r = {}, promises = []
@@ -244,11 +245,10 @@ const mappers = {
 
 export default {
     processElementMapper: async function (element, mode, prop, value) {
-        console.log({ element, mode, prop, value }, mappers[prop])
+        // console.log({ element, mode, prop, value }, mappers[prop])
         if (prop in mappers) return (mode === 'has') || (await (typeof mappers[prop] === 'string' ? mappers[mappers[prop]] : mappers[prop]).call(this, element, mode, value))
-        console.log(element, mode, prop, value)
         const propFlag = prop[0], propMain = prop.slice(1)
-        if (propFlag in mappers) return await mappers[propFlag].call(this, element, mode, value, propMain)
+        if (propFlag in mappers) return (await (typeof mappers[propFlag] === 'string' ? mappers[mappers[propFlag]] : mappers[propFlag]).call(this, element, mode, value, propMain))
         if ((propFlag === '[') && propMain.endsWith(']')) return await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1).trim())
         if ((propFlag === '{') && propMain.endsWith('}')) return await mappers.$microdata.call(this, element, mode, value, propMain.slice(0, -1).trim())
         if (propFlag === ':' && propMain[0] === ':') return await mappers.$position.call(this, element, mode, value, propMain.slice(1).trim())
@@ -266,8 +266,8 @@ export default {
 //     for (const c of child) promises.push(this.render(c, useArray ? useArray.shift() : data[p]))
 // }
 // else if (pFlag in mappers) mappers[pFlag](element, p.slice(1).trim(), true, data[p])
-// else if ((pFlag === '[') && p.endsWith(']')) mappers.$form(element, p.slice(1, -1).trim(), true, data[p])
-// else if ((pFlag === '{') && p.endsWith('}')) mappers.$microdata(element, p.slice(1, -1).trim(), true, data[p])
+// else if ((pFlag === '[') && p.endsWith(']')) mappers.$form.call(this, element, p.slice(1, -1).trim(), true, data[p])
+// else if ((pFlag === '{') && p.endsWith('}')) mappers.$microdata.call(this, element, p.slice(1, -1).trim(), true, data[p])
 // else if (typeof element[p] === 'function') element[p](data[p])
 // else if (p.endsWith(')') && p.includes('(') && (typeof element[p.slice(0, p.indexOf('(')).trim()] === 'function')) {
 //     let [functionName, argsList] = p.slice(0, -1).split('(')
