@@ -520,17 +520,19 @@ const ElementHTML = Object.defineProperties({}, {
                 for (let i = 0, l = expression.length, a = Array.isArray(dft); i < l; i++) result.push(resolveVariable.call(this, expression[i], envelope, { default: a ? dft[i] : dft }))
             } else if (this.isPlainObject(expression)) {
                 result = {}
-                const dftIsObject = this.isPlainObject(dft), valueisObject = this.isPlainObject(envelope.value)
+                const dftIsObject = this.isPlainObject(dft)
+                let valueisObject = undefined
                 for (const key in expression) {
-                    if (valueisObject && key.startsWith('...(') && expression[key].endsWith(')')) {
+                    if (key.startsWith('...(') && expression[key].endsWith(')')) {
+                        valueisObject ??= this.isPlainObject(envelope.value)
+                        if (!valueisObject) continue
                         const nestedKeyExpression = key.slice(4).trim(), nestedValueExpression = expression[key].slice(0, -1).trim()
+                        if (!nestedKeyExpression || !nestedValueExpression) continue
                         for (const kk in envelope.value) {
                             const resolvedNestedValue = resolveVariable.call(this, nestedValueExpression, { ...envelope, value: envelope.value[kk] }, { wrapped: false })
                             if (resolvedNestedValue !== undefined) result[resolveVariable.call(this, nestedKeyExpression, { ...envelope, value: kk })] = resolvedNestedValue
                         }
-                    } else {
-                        result[resolveVariable.call(this, key, envelope)] = resolveVariable.call(this, expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
-                    }
+                    } else result[resolveVariable.call(this, key, envelope)] = resolveVariable.call(this, expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
                 }
             }
             return result === undefined ? dft : result
