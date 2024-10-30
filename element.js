@@ -121,7 +121,7 @@ const ElementHTML = Object.defineProperties({}, {
                         }
                         return { selector, scope }
                     },
-                    parser: async function (expression) { return { signal: true, ...(await this.resolveScopedSelector(expression.slice(2, -1))) } }
+                    parser: async function (expression) { return { signal: true, ...(await this.resolveScopedSelector(expression.slice(1, -1))) } }
                 }],
                 [/^[#@](?:[a-zA-Z0-9]+|[{][a-zA-Z0-9#@?!, ]*[}]|[\[][a-zA-Z0-9#@?!, ]*[\]])$/, {
                     name: 'state',
