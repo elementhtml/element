@@ -4,7 +4,6 @@ const voidElementTags = Object.freeze({
 })
 
 export default async function (element, data) {
-    console.log(element, data)
     if (!(element instanceof HTMLElement)) return
     element = this.app._components.virtualsFromNatives.get(element) ?? element
     const tag = element.tagName.toLowerCase()
@@ -23,7 +22,7 @@ export default async function (element, data) {
         for (const p of ['checked', 'selected']) if (p in element) return element[p] = !!data
         if ('value' in element) return element.value = data
         if (tag in voidElementTags) return element.setAttribute(voidElementTags[tag], data)
-        return element[((typeof data === 'string') && this.sys.regexp.isHTML.text(data)) ? 'innerHTML' : 'textContent'] = data
+        return element[((typeof data === 'string') && this.sys.regexp.isHTML.test(data)) ? 'innerHTML' : 'textContent'] = data
     }
     const { processElementMapper } = await this.runFragment('sys/mappers'), promises = []
     for (const p in data) promises.push(processElementMapper.call(this, element, 'set', p, data[p]))

@@ -244,7 +244,9 @@ const mappers = {
 
 export default {
     processElementMapper: async function (element, mode, prop, value) {
-        if (prop in mappers) return (mode === 'has') || (await mappers[prop].call(this, element, mode, value))
+        console.log({ element, mode, prop, value }, mappers[prop])
+        if (prop in mappers) return (mode === 'has') || (await (typeof mappers[prop] === 'string' ? mappers[mappers[prop]] : mappers[prop]).call(this, element, mode, value))
+        console.log(element, mode, prop, value)
         const propFlag = prop[0], propMain = prop.slice(1)
         if (propFlag in mappers) return await mappers[propFlag].call(this, element, mode, value, propMain)
         if ((propFlag === '[') && propMain.endsWith(']')) return await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1).trim())
