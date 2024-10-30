@@ -483,9 +483,9 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveVariable: { // optimal
         enumerable: true, value: function (expression, envelope = {}, flags = {}) {
-            expression = expression.trim()
+            if (typeof expression === 'string') expression = expression.trim()
             const { sys, resolveVariable } = this, { regexp, valueAliases } = sys
-            let result, { wrapped = false, default: dft = (!wrapped ? expression : undefined), spread, merge } = flags
+            let result, { wrapped = false, default: dft = (!wrapped ? expression : undefined), merge } = flags
             if (merge) {
                 result = expression.replace(regexp.hasVariable, (match, varExpression) => (resolveVariable.call(this, varExpression, envelope) ?? match))
             } else if (typeof expression === 'string') {
@@ -498,14 +498,14 @@ const ElementHTML = Object.defineProperties({}, {
                 if (wrapped) expression = expression.slice(2, -1).trim()
                 const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
                 if (expression in valueAliases) result = valueAliases[expression]
-                else if (expression === '$') result = 'value' in envelope ? value : expression
                 else if ((e0 === '$') || (e0 === '@') || (e0 === '#') || (e0 === '~')) {
-                    const subEnvelope = { '$': labels, '@': fields, '#': cells, '~': context }[e0]
-                    if (subEnvelope === undefined) result = expression
-                    else {
+                    const shapeOnly = !('value' in envelope)
+                    if (shapeOnly) {
+                        result = expression
+                    } else {
                         const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
+                        result = mainExpression === '$' ? value : ({ '$': labels, '@': fields, '#': cells, '~': context }[e0])?.[mainExpression.slice(1)]
                         let i = 0
-                        result = subEnvelope[mainExpression.slice(1)]
                         while (result !== undefined && i < l) result = result?.[vectors[i++]]
                     }
                 }
@@ -518,11 +518,21 @@ const ElementHTML = Object.defineProperties({}, {
                 else result = expression
             } else if (Array.isArray(expression)) {
                 result = []
-                for (let i = 0, l = expression.length, a = spread && Array.isArray(dft); i < l; i++) result.push(resolveVariable.call(this, expression[i], envelope, { default: a ? dft[i] : dft }))
+                for (let i = 0, l = expression.length, a = Array.isArray(dft); i < l; i++) result.push(resolveVariable.call(this, expression[i], envelope, { default: a ? dft[i] : dft }))
             } else if (this.isPlainObject(expression)) {
                 result = {}
-                const dftIsObject = spread && this.isPlainObject(dft)
-                for (const key in expression) result[resolveVariable.call(this, key, envelope)] = resolveVariable.call(this, expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
+                const dftIsObject = this.isPlainObject(dft), valueisObject = this.isPlainObject(envelope.value)
+                for (const key in expression) {
+                    if (valueisObject && key.startsWith('...(') && expression[key].endsWith(')')) {
+                        const nestedKeyExpression = key.slice(4).trim(), nestedValueExpression = expression[key].slice(0, -1).trim()
+                        for (const kk in envelope.value) {
+                            const resolvedNestedValue = resolveVariable.call(this, nestedValueExpression, { ...envelope, value: envelope.value[kk] }, { wrapped: false })
+                            if (resolvedNestedValue !== undefined) result[resolveVariable.call(this, nestedKeyExpression, { ...envelope, value: kk })] = resolvedNestedValue
+                        }
+                    } else {
+                        result[resolveVariable.call(this, key, envelope)] = resolveVariable.call(this, expression[key], envelope, { default: dftIsObject ? dft[key] : dft })
+                    }
+                }
             }
             return result === undefined ? dft : result
         }
