@@ -499,14 +499,13 @@ const ElementHTML = Object.defineProperties({}, {
                 const { context, cells, fields, labels, value } = envelope, e0 = expression[0]
                 if (expression in valueAliases) result = valueAliases[expression]
                 else if ((e0 === '$') || (e0 === '@') || (e0 === '#') || (e0 === '~')) {
-                    const shapeOnly = !('value' in envelope)
-                    if (shapeOnly) {
-                        result = expression
-                    } else {
+                    if ('value' in envelope) {
                         const [mainExpression, ...vectors] = expression.split('.'), l = vectors.length
                         result = mainExpression === '$' ? value : ({ '$': labels, '@': fields, '#': cells, '~': context }[e0])?.[mainExpression.slice(1)]
                         let i = 0
                         while (result !== undefined && i < l) result = result?.[vectors[i++]]
+                    } else {
+                        result = expression
                     }
                 }
                 else if ((e0 === '?') || ((e0 === '{') && expression.endsWith('}')) || ((e0 === '{') && expression.endsWith('}'))) {
