@@ -67,25 +67,25 @@ const mappers = {
             if (mode === 'get') return this.flatten(el[traverser])
         }
 
-        console.log(el, mode, v, p)
 
 
         const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
             insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
         if (!inserters.has(inserter)) return
 
+        console.log(v, p, inserter)
 
-        const promises = []
-
-        if (!Array.isArray(v)) if (this.isPlainObject(v)) {
-            for (const snippetKey in v) promises.push(this.resolveUnit(snippetKey, 'snippet').then(snippet => this.render(snippet, v[snippetKey])).then(snippet => el[p](...snippet)))
-            return
-        } else v = [v]
-        if (!v.length) return el[p]()
-        for (const snippet of v) promises.push(this.resolveUnit(snippet, 'snippet').then(snippet => el[p](...snippet)))
-        return
-
-        // return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
+        const fragment = new DocumentFragment(), promises = []
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                const itemNode = item?.$tag ? document.createElement(item.$tag) : new DocumentFragment(), itemPromises = []
+                if (item?.$tag) delete item.$tag
+                itemPromises.push(this.render(itemNode, item))
+                promises.push(Promise.all(itemPromises).then(() => fragment.append(itemNode)))
+            }
+        } else if (this.isPlainObject(v)) for (const k in v) promises.push(this.render(fragment, v[k]))
+        else fragment.innerHTML = `${v}`
+        return Promise.all(promises).then(() => el[inserter](fragment))
     },
 
 
