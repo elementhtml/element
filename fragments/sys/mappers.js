@@ -49,11 +49,7 @@ const mappers = {
 
 
     $html: function (el, mode, v, p, options = {}) {
-        console.log(this, el, mode, v, p)
         if (mode !== 'set') return el.innerHTML
-
-        console.log(el, mode, v, p)
-
         let childElement
         const promises = []
         if (Array.isArray(v)) {
@@ -73,8 +69,12 @@ const mappers = {
     '<>': '$html',
 
 
-    $tag: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (v == null ? el.removeAttribute('is') : (el.setAttribute('is', v.toLowerCase()))) : ((value.getAttribute('is') || value.tagName).toLowerCase()) },
+    $tag: function (el, mode, v, p, options = {}) {
+        if (!(el && (el instanceof HTMLElement))) return
+        return (mode === 'set') ? (v == null ? el.removeAttribute('is') : (el.setAttribute('is', v.toLowerCase()))) : ((value.getAttribute('is') || value.tagName).toLowerCase())
+    },
     $parent: function (el, mode, v, p, options = {}) {
+        if (!(el && (el instanceof HTMLElement))) return
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
         return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
     },
@@ -101,7 +101,9 @@ const mappers = {
             }
         } else if (this.isPlainObject(v)) for (const k in v) promises.push(this.render(fragment, v[k]))
         else fragment.innerHTML = `${v}`
-        return Promise.all(promises).then(() => el[inserter](fragment))
+        return Promise.all(promises).then(() => {
+            el[inserter](fragment)
+        })
     },
     $event: function (el, mode, v, p, options = {}) { return (mode === 'set') ? undefined : (p ? this.flatten(options?.detail?.[p]) : this.flatten(options)) },
     '!': '$event',
@@ -264,7 +266,7 @@ const mappers = {
 export default {
     processElementMapper: async function (element, mode, prop, value) {
         element = this.app._components.nativesFromVirtuals.get(element) ?? element
-        // console.log({ element, mode, prop, value }, mappers[prop])
+        console.log({ element, mode, prop, value }, mappers[prop])
         if (prop in mappers) return (mode === 'has') || (typeof mappers[prop] === 'string' ? mappers[mappers[prop]] : mappers[prop]).call(this, element, mode, value)
         const propFlag = prop[0], propMain = prop.slice(1)
         if (propFlag in mappers) return (typeof mappers[propFlag] === 'string' ? mappers[mappers[propFlag]] : mappers[propFlag]).call(this, element, mode, value, propMain)
