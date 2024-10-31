@@ -42,13 +42,39 @@ const mappers = {
     '&': '$computed',
     $content: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
     '.': '$content',
-    $textContent: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.textContent = v) : el.textContent,
+    $textContent: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el.textContent = v) : el.textContent },
     '..': '$textContent',
-    $text: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerText = v) : el.innerText,
+    $text: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el.innerText = v) : el.innerText },
     '...': '$text',
-    $html: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerHTML = v) : el.innerHTML,
+
+
+    $html: function (el, mode, v, p, options = {}) {
+        console.log(this, el, mode, v, p)
+        if (mode !== 'set') return el.innerHTML
+
+        console.log(el, mode, v, p)
+
+        let childElement
+        const promises = []
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                const itemNode = item?.$tag ? document.createElement(item.$tag) : (p ? document.createElement(p) : new DocumentFragment()), itemPromises = []
+                if (item?.$tag) delete item.$tag
+                itemPromises.push(this.render(itemNode, item))
+                promises.push(Promise.all(itemPromises).then(() => el.append(itemNode)))
+            }
+
+        } else if (this.isPlainObject(v)) {
+            for (const k in v) promises.push(this.render(childElement, v[k]))
+        } else {
+            childElement.innerHTML = `${v}`
+        }
+        // return Promise.all(promises).then(() => el.replaceChildren(childElement))
+    },
     '<>': '$html',
-    $tag: (el, mode, v, p, options = {}) => (mode === 'set') ? (v == null ? el.removeAttribute('is') : (el.setAttribute('is', v.toLowerCase()))) : ((value.getAttribute('is') || value.tagName).toLowerCase()),
+
+
+    $tag: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (v == null ? el.removeAttribute('is') : (el.setAttribute('is', v.toLowerCase()))) : ((value.getAttribute('is') || value.tagName).toLowerCase()) },
     $parent: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
         return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
@@ -80,7 +106,7 @@ const mappers = {
     },
     $event: function (el, mode, v, p, options = {}) { return (mode === 'set') ? undefined : (p ? this.flatten(options?.detail?.[p]) : this.flatten(options)) },
     '!': '$event',
-    $form: (el, mode, v, p, options = {}) => {
+    $form: function (el, mode, v, p, options = {}) {
         if (!(el instanceof HTMLElement)) return
         const { tagName } = el, vIsNull = v == null, vIsObject = !vIsNull && (typeof v === 'object')
         switch (tagName.toLowerCase()) {
@@ -238,6 +264,7 @@ const mappers = {
 
 export default {
     processElementMapper: async function (element, mode, prop, value) {
+        element = this.app._components.nativesFromVirtuals.get(element) ?? element
         // console.log({ element, mode, prop, value }, mappers[prop])
         if (prop in mappers) return (mode === 'has') || (await (typeof mappers[prop] === 'string' ? mappers[mappers[prop]] : mappers[prop]).call(this, element, mode, value))
         const propFlag = prop[0], propMain = prop.slice(1)
@@ -245,6 +272,7 @@ export default {
         if ((propFlag === '[') && propMain.endsWith(']')) return await mappers.$form.call(this, element, mode, value, propMain.slice(0, -1).trim())
         if ((propFlag === '{') && propMain.endsWith('}')) return await mappers.$microdata.call(this, element, mode, value, propMain.slice(0, -1).trim())
         if (propFlag === ':' && propMain[0] === ':') return await mappers.$position.call(this, element, mode, value, propMain.slice(1).trim())
+        if (propFlag === '<' && propMain.endsWith('>')) return await mappers.$html.call(this, element, mode, value, propMain.slice(0, -1).trim())
         return (mode === 'has') ? (prop in element) : ((mode === 'set') ? (element[prop] = value) : (await this.flatten(element[prop])))
     }
 }
