@@ -40,10 +40,10 @@ const mappers = {
     '%': '$style',
     $computed: function (el, mode, v, p, options = {}) { return (mode === 'get') ? mappers.$attributes.call(this, el, mode, v, p, { style: true, isComputed: true, get: 'getProperty' }) : undefined },
     '&': '$computed',
-    $inner: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
-    '.': '$inner',
-    $content: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.textContent = v) : el.textContent,
-    '..': '$content',
+    $content: function (el, mode, v, p, options = {}) { return (mode === 'set') ? (el[this.sys.regexp.isHTML.test(v) ? 'innerHTML' : 'textContent'] = v) : (this.sys.regexp.isHTML.test(el.textContent) ? el.innerHTML : el.textContent) },
+    '.': '$content',
+    $textContent: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.textContent = v) : el.textContent,
+    '..': '$textContent',
     $text: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerText = v) : el.innerText,
     '...': '$text',
     $html: (el, mode, v, p, options = {}) => (mode === 'set') ? (el.innerHTML = v) : el.innerHTML,
@@ -54,11 +54,8 @@ const mappers = {
         return (mode === 'set') ? undefined : this.flatten(p ? el.closest(p) : el.parentElement)
     },
     '^': '$parent',
-
     $position: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
-
-
         if (mode !== 'set') {
             const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children']),
                 traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild' }, traverser = traversersMap[p] ?? p
@@ -66,15 +63,9 @@ const mappers = {
             if (mode === 'has') return !!el[traverser]
             if (mode === 'get') return this.flatten(el[traverser])
         }
-
-
-
         const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
             insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
         if (!inserters.has(inserter)) return
-
-        console.log(v, p, inserter)
-
         const fragment = new DocumentFragment(), promises = []
         if (Array.isArray(v)) {
             for (const item of v) {
@@ -87,8 +78,6 @@ const mappers = {
         else fragment.innerHTML = `${v}`
         return Promise.all(promises).then(() => el[inserter](fragment))
     },
-
-
     $event: function (el, mode, v, p, options = {}) { return (mode === 'set') ? undefined : (p ? this.flatten(options?.detail?.[p]) : this.flatten(options)) },
     '!': '$event',
     $form: (el, mode, v, p, options = {}) => {
