@@ -810,24 +810,16 @@ const ElementHTML = Object.defineProperties({}, {
     },
     resolveShapeSplitIgnoringNesting: { // optimal
         value: function (input, delimiter, nesters, byFirst) {
-            const result = byFirst ? undefined : [], { closers } = this.sys.resolveShape
+            const result = byFirst ? undefined : [], openingNesters = ['[', '{'], closingNesters = [']', '}']
             let current = '', depth = 0, inQuote = null
             for (let i = 0, l = input.length; i < l; i++) {
                 const char = input[i]
-                if (inQuote) {
-                    current += char
-                    if (char === inQuote) inQuote = null
-                } else {
-                    if (char === '"' || char === "'") {
-                        inQuote = char
-                        current += char
-                    } else if (nesters.includes(char)) {
-                        depth += 1
-                        current += char
-                    } else if (nesters.includes(closers[char])) {
-                        depth -= 1
-                        current += char
-                    } else if (char === delimiter && depth === 0) {
+                if (inQuote) [current, inQuote] = [current + char, (char === inQuote) ? null : inQuote]
+                else {
+                    if (char === '"' || char === "'") [inQuote, current] = [char, current + char]
+                    else if (openingNesters.includes(char)) [depth, current] = [depth + 1, current + char]
+                    else if (closingNesters.includes(char)) [depth, current] = [depth - 1, current + char]
+                    else if (char === delimiter && depth === 0) {
                         if (byFirst) return [current.trim(), input.slice(i + 1).trim()]
                         result.push(current.trim())
                         current = ''

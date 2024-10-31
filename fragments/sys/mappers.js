@@ -63,13 +63,12 @@ const mappers = {
                 itemPromises.push(this.render(itemNode, item))
                 promises.push(Promise.all(itemPromises).then(() => el.append(itemNode)))
             }
-
         } else if (this.isPlainObject(v)) {
             for (const k in v) promises.push(this.render(childElement, v[k]))
         } else {
             childElement.innerHTML = `${v}`
         }
-        // return Promise.all(promises).then(() => el.replaceChildren(childElement))
+        return Promise.all(promises)
     },
     '<>': '$html',
 
