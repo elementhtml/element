@@ -58,6 +58,7 @@ const mappers = {
     $position: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
 
+
         if (mode !== 'set') {
             const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children']),
                 traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild' }, traverser = traversersMap[p] ?? p
@@ -65,6 +66,9 @@ const mappers = {
             if (mode === 'has') return !!el[traverser]
             if (mode === 'get') return this.flatten(el[traverser])
         }
+
+        console.log(el, mode, v, p)
+
 
         const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
             insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
