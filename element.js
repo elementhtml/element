@@ -908,9 +908,7 @@ const ElementHTML = Object.defineProperties({}, {
             type
             name
             config = {}
-            #channel
-            #dataChannel
-            #localStream
+            channel
             eventTarget
             constructor({ type, name, config = {} }) {
                 this.type = type
@@ -920,8 +918,8 @@ const ElementHTML = Object.defineProperties({}, {
                 switch (type) {
                     case 'broadcast': this.#initializeBroadcastChannel(); break
                     case 'messaging':
-                        this.#channel = new MessageChannel()
-                        this.#channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
+                        this.channel = new MessageChannel()
+                        this.channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
                         break
                     case 'sse': this.#initializeSSEChannel(); break
                     case 'websocket': this.#initializeWebSocket(config); break
@@ -931,103 +929,20 @@ const ElementHTML = Object.defineProperties({}, {
             }
             async send(message) { return this.runFragment('channel').send.call(this, message) }
             async start() { if (this.type === 'webrtc' && (this.config.audio || this.config.video)) await this.#initializeMedia() }
-            stop() {
-                if (this.#localStream) {
-                    this.#localStream.getTracks().forEach(track => track.stop())
-                    this.eventTarget.dispatchEvent(new CustomEvent('stop'))
-                }
-            }
-            pause() {
-                if (this.#localStream) {
-                    this.#localStream.getTracks().forEach(track => track.enabled = false)
-                    this.eventTarget.dispatchEvent(new CustomEvent('pause'))
-                }
-            }
-            resume() {
-                if (this.#localStream) {
-                    this.#localStream.getTracks().forEach(track => track.enabled = true)
-                    this.eventTarget.dispatchEvent(new CustomEvent('resume'))
-                }
-            }
-            #initializeBroadcastChannel() {
-                this.#channel = new BroadcastChannel(this.config.name ?? this.name)
-                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
-            }
-            #initializeSSEChannel() {
-                this.#channel = new EventSource(this.config.url, { withCredentials: this.config.withCredentials })
-                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
-                this.#channel.addEventListener('error', () => this.#reopenSSEChannel())
-            }
-            #reopenSSEChannel() {
-                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeSSEChannel(config)) : setTimeout(() => this.#initializeSSEChannel(config), 1000)
-            }
-            #initializeWebSocket(config) {
-                this.#channel = new WebSocket(config.url, config.protocols ?? [])
-                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
-                this.#channel.addEventListener('close', () => this.#reopenWebSocket(config))
-                this.#channel.addEventListener('error', () => this.#reopenWebSocket(config))
-            }
-            #reopenWebSocket(config) {
-                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebSocket(config)) : setTimeout(() => this.#initializeWebSocket(config), 1000)
-            }
-            #initializeWebTransportChannel(config) {
-                this.#channel = new WebTransport(config.url)
-                this.#channel.ready.then(() => {
-                    this.#channel.datagrams.readable.pipeTo(new WritableStream({
-                        write: (data) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: data }))
-                    }))
-                }).catch((error) => {
-                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error.message }))
-                    this.#reopenWebTransportChannel(config)
-                })
-            }
-            #reopenWebTransportChannel(config) {
-                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebTransportChannel(config)) : setTimeout(() => this.#initializeWebTransportChannel(config), 1000)
-            }
-            #initializeWebRTCChannel(config) {
-                this.#channel = new RTCPeerConnection(config)
-                const signalingChannel = config.signalingChannel instanceof Channel ? config.signalingChannel : new Channel(config.signalingChannel)
-                signalingChannel.eventTarget.addEventListener('message', async (event) => {
-                    const data = event.detail
-                    if (data.offer) {
-                        await this.#channel.setRemoteDescription(new RTCSessionDescription(data.offer))
-                        const answer = await this.#channel.createAnswer()
-                        await this.#channel.setLocalDescription(answer)
-                        signalingChannel.send({ answer })
-                    } else if (data.answer) await this.#channel.setRemoteDescription(new RTCSessionDescription(data.answer))
-                    else if (data.candidate) await this.#channel.addIceCandidate(new RTCIceCandidate(data.candidate))
-                })
-                this.#channel.addEventListener('icecandidate', (event) => { if (event.candidate) signalingChannel.send({ candidate: event.candidate }) })
-                this.#dataChannel = this.#channel.createDataChannel("dataChannel")
-                this.#dataChannel.addEventListener('open', () => { this.eventTarget.dispatchEvent(new CustomEvent('open')) })
-                this.#dataChannel.addEventListener('message', event => { this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })) })
-                this.#dataChannel.addEventListener('close', () => { this.eventTarget.dispatchEvent(new CustomEvent('close')) })
-                this.#dataChannel.addEventListener('error', event => { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message })) })
-            }
-            async #initializeMedia() {
-                try {
-                    this.#localStream = await navigator.mediaDevices.getUserMedia({ video: this.config.video ?? false, audio: this.config.audio ?? false })
-                    this.#localStream.getTracks().forEach(track => this.#channel.addTrack(track, this.#localStream))
-                    this.eventTarget.dispatchEvent(new CustomEvent('start', { detail: this.#localStream }))
-                } catch (error) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error.message })) }
-            }
-            #waitForWebSocketReady() {
-                return new Promise((resolve, reject) => {
-                    if (this.#channel.readyState === 1) resolve()
-                    else {
-                        this.#channel = new WebSocket(this.url)
-                        this.#channel.addEventListener('open', resolve())
-                        this.#channel.addEventListener('error', event => {
-                            this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }))
-                            reject()
-                        })
-                    }
-                })
-            }
-            async #waitForWebTransportReady() {
-                if (this.#channel.readyState === 'connected') return
-                await this.#channel.ready
-            }
+            async stop() { return this.runFragment('channel').stop.call(this) }
+            async pause() { return this.runFragment('channel').pause.call(this) }
+            async resume() { return this.runFragment('channel').resume.call(this) }
+            async #initializeBroadcastChannel() { return this.runFragment('channel').initializeBroadcastChannel.call(this) }
+            async #initializeSSEChannel() { return this.runFragment('channel').initializeSSEChannel.call(this) }
+            async #reopenSSEChannel() { return this.runFragment('channel').reopenSSEChannel.call(this) }
+            async #initializeWebSocket(config) { return this.runFragment('channel').initializeWebSocket.call(this, config) }
+            async #reopenWebSocket(config) { return this.runFragment('channel').reopenWebSocket.call(this, config) }
+            async #initializeWebTransportChannel(config) { return this.runFragment('channel').initializeWebTransportChannel.call(this, config) }
+            async #reopenWebTransportChannel(config) { return this.runFragment('channel').reopenWebTransportChannel.call(this, config) }
+            async #initializeWebRTCChannel(config) { return this.runFragment('channel').initializeWebRTCChannel.call(this, config) }
+            async #initializeMedia() { return this.runFragment('channel').initializeMedia.call(this) }
+            async #waitForWebSocketReady() { return this.runFragment('channel').waitForWebSocketReady.call(this) }
+            async #waitForWebTransportReady() { return this.runFragment('channel').waitForWebTransportReady.call(this) }
         }
     },
     Collection: { // optimal
