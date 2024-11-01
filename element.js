@@ -909,21 +909,25 @@ const ElementHTML = Object.defineProperties({}, {
             name
             config = {}
             #channel
+            eventTarget
             constructor({ type, name, config = {} }) {
                 // type: broadcast, messaging, sse, webrtc, websocket, webtransport
                 this.type = type
                 this.name = name
                 this.config = Object.freeze(config)
-
+                this.eventTarget = new EventTarget()
                 switch (type) {
                     case 'broadcast':
                         this.#channel = new BroadcastChannel(config.name ?? name)
+                        this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
                         break
                     case 'messaging':
                         this.#channel = new MessageChannel()
+                        this.#channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
                         break
                     case 'sse':
-                        this.#channel = new EventSource(config.url, { headers: config.headers ?? {} })
+                        this.#channel = new EventSource(config.url, { withCredentials: config.withCredentials })
+                        this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
                         break
                     case 'websocket':
                         this.#channel = new WebSocket(config.url, config.protocols)
@@ -940,7 +944,12 @@ const ElementHTML = Object.defineProperties({}, {
 
             send(message) {
                 switch (this.type) {
-
+                    case 'broadcast':
+                        this.#channel.postMessage(message)
+                        break
+                    case 'messaging':
+                        this.#channel.port1.postMessage(message)
+                        break
                 }
             }
 
