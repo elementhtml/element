@@ -31,7 +31,6 @@ export default async function (element, data) {
         return element[((typeof data === 'string') && this.sys.regexp.isHTML.test(data)) ? 'innerHTML' : 'textContent'] = data
     }
     const { processElementMapper } = await this.runFragment('sys/mappers'), promises = []
-    if (isFragment) console.log(data)
     if (Array.isArray(data)) for (const item of data) promises.push(this.render(element, item))
     else for (const p in data) promises.push(processElementMapper.call(this, element, 'set', p, data[p]))
     return await Promise.all(promises)

@@ -82,14 +82,14 @@ const mappers = {
     $position: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
         if (mode !== 'set') {
-            const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children']),
-                traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild' }, traverser = traversersMap[p] ?? p
+            const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children', 'shadowRoot']),
+                traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild', shadow: 'shadowRoot' }, traverser = traversersMap[p] ?? p
             if (!traversers.has(traverser)) return
             if (mode === 'has') return !!el[traverser]
             if (mode === 'get') return this.flatten(el[traverser])
         }
-        const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
-            insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
+        const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren', 'shadowRoot']),
+            insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren', shadow: 'shadowRoot' }, inserter = insertersMap[p] ?? p
         if (!inserters.has(inserter)) return
         const fragment = new DocumentFragment(), promises = []
         if (Array.isArray(v)) {
@@ -99,7 +99,7 @@ const mappers = {
                 itemPromises.push(this.render(itemNode, item))
                 promises.push(Promise.all(itemPromises).then(() => fragment.append(itemNode)))
             }
-        } else if (this.isPlainObject(v)) for (const k in v) promises.push(this.render(fragment, v[k]))
+        } else if (this.isPlainObject(v)) promises.push(this.render(fragment, v))
         else fragment.innerHTML = `${v}`
         return Promise.all(promises).then(() => {
             el[inserter](fragment)
@@ -275,7 +275,7 @@ const mappers = {
 export default {
     processElementMapper: async function (element, mode, prop, value) {
         element = this.app._components.nativesFromVirtuals.get(element) ?? element
-        console.log({ element, mode, prop, value }, mappers[prop])
+        // console.log({ element, mode, prop, value }, mappers[prop])
         if (prop in mappers) return (mode === 'has') || (typeof mappers[prop] === 'string' ? mappers[mappers[prop]] : mappers[prop]).call(this, element, mode, value)
         const propFlag = prop[0], propMain = prop.slice(1)
         if (propFlag in mappers) return (typeof mappers[propFlag] === 'string' ? mappers[mappers[propFlag]] : mappers[propFlag]).call(this, element, mode, value, propMain)
