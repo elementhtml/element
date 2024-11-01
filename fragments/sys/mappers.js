@@ -167,13 +167,14 @@ const mappers = {
                 if (vIsArray) for (const f of v) optionsMap[f] = f
                 for (const k in optionsMap) {
                     const vv = optionsMap[k]
+                    let optionElement
                     if (vv && typeof vv === 'object') {
                         if (!isOptGroup) continue
-                        const optGroupElement = document.createElement('optgroup')
+                        optionElement = document.createElement('optgroup')
                         optGroupElement.setAttribute('label', k)
                         mappers.$options.call(this, optGroupElement, mode, vv)
                     } else {
-                        const optionElement = document.createElement('option')
+                        optionElement = document.createElement('option')
                         if (!vIsArray) optionElement.setAttribute('value', k)
                         optionElement.textContent = vv
                     }
