@@ -909,34 +909,23 @@ const ElementHTML = Object.defineProperties({}, {
             name
             config = {}
             #channel
+            #dataChannel
             eventTarget
             constructor({ type, name, config = {} }) {
-                // type: broadcast, messaging, sse, webrtc, websocket, webtransport
                 this.type = type
                 this.name = name
                 this.config = Object.freeze(config)
                 this.eventTarget = new EventTarget()
                 switch (type) {
-                    case 'broadcast':
-                        this.#initializeBroadcastChannel()
-                        break
+                    case 'broadcast': this.#initializeBroadcastChannel(); break
                     case 'messaging':
                         this.#channel = new MessageChannel()
                         this.#channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
                         break
-                    case 'sse':
-                        this.#initializeSSEChannel()
-                        break
-                    case 'websocket':
-                        this.#initializeWebSocket(config)
-                        break
-                    case 'webtransport':
-                        this.#channel = new WebTransport(config.url, { ...config, url: undefined })
-                        break
-                    case 'webrtc':
-                        this.#channel = new RTCPeerConnection(config)
-                        // this.#signalingChannel
-                        break
+                    case 'sse': this.#initializeSSEChannel(); break
+                    case 'websocket': this.#initializeWebSocket(config); break
+                    case 'webtransport': this.#initializeWebTransportChannel(config); break
+                    case 'webrtc': this.#initializeWebRTCChannel(config); break
                 }
             }
 
@@ -954,6 +943,16 @@ const ElementHTML = Object.defineProperties({}, {
                         if (this.#channel.readyState !== 1) await this.#waitForWebSocketReady()
                         this.#channel.send(message)
                         break
+
+                    case 'webtransport':
+                        if (this.#channel.readyState !== 'connected') await this.#waitForWebTransportReady()
+                        const writer = this.#channel.datagrams.writable.getWriter()
+                        await writer.write(message)
+                        writer.releaseLock()
+                        break;
+                    case 'webrtc':
+                        if (this.#dataChannel && this.#dataChannel.readyState === 'open') this.#dataChannel.send(message)
+                        break;
                 }
             }
 
@@ -983,6 +982,43 @@ const ElementHTML = Object.defineProperties({}, {
                 (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebSocket(config)) : setTimeout(() => this.#initializeWebSocket(config), 1000)
             }
 
+            #initializeWebTransportChannel(config) {
+                this.#channel = new WebTransport(config.url)
+                this.#channel.ready.then(() => {
+                    this.#channel.datagrams.readable.pipeTo(new WritableStream({
+                        write: (data) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: data }))
+                    }))
+                }).catch((error) => {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error.message }))
+                    this.#reopenWebTransportChannel(config)
+                })
+            }
+
+            #reopenWebTransportChannel(config) {
+                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebTransportChannel(config)) : setTimeout(() => this.#initializeWebTransportChannel(config), 1000)
+            }
+
+            #initializeWebRTCChannel(config) {
+                this.#channel = new RTCPeerConnection(config)
+                const signalingChannel = config.signalingChannel instanceof Channel ? config.signalingChannel : new Channel(config.signalingChannel)
+                signalingChannel.eventTarget.addEventListener('message', async (event) => {
+                    const data = event.detail
+                    if (data.offer) {
+                        await this.#channel.setRemoteDescription(new RTCSessionDescription(data.offer))
+                        const answer = await this.#channel.createAnswer()
+                        await this.#channel.setLocalDescription(answer)
+                        signalingChannel.send({ answer })
+                    } else if (data.answer) await this.#channel.setRemoteDescription(new RTCSessionDescription(data.answer))
+                    else if (data.candidate) await this.#channel.addIceCandidate(new RTCIceCandidate(data.candidate))
+                })
+                this.#channel.addEventListener('icecandidate', (event) => { if (event.candidate) signalingChannel.send({ candidate: event.candidate }) })
+                this.#dataChannel = this.#channel.createDataChannel("dataChannel")
+                this.#dataChannel.addEventListener('open', () => { this.eventTarget.dispatchEvent(new CustomEvent('open')) })
+                this.#dataChannel.addEventListener('message', event => { this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })) })
+                this.#dataChannel.addEventListener('close', () => { this.eventTarget.dispatchEvent(new CustomEvent('close')) })
+                this.#dataChannel.addEventListener('error', event => { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message })) })
+            }
+
             #waitForWebSocketReady() {
                 return new Promise((resolve, reject) => {
                     if (this.#channel.readyState === 1) resolve()
@@ -995,6 +1031,11 @@ const ElementHTML = Object.defineProperties({}, {
                         })
                     }
                 })
+            }
+
+            async #waitForWebTransportReady() {
+                if (this.#channel.readyState === 'connected') return
+                await this.#channel.ready
             }
 
         }
