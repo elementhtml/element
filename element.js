@@ -928,7 +928,6 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'webrtc': this.#initializeWebRTCChannel(config); break
                 }
             }
-
             async send(message) {
                 switch (this.type) {
                     case 'broadcast':
@@ -955,33 +954,27 @@ const ElementHTML = Object.defineProperties({}, {
                         break;
                 }
             }
-
             #initializeBroadcastChannel() {
                 this.#channel = new BroadcastChannel(this.config.name ?? this.name)
                 this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
             }
-
             #initializeSSEChannel() {
                 this.#channel = new EventSource(this.config.url, { withCredentials: this.config.withCredentials })
                 this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
                 this.#channel.addEventListener('error', () => this.#reopenSSEChannel())
             }
-
             #reopenSSEChannel() {
                 (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeSSEChannel(config)) : setTimeout(() => this.#initializeSSEChannel(config), 1000)
             }
-
             #initializeWebSocket(config) {
                 this.#channel = new WebSocket(config.url, config.protocols ?? [])
                 this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
                 this.#channel.addEventListener('close', () => this.#reopenWebSocket(config))
                 this.#channel.addEventListener('error', () => this.#reopenWebSocket(config))
             }
-
             #reopenWebSocket(config) {
                 (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebSocket(config)) : setTimeout(() => this.#initializeWebSocket(config), 1000)
             }
-
             #initializeWebTransportChannel(config) {
                 this.#channel = new WebTransport(config.url)
                 this.#channel.ready.then(() => {
@@ -993,11 +986,9 @@ const ElementHTML = Object.defineProperties({}, {
                     this.#reopenWebTransportChannel(config)
                 })
             }
-
             #reopenWebTransportChannel(config) {
                 (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebTransportChannel(config)) : setTimeout(() => this.#initializeWebTransportChannel(config), 1000)
             }
-
             #initializeWebRTCChannel(config) {
                 this.#channel = new RTCPeerConnection(config)
                 const signalingChannel = config.signalingChannel instanceof Channel ? config.signalingChannel : new Channel(config.signalingChannel)
@@ -1018,7 +1009,6 @@ const ElementHTML = Object.defineProperties({}, {
                 this.#dataChannel.addEventListener('close', () => { this.eventTarget.dispatchEvent(new CustomEvent('close')) })
                 this.#dataChannel.addEventListener('error', event => { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message })) })
             }
-
             #waitForWebSocketReady() {
                 return new Promise((resolve, reject) => {
                     if (this.#channel.readyState === 1) resolve()
@@ -1032,12 +1022,10 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                 })
             }
-
             async #waitForWebTransportReady() {
                 if (this.#channel.readyState === 'connected') return
                 await this.#channel.ready
             }
-
         }
     },
     Collection: { // optimal
