@@ -910,6 +910,7 @@ const ElementHTML = Object.defineProperties({}, {
             config = {}
             #channel
             #dataChannel
+            #localStream
             eventTarget
             constructor({ type, name, config = {} }) {
                 this.type = type
@@ -930,28 +931,39 @@ const ElementHTML = Object.defineProperties({}, {
             }
             async send(message) {
                 switch (this.type) {
-                    case 'broadcast':
-                        this.#channel.postMessage(message)
-                        break
-                    case 'messaging':
-                        this.#channel.port1.postMessage(message)
-                        break
-                    case 'sse':
-                        break
+                    case 'broadcast': this.#channel.postMessage(message); break
+                    case 'messaging': this.#channel.port1.postMessage(message); break
+                    case 'sse': break
                     case 'websocket':
                         if (this.#channel.readyState !== 1) await this.#waitForWebSocketReady()
                         this.#channel.send(message)
                         break
-
                     case 'webtransport':
                         if (this.#channel.readyState !== 'connected') await this.#waitForWebTransportReady()
                         const writer = this.#channel.datagrams.writable.getWriter()
                         await writer.write(message)
                         writer.releaseLock()
                         break;
-                    case 'webrtc':
-                        if (this.#dataChannel && this.#dataChannel.readyState === 'open') this.#dataChannel.send(message)
-                        break;
+                    case 'webrtc': if (this.#dataChannel && this.#dataChannel.readyState === 'open') this.#dataChannel.send(message); break
+                }
+            }
+            async start() { if (this.type === 'webrtc' && (this.config.audio || this.config.video)) await this.#initializeMedia() }
+            stop() {
+                if (this.#localStream) {
+                    this.#localStream.getTracks().forEach(track => track.stop())
+                    this.eventTarget.dispatchEvent(new CustomEvent('stop'))
+                }
+            }
+            pause() {
+                if (this.#localStream) {
+                    this.#localStream.getTracks().forEach(track => track.enabled = false)
+                    this.eventTarget.dispatchEvent(new CustomEvent('pause'))
+                }
+            }
+            resume() {
+                if (this.#localStream) {
+                    this.#localStream.getTracks().forEach(track => track.enabled = true)
+                    this.eventTarget.dispatchEvent(new CustomEvent('resume'))
                 }
             }
             #initializeBroadcastChannel() {
@@ -1008,6 +1020,13 @@ const ElementHTML = Object.defineProperties({}, {
                 this.#dataChannel.addEventListener('message', event => { this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })) })
                 this.#dataChannel.addEventListener('close', () => { this.eventTarget.dispatchEvent(new CustomEvent('close')) })
                 this.#dataChannel.addEventListener('error', event => { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message })) })
+            }
+            async #initializeMedia() {
+                try {
+                    this.#localStream = await navigator.mediaDevices.getUserMedia({ video: this.config.video ?? false, audio: this.config.audio ?? false })
+                    this.#localStream.getTracks().forEach(track => this.#channel.addTrack(track, this.#localStream))
+                    this.eventTarget.dispatchEvent(new CustomEvent('start', { detail: this.#localStream }))
+                } catch (error) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error.message })) }
             }
             #waitForWebSocketReady() {
                 return new Promise((resolve, reject) => {
