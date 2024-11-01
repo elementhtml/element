@@ -1556,6 +1556,149 @@ const ElementHTML = Object.defineProperties({}, {
             static async run(input, envelope, facet, position, options = {}) { return (await this.E.runFragment('validator')).run.call(this, input, envelope, facet, position, options) }
         }
     },
+
+    Worker: {
+        enumerable: true, value: class {
+            static E
+            type
+            name
+            config = {}
+            #worker
+            eventTarget
+
+            constructor({ type, name, config = {} }) {
+                this.type = type;
+                this.name = name;
+                this.config = Object.freeze(config);
+                this.eventTarget = new EventTarget();
+
+                switch (type) {
+                    case 'web': this.#initializeWebWorker(config); break;
+                    case 'shared': this.#initializeSharedWorker(config); break;
+                    case 'service': this.#initializeServiceWorker(config); break;
+                    case 'css': this.#initializeCSSWorklet(config); break;
+                    case 'audio': this.#initializeAudioWorklet(config); break;
+                    case 'animation': this.#initializeAnimationWorklet(config); break;
+                    case 'layout': this.#initializeLayoutWorklet(config); break;
+                    case 'video': this.#initializeVideoWorklet(config); break;
+                }
+            }
+
+            async send(message) {
+                switch (this.type) {
+                    case 'web':
+                    case 'shared':
+                        this.#worker.postMessage(message);
+                        break;
+                    case 'service':
+                        navigator.serviceWorker.controller?.postMessage(message);
+                        break;
+                    default:
+                        throw new Error("Send is not supported for this worker type.");
+                }
+            }
+
+            #initializeWebWorker(config) {
+                this.#worker = new Worker(config.url);
+                this.#worker.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }));
+                this.#worker.onerror = (event) => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }));
+            }
+
+            #initializeSharedWorker(config) {
+                this.#worker = new SharedWorker(config.url);
+                this.#worker.port.start();
+                this.#worker.port.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }));
+                this.#worker.port.onerror = (event) => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }));
+            }
+
+            #initializeServiceWorker(config) {
+                navigator.serviceWorker.register(config.url)
+                    .then(reg => {
+                        if (reg.installing) reg.installing.onstatechange = () => this.#handleServiceWorkerStateChange(reg.installing);
+                        else if (reg.waiting) this.#handleServiceWorkerStateChange(reg.waiting);
+                        else if (reg.active) this.#handleServiceWorkerStateChange(reg.active);
+                    })
+                    .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })));
+            }
+
+            #handleServiceWorkerStateChange(worker) {
+                if (worker.state === 'activated') {
+                    worker.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }));
+                }
+            }
+
+            #initializeCSSWorklet(config) {
+                try {
+                    if (typeof CSS !== 'undefined' && CSS.paintWorklet) {
+                        CSS.paintWorklet.addModule(config.url)
+                            .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
+                            .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })));
+                    }
+                } catch (err) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                }
+            }
+
+            #initializeAudioWorklet(config) {
+                try {
+                    const audioContext = config.audioContext ?? new AudioContext();
+                    audioContext.audioWorklet.addModule(config.url)
+                        .then(() => {
+                            this.#worker = new AudioWorkletNode(audioContext, config.processor);
+                            this.eventTarget.dispatchEvent(new CustomEvent('ready'));
+                        })
+                        .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })));
+                } catch (err) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                }
+            }
+
+            #initializeAnimationWorklet(config) {
+                try {
+                    if (typeof CSS !== 'undefined' && CSS.animationWorklet) {
+                        CSS.animationWorklet.addModule(config.url)
+                            .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
+                            .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })));
+                    }
+                } catch (err) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                }
+            }
+
+            #initializeLayoutWorklet(config) {
+                try {
+                    if (typeof CSS !== 'undefined' && CSS.layoutWorklet) {
+                        CSS.layoutWorklet.addModule(config.url)
+                            .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
+                            .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })));
+                    }
+                } catch (err) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                }
+            }
+
+            #initializeVideoWorklet(config) {
+                try {
+                    const videoContext = config.videoContext ?? new VideoContext();
+                    videoContext.videoWorklet.addModule(config.url)
+                        .then(() => {
+                            this.#worker = new VideoWorkletNode(videoContext, config.processor);
+                            this.eventTarget.dispatchEvent(new CustomEvent('ready'));
+                        })
+                        .catch(err => {
+                            this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                        });
+                } catch (err) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message }));
+                }
+            }
+
+        }
+    }
+
+
+
+
 })
 Object.defineProperties(ElementHTML, {
     Cell: { // optimal
@@ -1610,3 +1753,17 @@ if (initializationParameters.has('packages')) {
 }
 if (initializationParameters.has('load')) await ElementHTML.Load()
 export { ElementHTML }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
