@@ -1562,9 +1562,8 @@ const ElementHTML = Object.defineProperties({}, {
             type
             name
             config = {}
-            #worker
+            worker
             eventTarget
-
             constructor({ type, name, config = {} }) {
                 this.type = type
                 this.name = name
@@ -1581,89 +1580,17 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'video': this.#initializeVideoWorklet(config); break
                 }
             }
-
-            async send(message) {
-                switch (this.type) {
-                    case 'web': case 'shared': this.#worker.postMessage(message); break
-                    case 'service': navigator.serviceWorker.controller?.postMessage(message); break
-                }
-            }
-
-            #initializeWebWorker(config) {
-                this.#worker = new Worker(config.url)
-                this.#worker.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }))
-                this.#worker.onerror = (event) => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }))
-            }
-
-            #initializeSharedWorker(config) {
-                this.#worker = new SharedWorker(config.url)
-                this.#worker.port.start()
-                this.#worker.port.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }))
-                this.#worker.port.onerror = (event) => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }))
-            }
-
-            #initializeServiceWorker(config) {
-                navigator.serviceWorker.register(config.url).then(reg => {
-                    if (reg.installing) reg.installing.onstatechange = () => this.#handleServiceWorkerStateChange(reg.installing)
-                    else if (reg.waiting) this.#handleServiceWorkerStateChange(reg.waiting)
-                    else if (reg.active) this.#handleServiceWorkerStateChange(reg.active)
-                }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })))
-            }
-
-            #handleServiceWorkerStateChange(worker) {
-                if (worker.state === 'activated') worker.onmessage = (event) => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data }))
-            }
-
-            #initializeCSSWorklet(config) {
-                try {
-                    if (typeof CSS !== 'undefined' && CSS.paintWorklet) CSS.paintWorklet.addModule(config.url)
-                        .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
-                        .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })))
-                } catch (err) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) }
-            }
-
-            #initializeAudioWorklet(config) {
-                try {
-                    const audioContext = config.audioContext ?? new AudioContext();
-                    audioContext.audioWorklet.addModule(config.url).then(() => {
-                        this.#worker = new AudioWorkletNode(audioContext, config.processor)
-                        this.eventTarget.dispatchEvent(new CustomEvent('ready'))
-                    }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })))
-                } catch (err) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) }
-            }
-
-            #initializeAnimationWorklet(config) {
-                try {
-                    if (typeof CSS !== 'undefined' && CSS.animationWorklet) CSS.animationWorklet.addModule(config.url)
-                        .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
-                        .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })))
-                } catch (err) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) }
-            }
-
-            #initializeLayoutWorklet(config) {
-                try {
-                    if (typeof CSS !== 'undefined' && CSS.layoutWorklet) CSS.layoutWorklet.addModule(config.url)
-                        .then(() => this.eventTarget.dispatchEvent(new CustomEvent('ready')))
-                        .catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })))
-                } catch (err) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) }
-            }
-
-            #initializeVideoWorklet(config) {
-                try {
-                    const videoContext = config.videoContext ?? new VideoContext()
-                    videoContext.videoWorklet.addModule(config.url).then(() => {
-                        this.#worker = new VideoWorkletNode(videoContext, config.processor)
-                        this.eventTarget.dispatchEvent(new CustomEvent('ready'))
-                    }).catch(err => { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) })
-                } catch (err) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err.message })) }
-            }
-
+            async send(message) { return this.runFragment('worker').send.call(this, message) }
+            #initializeWebWorker(config) { return this.runFragment('worker').initializeWebWorker.call(this, config) }
+            #initializeSharedWorker(config) { return this.runFragment('worker').initializeSharedWorker.call(this, config) }
+            #initializeServiceWorker(config) { return this.runFragment('worker').initializeServiceWorker.call(this, config) }
+            #initializeCSSWorklet(config) { return this.runFragment('worker').initializeCSSWorklet.call(this, config) }
+            #initializeAudioWorklet(config) { return this.runFragment('worker').initializeAudioWorklet.call(this, config) }
+            #initializeAnimationWorklet(config) { return this.runFragment('worker').initializeAnimationWorklet.call(this, config) }
+            #initializeLayoutWorklet(config) { return this.runFragment('worker').initializeLayoutWorklet.call(this, config) }
+            #initializeVideoWorklet(config) { return this.runFragment('worker').initializeVideoWorklet.call(this, config) }
         }
     }
-
-
-
-
 })
 Object.defineProperties(ElementHTML, {
     Cell: { // optimal
