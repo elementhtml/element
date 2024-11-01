@@ -161,20 +161,21 @@ const mappers = {
     $options: function (el, mode, v, p, options = {}) {
         if (!((el instanceof HTMLSelectElement) || (el instanceof HTMLOptGroupElement) || (el instanceof HTMLDataListElement))) return
         if (mode === 'set') {
-            const optionElements = []
+            const optionElements = [], isOptGroup = el instanceof HTMLOptGroupElement
             if (v && (typeof v === 'object')) {
                 const vIsArray = Array.isArray(v), optionsMap = vIsArray ? {} : v
                 if (vIsArray) for (const f of v) optionsMap[f] = f
                 for (const k in optionsMap) {
                     const vv = optionsMap[k]
                     if (vv && typeof vv === 'object') {
+                        if (!isOptGroup) continue
                         const optGroupElement = document.createElement('optgroup')
                         optGroupElement.setAttribute('label', k)
                         mappers.$options.call(this, optGroupElement, mode, vv)
                     } else {
                         const optionElement = document.createElement('option')
                         if (!vIsArray) optionElement.setAttribute('value', k)
-                        optionElement.textContent = optionsMap[k]
+                        optionElement.textContent = vv
                     }
                     optionElements.push(optionElement)
                 }
