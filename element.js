@@ -929,24 +929,7 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'webrtc': this.#initializeWebRTCChannel(config); break
                 }
             }
-            async send(message) {
-                switch (this.type) {
-                    case 'broadcast': this.#channel.postMessage(message); break
-                    case 'messaging': this.#channel.port1.postMessage(message); break
-                    case 'sse': break
-                    case 'websocket':
-                        if (this.#channel.readyState !== 1) await this.#waitForWebSocketReady()
-                        this.#channel.send(message)
-                        break
-                    case 'webtransport':
-                        if (this.#channel.readyState !== 'connected') await this.#waitForWebTransportReady()
-                        const writer = this.#channel.datagrams.writable.getWriter()
-                        await writer.write(message)
-                        writer.releaseLock()
-                        break;
-                    case 'webrtc': if (this.#dataChannel && this.#dataChannel.readyState === 'open') this.#dataChannel.send(message); break
-                }
-            }
+            async send(message) { return this.runFragment('channel').send.call(this, message) }
             async start() { if (this.type === 'webrtc' && (this.config.audio || this.config.video)) await this.#initializeMedia() }
             stop() {
                 if (this.#localStream) {
