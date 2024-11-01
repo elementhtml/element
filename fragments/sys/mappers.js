@@ -82,14 +82,14 @@ const mappers = {
     $position: function (el, mode, v, p, options = {}) {
         el = this.app._components.nativesFromVirtuals.get(el) ?? el
         if (mode !== 'set') {
-            const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children', 'shadowRoot']),
-                traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild', shadow: 'shadowRoot' }, traverser = traversersMap[p] ?? p
+            const traversers = new Set(['nextElementSibling', 'previousElementSibling', 'parentElement', 'firstElementChild', 'lastElementChild', 'children']),
+                traversersMap = { after: 'nextElementSibling', before: 'previousElementSibling', parent: 'parentElement', prepend: 'firstElementChild', append: 'lastElementChild' }, traverser = traversersMap[p] ?? p
             if (!traversers.has(traverser)) return
             if (mode === 'has') return !!el[traverser]
             if (mode === 'get') return this.flatten(el[traverser])
         }
-        const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren', 'shadowRoot']),
-            insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren', shadow: 'shadowRoot' }, inserter = insertersMap[p] ?? p
+        const inserters = new Set(['after', 'before', 'prepend', 'append', 'replaceWith', 'replaceChildren']),
+            insertersMap = { nextElementSibling: 'after', previousElementSibling: 'before', firstElementChild: 'prepend', lastElementChild: 'append', children: 'replaceChildren' }, inserter = insertersMap[p] ?? p
         if (!inserters.has(inserter)) return
         const fragment = new DocumentFragment(), promises = []
         if (Array.isArray(v)) {
