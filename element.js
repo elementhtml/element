@@ -902,20 +902,48 @@ const ElementHTML = Object.defineProperties({}, {
             async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('ai')).run.call(this, input, envelope, options.promptTemplateKey) }
         }
     },
-    Service: { // optimal
+    Channel: {
         enumerable: true, value: class {
             static E
-            constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
-                const { E } = this.constructor
-                Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
-                this.acceptType ??= this.contentType
-                new E.Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
-                if (this.acceptType && (this.acceptType !== this.contentType)) new E.Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
-                for (const p of ['preProcessor', 'postProcessor', 'errorProcessor']) if (this[p]) new E.Job(async function () { await this.resolveUnit(this[p], 'transformer') }, `transformer:${this[p]}`)
-                if (this.actions) Object.freeze(this.actions)
-                if (this.options) Object.freeze(this.options)
+            type
+            name
+            config = {}
+            #channel
+            constructor({ type, name, config = {} }) {
+                // type: broadcast, messaging, sse, webrtc, websocket, webtransport
+                this.type = type
+                this.name = name
+                this.config = Object.freeze(config)
+
+                switch (type) {
+                    case 'broadcast':
+                        this.#channel = new BroadcastChannel(config.name ?? name)
+                        break
+                    case 'messaging':
+                        this.#channel = new MessageChannel()
+                        break
+                    case 'sse':
+                        this.#channel = new EventSource(config.url, { headers: config.headers ?? {} })
+                        break
+                    case 'websocket':
+                        this.#channel = new WebSocket(config.url, config.protocols)
+                        break
+                    case 'webtransport':
+                        this.#channel = new WebTransport(config.url, { ...config, url: undefined })
+                        break
+                    case 'webrtc':
+                        this.#channel = new RTCPeerConnection(config)
+                        // this.#signalingChannel
+                        break
+                }
             }
-            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('service')).run.call(this, input, envelope, options.action) }
+
+            send(message) {
+                switch (this.type) {
+
+                }
+            }
+
         }
     },
     Collection: { // optimal
@@ -1378,6 +1406,22 @@ const ElementHTML = Object.defineProperties({}, {
                 if (node.shadowRoot) this.support(node.shadowRoot)
             }
             async run() { return (await this.constructor.E.runFragment('renderer')).run.call(this) }
+        }
+    },
+    Service: { // optimal
+        enumerable: true, value: class {
+            static E
+            constructor({ base = '.', actions = {}, options = {}, contentType = 'application/json', acceptType, preProcessor, postProcessor, errorProcessor }) {
+                const { E } = this.constructor
+                Object.assign(this, { E, base: this.resolveUrl(base), actions, options, contentType, acceptType, preProcessor, postProcessor, errorProcessor })
+                this.acceptType ??= this.contentType
+                new E.Job(async function () { await this.resolveUnit(this.contentType, 'transformer') }, `transformer:${this.contentType}`)
+                if (this.acceptType && (this.acceptType !== this.contentType)) new E.Job(async function () { await this.resolveUnit(this.acceptType, 'transformer') }, `transformer:${this.acceptType}`)
+                for (const p of ['preProcessor', 'postProcessor', 'errorProcessor']) if (this[p]) new E.Job(async function () { await this.resolveUnit(this[p], 'transformer') }, `transformer:${this[p]}`)
+                if (this.actions) Object.freeze(this.actions)
+                if (this.options) Object.freeze(this.options)
+            }
+            async run(input, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('service')).run.call(this, input, envelope, options.action) }
         }
     },
     State: { // optimal
