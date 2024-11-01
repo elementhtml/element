@@ -918,19 +918,17 @@ const ElementHTML = Object.defineProperties({}, {
                 this.eventTarget = new EventTarget()
                 switch (type) {
                     case 'broadcast':
-                        this.#channel = new BroadcastChannel(config.name ?? name)
-                        this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
+                        this.#initializeBroadcastChannel()
                         break
                     case 'messaging':
                         this.#channel = new MessageChannel()
-                        this.#channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
+                        this.#channel.port1.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
                         break
                     case 'sse':
-                        this.#channel = new EventSource(config.url, { withCredentials: config.withCredentials })
-                        this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event })))
+                        this.#initializeSSEChannel()
                         break
                     case 'websocket':
-                        this.#channel = new WebSocket(config.url, config.protocols)
+                        this.#initializeWebSocket(config)
                         break
                     case 'webtransport':
                         this.#channel = new WebTransport(config.url, { ...config, url: undefined })
@@ -942,7 +940,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            send(message) {
+            async send(message) {
                 switch (this.type) {
                     case 'broadcast':
                         this.#channel.postMessage(message)
@@ -950,7 +948,53 @@ const ElementHTML = Object.defineProperties({}, {
                     case 'messaging':
                         this.#channel.port1.postMessage(message)
                         break
+                    case 'sse':
+                        break
+                    case 'websocket':
+                        if (this.#channel.readyState !== 1) await this.#waitForWebSocketReady()
+                        this.#channel.send(message)
+                        break
                 }
+            }
+
+            #initializeBroadcastChannel() {
+                this.#channel = new BroadcastChannel(this.config.name ?? this.name)
+                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
+            }
+
+            #initializeSSEChannel() {
+                this.#channel = new EventSource(this.config.url, { withCredentials: this.config.withCredentials })
+                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
+                this.#channel.addEventListener('error', () => this.#reopenSSEChannel())
+            }
+
+            #reopenSSEChannel() {
+                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeSSEChannel(config)) : setTimeout(() => this.#initializeSSEChannel(config), 1000)
+            }
+
+            #initializeWebSocket(config) {
+                this.#channel = new WebSocket(config.url, config.protocols ?? [])
+                this.#channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
+                this.#channel.addEventListener('close', () => this.#reopenWebSocket(config))
+                this.#channel.addEventListener('error', () => this.#reopenWebSocket(config))
+            }
+
+            #reopenWebSocket(config) {
+                (typeof requestIdleCallback === 'function') ? requestIdleCallback(() => this.#initializeWebSocket(config)) : setTimeout(() => this.#initializeWebSocket(config), 1000)
+            }
+
+            #waitForWebSocketReady() {
+                return new Promise((resolve, reject) => {
+                    if (this.#channel.readyState === 1) resolve()
+                    else {
+                        this.#channel = new WebSocket(this.url)
+                        this.#channel.addEventListener('open', resolve())
+                        this.#channel.addEventListener('error', event => {
+                            this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.message }))
+                            reject()
+                        })
+                    }
+                })
             }
 
         }
