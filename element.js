@@ -934,15 +934,10 @@ const ElementHTML = Object.defineProperties({}, {
             async resume() { return this.runFragment('channel').resume.call(this) }
             async #initializeBroadcastChannel() { return this.runFragment('channel').initializeBroadcastChannel.call(this) }
             async #initializeSSEChannel() { return this.runFragment('channel').initializeSSEChannel.call(this) }
-            async #reopenSSEChannel() { return this.runFragment('channel').reopenSSEChannel.call(this) }
             async #initializeWebSocket(config) { return this.runFragment('channel').initializeWebSocket.call(this, config) }
-            async #reopenWebSocket(config) { return this.runFragment('channel').reopenWebSocket.call(this, config) }
             async #initializeWebTransportChannel(config) { return this.runFragment('channel').initializeWebTransportChannel.call(this, config) }
-            async #reopenWebTransportChannel(config) { return this.runFragment('channel').reopenWebTransportChannel.call(this, config) }
             async #initializeWebRTCChannel(config) { return this.runFragment('channel').initializeWebRTCChannel.call(this, config) }
             async #initializeMedia() { return this.runFragment('channel').initializeMedia.call(this) }
-            async #waitForWebSocketReady() { return this.runFragment('channel').waitForWebSocketReady.call(this) }
-            async #waitForWebTransportReady() { return this.runFragment('channel').waitForWebTransportReady.call(this) }
         }
     },
     Collection: { // optimal

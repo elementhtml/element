@@ -40,7 +40,6 @@ const initializeSSEChannel = async function () {
     await this.channel.ready
 }
 
-
 let localStream, dataChannel
 
 export default {
@@ -78,8 +77,8 @@ export default {
         this.channel = new BroadcastChannel(this.config.name ?? this.name)
         this.channel.addEventListener('message', event => this.eventTarget.dispatchEvent(new CustomEvent('message', { detail: event.data })))
     },
-    initializeSSEChannel, reopenSSEChannel, initializeWebSocket, reopenWebSocket,
-    initializeWebTransportChannel, reopenWebTransportChannel,
+    initializeSSEChannel, initializeWebSocket,
+    initializeWebTransportChannel,
     initializeWebRTCChannel: async function (config) {
         this.channel = new RTCPeerConnection(config)
         const signalingChannel = config.signalingChannel instanceof Channel ? config.signalingChannel : new Channel(config.signalingChannel)
@@ -106,6 +105,5 @@ export default {
             localStream.getTracks().forEach(track => this.channel.addTrack(track, localStream))
             this.eventTarget.dispatchEvent(new CustomEvent('start', { detail: localStream }))
         } catch (error) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error.message })) }
-    },
-    waitForWebSocketReady, waitForWebTransportReady
+    }
 }
