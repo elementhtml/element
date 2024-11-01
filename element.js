@@ -1087,6 +1087,160 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+
+
+
+
+
+    Datastore: {
+        enumerable: true, value: class {
+            static E
+            name
+            config = {}
+            db
+            #tables = {}
+            #queries = {}
+            #views = {}
+
+            constructor({ name, config = {}, tables = {}, queries = {}, views = {} }) {
+                this.name = name
+                this.config = Object.freeze(config)
+                this.#initializeDB().then(() => {
+                    for (const name in tables) this.#createTable(name, tables[name])
+                    for (const name in queries) this.#createQuery(name, queries[name])
+                    for (const name in views) this.#createView(name, views[name])
+                }).catch(err => {
+                    console.error(`Failed to initialize Datastore '${name}': ${err.message}`)
+                })
+            }
+
+            async #initializeDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.name, 1)
+                    request.onupgradeneeded = (event) => {
+                        this.db = event.target.result
+                        this.db.createObjectStore('records', { keyPath: 'id', autoIncrement: true })
+                    }
+                    request.onsuccess = (event) => {
+                        this.db = event.target.result
+                        resolve()
+                    }
+                    request.onerror = (event) => reject(event.target.error)
+                })
+            }
+
+            #createTable(name, type, options = {}) {
+                const { E } = this.constructor
+                this.#tables[name] ??= { type: type instanceof E.Type ? type : new E.Type(type), options, records: [] }
+            }
+
+            #createQuery(name, validator, options = {}) {
+                this.#queries[name] ??= { validator, options, records: [] }
+                this.#updateQueryRecords(name)
+            }
+
+            #createView(name, transform, options = {}) {
+                this.#views[name] ??= { transform, options, records: [] }
+                this.#updateViewRecords(name)
+            }
+
+            async addRecord(record) {
+                const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), request = store.add(record)
+                request.onsuccess = (event) => this.#updateBuiltInStructures(event.target.result, record)
+                request.onerror = (event) => {
+                    console.error(`Failed to add record: ${event.target.error.message}`)
+                }
+            }
+
+            #updateBuiltInStructures(id, record) {
+                record ??= this.getRecord(id)
+
+                for (const name in this.#tables) {
+                    if (this.#tables[name].type.validate(record)) this.#tables[name].records.push(id)
+                }
+
+                for (const queryName in this.#queries) {
+                    if (this.#queries[queryName].validator.validate(record)) this.#queries[queryName].records.push(id)
+                }
+
+                for (const [viewName, view] of Object.entries(this.#views)) {
+                    if (view.builtIn && view.transform && this.#queries[view.transform.query].records.includes(record)) {
+                        const transformedRecord = view.transform.apply(record);
+                        view.records.push(transformedRecord);
+                    }
+                }
+            }
+
+            runDynamicTable(type) {
+                const typeInstance = type instanceof Type ? type : new Type(type);
+                return this.#getAllRecordsByType(typeInstance);
+            }
+
+            async runDynamicQuery(validator) {
+                const records = await this.#getAllRecords();
+                return records.filter(record => validator.validate(record));
+            }
+
+            async runDynamicView(transform) {
+                const queryResults = await this.runDynamicQuery(transform.query);
+                return queryResults.map(record => transform.apply(record));
+            }
+
+            async #getAllRecordsByType(type) {
+                const allRecords = await this.#getAllRecords();
+                return allRecords.filter(record => record.type === type.name);
+            }
+
+            async #getAllRecords() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.#db.transaction('records', 'readonly');
+                    const store = tx.objectStore('records');
+                    const request = store.getAll();
+
+                    request.onsuccess = (event) => {
+                        resolve(event.target.result);
+                    };
+
+                    request.onerror = (event) => {
+                        reject(event.target.error);
+                    };
+                });
+            }
+
+            #updateQueryRecords(queryName) {
+                const query = this.#queries[queryName];
+                if (query) {
+                    this.#getAllRecords().then(records => {
+                        query.records = records.filter(record => query.validator.validate(record));
+                    }).catch(err => {
+                        console.error(`Failed to update query records for '${queryName}': ${err.message}`);
+                    });
+                }
+            }
+
+            #updateViewRecords(viewName) {
+                const view = this.#views[viewName];
+                if (view) {
+                    this.runDynamicQuery(view.transform.query).then(queryResults => {
+                        view.records = queryResults.map(record => view.transform.apply(record));
+                    }).catch(err => {
+                        console.error(`Failed to update view records for '${viewName}': ${err.message}`);
+                    });
+                }
+            }
+        }
+    },
+
+
+
+
+
+
+
+
+
     Facet: {
         enumerable: true, value: class {
             static E
