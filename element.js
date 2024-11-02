@@ -1130,7 +1130,7 @@ const ElementHTML = Object.defineProperties({}, {
                     for (const t of types) new E.Job(async function () { await E.resolveUnit(t, 'type') }, `type:${t}`)
                     for (const t of transforms) new E.Job(async function () { await E.resolveUnit(t, 'transform') }, `transform:${t}`)
                     return Promise.all(promises).then(() => this.processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
-                }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err })))
+                }).catch(error => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error } })))
             }
 
             async #initializeDB() {
@@ -1138,21 +1138,26 @@ const ElementHTML = Object.defineProperties({}, {
                     const request = indexedDB.open(this.name, 1)
                     request.onupgradeneeded = (event) => {
                         this.db = event.target.result
-                        // only create these objects if they don't already exist!
-                        this.db.createObjectStore('records')
-                        this.db.createObjectStore('tables')
-                        // create the indexes in this.#tables[$tableName].indexes array (each item in the array should be string field name to index on)
-                        this.db.createObjectStore('queries')
-                        this.db.createObjectStore('views')
-                        this.db.createObjectStore('summaries')
-                    }
+                        if (!this.db.objectStoreNames.contains('records')) this.db.createObjectStore('records')
+                        if (!this.db.objectStoreNames.contains('tables')) this.db.createObjectStore('tables')
+                        if (!this.db.objectStoreNames.contains('queries')) this.db.createObjectStore('queries')
+                        if (!this.db.objectStoreNames.contains('views')) this.db.createObjectStore('views')
+                        if (!this.db.objectStoreNames.contains('summaries')) this.db.createObjectStore('summaries')
+
+                        for (const tableName in this.#tables) {
+                            const indexes = this.#tables[tableName].indexes;
+                            const tableStore = this.db.createObjectStore(tableName, { keyPath: 'id', autoIncrement: true });
+                            indexes.forEach(index => {
+                                tableStore.createIndex(index, index, { unique: false });
+                            });
+                        }
+                    };
                     request.onsuccess = (event) => resolve(this.db = event.target.result)
-                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error.message })))
-                })
+                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: event.target.error } })))
+                });
             }
 
             async add(record, table) {
-                // this needs to be idempotent for the same record 
                 if (table) {
                     const tableTypeName = this.#tables[table]?.type
                     if (!tableTypeName) return
@@ -1178,76 +1183,115 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             async #processRecord(record) {
-                const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), request = store.add(record)
-                request.onsuccess = (event) => this.#updateBuiltInStructures(record)
-                request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error.message })))
+                const recordIdentifier = await this.#generateRecordIdentifier(record)
+                if (!recordIdentifier) return
+                const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), existingRecord = await this.#getRecordByIdentifier(recordIdentifier)
+                if (existingRecord) return
+                store.add(record, recordIdentifier)
+                this.#updateBuiltInStructures(record, recordIdentifier)
             }
 
-            async #updateBuiltInStructures(record) {
-                if (!record) return
+            async #generateRecordIdentifier(record) {
+                try {
+                    const encoder = new TextEncoder(), data = encoder.encode(JSON.stringify(record)), hashBuffer = await crypto.subtle.digest('SHA-256', data)
+                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+                } catch (e) {
+                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: e, record } }))
+                    return
+                }
+            }
 
-                // figure out some kind of recordIdentifier - I don't want to have an identifier which is instrinsic to the record, so perhaps a SHA-256 hash of the record??? 
-                // or is there something built-in to already ensure that the same record isn't added twice - datastore.add(record) needs to be idempotent
+            async #getRecordByIdentifier(recordIdentifier) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction('records', 'readonly');
+                    const store = tx.objectStore('records');
+                    const request = store.get(recordIdentifier);
+                    request.onsuccess = (event) => resolve(event.target.result);
+                    request.onerror = (event) => reject(event.target.error);
+                });
+            }
 
-                // add this record to the 'record' objectStore instance - is there a way to stop duplicates from being saved without setting up a global id field?
-                // can there be a global identifier which is not stored as part of the record itself? Maybe a SHA-256 hash???
 
-                const recordTables = new Set(), recordQueries = new Set()
+            async #updateBuiltInStructures(record, recordIdentifier) {
+                if (!record) return;
+
+                const recordTables = new Set(), recordQueries = new Set();
 
                 for (const name in this.#tables) {
-                    const table = this.#tables[name], tableType = await this.resolveUnit(table.type, 'type')
+                    const table = this.#tables[name], tableType = await this.resolveUnit(table.type, 'type');
                     if (tableType.run(record)) {
-                        recordTables.add(name)
-                        // add this record identifier to the tables objectStore instance as tablesObjectStore[tableName] = [... list of included record identifiers plus this one]
-                        // order is not important, is it possible to store tablesObjectStore[tableName] as an instance of Set() ??
-                        // update indexes accordingly? Is this where duplicates should be checked for, maybe not???
+                        recordTables.add(name);
+                        const tx = this.db.transaction('tables', 'readwrite');
+                        const store = tx.objectStore('tables');
+                        const tableStoreRequest = store.get(name);
+                        tableStoreRequest.onsuccess = (event) => {
+                            const tableSet = new Set(event.target.result ?? []);
+                            tableSet.add(recordIdentifier);
+                            store.put([...tableSet], name);
+                        };
                     }
                 }
 
                 for (const name in this.#queries) {
-                    const query = this.#queries[name], queryType = await this.resolveUnit(query.type, 'type')
+                    const query = this.#queries[name], queryType = await this.resolveUnit(query.type, 'type');
                     if (queryType.run(record)) {
-                        recordQueries.add(name)
-                        // add this record identifier to the queries objectStore instance as queriesObjectStore[queryName] = [... list of included record identifiers plus this - maybe a Set()?]
+                        recordQueries.add(name);
+                        const tx = this.db.transaction('queries', 'readwrite');
+                        const store = tx.objectStore('queries');
+                        const queryStoreRequest = store.get(name);
+                        queryStoreRequest.onsuccess = (event) => {
+                            const querySet = new Set(event.target.result ?? []);
+                            querySet.add(recordIdentifier);
+                            store.put([...querySet], name);
+                        };
                     }
                 }
 
                 for (const name in this.#views) {
-                    const view = this.#views[name]
-                    if (!(recordTables.intersection(view.tables) || recordQueries.intersection(view.queries))) return
-                    const viewTransform = await this.resolveUnit(view.transform, 'transform')
-                    if (!viewTransform) return
-                    const recordView = await viewTransform.run(record)
-                    if (recordView === undefined) return
+                    const view = this.#views[name];
+                    if (!(recordTables.hasAny(view.tables) || recordQueries.hasAny(view.queries))) return;
+                    const viewTransform = await this.resolveUnit(view.transform, 'transform');
+                    if (!viewTransform) return;
+                    const recordView = await viewTransform.run(record);
+                    if (recordView === undefined) return;
 
-                    // add this recordView to viewObjectstoreInstance as viewObjectstoreInstance[viewName][recordIdentifier]
-
+                    const tx = this.db.transaction('views', 'readwrite');
+                    const store = tx.objectStore('views');
+                    const viewStoreRequest = store.get(name);
+                    viewStoreRequest.onsuccess = (event) => {
+                        const viewRecords = event.target.result ?? {};
+                        viewRecords[recordIdentifier] = recordView;
+                        store.put(viewRecords, name);
+                    };
                 }
 
                 for (const name in this.#summaries) {
-                    const summary = this.#summaries[name]
-                    if (!(recordTables.intersection(summary.tables) || recordQueries.intersection(summary.queries))) return
-                    const summaryTransform = await this.resolveUnit(summary.transform, 'transform')
-                    if (!summaryTransform) return
+                    const summary = this.#summaries[name];
+                    if (!(recordTables.hasAny(summary.tables) || recordQueries.hasAny(summary.queries))) return;
+                    const summaryTransform = await this.resolveUnit(summary.transform, 'transform');
+                    if (!summaryTransform) return;
 
-                    const summaryInput = { tables: {}, summaries: {}, views: {} }
-                    // now retrieve all records and collate into the SummaryInput
+                    const summaryInput = { tables: {}, summaries: {}, views: {} };
                     for (const scopeName in summaryInput) {
                         for (const n of summary[scopeName]) {
-                            summaryInput[scopeName][n] = {}
-                            // retrieve the actual records matching scopeName[n],  (e.g. tables[tableName]) and save into summary[scopeName][n][recordIdentifier] = actualMatchingRecord
+                            summaryInput[scopeName][n] = {};
+                            const tx = this.db.transaction(scopeName, 'readonly');
+                            const store = tx.objectStore(scopeName);
+                            const request = store.get(n);
+                            request.onsuccess = (event) => {
+                                summaryInput[scopeName][n] = event.target.result;
+                            };
                         }
                     }
 
-                    const summaryResult = await summaryTransform.run(summaryInput)
-                    if (summaryResult === undefined) return
+                    const summaryResult = await summaryTransform.run(summaryInput);
+                    if (summaryResult === undefined) return;
 
-                    // add this summaryResult to summaryObjectstoreInstance as summaryObjectstoreInstance[summaryName] = summaryResult
-
+                    const tx = this.db.transaction('summaries', 'readwrite');
+                    const store = tx.objectStore('summaries');
+                    store.put(summaryResult, name);
                 }
-
             }
-
         }
     },
 
