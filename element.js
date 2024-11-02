@@ -1133,7 +1133,7 @@ const ElementHTML = Object.defineProperties({}, {
                 }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err })))
             }
 
-            async #initializeDB(viewNames = []) {
+            async #initializeDB() {
                 return new Promise((resolve, reject) => {
                     const request = indexedDB.open(this.name, 1)
                     request.onupgradeneeded = (event) => {
@@ -1174,17 +1174,20 @@ const ElementHTML = Object.defineProperties({}, {
                 return
             }
 
-            async #processRecord() {
+            async #processRecord(record) {
                 const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), request = store.add(record)
-                request.onsuccess = (event) => this.#updateBuiltInStructures(event.target.result, record)
+                request.onsuccess = (event) => this.#updateBuiltInStructures(record)
                 request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error.message })))
             }
 
-            #updateBuiltInStructures(id, record) {
-                record ??= this.getRecord(id)
+            async #updateBuiltInStructures(record) {
+                if (!record) return
 
                 for (const name in this.#tables) {
-                    if (this.#tables[name].type.validate(record)) this.#tables[name].records.push(id)
+                    const table = this.#tables[name], tableType = await this.resolveUnit(table.type, 'type')
+                    if (tableType.run(record)) {
+                        // add 
+                    }
                 }
 
                 for (const queryName in this.#queries) {
@@ -1197,22 +1200,6 @@ const ElementHTML = Object.defineProperties({}, {
                         view.records.push(transformedRecord);
                     }
                 }
-            }
-
-            async #getAllRecords() {
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('records', 'readonly');
-                    const store = tx.objectStore('records');
-                    const request = store.getAll();
-
-                    request.onsuccess = (event) => {
-                        resolve(event.target.result);
-                    };
-
-                    request.onerror = (event) => {
-                        reject(event.target.error);
-                    };
-                });
             }
 
         }
