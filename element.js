@@ -1127,8 +1127,8 @@ const ElementHTML = Object.defineProperties({}, {
                         if (scope[k].type) types.add(scope[k].type)
                         if (scope[k].transform) transforms.add(scope[k].transform)
                     }
-                    for (const t of types) new E.Job(async function () { await await E.resolveUnit(t, 'type') }, `type:${t}`)
-                    for (const t of transforms) new E.Job(async function () { await await E.resolveUnit(t, 'transform') }, `transform:${t}`)
+                    for (const t of types) new E.Job(async function () { await E.resolveUnit(t, 'type') }, `type:${t}`)
+                    for (const t of transforms) new E.Job(async function () { await E.resolveUnit(t, 'transform') }, `transform:${t}`)
                     return Promise.all(promises).then(() => this.#processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
                 }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err })))
             }
@@ -1147,22 +1147,33 @@ const ElementHTML = Object.defineProperties({}, {
                 })
             }
 
-            async #processQueue() {
+            async add(record, table) {
+                if (table) {
+                    const tableTypeName = this.#tables[table]?.type
+                    if (!tableTypeName) return
+                    return this.resolveUnit(tableTypeName, 'type').then(type => type.run(record)).then(valid => {
+                        if (!valid) return
+                        this.#queue.push(record)
+                        new E.Job(async function () { await this.processQueue() }, `Datastore.prototype.processQueue:${this.name}`)
+                    })
+                }
+                this.#queue.push(record)
+                new E.Job(async function () { await this.processQueue() }, `Datastore.prototype.processQueue:${this.name}`)
+            }
+
+            async #processRecord() {
+
+            }
+
+            async processQueue() {
                 const promises = []
                 while (this.#queue.length) {
                     const record = this.#queue.shift()
                     promises.push(this.addRecord(record))
                 }
                 await Promise.all(promises)
-                if (this.#queue.length) await this.#processQueue()
+                if (this.#queue.length) await this.processQueue()
                 return
-            }
-
-            async #createView(name, { tables = [], queries = [], transform }) {
-                if (!this.#views[name]) await E.resolveUnit(transform, 'transform').then(transform => (this.#queries[name] = { transform, records: [] }))
-                this.db.createObjectStore(`_view_${name}`)
-                this.#views[name] ??= { transform, options, records: [] }
-                this.#updateViewRecords(name)
             }
 
             async addRecord(record) {
