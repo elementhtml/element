@@ -1087,6 +1087,14 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+    Contract: {
+        enumerable: true, value: class {
+            static E
+            constructor({ }) {
+
+            }
+        }
+    },
     Datastore: {
         enumerable: true, value: class {
             static E
@@ -1339,6 +1347,14 @@ const ElementHTML = Object.defineProperties({}, {
             saveVirtual(virtualTokens, langCode) { this.virtual.lang[langCode] = Object.freeze(virtualTokens) }
             async preload(langCode) { return (await this.constructor.E.runFragment('language')).preload.call(this, langCode) }
             async run(token, envelope, facet, position, options = {}) { return (await this.constructor.E.runFragment('language')).run.call(this, token, options.langCode, envelope) }
+        }
+    },
+    Mesh: {
+        enumerable: true, value: class {
+            static E
+            constructor({ }) {
+
+            }
         }
     },
     Model: { // optimal
