@@ -1087,7 +1087,6 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
-
     Datastore: {
         enumerable: true, value: class {
             static E
@@ -1129,7 +1128,6 @@ const ElementHTML = Object.defineProperties({}, {
             async processQueue() { return this.runFragment('datastore').processQueue.call(this, this.#queue) }
         }
     },
-
     Facet: {
         enumerable: true, value: class {
             static E
