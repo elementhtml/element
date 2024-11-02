@@ -1113,8 +1113,8 @@ const ElementHTML = Object.defineProperties({}, {
                 this.eventTarget = new EventTarget()
                 this.#initializeDB(Object.keys(views)).then(() => {
                     const types = new Set(), transforms = new Set()
-                    for (const name in tables) this.#tables[name] = Object.freeze({ type: tables[name].type ?? name, indexes: tables[name].indexes ?? [], records: new Set() })
-                    for (const name in queries) this.#queries[name] = Object.freeze({ table: queries[name].table, type: queries[name].type ?? name, records: new Set() })
+                    for (const name in tables) this.#tables[name] = Object.freeze({ type: tables[name].type ?? name, indexes: tables[name].indexes ?? [] })
+                    for (const name in queries) this.#queries[name] = Object.freeze({ table: queries[name].table, type: queries[name].type ?? name })
                     for (const name in views) {
                         const v = views[name], view = this.#views[name] = Object.freeze({ tables: new Set(v.tables ?? []), queries: new Set([]), transform: v.transform })
                         for (const qn of v.queries ?? []) if (queries[qn] && queries[qn].table && !view.tables.has(queries[qn].table)) view.queries.add(qn)
@@ -1139,11 +1139,13 @@ const ElementHTML = Object.defineProperties({}, {
                     request.onupgradeneeded = (event) => {
                         this.db = event.target.result
                         this.db.createObjectStore('records')
-                        for (const viewName of viewNames) this.db.createObjectStore(`_view_${viewName}`)
+                        this.db.createObjectStore('tables')
+                        this.db.createObjectStore('queries')
+                        this.db.createObjectStore('views')
                         this.db.createObjectStore('summaries')
                     }
                     request.onsuccess = (event) => resolve(this.db = event.target.result)
-                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error })))
+                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error.message })))
                 })
             }
 
@@ -1161,10 +1163,6 @@ const ElementHTML = Object.defineProperties({}, {
                 new E.Job(async function () { await this.processQueue() }, `Datastore.prototype.processQueue:${this.name}`)
             }
 
-            async #processRecord() {
-
-            }
-
             async processQueue() {
                 const promises = []
                 while (this.#queue.length) {
@@ -1176,12 +1174,10 @@ const ElementHTML = Object.defineProperties({}, {
                 return
             }
 
-            async addRecord(record) {
+            async #processRecord() {
                 const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), request = store.add(record)
                 request.onsuccess = (event) => this.#updateBuiltInStructures(event.target.result, record)
-                request.onerror = (event) => {
-                    console.error(`Failed to add record: ${event.target.error.message}`)
-                }
+                request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error.message })))
             }
 
             #updateBuiltInStructures(id, record) {
@@ -1203,29 +1199,9 @@ const ElementHTML = Object.defineProperties({}, {
                 }
             }
 
-            runDynamicTable(type) {
-                const typeInstance = type instanceof Type ? type : new Type(type);
-                return this.#getAllRecordsByType(typeInstance);
-            }
-
-            async runDynamicQuery(validator) {
-                const records = await this.#getAllRecords();
-                return records.filter(record => validator.validate(record));
-            }
-
-            async runDynamicView(transform) {
-                const queryResults = await this.runDynamicQuery(transform.query);
-                return queryResults.map(record => transform.apply(record));
-            }
-
-            async #getAllRecordsByType(type) {
-                const allRecords = await this.#getAllRecords();
-                return allRecords.filter(record => record.type === type.name);
-            }
-
             async #getAllRecords() {
                 return new Promise((resolve, reject) => {
-                    const tx = this.#db.transaction('records', 'readonly');
+                    const tx = this.db.transaction('records', 'readonly');
                     const store = tx.objectStore('records');
                     const request = store.getAll();
 
@@ -1239,27 +1215,6 @@ const ElementHTML = Object.defineProperties({}, {
                 });
             }
 
-            #updateQueryRecords(queryName) {
-                const query = this.#queries[queryName];
-                if (query) {
-                    this.#getAllRecords().then(records => {
-                        query.records = records.filter(record => query.validator.validate(record));
-                    }).catch(err => {
-                        console.error(`Failed to update query records for '${queryName}': ${err.message}`);
-                    });
-                }
-            }
-
-            #updateViewRecords(viewName) {
-                const view = this.#views[viewName];
-                if (view) {
-                    this.runDynamicQuery(view.transform.query).then(queryResults => {
-                        view.records = queryResults.map(record => view.transform.apply(record));
-                    }).catch(err => {
-                        console.error(`Failed to update view records for '${viewName}': ${err.message}`);
-                    });
-                }
-            }
         }
     },
 
