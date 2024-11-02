@@ -1129,7 +1129,7 @@ const ElementHTML = Object.defineProperties({}, {
                     }
                     for (const t of types) new E.Job(async function () { await E.resolveUnit(t, 'type') }, `type:${t}`)
                     for (const t of transforms) new E.Job(async function () { await E.resolveUnit(t, 'transform') }, `transform:${t}`)
-                    return Promise.all(promises).then(() => this.#processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
+                    return Promise.all(promises).then(() => this.processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
                 }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err })))
             }
 
@@ -1169,7 +1169,7 @@ const ElementHTML = Object.defineProperties({}, {
                 const promises = []
                 while (this.#queue.length) {
                     const record = this.#queue.shift()
-                    promises.push(this.addRecord(record))
+                    promises.push(this.#processRecord(record))
                 }
                 await Promise.all(promises)
                 if (this.#queue.length) await this.processQueue()
