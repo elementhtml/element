@@ -1120,7 +1120,7 @@ const ElementHTML = Object.defineProperties({}, {
                         for (const qn of v.queries ?? []) if (queries[qn] && queries[qn].table && !view.tables.has(queries[qn].table)) view.queries.add(qn)
                     }
                     for (const name in summaries) {
-                        const s = summaries[name], summary = this.#summaries[name] = Object.freeze({ tables: new Set(s.tables ?? []), queries: new Set([]), transform: s.transform })
+                        const s = summaries[name], summary = this.#summaries[name] = Object.freeze({ tables: new Set(s.tables ?? []), queries: new Set([]), views: new Set(), transform: s.transform })
                         for (const qn of s.queries ?? []) if (queries[qn] && queries[qn].table && !summary.tables.has(queries[qn].table)) summary.queries.add(qn)
                     }
                     for (const scope of [this.#tables, this.#queries, this.#views, this.#summaries]) for (const k in scope) {
@@ -1138,8 +1138,10 @@ const ElementHTML = Object.defineProperties({}, {
                     const request = indexedDB.open(this.name, 1)
                     request.onupgradeneeded = (event) => {
                         this.db = event.target.result
+                        // only create these objects if they don't already exist!
                         this.db.createObjectStore('records')
                         this.db.createObjectStore('tables')
+                        // create the indexes in this.#tables[$tableName].indexes array (each item in the array should be string field name to index on)
                         this.db.createObjectStore('queries')
                         this.db.createObjectStore('views')
                         this.db.createObjectStore('summaries')
@@ -1150,6 +1152,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
 
             async add(record, table) {
+                // this needs to be idempotent for the same record 
                 if (table) {
                     const tableTypeName = this.#tables[table]?.type
                     if (!tableTypeName) return
@@ -1183,23 +1186,66 @@ const ElementHTML = Object.defineProperties({}, {
             async #updateBuiltInStructures(record) {
                 if (!record) return
 
+                // figure out some kind of recordIdentifier - I don't want to have an identifier which is instrinsic to the record, so perhaps a SHA-256 hash of the record??? 
+                // or is there something built-in to already ensure that the same record isn't added twice - datastore.add(record) needs to be idempotent
+
+                // add this record to the 'record' objectStore instance - is there a way to stop duplicates from being saved without setting up a global id field?
+                // can there be a global identifier which is not stored as part of the record itself? Maybe a SHA-256 hash???
+
+                const recordTables = new Set(), recordQueries = new Set()
+
                 for (const name in this.#tables) {
                     const table = this.#tables[name], tableType = await this.resolveUnit(table.type, 'type')
                     if (tableType.run(record)) {
-                        // add 
+                        recordTables.add(name)
+                        // add this record identifier to the tables objectStore instance as tablesObjectStore[tableName] = [... list of included record identifiers plus this one]
+                        // order is not important, is it possible to store tablesObjectStore[tableName] as an instance of Set() ??
+                        // update indexes accordingly? Is this where duplicates should be checked for, maybe not???
                     }
                 }
 
-                for (const queryName in this.#queries) {
-                    if (this.#queries[queryName].validator.validate(record)) this.#queries[queryName].records.push(id)
-                }
-
-                for (const [viewName, view] of Object.entries(this.#views)) {
-                    if (view.builtIn && view.transform && this.#queries[view.transform.query].records.includes(record)) {
-                        const transformedRecord = view.transform.apply(record);
-                        view.records.push(transformedRecord);
+                for (const name in this.#queries) {
+                    const query = this.#queries[name], queryType = await this.resolveUnit(query.type, 'type')
+                    if (queryType.run(record)) {
+                        recordQueries.add(name)
+                        // add this record identifier to the queries objectStore instance as queriesObjectStore[queryName] = [... list of included record identifiers plus this - maybe a Set()?]
                     }
                 }
+
+                for (const name in this.#views) {
+                    const view = this.#views[name]
+                    if (!(recordTables.intersection(view.tables) || recordQueries.intersection(view.queries))) return
+                    const viewTransform = await this.resolveUnit(view.transform, 'transform')
+                    if (!viewTransform) return
+                    const recordView = await viewTransform.run(record)
+                    if (recordView === undefined) return
+
+                    // add this recordView to viewObjectstoreInstance as viewObjectstoreInstance[viewName][recordIdentifier]
+
+                }
+
+                for (const name in this.#summaries) {
+                    const summary = this.#summaries[name]
+                    if (!(recordTables.intersection(summary.tables) || recordQueries.intersection(summary.queries))) return
+                    const summaryTransform = await this.resolveUnit(summary.transform, 'transform')
+                    if (!summaryTransform) return
+
+                    const summaryInput = { tables: {}, summaries: {}, views: {} }
+                    // now retrieve all records and collate into the SummaryInput
+                    for (const scopeName in summaryInput) {
+                        for (const n of summary[scopeName]) {
+                            summaryInput[scopeName][n] = {}
+                            // retrieve the actual records matching scopeName[n],  (e.g. tables[tableName]) and save into summary[scopeName][n][recordIdentifier] = actualMatchingRecord
+                        }
+                    }
+
+                    const summaryResult = await summaryTransform.run(summaryInput)
+                    if (summaryResult === undefined) return
+
+                    // add this summaryResult to summaryObjectstoreInstance as summaryObjectstoreInstance[summaryName] = summaryResult
+
+                }
+
             }
 
         }
