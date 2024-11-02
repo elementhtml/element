@@ -1103,45 +1103,64 @@ const ElementHTML = Object.defineProperties({}, {
             #tables = {}
             #queries = {}
             #views = {}
+            #summaries = {}
+            #queue = []
+            eventTarget
 
-            constructor({ name, config = {}, tables = {}, queries = {}, views = {} }) {
+            constructor({ name, config = {}, tables = {}, queries = {}, views = {}, summaries = {} }) {
                 this.name = name
                 this.config = Object.freeze(config)
-                this.#initializeDB().then(() => {
-                    for (const name in tables) this.#createTable(name, tables[name])
-                    for (const name in queries) this.#createQuery(name, queries[name])
-                    for (const name in views) this.#createView(name, views[name])
-                }).catch(err => {
-                    console.error(`Failed to initialize Datastore '${name}': ${err.message}`)
-                })
+                this.eventTarget = new EventTarget()
+                this.#initializeDB(Object.keys(views)).then(() => {
+                    const types = new Set(), transforms = new Set()
+                    for (const name in tables) this.#tables[name] = Object.freeze({ type: tables[name].type ?? name, indexes: tables[name].indexes ?? [], records: new Set() })
+                    for (const name in queries) this.#queries[name] = Object.freeze({ table: queries[name].table, type: queries[name].type ?? name, records: new Set() })
+                    for (const name in views) {
+                        const v = views[name], view = this.#views[name] = Object.freeze({ tables: new Set(v.tables ?? []), queries: new Set([]), transform: v.transform })
+                        for (const qn of v.queries ?? []) if (queries[qn] && queries[qn].table && !view.tables.has(queries[qn].table)) view.queries.add(qn)
+                    }
+                    for (const name in summaries) {
+                        const s = summaries[name], summary = this.#summaries[name] = Object.freeze({ tables: new Set(s.tables ?? []), queries: new Set([]), transform: s.transform })
+                        for (const qn of s.queries ?? []) if (queries[qn] && queries[qn].table && !summary.tables.has(queries[qn].table)) summary.queries.add(qn)
+                    }
+                    for (const scope of [this.#tables, this.#queries, this.#views, this.#summaries]) for (const k in scope) {
+                        if (scope[k].type) types.add(scope[k].type)
+                        if (scope[k].transform) transforms.add(scope[k].transform)
+                    }
+                    for (const t of types) new E.Job(async function () { await await E.resolveUnit(t, 'type') }, `type:${t}`)
+                    for (const t of transforms) new E.Job(async function () { await await E.resolveUnit(t, 'transform') }, `transform:${t}`)
+                    return Promise.all(promises).then(() => this.#processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
+                }).catch(err => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: err })))
             }
 
-            async #initializeDB() {
+            async #initializeDB(viewNames = []) {
                 return new Promise((resolve, reject) => {
                     const request = indexedDB.open(this.name, 1)
                     request.onupgradeneeded = (event) => {
                         this.db = event.target.result
-                        this.db.createObjectStore('records', { keyPath: 'id', autoIncrement: true })
+                        this.db.createObjectStore('records')
+                        for (const viewName of viewNames) this.db.createObjectStore(`_view_${viewName}`)
+                        this.db.createObjectStore('summaries')
                     }
-                    request.onsuccess = (event) => {
-                        this.db = event.target.result
-                        resolve()
-                    }
-                    request.onerror = (event) => reject(event.target.error)
+                    request.onsuccess = (event) => resolve(this.db = event.target.result)
+                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: event.target.error })))
                 })
             }
 
-            #createTable(name, type, options = {}) {
-                const { E } = this.constructor
-                this.#tables[name] ??= { type: type instanceof E.Type ? type : new E.Type(type), options, records: [] }
+            async #processQueue() {
+                const promises = []
+                while (this.#queue.length) {
+                    const record = this.#queue.shift()
+                    promises.push(this.addRecord(record))
+                }
+                await Promise.all(promises)
+                if (this.#queue.length) await this.#processQueue()
+                return
             }
 
-            #createQuery(name, validator, options = {}) {
-                this.#queries[name] ??= { validator, options, records: [] }
-                this.#updateQueryRecords(name)
-            }
-
-            #createView(name, transform, options = {}) {
+            async #createView(name, { tables = [], queries = [], transform }) {
+                if (!this.#views[name]) await E.resolveUnit(transform, 'transform').then(transform => (this.#queries[name] = { transform, records: [] }))
+                this.db.createObjectStore(`_view_${name}`)
                 this.#views[name] ??= { transform, options, records: [] }
                 this.#updateViewRecords(name)
             }
