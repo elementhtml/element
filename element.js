@@ -1193,22 +1193,16 @@ const ElementHTML = Object.defineProperties({}, {
 
             async #generateRecordIdentifier(record) {
                 try {
-                    const encoder = new TextEncoder(), data = encoder.encode(JSON.stringify(record)), hashBuffer = await crypto.subtle.digest('SHA-256', data)
-                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
-                } catch (e) {
-                    this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: e, record } }))
-                    return
-                }
+                    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', (new TextEncoder()).encode(JSON.stringify(record))))).map(b => b.toString(16).padStart(2, '0')).join('')
+                } catch (e) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: e, record } })); return }
             }
 
             async #getRecordByIdentifier(recordIdentifier) {
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('records', 'readonly');
-                    const store = tx.objectStore('records');
-                    const request = store.get(recordIdentifier);
-                    request.onsuccess = (event) => resolve(event.target.result);
-                    request.onerror = (event) => reject(event.target.error);
-                });
+                return new Promise((resolve) => {
+                    const tx = this.db.transaction('records', 'readonly'), store = tx.objectStore('records'), request = store.get(recordIdentifier)
+                    request.onsuccess = (event) => resolve(event.target.result)
+                    request.onerror = (event) => resolve()
+                })
             }
 
 
