@@ -1088,42 +1088,34 @@ const ElementHTML = Object.defineProperties({}, {
         }
     },
 
-
-
-
-
-
-
     Datastore: {
         enumerable: true, value: class {
             static E
             name
-            config = {}
             db
-            #tables = {}
-            #queries = {}
-            #views = {}
-            #summaries = {}
+            tables = {}
+            queries = {}
+            views = {}
+            summaries = {}
             #queue = []
             eventTarget
-
             constructor({ name, config = {}, tables = {}, queries = {}, views = {}, summaries = {} }) {
                 this.name = name
                 this.config = Object.freeze(config)
                 this.eventTarget = new EventTarget()
                 this.#initializeDB(Object.keys(views)).then(() => {
                     const types = new Set(), transforms = new Set()
-                    for (const name in tables) this.#tables[name] = Object.freeze({ type: tables[name].type ?? name, indexes: tables[name].indexes ?? [] })
-                    for (const name in queries) this.#queries[name] = Object.freeze({ table: queries[name].table, type: queries[name].type ?? name })
+                    for (const name in tables) this.tables[name] = Object.freeze({ type: tables[name].type ?? name, indexes: tables[name].indexes ?? {} })
+                    for (const name in queries) this.queries[name] = Object.freeze({ table: queries[name].table, type: queries[name].type ?? name })
                     for (const name in views) {
-                        const v = views[name], view = this.#views[name] = Object.freeze({ tables: new Set(v.tables ?? []), queries: new Set([]), transform: v.transform })
+                        const v = views[name], view = this.views[name] = Object.freeze({ tables: new Set(v.tables ?? []), queries: new Set([]), transform: v.transform })
                         for (const qn of v.queries ?? []) if (queries[qn] && queries[qn].table && !view.tables.has(queries[qn].table)) view.queries.add(qn)
                     }
                     for (const name in summaries) {
-                        const s = summaries[name], summary = this.#summaries[name] = Object.freeze({ tables: new Set(s.tables ?? []), queries: new Set([]), views: new Set(), transform: s.transform })
+                        const s = summaries[name], summary = this.summaries[name] = Object.freeze({ tables: new Set(s.tables ?? []), queries: new Set([]), views: new Set(), transform: s.transform })
                         for (const qn of s.queries ?? []) if (queries[qn] && queries[qn].table && !summary.tables.has(queries[qn].table)) summary.queries.add(qn)
                     }
-                    for (const scope of [this.#tables, this.#queries, this.#views, this.#summaries]) for (const k in scope) {
+                    for (const scope of [this.tables, this.queries, this.views, this.summaries]) for (const k in scope) {
                         if (scope[k].type) types.add(scope[k].type)
                         if (scope[k].transform) transforms.add(scope[k].transform)
                     }
@@ -1132,170 +1124,11 @@ const ElementHTML = Object.defineProperties({}, {
                     return Promise.all(promises).then(() => this.processQueue()).then(() => this.eventTarget.dispatchEvent('ready'))
                 }).catch(error => this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error } })))
             }
-
-            async #initializeDB() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this.name, 1)
-                    request.onupgradeneeded = (event) => {
-                        this.db = event.target.result
-                        if (!this.db.objectStoreNames.contains('records')) this.db.createObjectStore('records')
-                        if (!this.db.objectStoreNames.contains('tables')) this.db.createObjectStore('tables')
-                        if (!this.db.objectStoreNames.contains('queries')) this.db.createObjectStore('queries')
-                        if (!this.db.objectStoreNames.contains('views')) this.db.createObjectStore('views')
-                        if (!this.db.objectStoreNames.contains('summaries')) this.db.createObjectStore('summaries')
-
-                        for (const tableName in this.#tables) {
-                            const indexes = this.#tables[tableName].indexes;
-                            const tableStore = this.db.createObjectStore(tableName, { keyPath: 'id', autoIncrement: true });
-                            indexes.forEach(index => {
-                                tableStore.createIndex(index, index, { unique: false });
-                            });
-                        }
-                    };
-                    request.onsuccess = (event) => resolve(this.db = event.target.result)
-                    request.onerror = (event) => reject(this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: event.target.error } })))
-                });
-            }
-
-            async add(record, table) {
-                if (table) {
-                    const tableTypeName = this.#tables[table]?.type
-                    if (!tableTypeName) return
-                    return this.resolveUnit(tableTypeName, 'type').then(type => type.run(record)).then(valid => {
-                        if (!valid) return
-                        this.#queue.push(record)
-                        new E.Job(async function () { await this.processQueue() }, `Datastore.prototype.processQueue:${this.name}`)
-                    })
-                }
-                this.#queue.push(record)
-                new E.Job(async function () { await this.processQueue() }, `Datastore.prototype.processQueue:${this.name}`)
-            }
-
-            async processQueue() {
-                const promises = []
-                while (this.#queue.length) {
-                    const record = this.#queue.shift()
-                    promises.push(this.#processRecord(record))
-                }
-                await Promise.all(promises)
-                if (this.#queue.length) await this.processQueue()
-                return
-            }
-
-            async #processRecord(record) {
-                const recordIdentifier = await this.#generateRecordIdentifier(record)
-                if (!recordIdentifier) return
-                const tx = this.db.transaction('records', 'readwrite'), store = tx.objectStore('records'), existingRecord = await this.#getRecordByIdentifier(recordIdentifier)
-                if (existingRecord) return
-                store.add(record, recordIdentifier)
-                this.#updateBuiltInStructures(record, recordIdentifier)
-            }
-
-            async #generateRecordIdentifier(record) {
-                try {
-                    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', (new TextEncoder()).encode(JSON.stringify(record))))).map(b => b.toString(16).padStart(2, '0')).join('')
-                } catch (e) { this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: { error: e, record } })); return }
-            }
-
-            async #getRecordByIdentifier(recordIdentifier) {
-                return new Promise((resolve) => {
-                    const tx = this.db.transaction('records', 'readonly'), store = tx.objectStore('records'), request = store.get(recordIdentifier)
-                    request.onsuccess = (event) => resolve(event.target.result)
-                    request.onerror = (event) => resolve()
-                })
-            }
-
-
-            async #updateBuiltInStructures(record, recordIdentifier) {
-                if (!record) return;
-
-                const recordTables = new Set(), recordQueries = new Set();
-
-                for (const name in this.#tables) {
-                    const table = this.#tables[name], tableType = await this.resolveUnit(table.type, 'type');
-                    if (tableType.run(record)) {
-                        recordTables.add(name);
-                        const tx = this.db.transaction('tables', 'readwrite');
-                        const store = tx.objectStore('tables');
-                        const tableStoreRequest = store.get(name);
-                        tableStoreRequest.onsuccess = (event) => {
-                            const tableSet = new Set(event.target.result ?? []);
-                            tableSet.add(recordIdentifier);
-                            store.put([...tableSet], name);
-                        };
-                    }
-                }
-
-                for (const name in this.#queries) {
-                    const query = this.#queries[name], queryType = await this.resolveUnit(query.type, 'type');
-                    if (queryType.run(record)) {
-                        recordQueries.add(name);
-                        const tx = this.db.transaction('queries', 'readwrite');
-                        const store = tx.objectStore('queries');
-                        const queryStoreRequest = store.get(name);
-                        queryStoreRequest.onsuccess = (event) => {
-                            const querySet = new Set(event.target.result ?? []);
-                            querySet.add(recordIdentifier);
-                            store.put([...querySet], name);
-                        };
-                    }
-                }
-
-                for (const name in this.#views) {
-                    const view = this.#views[name];
-                    if (!(recordTables.hasAny(view.tables) || recordQueries.hasAny(view.queries))) return;
-                    const viewTransform = await this.resolveUnit(view.transform, 'transform');
-                    if (!viewTransform) return;
-                    const recordView = await viewTransform.run(record);
-                    if (recordView === undefined) return;
-
-                    const tx = this.db.transaction('views', 'readwrite');
-                    const store = tx.objectStore('views');
-                    const viewStoreRequest = store.get(name);
-                    viewStoreRequest.onsuccess = (event) => {
-                        const viewRecords = event.target.result ?? {};
-                        viewRecords[recordIdentifier] = recordView;
-                        store.put(viewRecords, name);
-                    };
-                }
-
-                for (const name in this.#summaries) {
-                    const summary = this.#summaries[name];
-                    if (!(recordTables.hasAny(summary.tables) || recordQueries.hasAny(summary.queries))) return;
-                    const summaryTransform = await this.resolveUnit(summary.transform, 'transform');
-                    if (!summaryTransform) return;
-
-                    const summaryInput = { tables: {}, summaries: {}, views: {} };
-                    for (const scopeName in summaryInput) {
-                        for (const n of summary[scopeName]) {
-                            summaryInput[scopeName][n] = {};
-                            const tx = this.db.transaction(scopeName, 'readonly');
-                            const store = tx.objectStore(scopeName);
-                            const request = store.get(n);
-                            request.onsuccess = (event) => {
-                                summaryInput[scopeName][n] = event.target.result;
-                            };
-                        }
-                    }
-
-                    const summaryResult = await summaryTransform.run(summaryInput);
-                    if (summaryResult === undefined) return;
-
-                    const tx = this.db.transaction('summaries', 'readwrite');
-                    const store = tx.objectStore('summaries');
-                    store.put(summaryResult, name);
-                }
-            }
+            async #initializeDB() { return this.runFragment('datastore').initializeDB.call(this, this.tables) }
+            async add(record, table) { return this.runFragment('datastore').add.call(this, record, table, this.tables, this.#queue) }
+            async processQueue() { return this.runFragment('datastore').processQueue.call(this, this.#queue) }
         }
     },
-
-
-
-
-
-
-
-
 
     Facet: {
         enumerable: true, value: class {
