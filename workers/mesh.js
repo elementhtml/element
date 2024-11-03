@@ -10,7 +10,7 @@ self.addEventListener('activate', (event) => {
 
 const blocks = {
     get: async (blockAddress) => {
-        return blockCache.get(blockAddress) ?? (await requestBlock(blockAddress))
+        return blockCache.get(blockAddress) ?? (await requestItem('block', 1, blockAddress))
     }
 }, files = {
     get: async (fileAddress) => {
