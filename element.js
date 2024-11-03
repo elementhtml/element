@@ -1143,10 +1143,65 @@ const ElementHTML = Object.defineProperties({}, {
 
         }
 
-
     },
 
+    Mesh: {
+        enumerable: true, value: class {
+            static E;
 
+            constructor({ entryPoints = [], trustedPeers = [] }) {
+                this.entryPoints = entryPoints
+                this.trustedPeers = trustedPeers
+                this.peers = new Set(trustedPeers)
+                this.eventTarget = new EventTarget()
+                this.transactions = new Set()
+                this.#connectToEntryPoints().then(() => {
+                    this.#initializeP2PListeners()
+                })
+            }
+
+            async #connectToEntryPoints() {
+                for (const url of this.entryPoints) {
+                    try {
+                        const entryResponse = await fetch(url)
+                        for (const peer of (await entryResponse.json())) {
+                            this.peers.add(peer)
+                        }
+                    } catch (error) {
+                        this.eventTarget.dispatchEvent(new CustomEvent('error', { detail: error }))
+                    }
+                }
+            }
+
+            #initializeP2PListeners() {
+                for (const peer of this.peers) {
+                    this.#connectToPeer(peer)
+                }
+            }
+
+            #connectToPeer(peer) {
+                // Placeholder for peer connection logic
+                console.log(`Connecting to peer: ${peer}`);
+            }
+
+            async broadcastTransaction(transaction) {
+                this.transactions.add(transaction)
+                this.eventTarget.dispatchEvent(new CustomEvent('broadcast', { detail: { transactions: [transaction] } }))
+                for (const peer of this.peers) {
+                    // Placeholder for actual P2P broadcast
+                    console.log(`Broadcasting transaction to peer: ${peer}`)
+                }
+            }
+
+            async receiveTransaction(transaction) {
+                if (!this.transactions.has(transaction)) {
+                    this.transactions.add(transaction)
+                    this.eventTarget.dispatchEvent(new CustomEvent('receive', { detail: { transactions: [transaction] } }))
+                }
+            }
+        }
+
+    },
 
 
 
