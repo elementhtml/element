@@ -1087,14 +1087,112 @@ const ElementHTML = Object.defineProperties({}, {
             }
         }
     },
+
+
+
+
+
+
+
     Contract: {
         enumerable: true, value: class {
             static E
-            constructor({ }) {
 
+            eventTarget
+
+            constructor({ methods = {}, datastore, mesh, ...rest }) {
+                this.methods = methods;
+                this.datastore = datastore;
+                this.mesh = mesh;
+                this.transactions = [];
+                this.eventTarget = new EventTarget()
+                new E.Job(async function () { await E.resolveUnit(this.datastore, 'datastore') }, `datastore:${this.datastore}`)
+                new E.Job(async function () { await E.resolveUnit(this.mesh, 'mesh') }, `mesh:${this.mesh}`)
+                for (const key in this.methods) {
+                    const method = this.methods[key], { transform, inputType, outputType } = method
+                    if (transform) new E.Job(async function () { await E.resolveUnit(transform, 'transform') }, `transform:${transform}`)
+                    if (inputType) new E.Job(async function () { await E.resolveUnit(inputType, 'type') }, `type:${inputType}`)
+                    if (outputType) new E.Job(async function () { await E.resolveUnit(outputType, 'type') }, `type:${outputType}`)
+                }
+                this.eventTarget.addEventListener('sync', this.#syncTransactions.bind(this));
             }
+
+            async #syncTransactions(event) {
+                const { transactions } = event.detail;
+                transactions.forEach(tx => {
+                    if (!this.transactions.includes(tx)) {
+                        this.transactions.push(tx);
+                        this.datastore.add(tx, 'transactions');
+                    }
+                });
+            }
+
+            async getTransactions(txId) {
+                const datastore = await E.resolveUnit(this.datastore, 'datastore')
+                if (datastore) return await datastore.get(txId)
+            }
+
+            async run(input, envelope, facet, position, options = {}) {
+                let { method } = options, { transform, inputType, outputType } = method
+                inputType = await E.resolveUnit(inputType, 'type')
+                if (inputType && !(await inputType.run(input, envelope, facet, position))) return this.eventTarget.dispatchEvent(new CustomEvent('error'))
+                transform = await E.resolveUnit(transform, 'transform')
+                const transaction = transform ? await transform.run(input, envelope, facet, position) : input
+                outputType = await E.resolveUnit(outputType, 'type')
+                if (outputType && !(await outputType.run(transaction, envelope, facet, position))) return this.eventTarget.dispatchEvent(new CustomEvent('error'))
+                const datastore = await E.resolveUnit(this.datastore, 'datastore')
+                if (datastore) await this.datastore.add(transaction)
+                const mesh = await E.resolveUnit(this.mesh, 'mesh')
+                if (mesh) mesh.broadcastTransaction(transaction)
+                return transaction
+            }
+
         }
+
+
     },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     Datastore: {
         enumerable: true, value: class {
             static E
@@ -1133,6 +1231,7 @@ const ElementHTML = Object.defineProperties({}, {
             }
             async #initializeDB() { return this.runFragment('datastore').initializeDB.call(this, this.tables) }
             async add(record, table) { return this.runFragment('datastore').add.call(this, record, table, this.tables, this.#queue) }
+            async get(identifier, scope = 'record') { /* need to complete this method! */ }
             async processQueue() { return this.runFragment('datastore').processQueue.call(this, this.#queue) }
         }
     },
