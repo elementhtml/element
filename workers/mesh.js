@@ -8,38 +8,13 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
 });
 
-const blocks = {
-    get: async (blockAddress) => {
-        return blockCache.get(blockAddress) ?? (await requestItem('block', 1, blockAddress))
-    }
-}, files = {
-    get: async (fileAddress) => {
-        if (fileCache.has(fileAddress)) {
-            return parseFileManifest(fileCache.get(fileAddress));
-        } else {
-            try {
-                const manifest = await requestFileManifest(fileAddress);
-                const manifestHash = await crypto.subtle.digest('SHA-256', manifest);
-                const computedFileAddress = Array.from(new Uint8Array(manifestHash)).map(b => b.toString(16).padStart(2, '0')).join('');
-                if (computedFileAddress === fileAddress) {
-                    fileCache.set(fileAddress, manifest);
-                    return parseFileManifest(manifest);
-                } else {
-                    throw new Error('File manifest verification failed');
-                }
-            } catch (error) {
-                throw new Error('File not found in cache or peers');
-            }
-        }
-    }
-};
+const caches = {
+    block: new Map(),
+    file: new Map()
+}, wallet = { balance: 1000, ledger: [] }
 
-const blockCache = new Map(); // Store blocks in-memory for simplicity
-const fileCache = new Map(); // Store files in-memory for simplicity
-const wallet = { balance: 1000, ledger: [] }; // Initialize wallet with some balance for prototyping
-
-
-async function requestItem(itemType, offeredTokens, itemAddress) {
+const requestSelfVerifyingItem = async function (itemType, itemAddress, offeredTokens = 1) {
+    if (caches[itemType].has(itemAddress)) return caches[itemType].get(itemAddress)
     const peerUnknown = new Set(), peer400 = new Set(), peer402 = {}, peer201 = {}
     for (const peer of peers) peerUnknown.add(peer)
     while (peerUnknown.size + Object.keys(peer201).length + Object.keys(peer402).length) {
@@ -89,10 +64,32 @@ async function requestItem(itemType, offeredTokens, itemAddress) {
             }
         }
     }
-    throw new Error(`${itemType} not found across peers`);
+}, parseFileManifest = function (manifestBuffer) {
+    const dataView = new DataView(manifestBuffer), chunks = []
+    let offset = 0, contentType = ""
+    while (dataView.getUint8(offset) !== 0) {
+        contentType += String.fromCharCode(dataView.getUint8(offset))
+        offset += 1
+    }
+    offset += 1
+    while (offset < manifestBuffer.byteLength) {
+        const chunkAddressBytes = new Uint8Array(manifestBuffer.slice(offset, offset + 32)),
+            start = dataView.getUint32(offset += 32), end = dataView.getUint32(offset += 4)
+        offset += 4
+        chunks.push({ address: Array.from(chunkAddressBytes).map(b => b.toString(16).padStart(2, '0')).join(''), start, end });
+    }
+    return { contentType, chunks }
+}, assembleFile = async function (chunks) {
+    let assembledData = new Uint8Array()
+    for (const { address: blockAddress, start, end } of chunks)
+        assembledData = concatenateUint8Arrays(assembledData, new Uint8Array((await requestSelfVerifyingItem('block', blockAddress)).slice(start, end)))
+    return assembledData.buffer
+}, concatenateUint8Arrays = function (array1, array2) {
+    const concatenatedArray = new Uint8Array(array1.length + array2.length);
+    concatenatedArray.set(array1, 0);
+    concatenatedArray.set(array2, array1.length);
+    return concatenatedArray;
 }
-
-
 
 
 // Responding to fetch events to serve chunks and files
@@ -102,7 +99,7 @@ self.addEventListener('fetch', async (event) => {
     if (url.protocol === 'e:') {
         const [blockAddress, range] = url.pathname.split('/').slice(1);
         try {
-            const blockData = await blocks.get(blockAddress)
+            const blockData = await requestSelfVerifyingItem('block', blockAddress)
             let [start = 0, end = blockData.byteLength] = range ? range.split('-').map(Number) : []
             const chunk = blockData.slice(start, end), response = new Response(chunk)
             event.respondWith(response)
@@ -112,90 +109,17 @@ self.addEventListener('fetch', async (event) => {
     } else if (url.protocol === 'efile:') {
         const fileAddress = url.pathname.slice(1);
         try {
-            const fileData = await files.get(fileAddress);
-            const contentType = fileData.contentType;
-            const assembledData = await assembleFile(fileData.chunks);
-
-            const blob = new Blob([assembledData], { type: contentType });
-            const response = new Response(blob, {
-                headers: { 'Content-Type': contentType }
-            });
-
-            event.respondWith(response);
+            const fileManifestData = await requestSelfVerifyingItem('file', fileAddress), fileManifest = parseFileManifest(fileManifestData),
+                contentType = fileManifest.contentType, assembledData = await assembleFile(fileManifest.chunks), blob = new Blob([assembledData], { type: contentType }),
+                response = new Response(blob, { headers: { 'Content-Type': contentType } })
+            event.respondWith(response)
         } catch (error) {
             event.respondWith(new Response('File not found', { status: 404 }));
         }
     }
-});
+})
 
 
-async function requestFileManifest(fileAddress) {
-    // Iterate over peers to request the file manifest
-    for (const peer of peers) {
-        try {
-            const response = await fetch(`${peer}/file/${fileAddress}`, {
-                method: 'GET'
-            });
-
-            if (response.status === 200) {
-                return await response.arrayBuffer();
-            }
-        } catch (error) {
-            console.warn(`Failed to fetch file manifest from peer: ${peer}`, error);
-        }
-    }
-    throw new Error('File manifest not found across peers');
-}
-
-function parseFileManifest(manifestBuffer) {
-    const dataView = new DataView(manifestBuffer);
-    let offset = 0;
-
-    // Extract content type (variable-length string)
-    let contentType = "";
-    while (dataView.getUint8(offset) !== 0) {
-        contentType += String.fromCharCode(dataView.getUint8(offset));
-        offset += 1;
-    }
-    offset += 1; // Skip the null terminator
-
-    // Extract chunks array
-    const chunks = [];
-    while (offset < manifestBuffer.byteLength) {
-        const chunkAddressBytes = new Uint8Array(manifestBuffer.slice(offset, offset + 32)); // SHA-256 hash length
-        offset += 32;
-
-        const start = dataView.getUint32(offset);
-        offset += 4;
-        const end = dataView.getUint32(offset);
-        offset += 4;
-
-        chunks.push({
-            address: Array.from(chunkAddressBytes).map(b => b.toString(16).padStart(2, '0')).join(''),
-            start,
-            end
-        });
-    }
-
-    return { contentType, chunks };
-}
-
-async function assembleFile(chunks) {
-    let assembledData = new Uint8Array();
-    for (const { address, start, end } of chunks) {
-        const chunkData = await chunks.get(address);
-        const slicedData = chunkData.slice(start, end);
-        assembledData = concatenateUint8Arrays(assembledData, new Uint8Array(slicedData));
-    }
-    return assembledData.buffer;
-}
-
-function concatenateUint8Arrays(array1, array2) {
-    const concatenatedArray = new Uint8Array(array1.length + array2.length);
-    concatenatedArray.set(array1, 0);
-    concatenatedArray.set(array2, array1.length);
-    return concatenatedArray;
-}
 
 // Wallet management
 function createTransaction(amount, toAddress) {
