@@ -104,7 +104,7 @@ self.addEventListener('fetch', async (event) => {
             const chunk = blockData.slice(start, end), response = new Response(chunk)
             event.respondWith(response)
         } catch (error) {
-            event.respondWith(new Response('Chunk not found', { status: 404 }));
+            event.respondWith(new Response('Block not found', { status: 404 }));
         }
     } else if (url.protocol === 'efile:') {
         const fileAddress = url.pathname.slice(1);
