@@ -1114,22 +1114,16 @@ const ElementHTML = Object.defineProperties({}, {
                     if (inputType) new E.Job(async function () { await E.resolveUnit(inputType, 'type') }, `type:${inputType}`)
                     if (outputType) new E.Job(async function () { await E.resolveUnit(outputType, 'type') }, `type:${outputType}`)
                 }
-                this.eventTarget.addEventListener('sync', this.#syncTransactions.bind(this));
             }
 
-            async #syncTransactions(event) {
-                const { transactions } = event.detail;
-                transactions.forEach(tx => {
-                    if (!this.transactions.includes(tx)) {
-                        this.transactions.push(tx);
-                        this.datastore.add(tx, 'transactions');
-                    }
-                });
-            }
-
-            async getTransactions(txId) {
+            async getTransaction(txId) {
                 const datastore = await E.resolveUnit(this.datastore, 'datastore')
                 if (datastore) return await datastore.get(txId)
+            }
+
+            async getTransactionList() {
+                const datastore = await E.resolveUnit(this.datastore, 'datastore')
+                if (datastore) return await datastore.list()
             }
 
             async run(input, envelope, facet, position, options = {}) {
