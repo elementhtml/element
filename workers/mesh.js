@@ -1,3 +1,18 @@
+/* 
+
+{
+    "blocks": "Self-Verifying 1MB unstructured binary data that are keyed by the SHA-256 hash", 
+    "objects": `Self-Verifying variable structured binary data chunks that encode a manfiest of a content-type string, and then 
+        an ordered series of blockaddress/slicestart-sliceend structs. Can be nested to define an eventual sequence of binary data or any size. Keyed with the SHA-256 hash of the manifest`, 
+    "contracts": `Consensus-driven mutable states defined as a struct of "rules", each rule with an arbitary string key and an object (as it manifest hash) as the value. The object once resolved 
+                    must be a JS or WASM module containing an executable function with the signature async function(input, state) { return [output, state] }, and then "ledger": which is an ordered list 
+                    of transactions, with each transaction being the struct timestamp+rulekey+input+state where both input and state are themselves pointers to Self-Verifying objects.` 
+}
+
+
+*/
+
+
 self.addEventListener('install', (event) => {
     console.log('Element Mesh Service Worker installed.');
     event.waitUntil(self.skipWaiting());
