@@ -7,7 +7,7 @@
 [@elementhtml on YouTube](https://www.youtube.com/@elementhtml)
 
 ## Chat
-[@elementhtml on BlueSkey](https://bsky.app/profile/elementhtml.dev)
+[@elementhtml on BlueSky](https://bsky.app/profile/elementhtml.dev)
 
 ## Join
 [Discord](https://discord.gg/mxgTJ9Y3SP)
